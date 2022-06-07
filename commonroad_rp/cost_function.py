@@ -77,3 +77,32 @@ class DefaultCostFunctionFailSafe(CostFunction):
                 5 * (np.abs(trajectory.curvilinear.theta[-1]))) ** 2
 
         return costs
+
+
+class AdaptableCostFunction(CostFunction):
+    """
+    Default cost function for comfort driving
+    """
+
+    def __init__(self, desired_speed, desired_d, params):
+        super(AdaptableCostFunction, self).__init__()
+        self.desired_speed = desired_speed
+        self.desired_d = desired_d
+        self.params = params
+
+    def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample):
+
+        # acceleration costs
+        costs = np.sum((self.params['acceleration'] * trajectory.cartesian.a) ** 2)
+        # velocity costs
+        costs += np.sum((self.params['velocity'][0] * (trajectory.cartesian.v - self.desired_speed)) ** 2) + \
+                 (self.params['velocity'][1] * (trajectory.cartesian.v[-1] - self.desired_speed) ** 2) + \
+                 (self.params['velocity'][2] * (trajectory.cartesian.v[int(len(trajectory.cartesian.v)/2)] - self.desired_speed) ** 2)
+        # distance costs
+        costs += np.sum((self.params['distance'][0] * (self.desired_d - trajectory.curvilinear.d)) ** 2) + \
+                 (self.params['distance'][1] * (self.desired_d - trajectory.curvilinear.d[-1])) ** 2
+        # orientation costs
+        costs += np.sum((self.params['orientation'][0] * np.abs(trajectory.curvilinear.theta)) ** 2) + (
+                self.params['orientation'][1] * (np.abs(trajectory.curvilinear.theta[-1]))) ** 2
+
+        return costs

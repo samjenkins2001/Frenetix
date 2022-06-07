@@ -34,7 +34,8 @@ from commonroad_rp.configuration import build_configuration
 # Open CommonRoad scenario
 # *************************************
 base_dir = "./example_scenarios"
-filename = "ZAM_Over-1_1.xml"
+filename = "ZAM_Tjunction-1_42_T-1.xml"
+#filename = "./ZAM_Tjunction-1_373_T-1.xml"
 
 scenario_path = os.path.join(base_dir, filename)
 files = sorted(glob.glob(scenario_path))
@@ -124,6 +125,9 @@ while not goal.is_reached(x_0):
         # set desired velocity
         current_velocity = x_0.velocity
         planner.set_desired_velocity(desired_velocity)
+
+        ###TODO adjust cost parameters
+
 
         # plan trajectory
         optimal = planner.plan(x_0, x_cl)     # returns the planned (i.e., optimal) trajectory

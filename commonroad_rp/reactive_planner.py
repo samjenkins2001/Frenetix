@@ -30,12 +30,15 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
 
 # commonroad_rp imports
-from commonroad_rp.cost_function import DefaultCostFunction
+from commonroad_rp.cost_function import DefaultCostFunction, CostFunction
 from commonroad_rp.parameter import DefGymSampling, TimeSampling, VelocitySampling, PositionSampling
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from commonroad_rp.configuration import Configuration, VehicleConfiguration
+
+# commonroad_sa imports
+from commonroad_rp.commonroad_sa.cost_adapter import DefaultCostAdapter
 
 
 # TODO: use mode parameter for longitudinal planning (point following, velocity following, stopping)
@@ -215,7 +218,7 @@ class ReactivePlanner(object):
         return len(self._sampling_v.to_range(samp_level)) * len(self._sampling_d.to_range(samp_level)) * len(
             self._sampling_t.to_range(samp_level))
 
-    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, samp_level: int) -> TrajectoryBundle:
+    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, cost_function: CostFunction, samp_level: int) -> TrajectoryBundle:
         """
         Plans trajectory samples that try to reach a certain velocity and samples in this domain.
         Sample in time (duration) and velocity domain. Initial state is given. Longitudinal end state (s) is sampled.
@@ -260,7 +263,7 @@ class ReactivePlanner(object):
                             trajectories.append(trajectory_sample)
 
         # perform pre check and order trajectories according their cost
-        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=DefaultCostFunction(self._desired_speed, desired_d=0))
+        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function)
         self._total_count = len(trajectory_bundle._trajectory_bundle)
         if self.debug_mode >= 1:
             print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
@@ -414,8 +417,12 @@ class ReactivePlanner(object):
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
+            # adapt the cost function
+            adapter = DefaultCostAdapter()
+            cost_function = adapter.adapt_cost_function(self._desired_speed)
+
             # sample trajectory bundle
-            bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, samp_level=i)
+            bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)
 
             # get optimal trajectory
             t0 = time.time()
