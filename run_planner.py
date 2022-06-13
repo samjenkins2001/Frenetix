@@ -29,13 +29,14 @@ from commonroad_rp.utility.evaluation import create_planning_problem_solution, r
     plot_inputs, reconstruct_states
 from commonroad_rp.configuration import build_configuration
 
+from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, extrapolate_ref_path
+
 
 # *************************************
 # Open CommonRoad scenario
 # *************************************
 base_dir = "./example_scenarios"
-filename = "ZAM_Tjunction-1_42_T-1.xml"
-#filename = "./ZAM_Tjunction-1_373_T-1.xml"
+filename = "ZAM_Over-1_1.xml"
 
 scenario_path = os.path.join(base_dir, filename)
 files = sorted(glob.glob(scenario_path))
@@ -88,6 +89,8 @@ planner.set_collision_checker(scenario)
 # initialize route planner and set reference path
 route_planner = RoutePlanner(scenario, planning_problem)
 ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
+
+ref_path = extrapolate_ref_path(ref_path)
 planner.set_reference_path(ref_path)
 
 
@@ -125,9 +128,6 @@ while not goal.is_reached(x_0):
         # set desired velocity
         current_velocity = x_0.velocity
         planner.set_desired_velocity(desired_velocity)
-
-        ###TODO adjust cost parameters
-
 
         # plan trajectory
         optimal = planner.plan(x_0, x_cl)     # returns the planned (i.e., optimal) trajectory
@@ -200,6 +200,8 @@ while not goal.is_reached(x_0):
                                       traj_set=sampled_trajectory_bundle, ref_path=ref_path,
                                       timestep=current_count, config=config)
 
+# plot  final ego vehicle trajectory
+plot_final_trajectory(scenario, planning_problem, record_state_list, config)
 
 # remove first element
 record_input_list.pop(0)
@@ -207,21 +209,20 @@ record_input_list.pop(0)
 # **************************
 # Evaluate results
 # **************************
-from commonroad_dc.feasibility.solution_checker import valid_solution
-from commonroad_dc.feasibility.vehicle_dynamics import VehicleDynamics
-from commonroad.common.solution import VehicleType
+evaluate = False
+if evaluate:
+    from commonroad_dc.feasibility.solution_checker import valid_solution
+    from commonroad_dc.feasibility.vehicle_dynamics import VehicleDynamics
+    from commonroad.common.solution import VehicleType
 
-# plot  final ego vehicle trajectory
-plot_final_trajectory(scenario, planning_problem, record_state_list, config)
+    # create CR solution
+    solution = create_planning_problem_solution(config, record_state_list, scenario, planning_problem)
 
-# create CR solution
-solution = create_planning_problem_solution(config, record_state_list, scenario, planning_problem)
-
-# check feasibility
-# reconstruct inputs (state transition optimizations)
-feasible, reconstructed_inputs = reconstruct_inputs(config, solution.planning_problem_solutions[0])
-# reconstruct states from inputs
-reconstructed_states = reconstruct_states(config, record_state_list, reconstructed_inputs)
-# evaluate
-plot_states(config, record_state_list, reconstructed_states, plot_bounds=True)
-plot_inputs(config, record_input_list, reconstructed_inputs, plot_bounds=True)
+    # check feasibility
+    # reconstruct inputs (state transition optimizations)
+    feasible, reconstructed_inputs = reconstruct_inputs(config, solution.planning_problem_solutions[0])
+    # reconstruct states from inputs
+    reconstructed_states = reconstruct_states(config, record_state_list, reconstructed_inputs)
+    # evaluate
+    plot_states(config, record_state_list, reconstructed_states, plot_bounds=True)
+    plot_inputs(config, record_input_list, reconstructed_inputs, plot_bounds=True)
