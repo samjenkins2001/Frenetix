@@ -419,8 +419,10 @@ class ReactivePlanner(object):
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
             # adapt the cost function
-            adapter = DefaultCostAdapter()
-            cost_function = adapter.adapt_cost_function(self._desired_speed)
+            #adapter = DefaultCostAdapter()
+            #cost_function = adapter.adapt_cost_function(self._desired_speed)
+            from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
+            cost_function = AdaptableCostFunction(self._desired_speed, 0)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)
