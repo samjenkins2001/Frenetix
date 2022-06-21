@@ -594,19 +594,19 @@ class ReactivePlanner(object):
                     if s_velocity[i] > 0.001:
                         dp = d_velocity[i] / s_velocity[i]
                     else:
-                        if d_velocity[i] > 0.001:
-                            dp = None
-                        else:
-                            dp = 0.
+                        # if d_velocity[i] > 0.001:
+                        #     dp = None
+                        # else:
+                        dp = 0.
                     ddot = d_acceleration[i] - dp * s_acceleration[i]
 
                     if s_velocity[i] > 0.001:
                         dpp = ddot / (s_velocity[i] ** 2)
                     else:
-                        if np.abs(ddot) > 0.00003:
-                            dpp = None
-                        else:
-                            dpp = 0.
+                        # if np.abs(ddot) > 0.00003:
+                        #     dpp = None
+                        # else:
+                        dpp = 0.
                 else:
                     dp = d_velocity[i]
                     dpp = d_acceleration[i]

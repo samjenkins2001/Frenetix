@@ -15,7 +15,7 @@ planning:
   # time scaling factor for collision checking if planner time step and scenario time step deviate
   factor: 1
   # velocity threshold (in m/s) for switching to low velocity mode
-  low_vel_mode_threshold: 4
+  low_vel_mode_threshold: 3
 
 
 
@@ -38,8 +38,8 @@ vehicle:
   delta_min: !!null
   delta_max: !!null
   # steering velocity
-  v_delta_min: -2
-  v_delta_max: 2
+  v_delta_min: !!null
+  v_delta_max: !!null
 
 
 
@@ -64,8 +64,9 @@ debug:
   # draw obstacles with vehicle icons
   draw_icons: True
   # draw sampled trajectory set
-  draw_traj_set: False
+  draw_traj_set: True
   # set debug level: #0: print no debug info,  #1: print basic debug info,   #2: print all debug info
   debug_mode: 1
   # number of workers for multiprocessing
   num_workers: 6
+  multiproc: False

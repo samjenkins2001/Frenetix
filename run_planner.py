@@ -36,7 +36,7 @@ from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, e
 # Open CommonRoad scenario
 # *************************************
 base_dir = "./example_scenarios"
-filename = "ZAM_Over-1_1.xml"
+filename = "ZAM_Tjunction-1_42_T-1.xml"
 
 scenario_path = os.path.join(base_dir, filename)
 files = sorted(glob.glob(scenario_path))
