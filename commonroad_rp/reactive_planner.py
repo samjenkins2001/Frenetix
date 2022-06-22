@@ -655,8 +655,8 @@ class ReactivePlanner(object):
                 oneKrD = (1 - k_r * d[i])
                 cosTheta = math.cos(theta_cl[i])
                 tanTheta = np.tan(theta_cl[i])
-                kappa_gl[i] = (dpp + k_r * dp * tanTheta) * cosTheta * (cosTheta / oneKrD) ** 2 + (
-                        cosTheta / oneKrD) * k_r
+                kappa_gl[i] = (dpp + k_r * dp * tanTheta + k_r_d * d[i] * tanTheta) * cosTheta * \
+                              ((cosTheta / oneKrD) ** 2) + (cosTheta / oneKrD) * k_r
                 kappa_cl[i] = kappa_gl[i] - k_r
 
                 # compute (global) Cartesian velocity

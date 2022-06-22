@@ -1,8 +1,8 @@
 intersection:
-  A: 5.0
-  J: 0.0
-  Jlat: 0.0
-  Jlon: 0.0
+  A: 1.0
+  J: 1.0
+  Jlat: 1.0
+  Jlon: 1.0
   SA: 0.0
   SR: 0.0
   Y: 0.0
