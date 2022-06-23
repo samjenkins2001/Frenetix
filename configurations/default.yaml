@@ -17,6 +17,13 @@ planning:
   # velocity threshold (in m/s) for switching to low velocity mode
   low_vel_mode_threshold: 4
 
+# prediction configuration
+prediction:
+  # activation of the wale-net prediction
+  walenet: True
+  # Sensor Radius in Meter
+  sensor_radius: 60
+  walenet_cost_factor: 10000
 
 
 # vehicle configuration

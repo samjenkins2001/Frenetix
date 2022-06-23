@@ -17,6 +17,7 @@ class Configuration:
     def __init__(self, config: Union[ListConfig, DictConfig]):
         # initialize subclasses
         self.planning: PlanningConfiguration = PlanningConfiguration(config.planning)
+        self.prediction: PredictionConfiguration = PredictionConfiguration(config.prediction)
         self.vehicle: VehicleConfiguration = VehicleConfiguration(config.vehicle)
         self.sampling: SamplingConfiguration = SamplingConfiguration(config.sampling)
         self.debug: DebugConfiguration = DebugConfiguration(config.debug)
@@ -33,6 +34,14 @@ class PlanningConfiguration:
         self.collision_check_in_cl = config.collision_check_in_cl
         self.factor = config.factor
         self.low_vel_mode_threshold = config.low_vel_mode_threshold
+
+
+class PredictionConfiguration:
+    """Class to store all prediction configurations"""
+    def __init__(self, config: Union[ListConfig, DictConfig]):
+        self.walenet = config.walenet
+        self.sensor_radius = config.sensor_radius
+        self.walenet_cost_factor = config.walenet_cost_factor
 
 
 class VehicleConfiguration:

@@ -58,6 +58,9 @@ class ReactivePlanner(object):
         self._factor = config.planning.factor
         self._check_valid_settings()
 
+        # Prediction Params
+        self.walenet_cost_factor = config.prediction.walenet_cost_factor
+
         # get vehicle parameters from config file
         self.vehicle_params: VehicleConfiguration = config.vehicle
 
@@ -261,7 +264,7 @@ class ReactivePlanner(object):
                             trajectories.append(trajectory_sample)
 
         # perform pre check and order trajectories according their cost
-        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=DefaultCostFunction(self._desired_speed, predictions, self.vehicle_params, desired_d=0))
+        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=DefaultCostFunction(rp=self, predictions=predictions, desired_d=0))
         self._total_count = len(trajectory_bundle._trajectory_bundle)
         if self.debug_mode >= 1:
             print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))

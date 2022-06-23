@@ -8,7 +8,7 @@ import numpy as np
 from scipy.stats import multivariate_normal
 from scipy.spatial.distance import mahalanobis
 import commonroad_dc.pycrcc as pycrcc
-from Prediction.risk_assessment.helpers.coll_prob_helpers import (
+from Prediction.walenet.risk_assessment.helpers.coll_prob_helpers import (
     distance,
     get_unit_vector,
 )

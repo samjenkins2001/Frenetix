@@ -28,13 +28,10 @@ from commonroad_rp.utility.visualization import visualize_planner_at_timestep, p
 from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states
 from commonroad_rp.configuration import build_configuration
-
 from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, extrapolate_ref_path
 
-from prediction import WaleNet
-from Prediction.prediction_helpers import main_prediction
+from Prediction.walenet.prediction_helpers import main_prediction, load_walenet
 
-import json
 
 # *************************************
 # Open CommonRoad scenario
@@ -121,22 +118,12 @@ record_input_state = State(
         steering_angle_speed=0.)
 record_input_list.append(record_input_state)
 
-walenet = True
 # initialize the prediction network if necessary
-if walenet:
-    prediction_config_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "configurations",
-        "prediction.json",
-    )
-    with open(prediction_config_path, "r") as f:
-        online_args = json.load(f)
+if config.prediction.walenet:
+    predictor = load_walenet(scenario=scenario)
 
-    predictor = WaleNet(scenario=scenario, online_args=online_args, verbose=False)
-
-t_list = [3.0]
 new_state = None
-sensor_radius = 60
+
 # Run planner
 while not goal.is_reached(x_0):
     current_count = len(record_state_list) - 1
@@ -154,12 +141,10 @@ while not goal.is_reached(x_0):
             ego_state = x_0
 
         # get visible objects if the prediction is used
-        if walenet:
-            predictions = main_prediction(predictor, scenario, ego_state, sensor_radius, DT, t_list)
+        if config.prediction.walenet:
+            predictions = main_prediction(predictor, scenario, ego_state, config.prediction.sensor_radius, DT, [float(config.planning.planning_horizon)])
         else:
             predictions = None
-            # get_visible_objects may fail sometimes due to bad lanelets (e.g. DEU_A9-1_1_T-1 at [-73.94, -53.24])
-
 
         # plan trajectory
         optimal = planner.plan(x_0, predictions, x_cl)     # returns the planned (i.e., optimal) trajectory

@@ -12,8 +12,7 @@ import numpy as np
 
 import commonroad_rp.trajectories
 
-from Prediction.risk_assessment.collision_probability import (
-    get_collision_probability,
+from Prediction.walenet.risk_assessment.collision_probability import (
     get_mahalanobis_dist_dict
 )
 
@@ -40,12 +39,13 @@ class DefaultCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, desired_speed, predictions, vehicle_params, desired_d):
+    def __init__(self, rp, predictions, desired_d):
         super(DefaultCostFunction, self).__init__()
-        self.desired_speed = desired_speed
+        self.desired_speed = rp._desired_speed
         self.desired_d = desired_d
         self.predictions = predictions
-        self.vehicle_params = vehicle_params
+        self.vehicle_params = rp.vehicle_params
+        self.walenet_cost_factor = rp.walenet_cost_factor
 
     def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample):
         # acceleration costs
@@ -65,12 +65,14 @@ class DefaultCostFunction(CostFunction):
         #     predictions=predictions,
         #     vehicle_params=rp.vehicle_params,
         # )
-        mahalanobis_costs = get_mahalanobis_dist_dict(
-            traj=trajectory,
-            predictions=self.predictions,
-            vehicle_params=self.vehicle_params
-        )
-        costs += mahalanobis_costs * 10000
+
+        if self.predictions is not None:
+            mahalanobis_costs = get_mahalanobis_dist_dict(
+                traj=trajectory,
+                predictions=self.predictions,
+                vehicle_params=self.vehicle_params
+            )
+            costs += mahalanobis_costs * self.walenet_cost_factor
         return costs
 
 

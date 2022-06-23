@@ -7,14 +7,15 @@ import os
 import sys
 from commonroad.scenario.obstacle import ObstacleRole
 from commonroad_dc.collision.trajectory_queries import trajectory_queries
+import json
 
 module_path = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 sys.path.append(module_path)
 
-from Prediction.helper_functions import create_tvobstacle, distance
-
+from Prediction.walenet.helper_functions import create_tvobstacle, distance
+from prediction import WaleNet
 
 def get_obstacles_in_radius(scenario, ego_id: int, ego_state, radius: float):
     """
@@ -327,5 +328,18 @@ def main_prediction(predictor, scenario, ego_state, sensor_radius, DT, t_list):
     #     self.scenario, self.ego_state, predictions
     # )
     return predictions
+
+
+def load_walenet(scenario):
+    prediction_config_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "configurations",
+        "walenet_config.json",
+    )
+    with open(prediction_config_path, "r") as f:
+        online_args = json.load(f)
+
+    predictor = WaleNet(scenario=scenario, online_args=online_args, verbose=False)
+    return predictor
 
 # EOF
