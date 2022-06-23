@@ -34,7 +34,6 @@ from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, e
 from prediction import WaleNet
 from Prediction.prediction_helpers import main_prediction
 
-
 import json
 
 # *************************************
@@ -233,7 +232,6 @@ while not goal.is_reached(x_0):
         visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle,
                                       traj_set=sampled_trajectory_bundle, ref_path=ref_path,
                                       timestep=current_count, config=config, predictions=predictions)
-
 
 # plot  final ego vehicle trajectory
 plot_final_trajectory(scenario, planning_problem, record_state_list, config)

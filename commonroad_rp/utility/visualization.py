@@ -11,6 +11,7 @@ from typing import List, Tuple
 import os
 
 # third party
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -21,13 +22,18 @@ from commonroad.scenario.trajectory import State
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.visualization.mp_renderer import MPRenderer
 from commonroad.geometry.shape import Rectangle
-from prediction.utils.visualization import draw_uncertain_predictions
+
 # commonroad_dc
 from commonroad_dc import pycrcc
 
 # commonroad-rp
 from commonroad_rp.trajectories import TrajectorySample
 from commonroad_rp.configuration import Configuration
+#!/user/bin/env python
+
+"""Visualization functions for the frenét planner."""
+
+from prediction.utils.visualization import draw_uncertain_predictions
 
 
 def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker):
@@ -62,6 +68,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     # create renderer object (if no existing renderer is passed)
     if rnd is None:
         rnd = MPRenderer(figsize=(20, 10))
+        rnd.ax.cla()
     # visualize scenario
     scenario.draw(rnd, draw_params={'time_begin': timestep, 'dynamic_obstacle': {"draw_icon": config.debug.draw_icons}})
     # visualize planning problem
@@ -117,10 +124,11 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300,
                     bbox_inches='tight')
 
-
     # show plot
     if config.debug.show_plots:
-        plt.show(block=True)
+        matplotlib.use("TkAgg")
+        # plt.show(block=False)
+        plt.pause(0.0001)
 
 
 def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[State],
@@ -135,7 +143,7 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
     :param save_path: Path to save plot as .png (optional)
     """
     # create renderer object (if no existing renderer is passed)
-    rnd = MPRenderer(figsize=(20, 10))
+    rnd = MPRenderer(figsize=(10, 5))
 
     # visualize scenario
     scenario.draw(rnd, draw_params={'time_begin': 0})
@@ -165,4 +173,6 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
 
     # show plot
     if config.debug.show_plots:
-        plt.show(block=True)
+        matplotlib.use("TkAgg")
+        # plt.show(block=False)
+        # plt.pause(0.0001)
