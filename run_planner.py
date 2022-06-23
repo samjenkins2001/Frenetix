@@ -225,13 +225,15 @@ while not goal.is_reached(x_0):
         # update init state and curvilinear state
         x_0 = deepcopy(record_state_list[-1])
         x_cl = (optimal[2][1 + temp], optimal[3][1 + temp])
+        predictions = None
 
     print(f"current time step: {current_count}")
     # draw scenario + planning solution
     if config.debug.show_plots or config.debug.save_plots:
         visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle,
                                       traj_set=sampled_trajectory_bundle, ref_path=ref_path,
-                                      timestep=current_count, config=config)
+                                      timestep=current_count, config=config, predictions=predictions)
+
 
 # plot  final ego vehicle trajectory
 plot_final_trajectory(scenario, planning_problem, record_state_list, config)

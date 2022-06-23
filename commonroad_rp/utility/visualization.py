@@ -21,7 +21,7 @@ from commonroad.scenario.trajectory import State
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.visualization.mp_renderer import MPRenderer
 from commonroad.geometry.shape import Rectangle
-
+from prediction.utils.visualization import draw_uncertain_predictions
 # commonroad_dc
 from commonroad_dc import pycrcc
 
@@ -44,7 +44,7 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
 
 def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
                                   timestep: int, config: Configuration, traj_set: List[TrajectorySample] = None,
-                                  ref_path: np.ndarray = None, rnd: MPRenderer = None):
+                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -100,6 +100,10 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
             plt.plot(traj_set[i].cartesian.x, traj_set[i].cartesian.y,
                      color=color, zorder=20, linewidth=0.1, alpha=1.0)
 
+    # visualize predictions
+    if predictions is not None:
+        draw_uncertain_predictions(predictions, rnd.ax)
+
     # visualize reference path
     if ref_path is not None:
         rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=19, linewidth=0.8,
@@ -112,6 +116,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         plot_dir = os.path.join(os.path.dirname(__file__), "../../plots/", str(scenario.scenario_id))
         plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300,
                     bbox_inches='tight')
+
 
     # show plot
     if config.debug.show_plots:
