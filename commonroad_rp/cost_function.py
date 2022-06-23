@@ -12,6 +12,10 @@ import numpy as np
 
 import commonroad_rp.trajectories
 
+from Prediction.risk_assessment.collision_probability import (
+    get_collision_probability,
+    get_mahalanobis_dist_dict
+)
 
 class CostFunction(ABC):
     """
@@ -36,10 +40,12 @@ class DefaultCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, desired_speed, desired_d):
+    def __init__(self, desired_speed, predictions, vehicle_params, desired_d):
         super(DefaultCostFunction, self).__init__()
         self.desired_speed = desired_speed
         self.desired_d = desired_d
+        self.predictions = predictions
+        self.vehicle_params = vehicle_params
 
     def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample):
         # acceleration costs
@@ -54,7 +60,17 @@ class DefaultCostFunction(CostFunction):
         # orientation costs
         costs += np.sum((0.25 * np.abs(trajectory.curvilinear.theta)) ** 2) + (
                 5 * (np.abs(trajectory.curvilinear.theta[-1]))) ** 2
-
+        # coll_prob_dict = get_collision_probability(
+        #     traj=trajectory,
+        #     predictions=predictions,
+        #     vehicle_params=rp.vehicle_params,
+        # )
+        mahalanobis_costs = get_mahalanobis_dist_dict(
+            traj=trajectory,
+            predictions=self.predictions,
+            vehicle_params=self.vehicle_params
+        )
+        costs += mahalanobis_costs * 10000
         return costs
 
 

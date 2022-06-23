@@ -216,7 +216,7 @@ class ReactivePlanner(object):
         return len(self._sampling_v.to_range(samp_level)) * len(self._sampling_d.to_range(samp_level)) * len(
             self._sampling_t.to_range(samp_level))
 
-    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, samp_level: int) -> TrajectoryBundle:
+    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, predictions: dict, samp_level: int) -> TrajectoryBundle:
         """
         Plans trajectory samples that try to reach a certain velocity and samples in this domain.
         Sample in time (duration) and velocity domain. Initial state is given. Longitudinal end state (s) is sampled.
@@ -261,7 +261,7 @@ class ReactivePlanner(object):
                             trajectories.append(trajectory_sample)
 
         # perform pre check and order trajectories according their cost
-        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=DefaultCostFunction(self._desired_speed, desired_d=0))
+        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=DefaultCostFunction(self._desired_speed, predictions, self.vehicle_params, desired_d=0))
         self._total_count = len(trajectory_bundle._trajectory_bundle)
         if self.debug_mode >= 1:
             print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
@@ -378,11 +378,12 @@ class ReactivePlanner(object):
 
         return cartTraj, cvlnTraj, lon_list, lat_list
 
-    def plan(self, x_0: State, cl_states=None) -> tuple:
+    def plan(self, x_0: State, predictions: dict, cl_states=None) -> tuple:
         """
         Plans an optimal trajectory
         :param x_0: Initial state as CR state
         :param cl_states: Curvilinear initial states if re-planning is used
+        :param predictions (dict): Predictions of the visible obstacles
         :return: Optimal trajectory as tuple
         """
         # set Cartesian initial state
@@ -416,7 +417,7 @@ class ReactivePlanner(object):
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
             # sample trajectory bundle
-            bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, samp_level=i)
+            bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, predictions, samp_level=i)
 
             # get optimal trajectory
             t0 = time.time()
@@ -646,8 +647,8 @@ class ReactivePlanner(object):
                 oneKrD = (1 - k_r * d[i])
                 cosTheta = math.cos(theta_cl[i])
                 tanTheta = np.tan(theta_cl[i])
-                kappa_gl[i] = (dpp + k_r * dp * tanTheta) * cosTheta * (cosTheta / oneKrD) ** 2 + (
-                        cosTheta / oneKrD) * k_r
+                kappa_gl[i] = (dpp + k_r * dp * tanTheta + k_r_d * d[i] * tanTheta) * cosTheta * (
+                            (cosTheta / oneKrD) ** 2) + (cosTheta / oneKrD) * k_r
                 kappa_cl[i] = kappa_gl[i] - k_r
 
                 # compute (global) Cartesian velocity
@@ -682,7 +683,7 @@ class ReactivePlanner(object):
                 kappa_dot_max = self.vehicle_params.v_delta_max / self.vehicle_params.wheelbase * \
                                 math.cos(steering_angle) ** 2
                 if abs((kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.) > kappa_dot_max:
-                    feasible = False
+                    # feasible = False
                     if not self._draw_traj_set:
                         break
                 # acceleration constraint (considering switching velocity, see vehicle models documentation)

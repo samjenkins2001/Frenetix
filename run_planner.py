@@ -31,12 +31,17 @@ from commonroad_rp.configuration import build_configuration
 
 from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, extrapolate_ref_path
 
+from prediction import WaleNet
+from Prediction.prediction_helpers import main_prediction
+
+
+import json
 
 # *************************************
 # Open CommonRoad scenario
 # *************************************
 base_dir = "./example_scenarios"
-filename = "ZAM_Over-1_1.xml"
+filename = "ZAM_Tjunction-1_42_T-1.xml"
 
 scenario_path = os.path.join(base_dir, filename)
 files = sorted(glob.glob(scenario_path))
@@ -117,6 +122,22 @@ record_input_state = State(
         steering_angle_speed=0.)
 record_input_list.append(record_input_state)
 
+walenet = True
+# initialize the prediction network if necessary
+if walenet:
+    prediction_config_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "configurations",
+        "prediction.json",
+    )
+    with open(prediction_config_path, "r") as f:
+        online_args = json.load(f)
+
+    predictor = WaleNet(scenario=scenario, online_args=online_args, verbose=False)
+
+t_list = [3.0]
+new_state = None
+sensor_radius = 60
 # Run planner
 while not goal.is_reached(x_0):
     current_count = len(record_state_list) - 1
@@ -128,9 +149,21 @@ while not goal.is_reached(x_0):
         # set desired velocity
         current_velocity = x_0.velocity
         planner.set_desired_velocity(desired_velocity)
+        if current_count > 1:
+            ego_state = new_state
+        else:
+            ego_state = x_0
+
+        # get visible objects if the prediction is used
+        if walenet:
+            predictions = main_prediction(predictor, scenario, ego_state, sensor_radius, DT, t_list)
+        else:
+            predictions = None
+            # get_visible_objects may fail sometimes due to bad lanelets (e.g. DEU_A9-1_1_T-1 at [-73.94, -53.24])
+
 
         # plan trajectory
-        optimal = planner.plan(x_0, x_cl)     # returns the planned (i.e., optimal) trajectory
+        optimal = planner.plan(x_0, predictions, x_cl)     # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
         # END TIMER
 
