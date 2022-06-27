@@ -11,6 +11,7 @@ from typing import List, Tuple
 import os
 
 # third party
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -28,6 +29,11 @@ from commonroad_dc import pycrcc
 # commonroad-rp
 from commonroad_rp.trajectories import TrajectorySample
 from commonroad_rp.configuration import Configuration
+#!/user/bin/env python
+
+"""Visualization functions for the frenét planner."""
+
+from prediction.utils.visualization import draw_uncertain_predictions
 
 
 def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker):
@@ -44,7 +50,7 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
 
 def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
                                   timestep: int, config: Configuration, traj_set: List[TrajectorySample] = None,
-                                  ref_path: np.ndarray = None, rnd: MPRenderer = None):
+                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -62,6 +68,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     # create renderer object (if no existing renderer is passed)
     if rnd is None:
         rnd = MPRenderer(figsize=(20, 10))
+        rnd.ax.cla()
     # visualize scenario
     scenario.draw(rnd, draw_params={'time_begin': timestep, 'dynamic_obstacle': {"draw_icon": config.debug.draw_icons}})
     # visualize planning problem
@@ -100,6 +107,10 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
             plt.plot(traj_set[i].cartesian.x, traj_set[i].cartesian.y,
                      color=color, zorder=20, linewidth=0.1, alpha=1.0)
 
+    # visualize predictions
+    if predictions is not None:
+        draw_uncertain_predictions(predictions, rnd.ax)
+
     # visualize reference path
     if ref_path is not None:
         rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=19, linewidth=0.8,
@@ -115,7 +126,9 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # show plot
     if config.debug.show_plots:
-        plt.show(block=True)
+        matplotlib.use("TkAgg")
+        # plt.show(block=False)
+        plt.pause(0.0001)
 
 
 def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[State],
@@ -130,7 +143,7 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
     :param save_path: Path to save plot as .png (optional)
     """
     # create renderer object (if no existing renderer is passed)
-    rnd = MPRenderer(figsize=(20, 10))
+    rnd = MPRenderer(figsize=(10, 5))
 
     # visualize scenario
     scenario.draw(rnd, draw_params={'time_begin': 0})
@@ -160,4 +173,6 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
 
     # show plot
     if config.debug.show_plots:
-        plt.show(block=True)
+        matplotlib.use("TkAgg")
+        # plt.show(block=False)
+        # plt.pause(0.0001)

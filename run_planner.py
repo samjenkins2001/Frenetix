@@ -28,8 +28,9 @@ from commonroad_rp.utility.visualization import visualize_planner_at_timestep, p
 from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states
 from commonroad_rp.configuration import build_configuration
-
 from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, extrapolate_ref_path
+
+from Prediction.walenet.prediction_helpers import main_prediction, load_walenet
 
 
 # *************************************
@@ -117,6 +118,12 @@ record_input_state = State(
         steering_angle_speed=0.)
 record_input_list.append(record_input_state)
 
+# initialize the prediction network if necessary
+if config.prediction.walenet:
+    predictor = load_walenet(scenario=scenario)
+
+new_state = None
+
 # Run planner
 while not goal.is_reached(x_0):
     current_count = len(record_state_list) - 1
@@ -128,9 +135,19 @@ while not goal.is_reached(x_0):
         # set desired velocity
         current_velocity = x_0.velocity
         planner.set_desired_velocity(desired_velocity)
+        if current_count > 1:
+            ego_state = new_state
+        else:
+            ego_state = x_0
+
+        # get visible objects if the prediction is used
+        if config.prediction.walenet:
+            predictions = main_prediction(predictor, scenario, ego_state, config.prediction.sensor_radius, DT, [float(config.planning.planning_horizon)])
+        else:
+            predictions = None
 
         # plan trajectory
-        optimal = planner.plan(x_0, x_cl)     # returns the planned (i.e., optimal) trajectory
+        optimal = planner.plan(x_0, predictions, x_cl)     # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
         # END TIMER
 
@@ -192,13 +209,14 @@ while not goal.is_reached(x_0):
         # update init state and curvilinear state
         x_0 = deepcopy(record_state_list[-1])
         x_cl = (optimal[2][1 + temp], optimal[3][1 + temp])
+        predictions = None
 
     print(f"current time step: {current_count}")
     # draw scenario + planning solution
     if config.debug.show_plots or config.debug.save_plots:
         visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle,
                                       traj_set=sampled_trajectory_bundle, ref_path=ref_path,
-                                      timestep=current_count, config=config)
+                                      timestep=current_count, config=config, predictions=predictions)
 
 # plot  final ego vehicle trajectory
 plot_final_trajectory(scenario, planning_problem, record_state_list, config)
