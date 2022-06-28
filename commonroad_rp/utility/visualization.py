@@ -50,7 +50,7 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
 
 def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
                                   timestep: int, config: Configuration, traj_set: List[TrajectorySample] = None,
-                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None):
+                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -67,10 +67,14 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     """
     # create renderer object (if no existing renderer is passed)
     if rnd is None:
-        rnd = MPRenderer(figsize=(20, 10))
-        rnd.ax.cla()
+        if plot_window is int:
+            rnd = MPRenderer(plot_limits=[-plot_window + ego.initial_state.position[0], plot_window + ego.initial_state.position[0], -plot_window + ego.initial_state.position[1], plot_window + ego.initial_state.position[1]], figsize=(20, 10))
+        else:
+            rnd = MPRenderer(figsize=(20, 10))
+    if plot_window is int:
+        rnd.plot_limits = [-plot_window + ego.initial_state.position[0], plot_window + ego.initial_state.position[0], -plot_window + ego.initial_state.position[1], plot_window + ego.initial_state.position[1]]
     # visualize scenario
-    scenario.draw(rnd, draw_params={'time_begin': timestep, 'dynamic_obstacle': {"draw_icon": config.debug.draw_icons}})
+    scenario.draw(rnd, draw_params={'time_begin': timestep, 'dynamic_obstacle': {"draw_icon": config.debug.draw_icons}, 'focus_obstacle_id': 42})
     # visualize planning problem
     planning_problem.draw(rnd, draw_params={'planning_problem': {'initial_state': {'state': {
                 'draw_arrow': False, "radius": 0.5}}}})
