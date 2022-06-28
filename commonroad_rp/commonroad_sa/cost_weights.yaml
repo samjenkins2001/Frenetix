@@ -1,0 +1,35 @@
+intersection:
+  A: 1.0
+  J: 1.0
+  Jlat: 1.0
+  Jlon: 1.0
+  SA: 0.0
+  SR: 0.0
+  Y: 0.0
+  LC: 0.0
+  V: [5.0, 50.0, 100.0]
+  Vlon: 0.0
+  O: 1.0
+  D: [0.25, 20.0]
+  L: 0.0
+  T: 0.0
+  ID: 0.0
+  P: 0.7
+
+slow_section:
+  A: Acceleration
+  J: Jerk
+  Jlat: Lateral Jerk
+  Jlon: Longitudinal Jerk
+  SA: Steering Angle
+  SR: Steering Rate
+  Y: Yaw Rate
+  LC: Lane Center Offset
+  V: Velocity Offset
+  Vlon: Longitudinal Velocity Offset
+  O: Orientation Offset
+  D: Distance to Obstacles
+  L: Path Length
+  T: Time
+  ID: Inverse Duration
+  P: Prediction
