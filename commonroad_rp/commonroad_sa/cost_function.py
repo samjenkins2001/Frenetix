@@ -15,6 +15,10 @@ from pathlib import Path
 import commonroad_rp.trajectories
 import commonroad_rp.commonroad_sa.partial_cost_functions as cost_functions
 
+from Prediction.walenet.risk_assessment.collision_probability import (
+    get_mahalanobis_dist_dict
+)
+
 
 class PartialCostFunction(Enum):
     """
@@ -36,6 +40,7 @@ class PartialCostFunction(Enum):
     L: Path Length,
     T: Time,
     ID: Inverse Duration,
+    P: Prediction
     """
     A = "A"
     J = "J"
@@ -52,6 +57,7 @@ class PartialCostFunction(Enum):
     L = "L"
     T = "T"
     ID = "ID"
+    P = "P"
 
 
 class CostFunction(ABC):
@@ -77,10 +83,13 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, desired_speed, desired_d):
+    def __init__(self, rp, desired_d, predictions):
         super(AdaptableCostFunction, self).__init__()
-        self.desired_speed = desired_speed
+        self.desired_speed = rp._desired_speed
         self.desired_d = desired_d
+        self.predictions = predictions
+        self.vehicle_params = rp.vehicle_params
+        self.walenet_cost_factor = rp.walenet_cost_factor
 
         path = Path.cwd().joinpath("commonroad_rp/commonroad_sa/cost_weights.yaml")
         if path.is_file():
@@ -116,5 +125,13 @@ class AdaptableCostFunction(CostFunction):
 
         cost += cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"])
         cost += cost_functions.distance_to_obstacle_cost(trajectory, self.desired_d, self.params[scenario]["D"])
+
+        if self.predictions is not None:
+            mahalanobis_costs = get_mahalanobis_dist_dict(
+                traj=trajectory,
+                predictions=self.predictions,
+                vehicle_params=self.vehicle_params
+            )
+            cost += self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor
 
         return cost

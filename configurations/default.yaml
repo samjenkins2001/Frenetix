@@ -67,7 +67,7 @@ sampling:
 debug:
   # show/save plots
   show_plots: True
-  save_plots: False
+  save_plots: True
   # draw obstacles with vehicle icons
   draw_icons: True
   # draw sampled trajectory set

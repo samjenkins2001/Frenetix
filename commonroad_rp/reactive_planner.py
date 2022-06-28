@@ -222,7 +222,7 @@ class ReactivePlanner(object):
         return len(self._sampling_v.to_range(samp_level)) * len(self._sampling_d.to_range(samp_level)) * len(
             self._sampling_t.to_range(samp_level))
 
-    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, predictions: dict, cost_function: CostFunction, samp_level: int) -> TrajectoryBundle:
+    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, cost_function: CostFunction, samp_level: int) -> TrajectoryBundle:
         """
         Plans trajectory samples that try to reach a certain velocity and samples in this domain.
         Sample in time (duration) and velocity domain. Initial state is given. Longitudinal end state (s) is sampled.
@@ -268,7 +268,7 @@ class ReactivePlanner(object):
 
         # perform pre check and order trajectories according their cost
         trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function)
-        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=DefaultCostFunction(rp=self, predictions=predictions, desired_d=0))
+        #trajectory_bundle = TrajectoryBundle(trajectories, cost_function=DefaultCostFunction(rp=self, predictions=predictions, desired_d=0))
         self._total_count = len(trajectory_bundle._trajectory_bundle)
         if self.debug_mode >= 1:
             print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
@@ -427,11 +427,11 @@ class ReactivePlanner(object):
             #adapter = DefaultCostAdapter()
             #cost_function = adapter.adapt_cost_function(self._desired_speed)
             from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
-            cost_function = AdaptableCostFunction(self._desired_speed, 0)
+            cost_function = AdaptableCostFunction(rp=self, predictions=predictions, desired_d=0)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)
-            bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, predictions, samp_level=i)
+            #bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, predictions, samp_level=i)
 
             # get optimal trajectory
             t0 = time.time()
