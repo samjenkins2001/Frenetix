@@ -67,7 +67,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     """
     # create renderer object (if no existing renderer is passed)
     if rnd is None:
-        if plot_window is int:
+        if plot_window > 0:
             rnd = MPRenderer(plot_limits=[-plot_window + ego.initial_state.position[0], plot_window + ego.initial_state.position[0], -plot_window + ego.initial_state.position[1], plot_window + ego.initial_state.position[1]], figsize=(20, 10))
         else:
             rnd = MPRenderer(figsize=(20, 10))
