@@ -7,14 +7,14 @@ intersection:
   SR: 0.0
   Y: 0.0
   LC: 0.0
-  V: [5.0, 50.0, 100.0]
+  V: [1.0, 2.0, 3.0]
   Vlon: 0.0
-  O: 1.0
-  D: [0.25, 20.0]
+  O: 10.0
+  D: [0.5, 40.0]
   L: 0.0
   T: 0.0
   ID: 0.0
-  P: 0.7
+  P: 0.4
 
 slow_section:
   A: Acceleration

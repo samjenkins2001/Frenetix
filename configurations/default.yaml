@@ -3,7 +3,7 @@ planning:
   # planner time step (in s)
   dt: 0.1
   # planning time horizon (in s)
-  planning_horizon: 3
+  planning_horizon: 2
   # replanning frequency (in time steps)
   replanning_frequency: 1
   # planner mode TODO: modes not implemented yet
@@ -77,7 +77,7 @@ debug:
   # draw sampled trajectory set
   draw_traj_set: True
   # set debug level: #0: print no debug info,  #1: print basic debug info,   #2: print all debug info
-  debug_mode: 1
+  debug_mode: 2
   # use multiprocessing True/False
   multiproc: True
   # number of workers for multiprocessing
