@@ -36,6 +36,7 @@ from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajec
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from commonroad_rp.configuration import Configuration, VehicleConfiguration
+from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
 
 # commonroad_sa imports
 from commonroad_rp.commonroad_sa.cost_adapter import DefaultCostAdapter
@@ -426,7 +427,7 @@ class ReactivePlanner(object):
             # adapt the cost function
             #adapter = DefaultCostAdapter()
             #cost_function = adapter.adapt_cost_function(self._desired_speed)
-            from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
+
             cost_function = AdaptableCostFunction(rp=self, predictions=predictions, desired_d=0)
 
             # sample trajectory bundle

@@ -42,6 +42,8 @@ class PredictionConfiguration:
         self.walenet = config.walenet
         self.sensor_radius = config.sensor_radius
         self.walenet_cost_factor = config.walenet_cost_factor
+        self.cone_angle = config.cone_angle
+        self.cone_safety_dist = config.cone_safety_dist
 
 
 class VehicleConfiguration:

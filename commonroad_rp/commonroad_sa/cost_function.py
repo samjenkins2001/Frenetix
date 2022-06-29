@@ -16,7 +16,8 @@ import commonroad_rp.trajectories
 import commonroad_rp.commonroad_sa.partial_cost_functions as cost_functions
 
 from Prediction.walenet.risk_assessment.collision_probability import (
-    get_mahalanobis_dist_dict
+    get_mahalanobis_dist_dict,
+    ignore_vehicles_in_cone_angle
 )
 
 

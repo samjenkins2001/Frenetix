@@ -31,6 +31,7 @@ from commonroad_rp.configuration import build_configuration
 from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, extrapolate_ref_path
 
 from Prediction.walenet.prediction_helpers import main_prediction, load_walenet
+from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
 
 
 # *************************************
@@ -121,6 +122,8 @@ record_input_list.append(record_input_state)
 # initialize the prediction network if necessary
 if config.prediction.walenet:
     predictor = load_walenet(scenario=scenario)
+else:
+    predictor = None
 
 new_state = None
 
@@ -143,6 +146,10 @@ while not goal.is_reached(x_0):
         # get visible objects if the prediction is used
         if config.prediction.walenet:
             predictions = main_prediction(predictor, scenario, ego_state, config.prediction.sensor_radius, DT, [float(config.planning.planning_horizon)])
+            # ignore Predictions in Cone Angle
+            if config.prediction.cone_angle > 0:
+                predictions = ignore_vehicles_in_cone_angle(predictions, ego_state, config.vehicle.length,
+                                                            config.prediction.cone_angle, config.prediction.cone_safety_dist)
         else:
             predictions = None
 
