@@ -1,9 +1,9 @@
 # planning configuration
 planning:
   # planner time step (in s)
-  dt: 0.1
+  dt: 0.2
   # planning time horizon (in s)
-  planning_horizon: 2
+  planning_horizon: 1
   # replanning frequency (in time steps)
   replanning_frequency: 1
   # planner mode TODO: modes not implemented yet
@@ -25,7 +25,7 @@ prediction:
   sensor_radius: 60
   walenet_cost_factor: 10000
   cone_angle: 60
-  cone_safety_dist: 0
+  cone_safety_dist: 10
 
 
 # vehicle configuration
@@ -71,7 +71,7 @@ debug:
   show_plots: False
   save_plots: True
   # plot vehicle position with x_y distance in meters. 0=Standard Plot
-  plot_window_dyn: 50
+  plot_window_dyn: 40
   # draw obstacles with vehicle icons
   draw_icons: True
   # draw sampled trajectory set
@@ -81,4 +81,4 @@ debug:
   # use multiprocessing True/False
   multiproc: True
   # number of workers for multiprocessing
-  num_workers: 6
+  num_workers: 12

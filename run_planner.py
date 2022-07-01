@@ -20,7 +20,7 @@ from commonroad.common.file_reader import CommonRoadFileReader
 from commonroad.scenario.trajectory import State
 
 # commonroad-route-planner
-from commonroad_route_planner.route_planner import RoutePlanner
+from route_planner.route_planner import RoutePlanner
 
 # reactive planner
 from commonroad_rp.reactive_planner import ReactivePlanner

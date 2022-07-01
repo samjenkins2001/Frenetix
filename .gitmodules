@@ -1,0 +1,4 @@
+[submodule "route_planner"]
+	path = route_planner
+	url = https://gitlab.lrz.de/av2.0/commonroad/commonroad-route-planner.git
+	branch = develop
