@@ -10,7 +10,9 @@ sphinx>=2.2.1
 commonroad-route-planner>=2022.1
 commonroad-io>=2021.4
 commonroad-drivability-checker>=2021.4
-
+numba
+commonroad-helper-functions
+wale-net
 
 
 
