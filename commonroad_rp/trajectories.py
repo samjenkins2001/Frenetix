@@ -349,6 +349,7 @@ class TrajectorySample(Sample):
         self._trajectory_lat = trajectory_lat
 
         self._cost = 0
+        self._cost_list = list()
         self._cost_function = None
         self._cartesian: CartesianSample = None
         self._curvilinear: CurviLinearSample = None
@@ -393,7 +394,7 @@ class TrajectorySample(Sample):
         Sets the cost function for evaluating the costs of the polynomial trajectory
         :param cost_function: The cost function for computing the costs
         """
-        self._cost = cost_function.evaluate(self)
+        self._cost, self._cost_list = cost_function.evaluate(self)
         self._cost_function = cost_function
 
     @property

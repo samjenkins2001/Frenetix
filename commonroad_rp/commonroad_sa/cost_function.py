@@ -120,13 +120,13 @@ class AdaptableCostFunction(CostFunction):
             PartialCostFunction.ID: cost_functions.inverse_duration_cost,
         }
 
-        cost = list()
+        costlist = list()
 
         for function in PartialCostFunctionMapping:
-            cost.append(self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory))
+            costlist.append(self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory))
 
-        cost.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
-        cost.append(cost_functions.distance_to_obstacle_cost(trajectory, self.desired_d, self.params[scenario]["D"]))
+        costlist.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
+        costlist.append(cost_functions.distance_to_obstacle_cost(trajectory, self.desired_d, self.params[scenario]["D"]))
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(
@@ -134,9 +134,10 @@ class AdaptableCostFunction(CostFunction):
                 predictions=self.predictions,
                 vehicle_params=self.vehicle_params
             )
-            cost.append(self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
+            costlist.append(self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
 
         # Logging of Cost terms
-        self.costs_logger.log_data(cost)
+        # self.costs_logger.trajectory_number = self.x_0.time_step
+        # self.costs_logger.log_data(cost)
 
-        return sum(cost)
+        return sum(costlist), costlist

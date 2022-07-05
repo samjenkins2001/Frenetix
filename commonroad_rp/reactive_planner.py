@@ -433,7 +433,7 @@ class ReactivePlanner(object):
             # adapt the cost function
             #adapter = DefaultCostAdapter()
             #cost_function = adapter.adapt_cost_function(self._desired_speed)
-            self.costs_logger.iteration = self.x_0.time_step
+
             cost_function = AdaptableCostFunction(rp=self, predictions=predictions, desired_d=0)
 
             # sample trajectory bundle
@@ -443,6 +443,8 @@ class ReactivePlanner(object):
             # get optimal trajectory
             t0 = time.time()
             optimal_trajectory = self._get_optimal_trajectory(bundle)
+            self.costs_logger.trajectory_number = x_0.time_step
+            self.costs_logger.log_data(optimal_trajectory._cost_list)
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 

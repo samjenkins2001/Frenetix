@@ -15,7 +15,7 @@ class DataLoggingCosts:
         """"""
 
         self.header = (
-            "iteration;"
+            "trajectory_number;"
             "acceleration;"
             "jerk;"
             "jerk_lat;"
@@ -31,7 +31,7 @@ class DataLoggingCosts:
         file_name = "costs_logs.csv"
         if header_only:
             return
-        self.iteration = 0
+        self.trajectory_number = 0
         # Create directories
         if not os.path.exists(path_logs):
             os.makedirs(path_logs)
@@ -58,7 +58,7 @@ class DataLoggingCosts:
         with open(self.__log_path, "a") as fh:
             fh.write(
                 "\n"
-                + str(self.iteration)
+                + str(self.trajectory_number)
                 + ";"
                 + json.dumps(str(costs[0]))
                 + ";"
