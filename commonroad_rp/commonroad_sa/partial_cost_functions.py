@@ -18,6 +18,7 @@ def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     acceleration = trajectory.cartesian.a
     acceleration_sq = np.square(acceleration)
     cost = simps(acceleration_sq, dx=trajectory.dt)
+    
     return cost
 
 

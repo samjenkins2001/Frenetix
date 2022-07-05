@@ -1,9 +1,9 @@
 # planning configuration
 planning:
   # planner time step (in s)
-  dt: 0.2
+  dt: 0.1
   # planning time horizon (in s)
-  planning_horizon: 1
+  planning_horizon: 2
   # replanning frequency (in time steps)
   replanning_frequency: 1
   # planner mode TODO: modes not implemented yet
@@ -22,10 +22,10 @@ prediction:
   # activation of the wale-net prediction
   walenet: True
   # Sensor Radius in Meter
-  sensor_radius: 60
+  sensor_radius: 20
   walenet_cost_factor: 10000
-  cone_angle: 60
-  cone_safety_dist: 10
+  cone_angle: 80
+  cone_safety_dist: 5
 
 
 # vehicle configuration
@@ -68,6 +68,7 @@ sampling:
 # debug configuration
 debug:
   # show/save plots
+  save_logs_and_plots_path: 'logs'
   show_plots: False
   save_plots: True
   # plot vehicle position with x_y distance in meters. 0=Standard Plot

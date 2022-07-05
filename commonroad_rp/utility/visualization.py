@@ -122,9 +122,8 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # save as .png file
     if config.debug.save_plots:
-        os.makedirs(os.path.join(os.path.dirname(__file__), "../../plots/", str(scenario.scenario_id)),
-                    exist_ok=True)
-        plot_dir = os.path.join(os.path.dirname(__file__), "../../plots/", str(scenario.scenario_id))
+        plot_dir = os.path.join(config.debug.save_logs_and_plots_path, "plots")
+        os.makedirs(plot_dir, exist_ok=True)
         plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300,
                     bbox_inches='tight')
 
@@ -169,9 +168,8 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
 
     # save as .png file
     if config.debug.save_plots:
-        os.makedirs(os.path.join(os.path.dirname(__file__), "../../plots/", str(scenario.scenario_id)),
-                    exist_ok=True)
-        plot_dir = os.path.join(os.path.dirname(__file__), "../../plots/", str(scenario.scenario_id))
+        plot_dir = os.path.join(config.debug.save_logs_and_plots_path, "plots")
+        os.makedirs(plot_dir, exist_ok=True)
         plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.png", format='png', dpi=300,
                     bbox_inches='tight')
 

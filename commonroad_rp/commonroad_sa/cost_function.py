@@ -91,6 +91,7 @@ class AdaptableCostFunction(CostFunction):
         self.predictions = predictions
         self.vehicle_params = rp.vehicle_params
         self.walenet_cost_factor = rp.walenet_cost_factor
+        self.costs_logger = rp.costs_logger
 
         path = Path.cwd().joinpath("commonroad_rp/commonroad_sa/cost_weights.yaml")
         if path.is_file():
@@ -119,13 +120,13 @@ class AdaptableCostFunction(CostFunction):
             PartialCostFunction.ID: cost_functions.inverse_duration_cost,
         }
 
-        cost = 0
+        cost = list()
 
         for function in PartialCostFunctionMapping:
-            cost += self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
+            cost.append(self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory))
 
-        cost += cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"])
-        cost += cost_functions.distance_to_obstacle_cost(trajectory, self.desired_d, self.params[scenario]["D"])
+        cost.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
+        cost.append(cost_functions.distance_to_obstacle_cost(trajectory, self.desired_d, self.params[scenario]["D"]))
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(
@@ -133,6 +134,9 @@ class AdaptableCostFunction(CostFunction):
                 predictions=self.predictions,
                 vehicle_params=self.vehicle_params
             )
-            cost += self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor
+            cost.append(self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
 
-        return cost
+        # Logging of Cost terms
+        self.costs_logger.log_data(cost)
+
+        return sum(cost)

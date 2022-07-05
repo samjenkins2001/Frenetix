@@ -38,6 +38,8 @@ from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, inte
 from commonroad_rp.configuration import Configuration, VehicleConfiguration
 from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
 
+from commonroad_rp.utility.logging_helpers import DataLoggingCosts
+
 # commonroad_sa imports
 from commonroad_rp.commonroad_sa.cost_adapter import DefaultCostAdapter
 
@@ -106,6 +108,10 @@ class ReactivePlanner(object):
         self._draw_traj_set = config.debug.draw_traj_set
         # Debug mode
         self.debug_mode = config.debug.debug_mode
+
+        # Logger
+
+        self.costs_logger = DataLoggingCosts(config.debug.save_logs_and_plots_path)
 
     def _check_valid_settings(self):
         """Checks validity of provided dt and horizon"""
@@ -427,7 +433,7 @@ class ReactivePlanner(object):
             # adapt the cost function
             #adapter = DefaultCostAdapter()
             #cost_function = adapter.adapt_cost_function(self._desired_speed)
-
+            self.costs_logger.iteration = self.x_0.time_step
             cost_function = AdaptableCostFunction(rp=self, predictions=predictions, desired_d=0)
 
             # sample trajectory bundle
