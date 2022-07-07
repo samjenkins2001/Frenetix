@@ -93,7 +93,7 @@ class AdaptableCostFunction(CostFunction):
         self.walenet_cost_factor = rp.walenet_cost_factor
         self.costs_logger = rp.costs_logger
 
-        path = Path.cwd().joinpath("commonroad_rp/commonroad_sa/cost_weights.yaml")
+        path = Path.cwd().joinpath("configurations/cost_weights.yaml")
         if path.is_file():
             with path.open() as file:
                 self.params = yaml.load(file, Loader=yaml.FullLoader)
