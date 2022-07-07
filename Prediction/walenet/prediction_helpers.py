@@ -330,13 +330,14 @@ def main_prediction(predictor, scenario, ego_state, sensor_radius, DT, t_list):
     return predictions
 
 
-def load_walenet(scenario):
-    prediction_config_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "configurations",
-        "walenet_config.json",
-    )
-    with open(prediction_config_path, "r") as f:
+def load_walenet(scenario, path_config: str = None):
+    if not path_config:
+        path_config = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "configurations",
+            "walenet_config.json",
+        )
+    with open(path_config, "r") as f:
         online_args = json.load(f)
 
     predictor = WaleNet(scenario=scenario, online_args=online_args, verbose=False)
