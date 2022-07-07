@@ -11,7 +11,7 @@ with open(path.join(this_directory, 'requirements.txt'), encoding='utf-8') as f:
 
 
 setup(
-    name="commonroad-reactive-planner",
+    name="commonroad_reactive",
     version="2022.1",
     description="Reactive Planner: Sampling-based Frenet Planner",
     long_description_content_type='text/markdown',
