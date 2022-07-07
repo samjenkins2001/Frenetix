@@ -11,7 +11,7 @@ with open(path.join(this_directory, 'requirements.txt'), encoding='utf-8') as f:
 
 
 setup(
-    name="commonroad_reactive",
+    name="commonroad-reactive-planner",
     version="2022.1",
     description="Reactive Planner: Sampling-based Frenet Planner",
     long_description_content_type='text/markdown',
@@ -20,7 +20,7 @@ setup(
     author='Cyber-Physical Systems Group, Technical University of Munich',
     author_email='commonroad@lists.lrz.de',
     license='GNU General Public License v3.0',
-    packages=find_packages(include=['commonroad_rp', 'Prediction'], exclude=['doc', 'unit_tests']),
+    packages=find_packages(exclude=['doc', 'unit_tests']),
     zip_safe=False,
     include_package_data=True,
     python_requires='>=3.7',
