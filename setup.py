@@ -42,6 +42,5 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS",
-    ],
-    data_files=[('.', ['LICENSE.txt'])],
+    ]
 )
