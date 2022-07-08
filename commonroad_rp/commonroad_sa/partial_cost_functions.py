@@ -126,8 +126,7 @@ def time_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     """
     Calculates the time cost for the given trajectory.
     """
-    #duration = trajectory.cartesian.v.shape[0] * trajectory.dt
-    return duration
+    raise NotImplementedError
 
 
 def inverse_duration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
