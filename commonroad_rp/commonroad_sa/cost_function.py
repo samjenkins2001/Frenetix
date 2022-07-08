@@ -37,7 +37,7 @@ class PartialCostFunction(Enum):
     V: Velocity Offset,
     Vlon: Longitudinal Velocity Offset,
     O: Orientation Offset,
-    D: Distance to Obstacles,
+    D: Distance to Reference Path,
     L: Path Length,
     T: Time,
     ID: Inverse Duration,
@@ -91,7 +91,7 @@ class AdaptableCostFunction(CostFunction):
         self.predictions = predictions
         self.vehicle_params = rp.vehicle_params
         self.walenet_cost_factor = rp.walenet_cost_factor
-        self.costs_logger = rp.costs_logger
+        #self.costs_logger = rp.costs_logger
 
         path = Path.cwd().joinpath("configurations/cost_weights.yaml")
         if path.is_file():
@@ -114,10 +114,10 @@ class AdaptableCostFunction(CostFunction):
             # PartialCostFunction.V: cost_functions.velocity_offset_cost,
             # PartialCostFunction.Vlon: cost_functions.longitudinal_velocity_offset_cost,
             PartialCostFunction.O: cost_functions.orientation_offset_cost,
-            # PartialCostFunction.D: cost_functions.distance_to_obstacle_cost,
+            #PartialCostFunction.D: cost_functions.distance_to_reference_path,
             PartialCostFunction.L: cost_functions.path_length_cost,
-            PartialCostFunction.T: cost_functions.time_cost,
-            PartialCostFunction.ID: cost_functions.inverse_duration_cost,
+            #PartialCostFunction.T: cost_functions.time_cost,
+            #PartialCostFunction.ID: cost_functions.inverse_duration_cost,
         }
 
         costlist = list()
@@ -126,7 +126,7 @@ class AdaptableCostFunction(CostFunction):
             costlist.append(self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory))
 
         costlist.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
-        costlist.append(cost_functions.distance_to_obstacle_cost(trajectory, self.desired_d, self.params[scenario]["D"]))
+        costlist.append(cost_functions.distance_to_reference_path(trajectory, self.desired_d, self.params[scenario]["D"]))
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(

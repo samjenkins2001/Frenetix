@@ -104,7 +104,7 @@ def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
     return cost
 
 
-def distance_to_obstacle_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, desired_d, weights):
+def distance_to_reference_path(trajectory: commonroad_rp.trajectories.TrajectorySample, desired_d, weights):
     """
     Calculates the Distance to Obstacle cost.
     """
@@ -126,7 +126,7 @@ def time_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     """
     Calculates the time cost for the given trajectory.
     """
-    duration = trajectory.cartesian.v.shape[0] * trajectory.dt
+    #duration = trajectory.cartesian.v.shape[0] * trajectory.dt
     return duration
 
 

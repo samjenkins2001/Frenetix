@@ -4,29 +4,39 @@ import logging
 import json
 from pathlib import Path
 
+from commonroad_rp.trajectories import TrajectorySample, CartesianSample
+
 
 class DataLoggingCosts:
     # ----------------------------------------------------------------------------------------------------------
     # CONSTRUCTOR ----------------------------------------------------------------------------------------------
     # ----------------------------------------------------------------------------------------------------------
     def __init__(
-        self, path_logs: str, header_only: bool = False
+        self, path_logs: str, header_only: bool = False, save_all_traj: bool = False
     ) -> None:
         """"""
 
+        self.save_all_traj = save_all_traj
+
         self.header = (
             "trajectory_number;"
-            "acceleration;"
-            "jerk;"
-            "jerk_lat;"
-            "jerk_long;"
-            "orientation;"
-            "path_length;"
-            "time_costs;"
-            "inverse_duration;"
+            "x_position;"
+            "y_position;"
             "velocity;"
-            "dist_obj;"
-            "prediction;"
+            "acceleration;"
+            "s_position;"
+            "d_position;"
+            "acceleration_cost;"
+            "jerk_cost;"
+            "jerk_lat_cost;"
+            "jerk_long_cost;"
+            "orientation_cost;"
+            "path_length_cost;"
+            "time_costs_cost;"
+            "inverse_duration_cost;"
+            "velocity_cost;"
+            "dist_obj_cost;"
+            "prediction_cost"
         )
         file_name = "costs_logs.csv"
         if header_only:
@@ -49,7 +59,7 @@ class DataLoggingCosts:
     def get_headers(self):
         return self.header
 
-    def log_data(
+    def log_cost(
         self,
         costs: list
     ) -> None:
@@ -82,3 +92,29 @@ class DataLoggingCosts:
                 + ";"
                 + json.dumps(str(costs[10]))
             )
+
+    def log(self, trajectory: TrajectorySample, collision: bool = False):
+        new_line = "\n" + str(self.trajectory_number)
+
+        cartesian = trajectory._cartesian
+        cost_list = trajectory._cost_list
+
+        # log position
+        new_line += ";" + str(cartesian.x[0])
+        new_line += ";" + str(cartesian.y[0])
+
+        # log velocity & acceleration
+        new_line += ";" + str(cartesian.v[0])
+        new_line += ";" + str(cartesian.a[0])
+
+        # log frenet coordinates (distance to reference path)
+        new_line += ";" + str(trajectory._curvilinear.s[0])
+        new_line += ";" + str(trajectory._curvilinear.d[0])
+
+
+        # log costs
+        for cost in cost_list:
+            new_line += ";" + str(cost)
+
+        with open(self.__log_path, "a") as fh:
+            fh.write(new_line)

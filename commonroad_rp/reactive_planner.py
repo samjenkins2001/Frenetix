@@ -108,10 +108,11 @@ class ReactivePlanner(object):
         self._draw_traj_set = config.debug.draw_traj_set
         # Debug mode
         self.debug_mode = config.debug.debug_mode
+        self.save_all_traj = config.debug.save_all_traj
 
         # Logger
 
-        self.costs_logger = DataLoggingCosts(config.debug.save_logs_and_plots_path)
+        self.logger = DataLoggingCosts(config.debug.save_logs_and_plots_path, self.save_all_traj)
 
     def _check_valid_settings(self):
         """Checks validity of provided dt and horizon"""
@@ -442,9 +443,10 @@ class ReactivePlanner(object):
 
             # get optimal trajectory
             t0 = time.time()
+            self.logger.trajectory_number = x_0.time_step
             optimal_trajectory = self._get_optimal_trajectory(bundle)
-            self.costs_logger.trajectory_number = x_0.time_step
-            self.costs_logger.log_data(optimal_trajectory._cost_list)
+            if not self.save_all_traj:
+                self.logger.log(optimal_trajectory)
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
@@ -865,6 +867,9 @@ class ReactivePlanner(object):
                 if self._cc.collide(ego_tvo):
                     self._infeasible_count_collision += 1
                     collide = True
+            
+            if self.save_all_traj:
+                self.logger.log(trajectory, collide)
 
             if not collide:
                 return trajectory
