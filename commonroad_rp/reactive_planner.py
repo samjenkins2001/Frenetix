@@ -73,6 +73,9 @@ class ReactivePlanner(object):
         # Initial State
         self.x_0 = None
 
+        # Scenario
+        self.scenario = None
+
         # store sampled trajectory set of last run
         self.stored_trajectories = None
 
@@ -111,7 +114,6 @@ class ReactivePlanner(object):
         self.save_all_traj = config.debug.save_all_traj
 
         # Logger
-
         self.logger = DataLoggingCosts(config.debug.save_logs_and_plots_path, self.save_all_traj)
 
     def _check_valid_settings(self):
@@ -147,6 +149,7 @@ class ReactivePlanner(object):
         Creates the road boundary and creates a collision checker object for a given scenario
         :param scenario: CommonRoad Scenario object
         """
+        self.scenario = scenario
         cc_scenario = pycrcc.CollisionChecker()
         for co in scenario.static_obstacles:
             obs = create_collision_object(co)
@@ -435,7 +438,7 @@ class ReactivePlanner(object):
             #adapter = DefaultCostAdapter()
             #cost_function = adapter.adapt_cost_function(self._desired_speed)
 
-            cost_function = AdaptableCostFunction(rp=self, predictions=predictions, desired_d=0)
+            cost_function = AdaptableCostFunction(rp=self, predictions=predictions, desired_d=0, timestep=x_0.time_step, scenario=self.scenario)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)
@@ -445,7 +448,7 @@ class ReactivePlanner(object):
             t0 = time.time()
             self.logger.trajectory_number = x_0.time_step
             optimal_trajectory = self._get_optimal_trajectory(bundle)
-            if not self.save_all_traj:
+            if not self.save_all_traj and optimal_trajectory is not None:
                 self.logger.log(optimal_trajectory)
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))

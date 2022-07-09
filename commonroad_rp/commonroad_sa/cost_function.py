@@ -37,7 +37,8 @@ class PartialCostFunction(Enum):
     V: Velocity Offset,
     Vlon: Longitudinal Velocity Offset,
     O: Orientation Offset,
-    D: Distance to Reference Path,
+    DR: Distance to Reference Path,
+    DO: Distance to Obstacles,
     L: Path Length,
     T: Time,
     ID: Inverse Duration,
@@ -54,7 +55,8 @@ class PartialCostFunction(Enum):
     V = "V"
     #Vlon = "Vlon"
     O = "O"
-    D = "D"
+    DR = "DR"
+    DO = "DO"
     L = "L"
     T = "T"
     ID = "ID"
@@ -84,7 +86,7 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, rp, desired_d, predictions):
+    def __init__(self, rp, predictions, desired_d, timestep, scenario):
         super(AdaptableCostFunction, self).__init__()
         self.desired_speed = rp._desired_speed
         self.desired_d = desired_d
@@ -92,6 +94,8 @@ class AdaptableCostFunction(CostFunction):
         self.vehicle_params = rp.vehicle_params
         self.walenet_cost_factor = rp.walenet_cost_factor
         #self.costs_logger = rp.costs_logger
+        self.timestep = timestep
+        self.scenario = scenario
 
         path = Path.cwd().joinpath("configurations/cost_weights.yaml")
         if path.is_file():
@@ -114,7 +118,8 @@ class AdaptableCostFunction(CostFunction):
             # PartialCostFunction.V: cost_functions.velocity_offset_cost,
             # PartialCostFunction.Vlon: cost_functions.longitudinal_velocity_offset_cost,
             PartialCostFunction.O: cost_functions.orientation_offset_cost,
-            #PartialCostFunction.D: cost_functions.distance_to_reference_path,
+            #PartialCostFunction.DR: cost_functions.distance_to_reference_path_cost,
+            # PartialCostFunction.DR: cost_functions.distance_to_obstacles_cost,
             PartialCostFunction.L: cost_functions.path_length_cost,
             #PartialCostFunction.T: cost_functions.time_cost,
             #PartialCostFunction.ID: cost_functions.inverse_duration_cost,
@@ -126,7 +131,7 @@ class AdaptableCostFunction(CostFunction):
             costlist.append(self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory))
 
         costlist.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
-        costlist.append(cost_functions.distance_to_reference_path(trajectory, self.desired_d, self.params[scenario]["D"]))
+        costlist.append(cost_functions.distance_to_reference_path_cost(trajectory, self.desired_d, self.params[scenario]["DR"]))
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(
@@ -135,6 +140,8 @@ class AdaptableCostFunction(CostFunction):
                 vehicle_params=self.vehicle_params
             )
             costlist.append(self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
+
+        costlist.append(self.params[scenario]["DO"] * cost_functions.distance_to_obstacles_cost(trajectory, self.timestep, self.scenario))
 
         # Logging of Cost terms
         # self.costs_logger.trajectory_number = self.x_0.time_step

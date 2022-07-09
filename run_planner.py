@@ -40,6 +40,7 @@ from commonroad_rp.utility import helper_functions as hf
 # *************************************
 base_dir = "./example_scenarios"
 filename = "USA_Lanker-2_6_T-1.xml"
+#filename = "ZAM_Tjunction-1_42_T-1.xml"
 
 scenario_path = os.path.join(base_dir, filename)
 files = sorted(glob.glob(scenario_path))
