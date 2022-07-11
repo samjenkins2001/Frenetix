@@ -8,6 +8,7 @@ intersection:
   Y: 0.0
   LC: 0.0
   V: [1.0, 2.0, 3.0]
+  VC: 10
   Vlon: 0.0
   O: 1.0
   DR: [0.5, 40.0]
@@ -27,6 +28,7 @@ slow_section:
   Y: Yaw Rate
   LC: Lane Center Offset
   V: Velocity Offset
+  VC: Velocity Costs
   Vlon: Longitudinal Velocity Offset
   O: Orientation Offset
   D: Distance to Obstacles

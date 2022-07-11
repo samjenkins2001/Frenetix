@@ -135,7 +135,7 @@ class AdaptableCostFunction(CostFunction):
 
         costlist.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
         costlist.append(cost_functions.distance_to_reference_path_cost(trajectory, self.desired_d, self.params[scenario]["DR"]))
-        costlist.append(cost_functions.velocity_costs(trajectory, self.rp, self.scenario))
+        costlist.append(cost_functions.velocity_costs(trajectory, self.rp, self.scenario) * self.params[scenario]["VC"])
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(
