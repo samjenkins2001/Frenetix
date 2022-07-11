@@ -12,6 +12,7 @@ from commonroad.scenario.trajectory import State
 from commonroad.scenario.scenario import Scenario
 from scipy.integrate import simps
 import commonroad_dc.pycrcc as pycrcc
+from shapely.geometry import LineString, Point
 from commonroad_rp.utility.helper_functions import distance
 
 
@@ -74,11 +75,33 @@ def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     raise NotImplementedError
 
 
-def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, lanelet_network):
     """
-    Calculates the Lane Center Offset cost.
+    Calculate the average distance of the trajectory to the center line of a lane.
+
+    Args:
+        traj (FrenetTrajectory): Considered trajectory.
+        lanelet_network (LaneletNetwork): Considered lanelet network.
+
+    Returns:
+        float: Average distance from the trajectory to the center line of a lane.
     """
-    raise NotImplementedError
+    dist = 0.0
+    for i in range(len(trajectory.cartesian.x)):
+        # find the lanelet of every position
+        pos = [trajectory.cartesian.x[i], trajectory.cartesian.y[i]]
+        lanelet_ids = lanelet_network.find_lanelet_by_position([np.array(pos)])
+        if len(lanelet_ids[0]) > 0:
+            lanelet_id = lanelet_ids[0][0]
+            lanelet_obj = lanelet_network.find_lanelet_by_id(lanelet_id)
+            # find the distance of the current position to the center line of the lanelet
+            dist = dist + dist_to_nearest_point(lanelet_obj.center_vertices, pos)
+        # theirs should always be a lanelet for the current position
+        # otherwise the trajectory should not be valid and no costs are calculated
+        else:
+            dist = dist + 5
+
+    return dist / len(trajectory.cartesian.x)
 
 
 def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, desired_speed, weights):
@@ -106,12 +129,22 @@ def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
     return cost
 
 
-def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, desired_d, weights):
+def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, weights):
     """
-    Calculates the Distance to Obstacle cost.
+    Calculates the Distance to Reference Path costs.
+
+    Args:
+        trajectory (FrenetTrajectory): Frenét trajectory to be checked.
+
+    Returns:
+        float: Average distance of the trajectory to the given path.
     """
-    cost = np.sum((weights[0] * (desired_d - trajectory.curvilinear.d)) ** 2) + \
-        (weights[1] * (desired_d - trajectory.curvilinear.d[-1])) ** 2
+    # Costs of gerneral deviation from ref path
+    cost = np.mean(np.abs(trajectory.curvilinear.d)) * weights[0]
+
+    # Additional costs for deviation at final planning point from ref path
+    cost += np.mean(np.abs(trajectory.curvilinear.d[-1])) * weights[1]
+
     return cost
 
 
@@ -290,3 +323,24 @@ def calc_remaining_time_steps(
         return min_remaining_time, max_remaining_time
     else:
         return False
+
+
+def dist_to_nearest_point(center_vertices: np.ndarray, pos: np.array):
+    """
+    Find the closest distance of a given position to a polyline.
+
+    Args:
+        center_vertices (np.ndarray): Considered polyline.
+        pos (np.array): Conisdered position.
+
+    Returns:
+        float: Closest distance between the polyline and the position.
+    """
+    # create a point and a line, project the point on the line and find the nearest point
+    # shapely used
+    point = Point(pos)
+    linestring = LineString(center_vertices)
+    project = linestring.project(point)
+    nearest_point = linestring.interpolate(project)
+
+    return distance(pos, np.array([nearest_point.x, nearest_point.y]))

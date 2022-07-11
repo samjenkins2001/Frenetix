@@ -452,7 +452,7 @@ class ReactivePlanner(object):
             #adapter = DefaultCostAdapter()
             #cost_function = adapter.adapt_cost_function(self._desired_speed)
 
-            cost_function = AdaptableCostFunction(rp=self, predictions=predictions, desired_d=0, timestep=x_0.time_step, scenario=self.scenario)
+            cost_function = AdaptableCostFunction(rp=self, predictions=predictions, timestep=x_0.time_step, scenario=self.scenario)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)

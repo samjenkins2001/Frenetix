@@ -51,7 +51,7 @@ class PartialCostFunction(Enum):
     #SA = "SA"
     #SR = "SR"
     #Y = "Y"
-    #LC = "LC"
+    LC = "LC"
     V = "V"
     VC = "VC"
     #Vlon = "Vlon"
@@ -87,10 +87,10 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, rp, predictions, desired_d, timestep, scenario):
+    def __init__(self, rp, predictions, timestep, scenario):
         super(AdaptableCostFunction, self).__init__()
         self.desired_speed = rp._desired_speed
-        self.desired_d = desired_d
+        # self.desired_d = desired_d
         self.predictions = predictions
         self.vehicle_params = rp.vehicle_params
         self.walenet_cost_factor = rp.walenet_cost_factor
@@ -134,8 +134,9 @@ class AdaptableCostFunction(CostFunction):
             costlist.append(self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory))
 
         costlist.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
-        costlist.append(cost_functions.distance_to_reference_path_cost(trajectory, self.desired_d, self.params[scenario]["DR"]))
+        costlist.append(cost_functions.distance_to_reference_path_cost(trajectory, self.params[scenario]["DR"]))
         costlist.append(cost_functions.velocity_costs(trajectory, self.rp, self.scenario) * self.params[scenario]["VC"])
+        costlist.append(cost_functions.lane_center_offset_cost(trajectory, self.scenario.lanelet_network) * self.params[scenario]["LC"])
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(

@@ -6,7 +6,7 @@ intersection:
   SA: 0.0
   SR: 0.0
   Y: 0.0
-  LC: 0.0
+  LC: 1.0
   V: [1.0, 2.0, 3.0]
   VC: 10
   Vlon: 0.0
