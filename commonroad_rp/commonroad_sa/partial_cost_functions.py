@@ -16,7 +16,7 @@ from shapely.geometry import LineString, Point
 from commonroad_rp.utility.helper_functions import distance
 
 
-def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the acceleration cost for the given trajectory.
     """
@@ -27,7 +27,7 @@ def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     return cost
 
 
-def jerk_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def jerk_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the jerk cost for the given trajectory.
     """
@@ -38,7 +38,7 @@ def jerk_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     return cost
 
 
-def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the lateral jerk cost for the given trajectory.
     """
@@ -46,7 +46,7 @@ def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     return cost
 
 
-def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the lateral jerk cost for the given trajectory.
     """
@@ -54,28 +54,30 @@ def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     return cost
 
 
-def steering_angle_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def steering_angle_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the steering angle cost for the given trajectory.
     """
     raise NotImplementedError
 
 
-def steering_rate_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def steering_rate_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the steering rate cost for the given trajectory.
     """
     raise NotImplementedError
 
 
-def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the yaw cost for the given trajectory.
     """
     raise NotImplementedError
 
 
-def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, lanelet_network):
+def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                    planner=None, scenario=None,
+                    desired_speed: float=0, weights=None) -> float:
     """
     Calculate the average distance of the trajectory to the center line of a lane.
 
@@ -90,10 +92,10 @@ def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
     for i in range(len(trajectory.cartesian.x)):
         # find the lanelet of every position
         pos = [trajectory.cartesian.x[i], trajectory.cartesian.y[i]]
-        lanelet_ids = lanelet_network.find_lanelet_by_position([np.array(pos)])
+        lanelet_ids = scenario.lanelet_network.find_lanelet_by_position([np.array(pos)])
         if len(lanelet_ids[0]) > 0:
             lanelet_id = lanelet_ids[0][0]
-            lanelet_obj = lanelet_network.find_lanelet_by_id(lanelet_id)
+            lanelet_obj = scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
             # find the distance of the current position to the center line of the lanelet
             dist = dist + dist_to_nearest_point(lanelet_obj.center_vertices, pos)
         # theirs should always be a lanelet for the current position
@@ -101,10 +103,12 @@ def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
         else:
             dist = dist + 5
 
-    return dist / len(trajectory.cartesian.x)
+    return (dist / len(trajectory.cartesian.x)) * weights
 
 
-def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, desired_speed, weights):
+def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                         planner=None, scenario=None,
+                         desired_speed: float=0, weights=None) -> float:
     """
     Calculates the Velocity Offset cost.
     """
@@ -114,14 +118,14 @@ def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample
     return cost
 
 
-def longitudinal_velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def longitudinal_velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the Velocity Offset cost.
     """
     raise NotImplementedError
 
 
-def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the Orientation Offset cost.
     """
@@ -129,7 +133,9 @@ def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
     return cost
 
 
-def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, weights):
+def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                         planner=None, scenario=None,
+                         desired_speed: float=0, weights=None) -> float:
     """
     Calculates the Distance to Reference Path costs.
 
@@ -148,7 +154,9 @@ def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.Traje
     return cost
 
 
-def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.TrajectorySample, timestep: int, scenario: Scenario):
+def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                         planner=None, scenario=None,
+                         desired_speed: float=0, weights=None) -> float:
     """
     Calculates the Distance to Obstacle cost.
     """
@@ -157,15 +165,15 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
     pos_x = trajectory.cartesian.x[-1]
     pos_y = trajectory.cartesian.y[-1]
     for obstacle in scenario.dynamic_obstacles:
-        state = obstacle.state_at_time(timestep)
+        state = obstacle.state_at_time(planner.x_0.time_step)
         if state is not None:
             dist = np.sqrt((state.position[0] - pos_x)**2 + (state.position[1]-pos_y)**2)
             if dist < min_distance:
                 cost += 1/dist
-    return cost
+    return cost * weights
 
 
-def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the path length cost for the given trajectory.
     """
@@ -174,21 +182,23 @@ def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     return cost
 
 
-def time_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def time_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the time cost for the given trajectory.
     """
     raise NotImplementedError
 
 
-def inverse_duration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
+def inverse_duration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     """
     Calculates the inverse time cost for the given trajectory.
     """
     return 1 / time_cost(trajectory)
 
 
-def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample, planner, scenario):
+def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                    planner=None, scenario=None,
+                    desired_speed: float=0, weights=None) -> float:
     """
     Calculate the costs for the velocity of the given trajectory.
 
@@ -269,7 +279,7 @@ def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample, plan
     else:
         cost = 30.0 - np.mean(trajectory.cartesian.v)
 
-    return cost
+    return cost*weights
 
 
 def reached_target_position(pos: np.array, goal_area):

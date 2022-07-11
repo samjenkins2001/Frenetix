@@ -116,27 +116,29 @@ class AdaptableCostFunction(CostFunction):
             # PartialCostFunction.SA: cost_functions.steering_angle_cost,
             # PartialCostFunction.SR: cost_functions.steering_rate_cost,
             # PartialCostFunction.Y: cost_functions.yaw_cost,
-            # PartialCostFunction.LC: cost_functions.lane_center_offset_cost,
-            # PartialCostFunction.V: cost_functions.velocity_offset_cost,
-            # PartialCostFunction.VC: cost_functions.velocity_costs,
             # PartialCostFunction.Vlon: cost_functions.longitudinal_velocity_offset_cost,
             PartialCostFunction.O: cost_functions.orientation_offset_cost,
-            #PartialCostFunction.DR: cost_functions.distance_to_reference_path_cost,
-            # PartialCostFunction.DR: cost_functions.distance_to_obstacles_cost,
             PartialCostFunction.L: cost_functions.path_length_cost,
             #PartialCostFunction.T: cost_functions.time_cost,
             #PartialCostFunction.ID: cost_functions.inverse_duration_cost,
         }
+        PartialCostFunctionMapping_individual = {
+            PartialCostFunction.LC: cost_functions.lane_center_offset_cost,
+            PartialCostFunction.V: cost_functions.velocity_offset_cost,
+            PartialCostFunction.VC: cost_functions.velocity_costs,
+            PartialCostFunction.DR: cost_functions.distance_to_reference_path_cost,
+            PartialCostFunction.DO: cost_functions.distance_to_obstacles_cost,
+        }
 
-        costlist = list()
+        costlist = np.zeros(len(PartialCostFunctionMapping)+ len(PartialCostFunctionMapping_individual) + 1)
 
-        for function in PartialCostFunctionMapping:
-            costlist.append(self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory))
+        for num, function in enumerate(PartialCostFunctionMapping):
+            costlist[num] = self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
 
-        costlist.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
-        costlist.append(cost_functions.distance_to_reference_path_cost(trajectory, self.params[scenario]["DR"]))
-        costlist.append(cost_functions.velocity_costs(trajectory, self.rp, self.scenario) * self.params[scenario]["VC"])
-        costlist.append(cost_functions.lane_center_offset_cost(trajectory, self.scenario.lanelet_network) * self.params[scenario]["LC"])
+        for num, function in enumerate(PartialCostFunctionMapping_individual):
+            costlist[num+len(PartialCostFunctionMapping)] = \
+                PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario, self.desired_speed,
+                                                                self.params[scenario][function.value])
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(
@@ -144,12 +146,10 @@ class AdaptableCostFunction(CostFunction):
                 predictions=self.predictions,
                 vehicle_params=self.vehicle_params
             )
-            costlist.append(self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
-
-        costlist.append(self.params[scenario]["DO"] * cost_functions.distance_to_obstacles_cost(trajectory, self.timestep, self.scenario))
+            costlist[-1] = (self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
 
         # Logging of Cost terms
         # self.costs_logger.trajectory_number = self.x_0.time_step
         # self.costs_logger.log_data(cost)
 
-        return sum(costlist), costlist
+        return np.sum(costlist), costlist
