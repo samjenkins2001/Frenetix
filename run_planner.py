@@ -29,6 +29,10 @@ from commonroad_rp.utility.evaluation import create_planning_problem_solution, r
     plot_inputs, reconstruct_states
 from commonroad_rp.configuration import build_configuration
 from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, extrapolate_ref_path
+from commonroad_rp.utility.helper_functions import (
+    get_goal_area_shape_group,
+)
+
 
 from Prediction.walenet.prediction_helpers import main_prediction, load_walenet
 from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
@@ -96,6 +100,11 @@ ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
 
 ref_path = extrapolate_ref_path(ref_path)
 planner.set_reference_path(ref_path)
+goal_area = get_goal_area_shape_group(
+    planning_problem=planning_problem, scenario=scenario
+)
+planner.set_goal_area(goal_area)
+planner.set_planning_problem(planning_problem)
 
 
 # **************************

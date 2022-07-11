@@ -53,6 +53,7 @@ class PartialCostFunction(Enum):
     #Y = "Y"
     #LC = "LC"
     V = "V"
+    VC = "VC"
     #Vlon = "Vlon"
     O = "O"
     DR = "DR"
@@ -96,6 +97,7 @@ class AdaptableCostFunction(CostFunction):
         #self.costs_logger = rp.costs_logger
         self.timestep = timestep
         self.scenario = scenario
+        self.rp = rp
 
         path = Path.cwd().joinpath("configurations/cost_weights.yaml")
         if path.is_file():
@@ -116,6 +118,7 @@ class AdaptableCostFunction(CostFunction):
             # PartialCostFunction.Y: cost_functions.yaw_cost,
             # PartialCostFunction.LC: cost_functions.lane_center_offset_cost,
             # PartialCostFunction.V: cost_functions.velocity_offset_cost,
+            # PartialCostFunction.VC: cost_functions.velocity_costs,
             # PartialCostFunction.Vlon: cost_functions.longitudinal_velocity_offset_cost,
             PartialCostFunction.O: cost_functions.orientation_offset_cost,
             #PartialCostFunction.DR: cost_functions.distance_to_reference_path_cost,
@@ -132,6 +135,7 @@ class AdaptableCostFunction(CostFunction):
 
         costlist.append(cost_functions.velocity_offset_cost(trajectory, self.desired_speed, self.params[scenario]["V"]))
         costlist.append(cost_functions.distance_to_reference_path_cost(trajectory, self.desired_d, self.params[scenario]["DR"]))
+        costlist.append(cost_functions.velocity_costs(trajectory, self.rp, self.scenario))
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(

@@ -4,6 +4,11 @@ import subprocess
 import zipfile
 import ruamel.yaml as yaml
 import yaml as yml
+import numpy as np
+from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import (
+    create_collision_object,
+)
+from commonroad_dc.pycrcc import ShapeGroup
 
 
 def delete_folder(path):
@@ -82,5 +87,71 @@ def delete_empty_folders(path: str):
                 os.rmdir(folder[0])
             except:
                 pass
+
+
+def get_goal_area_shape_group(planning_problem, scenario):
+    """
+    Return a shape group that represents the goal area.
+
+    Args:
+        planning_problem (PlanningProblem): Considered planning problem.
+        scenario (Scenario): Considered scenario.
+
+    Returns:
+        ShapeGroup: Shape group representing the goal area.
+    """
+    # get goal area collision object
+    # the goal area is either given as lanelets
+    if (
+        hasattr(planning_problem.goal, "lanelets_of_goal_position")
+        and planning_problem.goal.lanelets_of_goal_position is not None
+    ):
+        # get the polygons of every lanelet
+        lanelets = []
+        for lanelet_id in planning_problem.goal.lanelets_of_goal_position[0]:
+            lanelets.append(
+                scenario.lanelet_network.find_lanelet_by_id(
+                    lanelet_id
+                ).convert_to_polygon()
+            )
+
+        # create a collision object from these polygons
+        goal_area_polygons = create_collision_object(lanelets)
+        goal_area_co = ShapeGroup()
+        for polygon in goal_area_polygons:
+            goal_area_co.add_shape(polygon)
+
+    # or the goal area is given as positions
+    elif hasattr(planning_problem.goal.state_list[0], "position"):
+        # get the polygons of every goal area
+        goal_areas = []
+        for goal_state in planning_problem.goal.state_list:
+            goal_areas.append(goal_state.position)
+
+        # create a collision object for these polygons
+        goal_area_polygons = create_collision_object(goal_areas)
+        goal_area_co = ShapeGroup()
+        for polygon in goal_area_polygons:
+            goal_area_co.add_shape(polygon)
+
+    # or it is a survival scenario
+    else:
+        goal_area_co = None
+
+    return goal_area_co
+
+
+def distance(pos1: np.array, pos2: np.array):
+    """
+    Return the euclidean distance between 2 points.
+
+    Args:
+        pos1 (np.array): First point.
+        pos2 (np.array): Second point.
+
+    Returns:
+        float: Distance between point 1 and point 2.
+    """
+    return np.linalg.norm(pos1 - pos2)
 
 # EOF

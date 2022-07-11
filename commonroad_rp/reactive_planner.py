@@ -173,6 +173,20 @@ class ReactivePlanner(object):
         """
         self._co: CoordinateSystem = CoordinateSystem(reference_path)
 
+    def set_goal_area(self, goal_area):
+        """
+        Sets the planning problem
+        :param planning_problem: PlanningProblem
+        """
+        self.goal_area = goal_area
+
+    def set_planning_problem(self, planning_problem):
+        """
+        Sets the planning problem
+        :param planning_problem: PlanningProblem
+        """
+        self.planning_problem = planning_problem
+
     def set_t_sampling_parameters(self, t_min, dt, horizon):
         """
         Sets sample parameters of time horizon

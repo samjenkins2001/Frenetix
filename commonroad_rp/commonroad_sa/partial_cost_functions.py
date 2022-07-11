@@ -11,6 +11,8 @@ import commonroad_rp.trajectories
 from commonroad.scenario.trajectory import State
 from commonroad.scenario.scenario import Scenario
 from scipy.integrate import simps
+import commonroad_dc.pycrcc as pycrcc
+from commonroad_rp.utility.helper_functions import distance
 
 
 def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
@@ -39,8 +41,7 @@ def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     """
     Calculates the lateral jerk cost for the given trajectory.
     """
-    jerk_sq_int = trajectory.trajectory_lat.squared_jerk_integral(trajectory.dt)
-    cost = jerk_sq_int
+    cost = trajectory.trajectory_lat.squared_jerk_integral(trajectory.dt)
     return cost
 
 
@@ -48,8 +49,7 @@ def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample):
     """
     Calculates the lateral jerk cost for the given trajectory.
     """
-    jerk_sq_int = trajectory.trajectory_long.squared_jerk_integral(trajectory.dt)
-    cost = jerk_sq_int
+    cost = trajectory.trajectory_long.squared_jerk_integral(trajectory.dt)
     return cost
 
 
@@ -154,3 +154,139 @@ def inverse_duration_cost(trajectory: commonroad_rp.trajectories.TrajectorySampl
     """
     return 1 / time_cost(trajectory)
 
+
+def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample, planner, scenario):
+    """
+    Calculate the costs for the velocity of the given trajectory.
+
+    Args:
+        trajectory (FrenetTrajectory): Considered trajectory.
+        ego_state (State): Current state of the ego vehicle.
+        planning_problem (PlanningProblem): Considered planning problem.
+        scenario (Scenario): Considered scenario.
+        dt (float): Time step size of the scenario.
+
+    Returns:
+        float: Costs for the velocity of the trajectory.
+
+    """
+    # if the goal area is reached then just consider the goal velocity
+    if reached_target_position(np.array([trajectory.cartesian.x[0], trajectory.cartesian.y[0]]), planner.goal_area):
+        # if the planning problem has a target velocity
+        if hasattr(planner.planning_problem.goal.state_list[0], "velocity"):
+            return abs(
+                (
+                    planner.planning_problem.goal.state_list[0].velocity.start
+                    + (
+                        planner.planning_problem.goal.state_list[0].velocity.end
+                        - planner.planning_problem.goal.state_list[0].velocity.start
+                    )
+                    / 2
+                )
+                - np.mean(trajectory.cartesian.v)
+            )
+        # otherwise prefer slow trajectories
+        else:
+            return np.mean(trajectory.cartesian.v)
+
+    # if the goal is not reached yet, try to reach it
+    # get the center points of the possible goal positions
+    goal_centers = []
+    # get the goal lanelet ids if they are given directly in the planning problem
+    if (
+        hasattr(planner.planning_problem.goal, "lanelets_of_goal_position")
+        and planner.planning_problem.goal.lanelets_of_goal_position is not None
+    ):
+        goal_lanelet_ids = planner.planning_problem.goal.lanelets_of_goal_position[0]
+        for lanelet_id in goal_lanelet_ids:
+            lanelet = scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
+            n_center_vertices = len(lanelet.center_vertices)
+            goal_centers.append(lanelet.center_vertices[int(n_center_vertices / 2.0)])
+    elif hasattr(planner.planning_problem.goal.state_list[0], "position"):
+        # get lanelet id of the ending lanelet (of goal state), this depends on type of goal state
+        if hasattr(planner.planning_problem.goal.state_list[0].position, "center"):
+            goal_centers.append(planner.planning_problem.goal.state_list[0].position.center)
+    # if it is a survival scenario with no goal areas, no velocity can be proposed
+    else:
+        return 0.0
+
+    # get the distances to the previous found goal positions
+    distances = []
+    for goal_center in goal_centers:
+        distances.append(distance(goal_center, planner.x_0.position))
+
+    # calculate the average distance to the goal positions
+    avg_dist = np.mean(distances)
+
+    # get the remaining time
+    _, max_remaining_time_steps = calc_remaining_time_steps(
+        planning_problem=planner.planning_problem,
+        ego_state_time=planner.x_0.time_step,
+        t=0.0,
+        dt=trajectory.dt,
+    )
+    remaining_time = max_remaining_time_steps * trajectory.dt
+
+    # if there is time remaining, calculate the difference between the average desired velocity and the velocity of the trajectory
+    if remaining_time > 0.0:
+        avg_desired_velocity = avg_dist / remaining_time
+        avg_v = np.mean(trajectory.cartesian.v)
+        cost = abs(avg_desired_velocity - avg_v)
+    # if the time limit is already exceeded, prefer fast velocities
+    else:
+        cost = 30.0 - np.mean(trajectory.cartesian.v)
+
+    return cost
+
+
+def reached_target_position(pos: np.array, goal_area):
+    """
+    Check if the given position is in the goal area of the planning problem.
+
+    Args:
+        pos (np.array): Position to be checked.
+        goal_area (ShapeGroup): Shape group representing the goal area.
+
+    Returns:
+        bool: True if the given position is in the goal area.
+    """
+    # if there is no goal area (survival scenario) return True
+    if goal_area is None:
+        return True
+
+    point = pycrcc.Point(x=pos[0], y=pos[1])
+
+    # check if the point of the position collides with the goal area
+    if point.collide(goal_area) is True:
+        return True
+
+    return False
+
+
+def calc_remaining_time_steps(
+    ego_state_time: float, t: float, planning_problem, dt: float
+):
+    """
+    Get the minimum and maximum amount of remaining time steps.
+
+    Args:
+        ego_state_time (float): Current time of the state of the ego vehicle.
+        t (float): Checked time.
+        planning_problem (PlanningProblem): Considered planning problem.
+        dt (float): Time step size of the scenario.
+
+    Returns:
+        int: Minimum remaining time steps.
+        int: Maximum remaining time steps.
+    """
+    considered_time_step = int(ego_state_time + t / dt)
+    if hasattr(planning_problem.goal.state_list[0], "time_step"):
+        min_remaining_time = (
+            planning_problem.goal.state_list[0].time_step.start - considered_time_step
+        )
+        max_remaining_time = (
+            planning_problem.goal.state_list[0].time_step.end - considered_time_step
+        )
+        return min_remaining_time, max_remaining_time
+    else:
+        return False
