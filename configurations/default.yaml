@@ -3,7 +3,7 @@ planning:
   # planner time step (in s)
   dt: 0.1
   # planning time horizon (in s)
-  planning_horizon: 1
+  planning_horizon: 2
   # replanning frequency (in time steps)
   replanning_frequency: 1
   # planner mode TODO: modes not implemented yet
@@ -11,7 +11,7 @@ planning:
   # continuous collision checking
   continuous_cc: False
   # collision check in curvilinear coordinates
-  collision_check_in_cl: False
+  collision_check_in_cl: True
   # time scaling factor for collision checking if planner time step and scenario time step deviate
   factor: 1
   # velocity threshold (in m/s) for switching to low velocity mode
@@ -60,8 +60,8 @@ sampling:
   v_min: 0
   v_max: 0
   # lateral sampling interval
-  d_min: -2
-  d_max: 2
+  d_min: -3
+  d_max: 3
 
 
 

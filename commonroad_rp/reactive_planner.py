@@ -40,6 +40,13 @@ from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
 
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
+from commonroad_helper_functions.exceptions import (
+    GoalReachedNotification,
+    NoGlobalPathFoundError,
+    ScenarioCompatibilityError,
+)
+from commonroad_rp.utility.goalcheck import GoalReachedChecker
+
 # commonroad_sa imports
 from commonroad_rp.commonroad_sa.cost_adapter import DefaultCostAdapter
 
@@ -52,7 +59,7 @@ class ReactivePlanner(object):
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
 
-    def __init__(self, config: Configuration):
+    def __init__(self, config: Configuration, planning_problem):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
@@ -115,6 +122,13 @@ class ReactivePlanner(object):
 
         # Logger
         self.logger = DataLoggingCosts(config.debug.save_logs_and_plots_path, self.save_all_traj)
+
+        self.__goal_checker = GoalReachedChecker(planning_problem)
+
+    @property
+    def goal_checker(self):
+        """Return the goal checker."""
+        return self.__goal_checker
 
     def _check_valid_settings(self):
         """Checks validity of provided dt and horizon"""
@@ -418,8 +432,12 @@ class ReactivePlanner(object):
         :param predictions (dict): Predictions of the visible obstacles
         :return: Optimal trajectory as tuple
         """
+
         # set Cartesian initial state
         self.x_0 = x_0
+
+        # Check if the goal is alreay reached
+        self.__check_goal_reached()
 
         # check for low velocity mode
         if self.x_0.velocity < self._low_vel_mode_threshold:
@@ -912,3 +930,13 @@ class ReactivePlanner(object):
             while state.orientation > interval_end:
                 state.orientation -= 2 * np.pi
         return trajectory
+
+    def __check_goal_reached(self):
+        # Get the ego vehicle
+        self.goal_checker.register_current_state(self.x_0)
+        if self.x_0.time_step == 50:
+            print("DDD")
+        if self.goal_checker.goal_reached_status():
+            raise GoalReachedNotification("Goal reached in time!")
+        elif self.goal_checker.goal_reached_status(ignore_exceeded_time=True):
+            raise GoalReachedNotification("Goal reached but time exceeded!")
