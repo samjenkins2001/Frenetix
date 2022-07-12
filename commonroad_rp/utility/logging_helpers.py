@@ -1,5 +1,6 @@
 import sys
 import os
+import numpy as np
 import logging
 import json
 from pathlib import Path
@@ -20,6 +21,9 @@ class DataLoggingCosts:
 
         self.header = (
             "trajectory_number;"
+            "time;"
+            "infeasible_kinematics;"
+            "infeasible_collision;"
             "x_position;"
             "y_position;"
             "velocity;"
@@ -32,24 +36,35 @@ class DataLoggingCosts:
             "jerk_long_cost;"
             "orientation_cost;"
             "path_length_cost;"
+            "lane_center_offset_cost;"
+            "velocity_offset_cost;"
             "velocity_cost;"
-            "dist_reference_path_cost;"
-            "prediction_cost;"
-            "dist_obj_cost"
+            "dist_reference_path_cost;"     
+            "dist_obstacle_cost;"
+            "prediction_cost"
         )
-        file_name = "costs_logs.csv"
+        self.prediction_header = (
+            "trajectory_number;"
+            "prediction"
+        )
+        log_file_name = "logs.csv"
+        prediction_file_name = "predictions.csv"
         if header_only:
             return
         self.trajectory_number = 0
         # Create directories
         if not os.path.exists(path_logs):
             os.makedirs(path_logs)
-        self.__log_path = os.path.join(path_logs, file_name)
+        self.__log_path = os.path.join(path_logs, log_file_name)
+        self.__prediction_log_path = os.path.join(path_logs, prediction_file_name)
         Path(os.path.dirname(self.__log_path)).mkdir(parents=True, exist_ok=True)
 
         # write header to logging file
         with open(self.__log_path, "w+") as fh:
             fh.write(self.header)
+
+        with open(self.__prediction_log_path, "w+") as fh:
+            fh.write(self.prediction_header)
 
     # ----------------------------------------------------------------------------------------------------------
     # CLASS METHODS --------------------------------------------------------------------------------------------
@@ -92,28 +107,54 @@ class DataLoggingCosts:
                 + json.dumps(str(costs[10]))
             )
 
-    def log(self, trajectory: TrajectorySample, collision: bool = False):
+    def log(self, trajectory: TrajectorySample, infeasible_kinematics: int, infeasible_collision: int, collision: bool = False):
         new_line = "\n" + str(self.trajectory_number)
 
         cartesian = trajectory._cartesian
         cost_list = trajectory._cost_list
 
+        # log time
+        new_line += ";" + json.dumps(str(self.trajectory_number * trajectory.dt), default=default)
+
+        # log infeasible
+        new_line += ";" + json.dumps(str(infeasible_kinematics), default=default)
+        new_line += ";" + json.dumps(str(infeasible_collision), default=default)
+
         # log position
-        new_line += ";" + str(cartesian.x[0])
-        new_line += ";" + str(cartesian.y[0])
+        new_line += ";" + json.dumps(str(cartesian.x[0]), default=default)
+        new_line += ";" + json.dumps(str(cartesian.y[0]), default=default)
 
         # log velocity & acceleration
-        new_line += ";" + str(cartesian.v[0])
-        new_line += ";" + str(cartesian.a[0])
+        new_line += ";" + json.dumps(str(cartesian.v[0]), default=default)
+        new_line += ";" + json.dumps(str(cartesian.a[0]), default=default)
 
         # log frenet coordinates (distance to reference path)
-        new_line += ";" + str(trajectory._curvilinear.s[0])
-        new_line += ";" + str(trajectory._curvilinear.d[0])
+        new_line += ";" + json.dumps(str(trajectory._curvilinear.s[0]), default=default)
+        new_line += ";" + json.dumps(str(trajectory._curvilinear.d[0]), default=default)
 
 
         # log costs
         for cost in cost_list:
-            new_line += ";" + str(cost)
+            new_line += ";" + json.dumps(str(cost), default=default)
 
         with open(self.__log_path, "a") as fh:
             fh.write(new_line)
+
+    def log_pred(self, prediction):
+        new_line = "\n" + str(self.trajectory_number)
+
+        new_line += ";" + json.dumps(prediction, default=default)
+
+        with open(self.__prediction_log_path, "a") as fh:
+            fh.write(new_line)
+
+
+def default(obj):
+    # handle numpy arrays when converting to json
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.integer):
+        return int(obj)
+    raise TypeError("Not serializable (type: " + str(type(obj)) + ")")
+
+
