@@ -88,7 +88,7 @@ else:
 # Initialize Planner
 # *************************************
 # initialize reactive planner
-planner = ReactivePlanner(config)
+planner = ReactivePlanner(config, planning_problem)
 # set sampling parameters
 planner.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
 planner.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)

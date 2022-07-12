@@ -3,20 +3,24 @@ intersection:
   J: 1.0
   Jlat: 1.0
   Jlon: 1.0
-  SA: 0.0
-  SR: 0.0
-  Y: 0.0
-  LC: 1.0
+  O: 1.0
+  L: 1.0
+
+  LC: 1000.0
   V: [1.0, 2.0, 3.0]
   VC: 10
-  Vlon: 0.0
-  O: 1.0
-  DR: [0.5, 40.0]
-  DO: 100.0
-  L: 1.0
-  T: 1.0
-  ID: 1.0
-  P: 0.3
+  DR: [400., 800.0]
+  DO: 0.5
+
+  P: 0.1
+
+  # SA: 0.0
+  # SR: 0.0
+  # Y: 0.0
+  # Vlon: 0.0
+  # T: 1.0
+  # ID: 1.0
+
 
 slow_section:
   A: Acceleration
@@ -31,7 +35,8 @@ slow_section:
   VC: Velocity Costs
   Vlon: Longitudinal Velocity Offset
   O: Orientation Offset
-  D: Distance to Obstacles
+  DR: Distance to Reference Path
+  DO: Distance to Obstacles
   L: Path Length
   T: Time
   ID: Inverse Duration

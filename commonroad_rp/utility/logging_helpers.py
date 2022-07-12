@@ -39,9 +39,9 @@ class DataLoggingCosts:
             "lane_center_offset_cost;"
             "velocity_offset_cost;"
             "velocity_cost;"
-            "dist_reference_path_cost;"     
-            "dist_obstacle_cost;"
-            "prediction_cost"
+            "distance_to_reference_path_cost;"
+            "distance_to_obstacles_cost;"
+            "prediction_cost;"
         )
         self.prediction_header = (
             "trajectory_number;"
