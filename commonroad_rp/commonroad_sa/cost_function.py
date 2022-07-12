@@ -59,8 +59,8 @@ class PartialCostFunction(Enum):
     DR = "DR"
     DO = "DO"
     L = "L"
-    T = "T"
-    ID = "ID"
+    #T = "T"
+    #ID = "ID"
     P = "P"
 
 
@@ -113,12 +113,12 @@ class AdaptableCostFunction(CostFunction):
             PartialCostFunction.J: cost_functions.jerk_cost,
             PartialCostFunction.Jlat: cost_functions.jerk_lat_cost,
             PartialCostFunction.Jlon: cost_functions.jerk_lon_cost,
+            PartialCostFunction.O: cost_functions.orientation_offset_cost,
+            PartialCostFunction.L: cost_functions.path_length_cost,
             # PartialCostFunction.SA: cost_functions.steering_angle_cost,
             # PartialCostFunction.SR: cost_functions.steering_rate_cost,
             # PartialCostFunction.Y: cost_functions.yaw_cost,
             # PartialCostFunction.Vlon: cost_functions.longitudinal_velocity_offset_cost,
-            PartialCostFunction.O: cost_functions.orientation_offset_cost,
-            PartialCostFunction.L: cost_functions.path_length_cost,
             #PartialCostFunction.T: cost_functions.time_cost,
             #PartialCostFunction.ID: cost_functions.inverse_duration_cost,
         }
@@ -133,12 +133,21 @@ class AdaptableCostFunction(CostFunction):
         costlist = np.zeros(len(PartialCostFunctionMapping)+ len(PartialCostFunctionMapping_individual) + 1)
 
         for num, function in enumerate(PartialCostFunctionMapping):
-            costlist[num] = self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
+            if self.params[scenario][function.value] > 0:
+                costlist[num] = self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
 
         for num, function in enumerate(PartialCostFunctionMapping_individual):
-            costlist[num+len(PartialCostFunctionMapping)] = \
-                PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario, self.desired_speed,
-                                                                self.params[scenario][function.value])
+            active = False
+            if isinstance(self.params[scenario][function.value], list):
+                if any(self.params[scenario][function.value]) > 0:
+                    active = True
+            elif self.params[scenario][function.value] > 0:
+                active = True
+
+            if active:
+                costlist[num+len(PartialCostFunctionMapping)] = \
+                    PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario, self.desired_speed,
+                                                                    self.params[scenario][function.value])
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(

@@ -32,10 +32,12 @@ class DataLoggingCosts:
             "jerk_long_cost;"
             "orientation_cost;"
             "path_length_cost;"
+            "lane_center_offset_cost;"
+            "velocity_offset_cost;"
             "velocity_cost;"
-            "dist_reference_path_cost;"
+            "distance_to_reference_path_cost;"
+            "distance_to_obstacles_cost;"
             "prediction_cost;"
-            "dist_obj_cost"
         )
         file_name = "costs_logs.csv"
         if header_only:
