@@ -153,16 +153,19 @@ def run_planner(base_dir, scenario_name, log_path):
 
             # get visible objects if the prediction is used
             if config.prediction.walenet:
-                predictions = main_prediction(predictor, scenario, ego_state, config.prediction.sensor_radius, DT, [float(config.planning.planning_horizon)])
+                predictions = main_prediction(predictor, scenario, ego_state, config.prediction.sensor_radius, DT,
+                                              [float(config.planning.planning_horizon)])
                 # ignore Predictions in Cone Angle
                 if config.prediction.cone_angle > 0:
                     predictions = ignore_vehicles_in_cone_angle(predictions, ego_state, config.vehicle.length,
-                                                                config.prediction.cone_angle, config.prediction.cone_safety_dist)
+                                                                config.prediction.cone_angle,
+                                                                config.prediction.cone_safety_dist)
             else:
                 predictions = None
 
             # plan trajectory
-            optimal = planner.plan(x_0, predictions, x_cl)     # returns the planned (i.e., optimal) trajectory
+            optimal, tmn, tmn_ott = planner.plan(x_0, predictions,
+                                                 x_cl)  # returns the planned (i.e., optimal) trajectory
             comp_time_end = time.time()
             # END TIMER
 
@@ -171,8 +174,13 @@ def run_planner(base_dir, scenario_name, log_path):
             print(f"***Total Planning Time: {planning_times[-1]}")
 
             # if the planner fails to find an optimal trajectory -> terminate
-            if not optimal:
-                print("not optimal")
+            if not optimal or tmn:
+                if not optimal:
+                    print("not optimal")
+                if tmn and not tmn_ott:
+                    print("Scenario succeeded")
+                elif tmn and not tmn_ott:
+                    print("Scenario succeeded, but outside the time horizon")
                 break
 
             # if desired, store sampled trajectory bundle for visualization
@@ -231,8 +239,8 @@ def run_planner(base_dir, scenario_name, log_path):
         if config.debug.show_plots or config.debug.save_plots:
             visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle,
                                           traj_set=sampled_trajectory_bundle, ref_path=ref_path,
-                                          timestep=current_count, config=config, predictions=predictions, plot_window=config.debug.plot_window_dyn,
-                                          log_path=log_path)
+                                          timestep=current_count, config=config, predictions=predictions,
+                                          plot_window=config.debug.plot_window_dyn, log_path=log_path)
 
     # plot  final ego vehicle trajectory
     plot_final_trajectory(scenario, planning_problem, record_state_list, config)

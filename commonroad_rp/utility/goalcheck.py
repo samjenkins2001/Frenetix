@@ -9,6 +9,8 @@ class GoalReachedChecker:
         """__init__ function."""
         self.goal = planning_problem.goal
         self.status = []
+        self.goal_reached_message = False
+        self.goal_reached_message_oot = False
 
     def register_current_state(self, current_state):
         """Register the current state and check if in goal."""
