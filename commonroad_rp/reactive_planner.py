@@ -39,12 +39,6 @@ from commonroad_rp.configuration import Configuration, VehicleConfiguration
 from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
 
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
-
-from commonroad_helper_functions.exceptions import (
-    GoalReachedNotification,
-    NoGlobalPathFoundError,
-    ScenarioCompatibilityError,
-)
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
 
 # commonroad_sa imports
@@ -513,7 +507,9 @@ class ReactivePlanner(object):
 
             self._optimal_cost = optimal_trajectory.cost
 
-        return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
+        return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None, \
+               self.__goal_checker.goal_reached_message, self.__goal_checker.goal_reached_message_oot
+
 
     def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
         """
@@ -936,9 +932,8 @@ class ReactivePlanner(object):
     def __check_goal_reached(self):
         # Get the ego vehicle
         self.goal_checker.register_current_state(self.x_0)
-        if self.x_0.time_step == 50:
-            print("DDD")
         if self.goal_checker.goal_reached_status():
-            raise GoalReachedNotification("Goal reached in time!")
+            self.__goal_checker.goal_reached_message = True
         elif self.goal_checker.goal_reached_status(ignore_exceeded_time=True):
-            raise GoalReachedNotification("Goal reached but time exceeded!")
+            self.__goal_checker.goal_reached_message = True
+            self.__goal_checker.goal_reached_message_oot = True

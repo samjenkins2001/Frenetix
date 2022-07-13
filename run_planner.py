@@ -165,7 +165,7 @@ while not goal.is_reached(x_0):
             predictions = None
 
         # plan trajectory
-        optimal = planner.plan(x_0, predictions, x_cl)     # returns the planned (i.e., optimal) trajectory
+        optimal, tmn, tmn_ott = planner.plan(x_0, predictions, x_cl)     # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
         # END TIMER
 
@@ -174,8 +174,13 @@ while not goal.is_reached(x_0):
         print(f"***Total Planning Time: {planning_times[-1]}")
 
         # if the planner fails to find an optimal trajectory -> terminate
-        if not optimal:
-            print("not optimal")
+        if not optimal or tmn:
+            if not optimal:
+                print("not optimal")
+            if tmn and not tmn_ott:
+                print("Scenario succeeded")
+            elif tmn and not tmn_ott:
+                print("Scenario succeeded, but outside the time horizon")
             break
 
         # if desired, store sampled trajectory bundle for visualization
