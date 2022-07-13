@@ -50,7 +50,8 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
 
 def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
                                   timestep: int, config: Configuration, traj_set: List[TrajectorySample] = None,
-                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None):
+                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
+                                  log_path: str = None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -122,7 +123,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # save as .png file
     if config.debug.save_plots:
-        plot_dir = os.path.join(config.debug.save_logs_and_plots_path, "plots")
+        plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
         plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300,
                     bbox_inches='tight')

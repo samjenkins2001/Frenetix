@@ -59,7 +59,7 @@ class ReactivePlanner(object):
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
 
-    def __init__(self, config: Configuration, planning_problem):
+    def __init__(self, config: Configuration, planning_problem, log_path):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
@@ -121,7 +121,7 @@ class ReactivePlanner(object):
         self.save_all_traj = config.debug.save_all_traj
 
         # Logger
-        self.logger = DataLoggingCosts(config.debug.save_logs_and_plots_path, self.save_all_traj)
+        self.logger = DataLoggingCosts(log_path, self.save_all_traj)
 
         self.__goal_checker = GoalReachedChecker(planning_problem)
 

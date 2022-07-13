@@ -87,11 +87,6 @@ class SamplingConfiguration:
 class DebugConfiguration:
     """Class to store debug configurations"""
     def __init__(self, config: Union[ListConfig, DictConfig]):
-        path_to_logs = os.path.join(os.getcwd(), config.save_logs_and_plots_path)
-        # Delete empty log folders
-        hf.delete_empty_folders(path_to_logs)
-        path_to_logs = hf.create_time_in_date_folder(path_to_logs)
-        self.save_logs_and_plots_path = os.path.join(config.save_logs_and_plots_path,  path_to_logs)
         self.save_all_traj = config.save_all_traj
         self.show_plots = config.show_plots
         self.save_plots = config.save_plots
