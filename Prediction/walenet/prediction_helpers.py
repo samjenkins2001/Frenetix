@@ -332,11 +332,7 @@ def main_prediction(predictor, scenario, ego_state, sensor_radius, DT, t_list):
 
 def load_walenet(scenario, path_config: str = None):
     if not path_config:
-        path_config = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            "configurations",
-            "walenet_config.json",
-        )
+        path_config = os.path.join("configurations", "walenet_config.json")
     with open(path_config, "r") as f:
         online_args = json.load(f)
 

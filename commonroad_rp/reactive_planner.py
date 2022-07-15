@@ -476,7 +476,7 @@ class ReactivePlanner(object):
             optimal_trajectory = self._get_optimal_trajectory(bundle)
             if not self.save_all_traj and optimal_trajectory is not None:
                 self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                                infeasible_collision=self.infeasible_count_collision)
+                                infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0)
                 self.logger.log_pred(predictions)
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))

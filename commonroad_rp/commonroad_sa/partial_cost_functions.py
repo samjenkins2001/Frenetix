@@ -162,8 +162,8 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
     """
     cost = 0.0
     min_distance = 30.0
-    pos_x = trajectory.cartesian.x[-1]
-    pos_y = trajectory.cartesian.y[-1]
+    pos_x = trajectory.cartesian.x[1]
+    pos_y = trajectory.cartesian.y[1]
     for obstacle in scenario.dynamic_obstacles:
         state = obstacle.state_at_time(planner.x_0.time_step)
         if state is not None:

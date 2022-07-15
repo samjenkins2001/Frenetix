@@ -243,7 +243,7 @@ def run_planner(base_dir, scenario_name, log_path):
                                           plot_window=config.debug.plot_window_dyn, log_path=log_path)
 
     # plot  final ego vehicle trajectory
-    plot_final_trajectory(scenario, planning_problem, record_state_list, config)
+    plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
 
     # remove first element
     record_input_list.pop(0)

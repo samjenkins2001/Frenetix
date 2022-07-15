@@ -49,9 +49,8 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
 
 
 def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
-                                  timestep: int, config: Configuration, traj_set: List[TrajectorySample] = None,
-                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
-                                  log_path: str = None):
+                                  timestep: int, config: Configuration, log_path: str, traj_set: List[TrajectorySample] = None,
+                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -136,7 +135,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
 
 def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[State],
-                          config: Configuration, ref_path: np.ndarray = None):
+                          config: Configuration, log_path: str, ref_path: np.ndarray = None):
     """
     Function plots occupancies for a given CommonRoad trajectory (of the ego vehicle)
     :param scenario: CommonRoad scenario object
@@ -169,7 +168,7 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
 
     # save as .png file
     if config.debug.save_plots:
-        plot_dir = os.path.join(config.debug.save_logs_and_plots_path, "plots")
+        plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
         plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.png", format='png', dpi=300,
                     bbox_inches='tight')

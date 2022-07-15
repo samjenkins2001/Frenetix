@@ -21,7 +21,7 @@ class DataLoggingCosts:
 
         self.header = (
             "trajectory_number;"
-            "time;"
+            "planning_time;"
             "infeasible_kinematics;"
             "infeasible_collision;"
             "x_position;"
@@ -107,14 +107,15 @@ class DataLoggingCosts:
                 + json.dumps(str(costs[10]))
             )
 
-    def log(self, trajectory: TrajectorySample, infeasible_kinematics: int, infeasible_collision: int, collision: bool = False):
+    def log(self, trajectory: TrajectorySample, infeasible_kinematics: int, infeasible_collision: int, planning_time: float,
+            collision: bool = False):
         new_line = "\n" + str(self.trajectory_number)
 
         cartesian = trajectory._cartesian
         cost_list = trajectory._cost_list
 
         # log time
-        new_line += ";" + json.dumps(str(self.trajectory_number * trajectory.dt), default=default)
+        new_line += ";" + json.dumps(str(planning_time), default=default)
 
         # log infeasible
         new_line += ";" + json.dumps(str(infeasible_kinematics), default=default)
