@@ -87,7 +87,7 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, rp, predictions, timestep, scenario):
+    def __init__(self, rp, predictions, timestep, scenario, cost_function_path = None):
         super(AdaptableCostFunction, self).__init__()
         self.desired_speed = rp._desired_speed
         # self.desired_d = desired_d
@@ -99,7 +99,10 @@ class AdaptableCostFunction(CostFunction):
         self.scenario = scenario
         self.rp = rp
 
-        path = Path.cwd().joinpath("configurations/cost_weights.yaml")
+        if cost_function_path == None:
+            path = Path.cwd().joinpath("configurations/cost_weights.yaml")
+        else:
+            path = Path.cwd().joinpath(cost_function_path)
         if path.is_file():
             with path.open() as file:
                 self.params = yaml.load(file, Loader=yaml.FullLoader)

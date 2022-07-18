@@ -39,7 +39,7 @@ from Prediction.walenet.risk_assessment.collision_probability import ignore_vehi
 
 from commonroad_rp.utility import helper_functions as hf
 
-def run_planner(base_dir, scenario_name, log_path):
+def run_planner(base_dir, scenario_name, log_path, cost_function_path = None):
     # *************************************
     # Open CommonRoad scenario
     # *************************************
@@ -85,7 +85,7 @@ def run_planner(base_dir, scenario_name, log_path):
     # Initialize Planner
     # *************************************
     # initialize reactive planner
-    planner = ReactivePlanner(config, planning_problem, log_path)
+    planner = ReactivePlanner(config, planning_problem, log_path, cost_function_path)
     # set sampling parameters
     planner.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
     planner.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)

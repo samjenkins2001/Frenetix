@@ -41,9 +41,6 @@ from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
 
-# commonroad_sa imports
-from commonroad_rp.commonroad_sa.cost_adapter import DefaultCostAdapter
-
 
 # TODO: use mode parameter for longitudinal planning (point following, velocity following, stopping)
 # TODO: acceleration-based sampling
@@ -53,7 +50,7 @@ class ReactivePlanner(object):
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
 
-    def __init__(self, config: Configuration, planning_problem, log_path):
+    def __init__(self, config: Configuration, planning_problem, log_path, cost_function_path = None):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
@@ -113,6 +110,7 @@ class ReactivePlanner(object):
         # Debug mode
         self.debug_mode = config.debug.debug_mode
         self.save_all_traj = config.debug.save_all_traj
+        self.cost_function_path = cost_function_path
 
         # Logger
         self.logger = DataLoggingCosts(log_path, self.save_all_traj)
@@ -460,11 +458,8 @@ class ReactivePlanner(object):
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
-            # adapt the cost function
-            #adapter = DefaultCostAdapter()
-            #cost_function = adapter.adapt_cost_function(self._desired_speed)
-
-            cost_function = AdaptableCostFunction(rp=self, predictions=predictions, timestep=x_0.time_step, scenario=self.scenario)
+            cost_function = AdaptableCostFunction(rp=self, predictions=predictions, timestep=x_0.time_step,
+                                                  scenario=self.scenario, cost_function_path = self.cost_function_path)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)
