@@ -33,11 +33,9 @@ from commonroad_rp.utility.helper_functions import (
     get_goal_area_shape_group,
 )
 
-
 from Prediction.walenet.prediction_helpers import main_prediction, load_walenet
 from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
 
-from commonroad_rp.utility import helper_functions as hf
 
 def run_planner(base_dir, scenario_name, log_path, cost_function_path = None):
     # *************************************
@@ -241,6 +239,10 @@ def run_planner(base_dir, scenario_name, log_path, cost_function_path = None):
                                           traj_set=sampled_trajectory_bundle, ref_path=ref_path,
                                           timestep=current_count, config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn, log_path=log_path)
+        if planner.check_collision():
+            print("Collision Detected!")
+            break
+
 
     # plot  final ego vehicle trajectory
     plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
