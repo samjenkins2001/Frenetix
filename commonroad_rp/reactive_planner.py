@@ -931,3 +931,13 @@ class ReactivePlanner(object):
         elif self.goal_checker.goal_reached_status(ignore_exceeded_time=True):
             self.__goal_checker.goal_reached_message = True
             self.__goal_checker.goal_reached_message_oot = True
+
+    def check_collision(self):
+        ego = pycrcc.TimeVariantCollisionObject(self.x_0.time_step * self._factor)
+        ego.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
+                                           self.x_0.orientation, self.x_0.position[0], self.x_0.position[1]))
+        if not self.collision_checker.collide(ego):
+            return False
+        else:
+            return True
+
