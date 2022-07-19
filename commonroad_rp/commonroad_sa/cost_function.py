@@ -133,11 +133,13 @@ class AdaptableCostFunction(CostFunction):
             PartialCostFunction.DO: cost_functions.distance_to_obstacles_cost,
         }
 
-        costlist = np.zeros(len(PartialCostFunctionMapping)+ len(PartialCostFunctionMapping_individual) + 1)
+        total_cost = 0.0
+        costlist = np.zeros(len(PartialCostFunctionMapping) + len(PartialCostFunctionMapping_individual) + 1)
 
         for num, function in enumerate(PartialCostFunctionMapping):
             if self.params[scenario][function.value] > 0:
-                costlist[num] = self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
+                costlist[num] = PartialCostFunctionMapping[function](trajectory)
+                total_cost += self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
 
         for num, function in enumerate(PartialCostFunctionMapping_individual):
             active = False
@@ -148,9 +150,18 @@ class AdaptableCostFunction(CostFunction):
                 active = True
 
             if active:
-                costlist[num+len(PartialCostFunctionMapping)] = \
-                    PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario, self.desired_speed,
-                                                                    self.params[scenario][function.value])
+                if isinstance(self.params[scenario][function.value], list):
+                    params = np.array(self.params[scenario][function.value]) / min(self.params[scenario][function.value])
+                    costlist[num+len(PartialCostFunctionMapping)] = \
+                        PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario,
+                                                                        self.desired_speed, params)
+                else:
+                    costlist[num + len(PartialCostFunctionMapping)] = \
+                        PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario,
+                                                                        self.desired_speed, 1.0)
+                total_cost += PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario,
+                                                                              self.desired_speed,
+                                                                              self.params[scenario][function.value])
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(
@@ -158,10 +169,11 @@ class AdaptableCostFunction(CostFunction):
                 predictions=self.predictions,
                 vehicle_params=self.vehicle_params
             )
-            costlist[-1] = (self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
+            costlist[-1] = mahalanobis_costs * self.walenet_cost_factor
+            total_cost += (self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
 
         # Logging of Cost terms
         # self.costs_logger.trajectory_number = self.x_0.time_step
         # self.costs_logger.log_data(cost)
 
-        return np.sum(costlist), costlist
+        return total_cost, costlist
