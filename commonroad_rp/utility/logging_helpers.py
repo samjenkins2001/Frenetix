@@ -151,7 +151,7 @@ class DataLoggingCosts:
         with open(self.__prediction_log_path, "a") as fh:
             fh.write(new_line)
 
-    def log_collision(self, collision_with_obj, center, last_center, r_x, r_y, orientation):
+    def log_collision(self, collision_with_obj, center=None, last_center=None, r_x=None, r_y=None, orientation=None):
         self.collision_header = (
             "center_x;"
             "center_y;"
