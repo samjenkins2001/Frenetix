@@ -947,8 +947,9 @@ class ReactivePlanner(object):
                 r_x = obj.r_x()
                 r_y = obj.r_y()
                 orientation = obj.orientation()
-                self.logger.log_collision(True, center, last_center, r_x, r_y, orientation)
+                self.logger.log_collision(True, self.vehicle_params.length, self.vehicle_params.width, center,
+                                          last_center, r_x, r_y, orientation)
             else:
-                self.logger.log_collision(False)
+                self.logger.log_collision(False, self.vehicle_params.length, self.vehicle_params.width)
             return True
 

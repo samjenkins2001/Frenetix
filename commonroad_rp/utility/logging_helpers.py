@@ -21,7 +21,7 @@ class DataLoggingCosts:
 
         self.header = (
             "trajectory_number;"
-            "planning_time;"
+            "calculation_time;"
             "infeasible_kinematics;"
             "infeasible_collision;"
             "x_position;"
@@ -151,8 +151,10 @@ class DataLoggingCosts:
         with open(self.__prediction_log_path, "a") as fh:
             fh.write(new_line)
 
-    def log_collision(self, collision_with_obj, center=None, last_center=None, r_x=None, r_y=None, orientation=None):
+    def log_collision(self, collision_with_obj, ego_length, ego_width, center=None, last_center=None, r_x=None, r_y=None, orientation=None):
         self.collision_header = (
+            "ego_length;"
+            "ego_width;"
             "center_x;"
             "center_y;"
             "last_center_x;"
@@ -165,18 +167,21 @@ class DataLoggingCosts:
         with open(self.__collision_log_path, "w+") as fh:
             fh.write(self.collision_header)
 
+        new_line = "\n" + str(ego_length)
+        new_line += ";" + str(ego_width)
         if collision_with_obj:
-            new_line = "\n" + str(center[0])
-
+            new_line += ";" + str(center[0])
             new_line += ";" + str(center[1])
             new_line += ";" + str(last_center[0])
             new_line += ";" + str(last_center[1])
             new_line += ";" + str(r_x)
             new_line += ";" + str(r_y)
             new_line += ";" + str(orientation)
+        else:
+            new_line += ";None;None;None;None;None;None;None"
 
-            with open(self.__collision_log_path, "a") as fh:
-                fh.write(new_line)
+        with open(self.__collision_log_path, "a") as fh:
+            fh.write(new_line)
 
 
 def default(obj):
