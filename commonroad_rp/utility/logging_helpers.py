@@ -49,6 +49,7 @@ class DataLoggingCosts:
         )
         log_file_name = "logs.csv"
         prediction_file_name = "predictions.csv"
+        collision_file_name = "collision.csv"
         if header_only:
             return
         self.trajectory_number = 0
@@ -57,6 +58,7 @@ class DataLoggingCosts:
             os.makedirs(path_logs)
         self.__log_path = os.path.join(path_logs, log_file_name)
         self.__prediction_log_path = os.path.join(path_logs, prediction_file_name)
+        self.__collision_log_path = os.path.join(path_logs, collision_file_name)
         Path(os.path.dirname(self.__log_path)).mkdir(parents=True, exist_ok=True)
 
         # write header to logging file
@@ -148,6 +150,33 @@ class DataLoggingCosts:
 
         with open(self.__prediction_log_path, "a") as fh:
             fh.write(new_line)
+
+    def log_collision(self, collision_with_obj, center, last_center, r_x, r_y, orientation):
+        self.collision_header = (
+            "center_x;"
+            "center_y;"
+            "last_center_x;"
+            "last_center_y;"
+            "r_x;"
+            "r_y;"
+            "orientation"
+        )
+
+        with open(self.__collision_log_path, "w+") as fh:
+            fh.write(self.collision_header)
+
+        if collision_with_obj:
+            new_line = "\n" + str(center[0])
+
+            new_line += ";" + str(center[1])
+            new_line += ";" + str(last_center[0])
+            new_line += ";" + str(last_center[1])
+            new_line += ";" + str(r_x)
+            new_line += ";" + str(r_y)
+            new_line += ";" + str(orientation)
+
+            with open(self.__collision_log_path, "a") as fh:
+                fh.write(new_line)
 
 
 def default(obj):

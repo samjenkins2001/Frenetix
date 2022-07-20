@@ -38,8 +38,8 @@ from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, inte
 from commonroad_rp.configuration import Configuration, VehicleConfiguration
 from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
 
-from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
+from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
 
 # TODO: use mode parameter for longitudinal planning (point following, velocity following, stopping)
@@ -939,5 +939,16 @@ class ReactivePlanner(object):
         if not self.collision_checker.collide(ego):
             return False
         else:
+            collision_obj = self.collision_checker.find_all_colliding_objects(ego)[0]
+            if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
+                obj = collision_obj.obstacle_at_time(self.x_0.time_step)
+                center = obj.center()
+                last_center = collision_obj.obstacle_at_time(self.x_0.time_step-1).center()
+                r_x = obj.r_x()
+                r_y = obj.r_y()
+                orientation = obj.orientation()
+                self.logger.log_collision(True, center, last_center, r_x, r_y, orientation)
+            else:
+                self.logger.log_collision(False)
             return True
 
