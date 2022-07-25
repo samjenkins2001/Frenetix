@@ -9,9 +9,9 @@ planning:
   # planner mode TODO: modes not implemented yet
   mode: !!null
   # continuous collision checking
-  continuous_cc: False
+  continuous_cc: True
   # collision check in curvilinear coordinates
-  collision_check_in_cl: True
+  collision_check_in_cl: False
   # time scaling factor for collision checking if planner time step and scenario time step deviate
   factor: 1
   # velocity threshold (in m/s) for switching to low velocity mode
@@ -77,6 +77,8 @@ debug:
   draw_icons: True
   # draw sampled trajectory set
   draw_traj_set: True
+
+  kinematic_debug: True
   # set debug level: #0: print no debug info,  #1: print basic debug info,   #2: print all debug info
   debug_mode: 2
   # use multiprocessing True/False

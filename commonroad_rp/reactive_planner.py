@@ -84,7 +84,7 @@ class ReactivePlanner(object):
         # statistics
         self._total_count = 0
         self._infeasible_count_collision = 0
-        self._infeasible_count_kinematics = 0
+        self._infeasible_count_kinematics = np.zeros(9)
         self._optimal_cost = 0
         self._continuous_cc = config.planning.continuous_cc
         self._collision_check_in_cl = config.planning.collision_check_in_cl
@@ -107,6 +107,7 @@ class ReactivePlanner(object):
         self._num_workers = config.debug.num_workers
         # visualize trajectory set
         self._draw_traj_set = config.debug.draw_traj_set
+        self._kinematic_debug = config.debug.kinematic_debug
         # Debug mode
         self.debug_mode = config.debug.debug_mode
         self.save_all_traj = config.debug.save_all_traj
@@ -459,7 +460,7 @@ class ReactivePlanner(object):
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
             cost_function = AdaptableCostFunction(rp=self, predictions=predictions, timestep=x_0.time_step,
-                                                  scenario=self.scenario, cost_function_path = self.cost_function_path)
+                                                  scenario=self.scenario, cost_function_path=self.cost_function_path)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)
@@ -624,11 +625,13 @@ class ReactivePlanner(object):
                     if self.debug_mode >= 2:
                         print(f"Acceleration {np.max(np.abs(s_acceleration))}")
                     feasible = False
+                    self._infeasible_count_kinematics[1] += 1
                     continue
                 if np.any(s_velocity < -0.1):
                     if self.debug_mode >= 2:
                         print(f"Velocity {min(s_velocity)} at step")
                     feasible = False
+                    self._infeasible_count_kinematics[2] += 1
                     continue
 
             for i in range(0, traj_len):
@@ -658,7 +661,9 @@ class ReactivePlanner(object):
                 s_idx = np.argmax(self._co.ref_pos > s[i])
                 if s_idx + 1 >= len(self._co.ref_pos):
                     feasible = False
-                    break
+                    self._infeasible_count_kinematics[3] += 1
+                    if not self._kinematic_debug:
+                        break
 
                 # factor for interpolation
                 s_lambda = (self._co.ref_pos[s_idx] - s[i]) / (
@@ -715,20 +720,23 @@ class ReactivePlanner(object):
                 # velocity constraint
                 if abs(v[i]) < -0.1:
                     feasible = False
-                    if not self._draw_traj_set:
+                    self._infeasible_count_kinematics[4] += 1
+                    if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # curvature constraint
                 kappa_max = np.tan(self.vehicle_params.delta_max) / self.vehicle_params.wheelbase
                 if abs(kappa_gl[i]) > kappa_max:
                     feasible = False
-                    if not self._draw_traj_set:
+                    self._infeasible_count_kinematics[5] += 1
+                    if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # yaw rate (orientation change) constraint
                 yaw_rate = (theta_gl[i] - theta_gl[i-1]) / self.dT if i > 0 else 0.
                 theta_dot_max = kappa_max * v[i]
                 if abs(yaw_rate) > theta_dot_max:
                     feasible = False
-                    if not self._draw_traj_set:
+                    self._infeasible_count_kinematics[6] += 1
+                    if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # curvature rate constraint
                 steering_angle = np.arctan2(self.vehicle_params.wheelbase * yaw_rate, v[i])
@@ -736,7 +744,8 @@ class ReactivePlanner(object):
                                 math.cos(steering_angle) ** 2
                 if abs((kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.) > kappa_dot_max:
                     # feasible = False
-                    if not self._draw_traj_set:
+                    self._infeasible_count_kinematics[7] += 1
+                    if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # acceleration constraint (considering switching velocity, see vehicle models documentation)
                 v_switch = self.vehicle_params.v_switch
@@ -744,7 +753,8 @@ class ReactivePlanner(object):
                 a_min = -self.vehicle_params.a_max
                 if not a_min <= a[i] <= a_max:
                     feasible = False
-                    if not self._draw_traj_set:
+                    self._infeasible_count_kinematics[8] += 1
+                    if not self._draw_traj_set and not self._kinematic_debug:
                         break
 
             # if selected polynomial trajectory is feasible, store it's Cartesian and Curvilinear trajectory
@@ -812,7 +822,7 @@ class ReactivePlanner(object):
             if self._draw_traj_set:
                 queue_2.put(infeasible_trajectories)
         else:
-            return feasible_trajectories, infeasible_trajectories
+            return feasible_trajectories, infeasible_trajectories, self.infeasible_count_kinematics
 
     def _get_optimal_trajectory(self, trajectory_bundle: TrajectoryBundle) -> Union[TrajectorySample, None]:
         """
@@ -822,7 +832,7 @@ class ReactivePlanner(object):
         """
         # reset statistics
         self._infeasible_count_collision = 0
-        self._infeasible_count_kinematics = 0
+        self._infeasible_count_kinematics = np.zeros(9)
 
         # check kinematics of each trajectory
         if self._multiproc:
@@ -854,10 +864,10 @@ class ReactivePlanner(object):
                 p.join()
         else:
             # without multiprocessing
-            feasible_trajectories, infeasible_trajectories = self._check_kinematics(trajectory_bundle.trajectories)
+            feasible_trajectories, infeasible_trajectories, self._infeasible_count_kinematics = self._check_kinematics(trajectory_bundle.trajectories)
 
         # update number of infeasible trajectories
-        self._infeasible_count_kinematics = len(trajectory_bundle.trajectories) - len(feasible_trajectories)
+        self._infeasible_count_kinematics[0] = len(trajectory_bundle.trajectories) - len(feasible_trajectories)
 
         # for visualization store all trajectories
         if self._draw_traj_set:

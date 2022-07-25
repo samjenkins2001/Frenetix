@@ -22,7 +22,15 @@ class DataLoggingCosts:
         self.header = (
             "trajectory_number;"
             "calculation_time;"
-            "infeasible_kinematics;"
+            "infeasible_kinematics_sum;"
+            "inf_kin_acceleration;"
+            "inf_kin_negative_s_velocity_mps;"
+            "inf_kin_max_s_idx;"
+            "inf_kin_negative_v_velocity_mps;"
+            "inf_kin_max_curvature;"
+            "inf_kin_yaw_rate;"
+            "inf_kin_max_curvature_rate;"
+            "inf_kin_vehicle_acc;"
             "infeasible_collision;"
             "x_position;"
             "y_position;"
@@ -109,7 +117,7 @@ class DataLoggingCosts:
                 + json.dumps(str(costs[10]))
             )
 
-    def log(self, trajectory: TrajectorySample, infeasible_kinematics: int, infeasible_collision: int, planning_time: float,
+    def log(self, trajectory: TrajectorySample, infeasible_kinematics, infeasible_collision: int, planning_time: float,
             collision: bool = False):
         new_line = "\n" + str(self.trajectory_number)
 
@@ -120,7 +128,8 @@ class DataLoggingCosts:
         new_line += ";" + json.dumps(str(planning_time), default=default)
 
         # log infeasible
-        new_line += ";" + json.dumps(str(infeasible_kinematics), default=default)
+        for kin in infeasible_kinematics:
+            new_line += ";" + json.dumps(str(kin), default=default)
         new_line += ";" + json.dumps(str(infeasible_collision), default=default)
 
         # log position

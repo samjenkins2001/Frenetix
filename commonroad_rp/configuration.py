@@ -96,6 +96,7 @@ class DebugConfiguration:
         self.debug_mode = config.debug_mode
         self.multiproc = config.multiproc
         self.num_workers = config.num_workers
+        self.kinematic_debug= config.kinematic_debug
 
 
 def build_configuration(name_scenario: str = None, dir_config: str = "configurations") -> Configuration:
