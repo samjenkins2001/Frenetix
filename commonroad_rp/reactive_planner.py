@@ -542,7 +542,7 @@ class ReactivePlanner(object):
                                           sss=np.repeat(x_0_lon[2], self.N), current_time_step=self.N)
         return p
 
-    def _check_kinematics(self, trajectories: List[TrajectorySample], queue_1=None, queue_2=None):
+    def _check_kinematics(self, trajectories: List[TrajectorySample], queue_1=None, queue_2=None, queue_3=None):
         """
         Checks the kinematics of given trajectories in a bundle and computes the cartesian trajectory information
         Lazy evaluation, only kinematically feasible trajectories are evaluated further
@@ -550,11 +550,12 @@ class ReactivePlanner(object):
         :param trajectories: The list of trajectory samples to check
         :param queue_1: Multiprocessing.Queue() object for storing feasible trajectories
         :param queue_2: Multiprocessing.Queue() object for storing infeasible trajectories (only vor visualization)
+        :param queue_3: Multiprocessing.Queue() object for storing reason for infeasible trajectory in list
         :return: The list of output trajectories
         """
         # initialize lists for output trajectories
         # infeasible trajectory list is only used for visualization when self._draw_traj_set is True
-        infeasible_count_kinematics = np.zeros(9)
+        infeasible_count_kinematics = [0] * 9
         feasible_trajectories = list()
         infeasible_trajectories = list()
 
@@ -822,6 +823,8 @@ class ReactivePlanner(object):
             # if visualization is required: store infeasible trajectories in Queue 1
             if self._draw_traj_set:
                 queue_2.put(infeasible_trajectories)
+            if self._kinematic_debug:
+                queue_3.put(infeasible_count_kinematics)
         else:
             return feasible_trajectories, infeasible_trajectories, infeasible_count_kinematics
 
@@ -849,8 +852,10 @@ class ReactivePlanner(object):
             queue_1 = multiprocessing.Queue()
             infeasible_trajectories = []
             queue_2 = multiprocessing.Queue()
+            infeasible_count_kinematics = [0] * 9
+            queue_3 = multiprocessing.Queue()
             for chunk in chunks:
-                p = Process(target=self._check_kinematics, args=(chunk, queue_1, queue_2))
+                p = Process(target=self._check_kinematics, args=(chunk, queue_1, queue_2, queue_3))
                 list_processes.append(p)
                 p.start()
 
@@ -859,15 +864,19 @@ class ReactivePlanner(object):
                 feasible_trajectories.extend(queue_1.get())
                 if self._draw_traj_set:
                     infeasible_trajectories.extend(queue_2.get())
+                if self._kinematic_debug:
+                    temp = queue_3.get()
+                    infeasible_count_kinematics = [x + y for x, y in zip(infeasible_count_kinematics, temp)]
 
             # wait for all processes to finish
             for p in list_processes:
                 p.join()
         else:
             # without multiprocessing
-            feasible_trajectories, infeasible_trajectories, self._infeasible_count_kinematics = self._check_kinematics(trajectory_bundle.trajectories)
+            feasible_trajectories, infeasible_trajectories, infeasible_count_kinematics = self._check_kinematics(trajectory_bundle.trajectories)
 
         # update number of infeasible trajectories
+        self._infeasible_count_kinematics = infeasible_count_kinematics
         self._infeasible_count_kinematics[0] = len(trajectory_bundle.trajectories) - len(feasible_trajectories)
 
         # for visualization store all trajectories

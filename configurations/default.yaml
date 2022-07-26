@@ -82,6 +82,6 @@ debug:
   # set debug level: #0: print no debug info,  #1: print basic debug info,   #2: print all debug info
   debug_mode: 2
   # use multiprocessing True/False
-  multiproc: False
+  multiproc: True
   # number of workers for multiprocessing
   num_workers: 6
