@@ -51,7 +51,7 @@ def run_planner(config, log_path, cost_function_path=None):
     # *************************************
     # initial state configuration
     problem_init_state = planning_problem.initial_state
-    current_velocity = problem_init_state.velocity
+
     if not hasattr(problem_init_state, 'acceleration'):
         problem_init_state.acceleration = 0.
     x_0 = deepcopy(problem_init_state)
@@ -59,13 +59,9 @@ def run_planner(config, log_path, cost_function_path=None):
     # goal state configuration
     goal = planning_problem.goal
     if hasattr(planning_problem.goal.state_list[0], 'velocity'):
-        if planning_problem.goal.state_list[0].velocity.start != 0:
-            desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[0].velocity.end) / 2
-        else:
-            desired_velocity = (planning_problem.goal.state_list[0].velocity.start
-                                + planning_problem.goal.state_list[0].velocity.end) / 2
+        desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[0].velocity.end) / 2
     else:
-        desired_velocity = x_0.velocity
+        desired_velocity = x_0.velocity + 5
 
 
     # *************************************
@@ -151,8 +147,7 @@ def run_planner(config, log_path, cost_function_path=None):
                 predictions = None
 
             # plan trajectory
-            optimal, tmn, tmn_ott = planner.plan(x_0, predictions,
-                                                 x_cl)  # returns the planned (i.e., optimal) trajectory
+            optimal, tmn, tmn_ott = planner.plan(x_0, predictions, x_cl)  # returns the planned (i.e., optimal) trajectory
             comp_time_end = time.time()
             # END TIMER
 
@@ -237,7 +232,7 @@ def run_planner(config, log_path, cost_function_path=None):
     plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
 
     # make gif
-    make_gif(config, scenario, range(0, current_count + 1))
+    # make_gif(config, scenario, range(0, current_count + 1))
 
     # remove first element
     record_input_list.pop(0)

@@ -16,8 +16,7 @@ import commonroad_rp.trajectories
 import commonroad_rp.commonroad_sa.partial_cost_functions as cost_functions
 
 from Prediction.walenet.risk_assessment.collision_probability import (
-    get_mahalanobis_dist_dict,
-    ignore_vehicles_in_cone_angle
+    get_mahalanobis_dist_dict
 )
 
 
@@ -134,11 +133,13 @@ class AdaptableCostFunction(CostFunction):
 
         total_cost = 0.0
         costlist = np.zeros(len(PartialCostFunctionMapping) + len(PartialCostFunctionMapping_individual) + 1)
+        costlist_weighted = np.zeros(len(PartialCostFunctionMapping) + len(PartialCostFunctionMapping_individual) + 1)
 
         for num, function in enumerate(PartialCostFunctionMapping):
             if self.params[scenario][function.value] > 0:
                 costlist[num] = PartialCostFunctionMapping[function](trajectory)
-                total_cost += self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
+                costlist_weighted[num] = self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
+                total_cost += costlist_weighted[num]
 
         for num, function in enumerate(PartialCostFunctionMapping_individual):
             active = False
@@ -154,13 +155,18 @@ class AdaptableCostFunction(CostFunction):
                     costlist[num+len(PartialCostFunctionMapping)] = \
                         PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario,
                                                                         self.desired_speed, params)
-                else:
-                    costlist[num + len(PartialCostFunctionMapping)] = \
+                    costlist_weighted[num+len(PartialCostFunctionMapping)] = \
                         PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario,
-                                                                        self.desired_speed, 1.0)
-                total_cost += PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario,
-                                                                              self.desired_speed,
-                                                                              self.params[scenario][function.value])
+                                                                        self.desired_speed, self.params[scenario][function.value])
+                else:
+                    costlist[num + len(PartialCostFunctionMapping)] = PartialCostFunctionMapping_individual[function](
+                                                                        trajectory, self.rp, self.scenario,
+                                                                        self.desired_speed, 1)
+                    costlist_weighted[num + len(PartialCostFunctionMapping)] = PartialCostFunctionMapping_individual[function](
+                                                                        trajectory, self.rp, self.scenario,
+                                                                        self.desired_speed,
+                                                                        self.params[scenario][function.value])
+                total_cost += costlist_weighted[num + len(PartialCostFunctionMapping)]
 
         if self.predictions is not None:
             mahalanobis_costs = get_mahalanobis_dist_dict(
@@ -168,11 +174,12 @@ class AdaptableCostFunction(CostFunction):
                 predictions=self.predictions,
                 vehicle_params=self.vehicle_params
             )
-            costlist[-1] = mahalanobis_costs * self.params[scenario]["P"]
-            total_cost += mahalanobis_costs * self.params[scenario]["P"]
+            costlist[-1] = mahalanobis_costs
+            costlist_weighted[-1] = mahalanobis_costs * self.params[scenario]["P"]
+            total_cost += costlist_weighted[-1]
 
         # Logging of Cost terms
         # self.costs_logger.trajectory_number = self.x_0.time_step
         # self.costs_logger.log_data(cost)
 
-        return total_cost, costlist
+        return total_cost, costlist_weighted

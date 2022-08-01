@@ -168,7 +168,7 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
         if state is not None:
             dist = np.sqrt((state.position[0] - pos_x[0])**2 + (state.position[1]-pos_y[0])**2)
             if dist < min_distance:
-                cost += (dist-min_distance)**2
+                cost += (dist - min_distance) ** 2
             dist = np.sqrt((state.position[0] - pos_x[1]) ** 2 + (state.position[1] - pos_y[1]) ** 2)
             if dist < min_distance:
                 cost += (dist - min_distance) ** 2
