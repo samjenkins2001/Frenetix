@@ -490,7 +490,7 @@ class ReactivePlanner(object):
             # increase sampling level (i.e., density) if no optimal trajectory could be found
             i = i + 1
 
-        if optimal_trajectory is None and x_0.velocity <= 0.5:
+        if optimal_trajectory is None: # and x_0.velocity <= 0.5:
             print('<ReactivePlanner>: planning standstill for the current scenario')
             optimal_trajectory = self._compute_standstill_trajectory(x_0, x_0_lon, x_0_lat)
 
