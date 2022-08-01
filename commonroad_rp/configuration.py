@@ -8,7 +8,6 @@ from commonroad.common.solution import VehicleType
 
 # commonroad-dc
 from commonroad_dc.feasibility.vehicle_dynamics import VehicleParameterMapping
-from commonroad_rp.utility import helper_functions as hf
 
 
 class Configuration:
@@ -22,13 +21,15 @@ class Configuration:
         self.vehicle: VehicleConfiguration = VehicleConfiguration(config.vehicle)
         self.sampling: SamplingConfiguration = SamplingConfiguration(config.sampling)
         self.debug: DebugConfiguration = DebugConfiguration(config.debug)
+        self.general: GeneralConfiguration = GeneralConfiguration(config.general)
 
 
 class PlanningConfiguration:
     """Class to store all planning configurations"""
     def __init__(self, config: Union[ListConfig, DictConfig]):
         self.dt = config.dt
-        self.planning_horizon = config.planning_horizon
+        self.time_steps_computation = config.time_steps_computation
+        self.planning_horizon = config.dt * config.time_steps_computation
         self.replanning_frequency = config.replanning_frequency
         self.mode = config.mode
         self.continuous_cc = config.continuous_cc
@@ -99,23 +100,32 @@ class DebugConfiguration:
         self.kinematic_debug= config.kinematic_debug
 
 
-def build_configuration(name_scenario: str = None, dir_config: str = "configurations") -> Configuration:
-    """
-    Builds configuration object by merging default, scenario-specific and commandline (CLI) configurations.
-    :param name_scenario
-    :param dir_config
-    """
-    conf_default = OmegaConf.load(os.path.join("configurations", "default.yaml"))
+class GeneralConfiguration:
+    def __init__(self, config: Union[ListConfig, DictConfig]):
+        name_scenario = config.name_scenario
 
-    path_scenario_config = dir_config + f"/{name_scenario}.yaml"
-    if os.path.exists(path_scenario_config):
-        conf_scenario = OmegaConf.load(path_scenario_config)
-    else:
-        conf_scenario = OmegaConf.create()
-        print("No scenario-specific config file provided ... Using Default Configuration")
+        self.path_scenarios = config.path_scenarios
+        self.path_scenario = config.path_scenarios + name_scenario + ".xml"
+        self.path_output = config.path_output
 
-    conf_cli = OmegaConf.from_cli()
-
-    config_merged = OmegaConf.merge(conf_default, conf_scenario, conf_cli)
-    return Configuration(config_merged)
-
+#
+# def build_configuration(name_scenario: str = None, dir_config: str = "configurations") -> Configuration:
+#     """
+#     Builds configuration object by merging default, scenario-specific and commandline (CLI) configurations.
+#     :param name_scenario
+#     :param dir_config
+#     """
+#     conf_default = OmegaConf.load(os.path.join("configurations", "default.yaml"))
+#
+#     path_scenario_config = dir_config + f"/{name_scenario}.yaml"
+#     if os.path.exists(path_scenario_config):
+#         conf_scenario = OmegaConf.load(path_scenario_config)
+#     else:
+#         conf_scenario = OmegaConf.create()
+#         print("No scenario-specific config file provided ... Using Default Configuration")
+#
+#     conf_cli = OmegaConf.from_cli()
+#
+#     config_merged = OmegaConf.merge(conf_default, conf_scenario, conf_cli)
+#     return Configuration(config_merged)
+#

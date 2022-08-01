@@ -1,0 +1,18 @@
+# show/save plots
+save_all_traj: False
+show_plots: False
+save_plots: True
+# plot vehicle position with x_y distance in meters. 0=Standard Plot
+plot_window_dyn: 20
+# draw obstacles with vehicle icons
+draw_icons: True
+# draw sampled trajectory set
+draw_traj_set: True
+
+kinematic_debug: True
+# set debug level: #0: print no debug info,  #1: print basic debug info,   #2: print all debug info
+debug_mode: 2
+# use multiprocessing True/False
+multiproc: True
+# number of workers for multiprocessing
+num_workers: 6

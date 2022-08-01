@@ -490,7 +490,6 @@ class TrajectoryBundle:
         if not self._is_sorted:
             for trajectory in self._trajectory_bundle:
                 trajectory.cost = self._cost_function
-
             self._trajectory_bundle.sort(key=lambda x: x.cost)
             self._is_sorted = True
 
