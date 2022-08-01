@@ -104,7 +104,7 @@ class GeneralConfiguration:
         name_scenario = config.name_scenario
 
         self.path_scenarios = config.path_scenarios
-        self.path_scenario = config.path_scenarios + name_scenario + ".xml"
+        self.path_scenario = name_scenario  # config.path_scenarios + name_scenario + ".xml"
         self.path_output = config.path_output
 
 #
