@@ -168,7 +168,7 @@ class AdaptableCostFunction(CostFunction):
                 predictions=self.predictions,
                 vehicle_params=self.vehicle_params
             )
-            costlist[-1] = mahalanobis_costs * self.params[scenario]["P"]
+            costlist[-1] = mahalanobis_costs
             total_cost += mahalanobis_costs * self.params[scenario]["P"]
 
         # Logging of Cost terms
