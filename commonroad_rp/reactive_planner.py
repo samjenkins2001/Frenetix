@@ -62,9 +62,6 @@ class ReactivePlanner(object):
         self._factor = config.planning.factor
         self._check_valid_settings()
 
-        # Prediction Params
-        self.walenet_cost_factor = config.prediction.walenet_cost_factor
-
         # get vehicle parameters from config file
         self.vehicle_params: VehicleConfiguration = config.vehicle
 

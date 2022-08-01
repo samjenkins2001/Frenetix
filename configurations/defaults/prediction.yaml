@@ -2,6 +2,5 @@
 walenet: True
 # Sensor Radius in Meter
 sensor_radius: 20
-walenet_cost_factor: 10000
 cone_angle: 60
-cone_safety_dist: 5
+cone_safety_dist: 2

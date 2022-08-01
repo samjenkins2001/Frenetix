@@ -3,7 +3,7 @@ from commonroad_rp.configuration_builder import ConfigurationBuilder
 
 if __name__ == '__main__':
 
-    scenario_name = "USA_US101-12_4_T-1"
+    scenario_name = "DEU_Flensburg-24_1_T-1"
 
     config = ConfigurationBuilder.build_configuration(scenario_name)
     log_path = "./logs/"+scenario_name

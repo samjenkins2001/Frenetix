@@ -76,8 +76,7 @@ def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
 
 
 def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
-                    planner=None, scenario=None,
-                    desired_speed: float=0, weights=None) -> float:
+                    planner=None, scenario=None, desired_speed: float=0, weights=None) -> float:
     """
     Calculate the average distance of the trajectory to the center line of a lane.
 

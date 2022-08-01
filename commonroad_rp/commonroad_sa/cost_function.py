@@ -93,7 +93,6 @@ class AdaptableCostFunction(CostFunction):
         # self.desired_d = desired_d
         self.predictions = predictions
         self.vehicle_params = rp.vehicle_params
-        self.walenet_cost_factor = rp.walenet_cost_factor
         #self.costs_logger = rp.costs_logger
         self.timestep = timestep
         self.scenario = scenario
@@ -169,8 +168,8 @@ class AdaptableCostFunction(CostFunction):
                 predictions=self.predictions,
                 vehicle_params=self.vehicle_params
             )
-            costlist[-1] = mahalanobis_costs * self.walenet_cost_factor
-            total_cost += (self.params[scenario]["P"] * mahalanobis_costs * self.walenet_cost_factor)
+            costlist[-1] = mahalanobis_costs * self.params[scenario]["P"]
+            total_cost += mahalanobis_costs * self.params[scenario]["P"]
 
         # Logging of Cost terms
         # self.costs_logger.trajectory_number = self.x_0.time_step
