@@ -18,6 +18,7 @@ from commonroad.scenario.trajectory import State
 
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
+from commonroad_rp.utility import helper_functions as hf
 
 # reactive planner
 from commonroad_rp.reactive_planner import ReactivePlanner
@@ -127,7 +128,7 @@ def run_planner(config, log_path, cost_function_path=None):
             # START TIMER
             comp_time_start = time.time()
             # set desired velocity
-            current_velocity = x_0.velocity
+            desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
             planner.set_desired_velocity(desired_velocity)
             if current_count > 1:
                 ego_state = new_state

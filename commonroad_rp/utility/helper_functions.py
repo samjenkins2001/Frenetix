@@ -12,6 +12,92 @@ from commonroad_dc.pycrcc import ShapeGroup
 import commonroad_dc.pycrcc as pycrcc
 
 
+def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_velocity) -> float:
+    try:
+        # if the goal is not reached yet, try to reach it
+        # get the center points of the possible goal positions
+        goal_centers = []
+        # get the goal lanelet ids if they are given directly in the planning problem
+        if (
+                hasattr(planning_problem.goal, "lanelets_of_goal_position")
+                and planning_problem.goal.lanelets_of_goal_position is not None
+        ):
+            goal_lanelet_ids = planning_problem.goal.lanelets_of_goal_position[0]
+            for lanelet_id in goal_lanelet_ids:
+                lanelet = scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
+                n_center_vertices = len(lanelet.center_vertices)
+                goal_centers.append(lanelet.center_vertices[int(n_center_vertices / 2.0)])
+        elif hasattr(planning_problem.goal.state_list[0], "position"):
+            # get lanelet id of the ending lanelet (of goal state), this depends on type of goal state
+            if hasattr(planning_problem.goal.state_list[0].position, "center"):
+                goal_centers.append(planning_problem.goal.state_list[0].position.center)
+        # if it is a survival scenario with no goal areas, no velocity can be proposed
+        else:
+            return 0.0
+
+        distances = []
+        for goal_center in goal_centers:
+            distances.append(distance(goal_center, state.position))
+
+        # calculate the average distance to the goal positions
+        avg_dist = np.mean(distances)
+
+        _, max_remaining_time_steps = calc_remaining_time_steps(
+            planning_problem=planning_problem,
+            ego_state_time=state.time_step,
+            t=0.0,
+            dt=DT,
+        )
+        remaining_time = max_remaining_time_steps * DT
+
+        # if there is time remaining, calculate the difference between the average desired velocity and the velocity of the trajectory
+        if remaining_time > 0.0:
+            desired_velocity_new = avg_dist / remaining_time
+        else:
+            desired_velocity_new = 1
+
+    except:
+        print("Could not calculate desired velocity")
+        desired_velocity_new = desired_velocity
+
+    if np.abs(desired_velocity - desired_velocity_new) > 5:
+        if desired_velocity_new > desired_velocity:
+            desired_velocity_new = desired_velocity + 2
+        else:
+            desired_velocity_new = desired_velocity - 2
+
+    return desired_velocity_new
+
+
+def calc_remaining_time_steps(
+    ego_state_time: float, t: float, planning_problem, dt: float
+):
+    """
+    Get the minimum and maximum amount of remaining time steps.
+
+    Args:
+        ego_state_time (float): Current time of the state of the ego vehicle.
+        t (float): Checked time.
+        planning_problem (PlanningProblem): Considered planning problem.
+        dt (float): Time step size of the scenario.
+
+    Returns:
+        int: Minimum remaining time steps.
+        int: Maximum remaining time steps.
+    """
+    considered_time_step = int(ego_state_time + t / dt)
+    if hasattr(planning_problem.goal.state_list[0], "time_step"):
+        min_remaining_time = (
+            planning_problem.goal.state_list[0].time_step.start - considered_time_step
+        )
+        max_remaining_time = (
+            planning_problem.goal.state_list[0].time_step.end - considered_time_step
+        )
+        return min_remaining_time, max_remaining_time
+    else:
+        return False
+
+
 def create_tvobstacle(
     traj_list: [[float]], box_length: float, box_width: float, start_time_step: int
 ):

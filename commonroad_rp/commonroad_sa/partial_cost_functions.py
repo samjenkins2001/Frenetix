@@ -14,6 +14,7 @@ from scipy.integrate import simps
 import commonroad_dc.pycrcc as pycrcc
 from shapely.geometry import LineString, Point
 from commonroad_rp.utility.helper_functions import distance
+from commonroad_rp.utility import helper_functions as hf
 
 
 def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
@@ -264,7 +265,7 @@ def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
     avg_dist = np.mean(distances)
 
     # get the remaining time
-    _, max_remaining_time_steps = calc_remaining_time_steps(
+    _, max_remaining_time_steps = hf.calc_remaining_time_steps(
         planning_problem=planner.planning_problem,
         ego_state_time=planner.x_0.time_step,
         t=0.0,
@@ -306,35 +307,6 @@ def reached_target_position(pos: np.array, goal_area):
         return True
 
     return False
-
-
-def calc_remaining_time_steps(
-    ego_state_time: float, t: float, planning_problem, dt: float
-):
-    """
-    Get the minimum and maximum amount of remaining time steps.
-
-    Args:
-        ego_state_time (float): Current time of the state of the ego vehicle.
-        t (float): Checked time.
-        planning_problem (PlanningProblem): Considered planning problem.
-        dt (float): Time step size of the scenario.
-
-    Returns:
-        int: Minimum remaining time steps.
-        int: Maximum remaining time steps.
-    """
-    considered_time_step = int(ego_state_time + t / dt)
-    if hasattr(planning_problem.goal.state_list[0], "time_step"):
-        min_remaining_time = (
-            planning_problem.goal.state_list[0].time_step.start - considered_time_step
-        )
-        max_remaining_time = (
-            planning_problem.goal.state_list[0].time_step.end - considered_time_step
-        )
-        return min_remaining_time, max_remaining_time
-    else:
-        return False
 
 
 def dist_to_nearest_point(center_vertices: np.ndarray, pos: np.array):
