@@ -25,7 +25,6 @@ from commonroad_rp.reactive_planner import ReactivePlanner
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states
-from commonroad_rp.utility.utils_coordinate_system import preprocess_ref_path, extrapolate_ref_path
 from commonroad_rp.utility.helper_functions import (
     get_goal_area_shape_group,
 )

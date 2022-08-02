@@ -468,7 +468,6 @@ class ReactivePlanner(object):
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)
-            #bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, predictions, samp_level=i)
 
             # get optimal trajectory
             t0 = time.time()
