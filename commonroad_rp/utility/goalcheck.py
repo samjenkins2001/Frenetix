@@ -15,12 +15,13 @@ class GoalReachedChecker:
     def register_current_state(self, current_state):
         """Register the current state and check if in goal."""
         self.status = []
+        self.current_time = current_state.time_step
         for goal_state in self.goal.state_list:
             state_status = {}
             normalized_state = self._normalize_states(current_state, goal_state)
             self._check_position(normalized_state, goal_state, state_status)
             self._check_orientation(normalized_state, goal_state, state_status)
-            self._check_velocity(normalized_state, goal_state, state_status)
+            # self._check_velocity(normalized_state, goal_state, state_status)
             self._check_time_step(normalized_state, goal_state, state_status)
             self.status.append(state_status)
 
@@ -29,10 +30,12 @@ class GoalReachedChecker:
         for state_status in copy.deepcopy(self.status):
             if "time_step" in state_status:
                 timing_flag = state_status.pop("timing_flag")
-            if all(list(state_status.values())):
-                return True
-            elif state_status["position"]:
-                return True
+            if 'position' in state_status:
+                if state_status['position']:
+                    return True
+            if not 'position' in state_status and 'time_step' in state_status:
+                if self.current_time > self.goal.state_list[0].time_step.end:
+                    return True
             elif "time_step" in state_status:
                 _ = state_status.pop("time_step")
                 if (
