@@ -499,7 +499,7 @@ class ReactivePlanner(object):
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Could not find any trajectory out of {} trajectories'.format(
                     sum([self._get_no_of_samples(i) for i in range(self._sampling_level)])))
-        else:
+        elif bundle.trajectories:
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Found optimal trajectory with costs = {}, which corresponds to {} percent '
                       'of seen costs'.format(optimal_trajectory.cost, ((optimal_trajectory.cost - bundle.min_costs().cost) / (
