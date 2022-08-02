@@ -774,7 +774,8 @@ class ReactivePlanner(object):
                     else:
                         feasible = False
                         if self.debug_mode >= 2:
-                            print("Out of projection domain")
+                            # print("Out of projection domain")
+                            pass
                         break
 
                 if feasible:

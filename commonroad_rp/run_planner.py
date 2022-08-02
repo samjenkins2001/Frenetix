@@ -120,7 +120,7 @@ def run_planner(config, log_path, cost_function_path=None):
     new_state = None
 
     # Run planner
-    while not goal.is_reached(x_0):
+    while not goal.is_reached(x_0) and current_count < config.general.max_steps:
         current_count = len(record_state_list) - 1
         if current_count % config.planning.replanning_frequency == 0:
             # new planning cycle -> plan a new optimal trajectory
@@ -233,7 +233,7 @@ def run_planner(config, log_path, cost_function_path=None):
     plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
 
     # make gif
-    # make_gif(config, scenario, range(0, current_count + 1))
+    # make_gif(config, scenario, range(0, current_count), log_path)
 
     # remove first element
     record_input_list.pop(0)

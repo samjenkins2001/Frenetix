@@ -106,6 +106,7 @@ class GeneralConfiguration:
         self.path_scenarios = config.path_scenarios
         self.path_scenario = name_scenario  # config.path_scenarios + name_scenario + ".xml"
         self.path_output = config.path_output
+        self.max_steps = config.max_steps
 
 #
 # def build_configuration(name_scenario: str = None, dir_config: str = "configurations") -> Configuration:
