@@ -491,7 +491,12 @@ class ReactivePlanner(object):
 
         if optimal_trajectory is None: # and x_0.velocity <= 0.5:
             print('<ReactivePlanner>: planning standstill for the current scenario')
+            t0 = time.time()
+            self.logger.trajectory_number = x_0.time_step
             optimal_trajectory = self._compute_standstill_trajectory(x_0, x_0_lon, x_0_lat)
+            self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
+                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0)
+            self.logger.log_pred(predictions)
 
         # check if feasible trajectory exists -> emergency mode
         if optimal_trajectory is None:
