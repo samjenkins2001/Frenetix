@@ -198,7 +198,7 @@ class CartesianSample(Sample):
 
         # enlarge velocities by considering acceleration
         # TODO remove a?
-        v_temp = self.v[steps_tmp] + t * self.a[-1]
+        v_temp = self.v[last_time_step] + t * self.a[-1]
         # remove negative velocities
         v_temp = v_temp * np.greater_equal(v_temp, 0)
 
