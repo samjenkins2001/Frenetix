@@ -107,25 +107,3 @@ class GeneralConfiguration:
         self.path_scenario = name_scenario  # config.path_scenarios + name_scenario + ".xml"
         self.path_output = config.path_output
         self.max_steps = config.max_steps
-
-#
-# def build_configuration(name_scenario: str = None, dir_config: str = "configurations") -> Configuration:
-#     """
-#     Builds configuration object by merging default, scenario-specific and commandline (CLI) configurations.
-#     :param name_scenario
-#     :param dir_config
-#     """
-#     conf_default = OmegaConf.load(os.path.join("configurations", "default.yaml"))
-#
-#     path_scenario_config = dir_config + f"/{name_scenario}.yaml"
-#     if os.path.exists(path_scenario_config):
-#         conf_scenario = OmegaConf.load(path_scenario_config)
-#     else:
-#         conf_scenario = OmegaConf.create()
-#         print("No scenario-specific config file provided ... Using Default Configuration")
-#
-#     conf_cli = OmegaConf.from_cli()
-#
-#     config_merged = OmegaConf.merge(conf_default, conf_scenario, conf_cli)
-#     return Configuration(config_merged)
-#
