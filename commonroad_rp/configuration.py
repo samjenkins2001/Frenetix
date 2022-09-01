@@ -112,24 +112,3 @@ class GeneralConfiguration:
 class CostConfiguration:
     def __init__(self, config: Union[ListConfig, DictConfig]):
         self.params = config.params
-#
-# def build_configuration(name_scenario: str = None, dir_config: str = "configurations") -> Configuration:
-#     """
-#     Builds configuration object by merging default, scenario-specific and commandline (CLI) configurations.
-#     :param name_scenario
-#     :param dir_config
-#     """
-#     conf_default = OmegaConf.load(os.path.join("configurations", "default.yaml"))
-#
-#     path_scenario_config = dir_config + f"/{name_scenario}.yaml"
-#     if os.path.exists(path_scenario_config):
-#         conf_scenario = OmegaConf.load(path_scenario_config)
-#     else:
-#         conf_scenario = OmegaConf.create()
-#         print("No scenario-specific config file provided ... Using Default Configuration")
-#
-#     conf_cli = OmegaConf.from_cli()
-#
-#     config_merged = OmegaConf.merge(conf_default, conf_scenario, conf_cli)
-#     return Configuration(config_merged)
-#

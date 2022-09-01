@@ -65,7 +65,9 @@ def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_ve
         print("Could not calculate desired velocity")
         desired_velocity_new = desired_velocity
 
-    if np.abs(desired_velocity - desired_velocity_new) > 5:
+    if np.abs(desired_velocity - desired_velocity_new) > 5 or np.abs(state.velocity - desired_velocity_new) > 5:
+        if np.abs(state.velocity - desired_velocity_new) > 5:
+            desired_velocity = state.velocity
         if desired_velocity_new > desired_velocity:
             desired_velocity_new = desired_velocity + 2
         else:
