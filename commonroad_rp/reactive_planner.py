@@ -51,7 +51,7 @@ class ReactivePlanner(object):
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
 
-    def __init__(self, config: Configuration, planning_problem, log_path, cost_function_path = None):
+    def __init__(self, config: Configuration, planning_problem, log_path):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
@@ -109,7 +109,7 @@ class ReactivePlanner(object):
         # Debug mode
         self.debug_mode = config.debug.debug_mode
         self.save_all_traj = config.debug.save_all_traj
-        self.cost_function_path = cost_function_path
+        self.cost_params = config.cost.params
 
         # Logger
         self.logger = DataLoggingCosts(log_path, self.save_all_traj)
@@ -464,7 +464,7 @@ class ReactivePlanner(object):
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
             cost_function = AdaptableCostFunction(rp=self, predictions=predictions, timestep=x_0.time_step,
-                                                  scenario=self.scenario, cost_function_path=self.cost_function_path)
+                                                  scenario=self.scenario, cost_function_params=self.cost_params)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)

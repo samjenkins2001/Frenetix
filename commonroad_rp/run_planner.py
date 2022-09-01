@@ -34,7 +34,7 @@ from Prediction.walenet.prediction_helpers import main_prediction, load_walenet
 from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
 
 
-def run_planner(config, log_path, cost_function_path=None):
+def run_planner(config, log_path):
     # *************************************
     # Open CommonRoad scenario
     # *************************************
@@ -68,7 +68,7 @@ def run_planner(config, log_path, cost_function_path=None):
     # Initialize Planner
     # *************************************
     # initialize reactive planner
-    planner = ReactivePlanner(config, planning_problem, log_path, cost_function_path)
+    planner = ReactivePlanner(config, planning_problem, log_path)
     # set sampling parameters
     planner.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
     planner.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)

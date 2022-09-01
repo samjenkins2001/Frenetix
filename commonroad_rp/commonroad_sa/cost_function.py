@@ -10,8 +10,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 
 import numpy as np
-import yaml
-from pathlib import Path
+from omegaconf import OmegaConf
 import commonroad_rp.trajectories
 import commonroad_rp.commonroad_sa.partial_cost_functions as cost_functions
 
@@ -86,7 +85,7 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, rp, predictions, timestep, scenario, cost_function_path = None):
+    def __init__(self, rp, predictions, timestep, scenario, cost_function_params):
         super(AdaptableCostFunction, self).__init__()
         self.desired_speed = rp._desired_speed
         # self.desired_d = desired_d
@@ -96,16 +95,7 @@ class AdaptableCostFunction(CostFunction):
         self.timestep = timestep
         self.scenario = scenario
         self.rp = rp
-
-        if cost_function_path == None:
-            path = Path.cwd().joinpath("configurations/cost_weights.yaml")
-        else:
-            path = Path.cwd().joinpath(cost_function_path)
-        if path.is_file():
-            with path.open() as file:
-                self.params = yaml.load(file, Loader=yaml.FullLoader)
-        else:
-            raise FileNotFoundError
+        self.params = OmegaConf.to_object(cost_function_params)
 
     def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample, scenario="intersection"):
 
