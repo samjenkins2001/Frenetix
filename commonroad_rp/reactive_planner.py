@@ -792,7 +792,7 @@ class ReactivePlanner(object):
                 kappa_dot_max = self.vehicle_params.v_delta_max / (self.vehicle_params.wheelbase *
                                                                    math.cos(steering_angle) ** 2)
                 if abs((kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.) > kappa_dot_max:
-                    feasible = False
+                    # feasible = False
                     infeasible_count_kinematics[7] += 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
