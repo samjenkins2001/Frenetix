@@ -232,7 +232,7 @@ def run_planner(config, log_path, cost_function_path=None):
     plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
 
     # make gif
-    # make_gif(config, scenario, range(0, current_count), log_path)
+    make_gif(config, scenario, range(0, current_count), log_path, duration=0.25)
 
     # remove first element
     record_input_list.pop(0)
