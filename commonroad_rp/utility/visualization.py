@@ -69,11 +69,17 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     # create renderer object (if no existing renderer is passed)
     if rnd is None:
         if plot_window > 0:
-            rnd = MPRenderer(plot_limits=[-plot_window + ego.initial_state.position[0], plot_window + ego.initial_state.position[0], -plot_window + ego.initial_state.position[1], plot_window + ego.initial_state.position[1]], figsize=(20, 10))
+            rnd = MPRenderer(plot_limits=[-plot_window + ego.initial_state.position[0],
+                                          plot_window + ego.initial_state.position[0],
+                                          -plot_window + ego.initial_state.position[1],
+                                          plot_window + ego.initial_state.position[1]], figsize=(10, 10))
         else:
             rnd = MPRenderer(figsize=(20, 10))
     if plot_window is int:
-        rnd.plot_limits = [-plot_window + ego.initial_state.position[0], plot_window + ego.initial_state.position[0], -plot_window + ego.initial_state.position[1], plot_window + ego.initial_state.position[1]]
+        rnd.plot_limits = [-plot_window + ego.initial_state.position[0],
+                           plot_window + ego.initial_state.position[0],
+                           -plot_window + ego.initial_state.position[1],
+                           plot_window + ego.initial_state.position[1]]
     # visualize scenario
     scenario.draw(rnd, draw_params={'time_begin': timestep, 'dynamic_obstacle': {"draw_icon": config.debug.draw_icons}, 'focus_obstacle_id': 42})
     # visualize planning problem
@@ -102,7 +108,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     # visualize optimal trajectory
     pos = np.asarray([state.position for state in ego.prediction.trajectory.state_list])
     rnd.ax.plot(pos[:, 0], pos[:, 1], color='k', marker='x', markersize=1.5, zorder=21, linewidth=1.5,
-                label='optimal trajectory')
+                 label='optimal trajectory')
 
     # visualize sampled trajectory bundle
     step = 1  # draw every trajectory (step=2 would draw every second trajectory)
@@ -125,8 +131,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     if config.debug.save_plots:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
-        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300,
-                    bbox_inches='tight')
+        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300)
 
     # show plot
     if config.debug.show_plots:
@@ -171,7 +176,7 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
     if config.debug.save_plots:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
-        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.png", format='png', dpi=300,
+        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.png", format='png', dpi=200,
                     bbox_inches='tight')
 
     # show plot
@@ -179,6 +184,7 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
         matplotlib.use("TkAgg")
         # plt.show(block=False)
         # plt.pause(0.0001)
+
 
 def make_gif(config: Configuration, scenario: Scenario, time_steps: Union[range, List[int]], log_path: str, duration: float = 0.1):
     """
@@ -193,6 +199,7 @@ def make_gif(config: Configuration, scenario: Scenario, time_steps: Union[range,
         # only create GIF when saving of plots is enabled
         pass
     else:
+        print("...Generating GIF")
         images = []
         filenames = []
 
@@ -208,3 +215,5 @@ def make_gif(config: Configuration, scenario: Scenario, time_steps: Union[range,
 
         imageio.mimsave(os.path.join(config.general.path_output, str(scenario.scenario_id) + ".gif"),
                         images, duration=duration)
+
+
