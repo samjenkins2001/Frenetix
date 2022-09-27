@@ -112,7 +112,8 @@ class ReactivePlanner(object):
         self.cost_function_path = cost_function_path
 
         # Logger
-        self.logger = DataLoggingCosts(log_path, self.save_all_traj)
+        self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj, log_mode=2)
+        self.opt_trajectory_number = 0
 
         self.__goal_checker = GoalReachedChecker(planning_problem)
 
@@ -502,11 +503,13 @@ class ReactivePlanner(object):
             # get optimal trajectory
             t0 = time.time()
             self.logger.trajectory_number = x_0.time_step
-            optimal_trajectory = self._get_optimal_trajectory(bundle)
-            if not self.save_all_traj and optimal_trajectory is not None:
+            optimal_trajectory, feasible_trajectories, infeasible_trajectories = self._get_optimal_trajectory(bundle)
+            if optimal_trajectory is not None:
                 self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                                 infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0)
                 self.logger.log_pred(predictions)
+            if self.save_all_traj:
+                self.logger.log_all_trajectories(feasible_trajectories, infeasible_trajectories, x_0.time_step)
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
@@ -875,7 +878,7 @@ class ReactivePlanner(object):
         else:
             return feasible_trajectories, infeasible_trajectories, infeasible_count_kinematics
 
-    def _get_optimal_trajectory(self, trajectory_bundle: TrajectoryBundle) -> Union[TrajectorySample, None]:
+    def _get_optimal_trajectory(self, trajectory_bundle: TrajectoryBundle):
         """
         Computes the optimal trajectory from a given trajectory bundle
         :param trajectory_bundle: The trajectory bundle
@@ -961,14 +964,11 @@ class ReactivePlanner(object):
                 if self._cc.collide(ego_tvo):
                     self._infeasible_count_collision += 1
                     collide = True
-            
-            if self.save_all_traj:
-                self.logger.log(trajectory, collide)
 
             if not collide:
-                return trajectory
+                return trajectory, feasible_trajectories, infeasible_trajectories
 
-        return None
+        return None, feasible_trajectories, infeasible_trajectories
 
     def convert_cr_trajectory_to_object(self, trajectory: Trajectory):
         """
