@@ -18,4 +18,4 @@ if __name__ == '__main__':
     log_path = "./logs/"+scenario_path.split("/")[-1]
     cost_function_path = "configurations/cost_weights.yaml"
 
-    run_planner(config, log_path, cost_function_path)
+    run_planner(config, log_path)

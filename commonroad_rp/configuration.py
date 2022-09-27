@@ -22,6 +22,7 @@ class Configuration:
         self.sampling: SamplingConfiguration = SamplingConfiguration(config.sampling)
         self.debug: DebugConfiguration = DebugConfiguration(config.debug)
         self.general: GeneralConfiguration = GeneralConfiguration(config.general)
+        self.cost: CostConfiguration = CostConfiguration(config.cost)
 
 
 class PlanningConfiguration:
@@ -108,3 +109,7 @@ class GeneralConfiguration:
         self.path_scenario = name_scenario  # config.path_scenarios + name_scenario + ".xml"
         self.path_output = config.path_output
         self.max_steps = config.max_steps
+
+class CostConfiguration:
+    def __init__(self, config: Union[ListConfig, DictConfig]):
+        self.params = config.params
