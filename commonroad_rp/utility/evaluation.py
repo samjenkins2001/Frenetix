@@ -6,6 +6,7 @@ __email__ = "commonroad@lists.lrz.de"
 __status__ = "Beta"
 
 
+import os
 from typing import List
 from matplotlib import pyplot as plt
 import numpy as np
@@ -74,7 +75,7 @@ def reconstruct_inputs(config: Configuration, pps: PlanningProblemSolution):
     return feasible_state_list, reconstructed_inputs
 
 
-def plot_states(config: Configuration, state_list: List[State], reconstructed_states=None, plot_bounds=False):
+def plot_states(config: Configuration, state_list: List[State], save_path: str, reconstructed_states=None, plot_bounds=False):
     """
     Plots states of trajectory from a given state_list
     state_list must contain the following states: steering_angle, velocity, orientation and yaw_rate
@@ -121,7 +122,10 @@ def plot_states(config: Configuration, state_list: List[State], reconstructed_st
              [state.yaw_rate for state in state_list], color="black", label="planned")
     plt.ylabel("theta_dot")
     plt.tight_layout()
-    plt.show()
+
+    # Save Output
+    plot_path = os.path.join(save_path, "evaluation_plot_states")
+    plt.savefig(f"{plot_path}.svg", format='svg')
 
     # plot errors in position, velocity, orientation
     if reconstructed_states:
@@ -140,10 +144,13 @@ def plot_states(config: Configuration, state_list: List[State], reconstructed_st
                                                 for i in range(len(state_list))], color="black")
         plt.ylabel("theta error")
         plt.tight_layout()
-        plt.show()
+
+        # Save Output
+        plot_path = os.path.join(save_path, "evaluation_plot_states_reconstructed")
+        plt.savefig(f"{plot_path}.scg", format='svg')
 
 
-def plot_inputs(config: Configuration, input_list: List[State], reconstructed_inputs=None, plot_bounds=False):
+def plot_inputs(config: Configuration, input_list: List[State], save_path: str, reconstructed_inputs=None, plot_bounds=False):
     """
     Plots inputs of trajectory from a given input_list
     input_list must contain the following states: steering_angle_speed, acceleration
@@ -177,4 +184,7 @@ def plot_inputs(config: Configuration, input_list: List[State], reconstructed_in
                  color="red")
     plt.ylabel("a_long")
     plt.tight_layout()
-    plt.show()
+
+    # Save Output
+    plot_path = os.path.join(save_path, "evaluation_plot_inputs")
+    plt.savefig(f"{plot_path}.svg", format='svg')

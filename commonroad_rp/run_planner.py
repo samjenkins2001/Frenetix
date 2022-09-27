@@ -232,7 +232,7 @@ def run_planner(config, log_path):
     plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
 
     # make gif
-    if  config.debug.gif:
+    if config.debug.gif:
         make_gif(config, scenario, range(0, current_count), log_path, duration=0.25)
 
     # remove first element
@@ -241,11 +241,9 @@ def run_planner(config, log_path):
     # **************************
     # Evaluate results
     # **************************
-    evaluate = False
-    if evaluate:
-        from commonroad_dc.feasibility.solution_checker import valid_solution
-        from commonroad_dc.feasibility.vehicle_dynamics import VehicleDynamics
-        from commonroad.common.solution import VehicleType
+
+    if config.debug.evaluation:
+        from commonroad.common.solution import CommonRoadSolutionWriter
 
         # create CR solution
         solution = create_planning_problem_solution(config, record_state_list, scenario, planning_problem)
@@ -256,5 +254,10 @@ def run_planner(config, log_path):
         # reconstruct states from inputs
         reconstructed_states = reconstruct_states(config, record_state_list, reconstructed_inputs)
         # evaluate
-        plot_states(config, record_state_list, reconstructed_states, plot_bounds=True)
-        plot_inputs(config, record_input_list, reconstructed_inputs, plot_bounds=True)
+        plot_states(config, record_state_list, log_path, reconstructed_states, plot_bounds=True)
+        plot_inputs(config, record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
+
+        # Write Solution to XML File for later evaluation
+        solutionwrtiter = CommonRoadSolutionWriter(solution)
+        solutionwrtiter.write_to_file(log_path, "solution.xml", True)
+

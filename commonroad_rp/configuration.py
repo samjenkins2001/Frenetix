@@ -91,6 +91,7 @@ class DebugConfiguration:
         self.save_all_traj = config.save_all_traj
         self.show_plots = config.show_plots
         self.save_plots = config.save_plots
+        self.evaluation = config.evaluation
         self.gif = config.gif
         self.plot_window_dyn = config.plot_window_dyn
         self.draw_icons = config.draw_icons
