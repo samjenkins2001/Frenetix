@@ -32,7 +32,7 @@ def create_planning_problem_solution(config: Configuration, state_list: List[Sta
     pps = PlanningProblemSolution(planning_problem_id=planning_problem.planning_problem_id,
                                   vehicle_type=VehicleType(config.vehicle.cr_vehicle_id),
                                   vehicle_model=VehicleModel.KS,
-                                  cost_function=CostFunction.JB1,
+                                  cost_function=CostFunction.WX1,
                                   trajectory=ego_vehicle_trajectory)
 
     # create solution object
