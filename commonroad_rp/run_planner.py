@@ -251,10 +251,14 @@ def run_planner(config, log_path):
         # check feasibility
         # reconstruct inputs (state transition optimizations)
         feasible, reconstructed_inputs = reconstruct_inputs(config, solution.planning_problem_solutions[0])
-        # reconstruct states from inputs
-        reconstructed_states = reconstruct_states(config, record_state_list, reconstructed_inputs)
-        # evaluate
-        plot_states(config, record_state_list, log_path, reconstructed_states, plot_bounds=True)
+        try:
+            # reconstruct states from inputs
+            reconstructed_states = reconstruct_states(config, record_state_list, reconstructed_inputs)
+            # evaluate
+            plot_states(config, record_state_list, log_path, reconstructed_states, plot_bounds=True)
+        except:
+            print("Could not reconstruct states")
+
         plot_inputs(config, record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
 
         # Write Solution to XML File for later evaluation
