@@ -147,7 +147,7 @@ def plot_states(config: Configuration, state_list: List[State], save_path: str, 
 
         # Save Output
         plot_path = os.path.join(save_path, "evaluation_plot_states_reconstructed")
-        plt.savefig(f"{plot_path}.scg", format='svg')
+        plt.savefig(f"{plot_path}.svg", format='svg')
 
 
 def plot_inputs(config: Configuration, input_list: List[State], save_path: str, reconstructed_inputs=None, plot_bounds=False):
