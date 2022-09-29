@@ -247,14 +247,11 @@ class DataLoggingCosts:
             with open(self.__collision_log_path, "a") as fh:
                 fh.write(new_line)
 
-    def log_all_trajectories(self, feasible_trajectories, infeasible_trajectories, time_step):
+    def log_all_trajectories(self, all_trajectories, time_step):
         if (self.log_mode == LogMode.visualization):
             i = 0
-            for trajectory in feasible_trajectories:
-                self.log_trajectory(trajectory, i, time_step, True)
-                i += 1
-            for trajectory in infeasible_trajectories:
-                self.log_trajectory(trajectory, i, time_step, False)
+            for trajectory in all_trajectories.trajectories:
+                self.log_trajectory(trajectory, i, time_step, trajectory.valid)
                 i += 1
 
     def log_trajectory(self, trajectory: TrajectorySample, trajectory_number: int, time_step, feasible: bool):

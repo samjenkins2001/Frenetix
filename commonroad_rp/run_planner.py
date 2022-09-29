@@ -167,7 +167,7 @@ def run_planner(config, log_path):
 
             # if desired, store sampled trajectory bundle for visualization
             if config.debug.show_plots or config.debug.save_plots:
-                sampled_trajectory_bundle = deepcopy(planner.stored_trajectories)
+                sampled_trajectory_bundle = deepcopy(planner.trajectory_bundle_log.trajectories)
 
             # correct orientation angle
             new_state_list = planner.shift_orientation(optimal[0])

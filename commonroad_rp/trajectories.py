@@ -372,6 +372,7 @@ class TrajectorySample(Sample):
         self._curvilinear: CurviLinearSample = None
         self._ext_cartesian = None
         self._ext_curvilinear = None
+        self.valid = None
 
         self._unique_id = unique_id
 
@@ -456,6 +457,9 @@ class TrajectorySample(Sample):
         :return: The number of states in the trajectory sample
         """
         return self.cartesian.length()
+
+    def set_valid_status(self, sts: bool):
+        self.valid = sts
 
     def enlarge(self, dt: float):
         """
