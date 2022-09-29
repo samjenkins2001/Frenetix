@@ -314,7 +314,7 @@ class ReactivePlanner(object):
                             trajectory_lat = QuinticTrajectory(tau_0=0, delta_tau=t, x_0=np.array(x_0_lat),
                                                                x_d=end_state_lat)
                         if trajectory_lat.coeffs is not None:
-                            trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat)
+                            trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat, len(trajectories))
                             trajectories.append(trajectory_sample)
 
         # perform pre check and order trajectories according their cost

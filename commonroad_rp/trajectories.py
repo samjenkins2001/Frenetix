@@ -351,7 +351,7 @@ class TrajectorySample(Sample):
     """
 
     def __init__(self, horizon: float, dt: float, trajectory_long: PolynomialTrajectory,
-                 trajectory_lat: PolynomialTrajectory):
+                 trajectory_lat: PolynomialTrajectory, unique_id: int):
         self.horizon = horizon
         self.dt = dt
         assert isinstance(trajectory_long,
@@ -372,6 +372,8 @@ class TrajectorySample(Sample):
         self._curvilinear: CurviLinearSample = None
         self._ext_cartesian = None
         self._ext_curvilinear = None
+
+        self._unique_id = unique_id
 
     @property
     def trajectory_long(self) -> PolynomialTrajectory:

@@ -65,6 +65,7 @@ class DataLoggingCosts:
         self.trajectories_header = (
             "time_step;"
             "trajectory_number;"
+            "unique_id;"
             "feasible;"
             "horizon;"
             "dt;"
@@ -259,6 +260,7 @@ class DataLoggingCosts:
     def log_trajectory(self, trajectory: TrajectorySample, trajectory_number: int, time_step, feasible: bool):
         new_line = "\n" + str(time_step)
         new_line += ";" + str(trajectory_number)
+        new_line += ";" + str(trajectory._unique_id)
         new_line += ";" + str(feasible)
         new_line += ";" + str(trajectory.horizon)
         new_line += ";" + str(trajectory.dt)
