@@ -487,8 +487,10 @@ class TrajectoryBundle:
             'valid! List = {}'.format(trajectories)
 
         self.trajectories: List[TrajectorySample] = trajectories
+        self.trajectories_all: List[TrajectorySample] = trajectories
         self._cost_function = cost_function
         self._is_sorted = False
+        self._is_sorted_all = False
 
     @property
     def trajectories(self) -> List[TrajectorySample]:
@@ -515,6 +517,16 @@ class TrajectoryBundle:
                 trajectory.cost = self._cost_function
             self._trajectory_bundle.sort(key=lambda x: x.cost)
             self._is_sorted = True
+
+    def sort_all(self):
+        """
+        Sorts the trajectories within the TrajectoryBundle according to their costs from lowest to highest.
+        """
+        if not self._is_sorted_all:
+            for trajectory in self.trajectories_all:
+                trajectory.cost = self._cost_function
+            self.trajectories_all.sort(key=lambda x: x.cost)
+            self._is_sorted_all = True
 
     def optimal_trajectory(self) -> Union[TrajectorySample, None]:
         """

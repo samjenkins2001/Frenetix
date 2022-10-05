@@ -250,7 +250,7 @@ class DataLoggingCosts:
     def log_all_trajectories(self, all_trajectories, time_step):
         if (self.log_mode == LogMode.visualization):
             i = 0
-            for trajectory in all_trajectories.trajectories:
+            for trajectory in all_trajectories:
                 self.log_trajectory(trajectory, i, time_step, trajectory.valid)
                 i += 1
 

@@ -7,7 +7,6 @@ __email__ = "gerald.wuersching@tum.de"
 __status__ = "Beta"
 
 # python packages
-import copy
 import math
 import time
 import numpy as np
@@ -72,9 +71,6 @@ class ReactivePlanner(object):
         # Scenario
         # self.scenario = None
 
-        # store sampled trajectory set of last run
-        self.trajectory_bundle_log = None
-
         # initialize internal variables
         # coordinate system & collision checker
         self._co = None
@@ -110,6 +106,7 @@ class ReactivePlanner(object):
         self.debug_mode = config.debug.debug_mode
         self.save_all_traj = config.debug.save_all_traj
         self.cost_params = config.cost.params
+        self.all_traj = None
 
         # Logger
         self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj, log_mode=2)
@@ -509,7 +506,7 @@ class ReactivePlanner(object):
                                 infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0)
                 self.logger.log_pred(predictions)
             if self.save_all_traj:
-                self.logger.log_all_trajectories(self.trajectory_bundle_log, x_0.time_step)
+                self.logger.log_all_trajectories(self.all_traj, x_0.time_step)
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
@@ -931,13 +928,14 @@ class ReactivePlanner(object):
 
         # for visualization store all trajectories
         if self._draw_traj_set or self.save_all_traj:
-            self.trajectory_bundle_log = copy.deepcopy(trajectory_bundle)
-            feasible_trajectories_tmp = copy.deepcopy(feasible_trajectories)
+            feasible_trajectories_tmp = feasible_trajectories
             [feasible_trajectories_tmp[i].set_valid_status(True) for i in range(len(feasible_trajectories_tmp))]
-            infeasible_trajectories_tmp = copy.deepcopy(infeasible_trajectories)
+            infeasible_trajectories_tmp = infeasible_trajectories
             [infeasible_trajectories_tmp[i].set_valid_status(False) for i in range(len(infeasible_trajectories_tmp))]
-            self.trajectory_bundle_log.trajectories = feasible_trajectories_tmp + infeasible_trajectories_tmp
-            self.trajectory_bundle_log.sort()
+            trajectory_bundle.trajectories_all = feasible_trajectories_tmp + infeasible_trajectories_tmp
+            trajectory_bundle.sort_all()
+            self.all_traj = trajectory_bundle.trajectories_all
+
 
         # set feasible trajectories in bundle
         trajectory_bundle.trajectories = feasible_trajectories
@@ -973,8 +971,10 @@ class ReactivePlanner(object):
 
             if not collide:
                 return trajectory
-
-        return None
+        if trajectory_bundle.get_sorted_list():
+            return trajectory_bundle.get_sorted_list()[0]
+        else:
+            return None
 
     def convert_cr_trajectory_to_object(self, trajectory: Trajectory):
         """

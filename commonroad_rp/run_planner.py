@@ -166,8 +166,8 @@ def run_planner(config, log_path):
                 break
 
             # if desired, store sampled trajectory bundle for visualization
-            if config.debug.show_plots or config.debug.save_plots:
-                sampled_trajectory_bundle = deepcopy(planner.trajectory_bundle_log.trajectories)
+            # if config.debug.show_plots or config.debug.save_plots:
+            #     sampled_trajectory_bundle = deepcopy(planner.all_traj)
 
             # correct orientation angle
             new_state_list = planner.shift_orientation(optimal[0])
@@ -186,7 +186,7 @@ def run_planner(config, log_path):
             ))
 
             # update init state and curvilinear state
-            x_0 = deepcopy(record_state_list[-1])
+            x_0 = record_state_list[-1]
             x_cl = (optimal[2][1], optimal[3][1])
 
             # create CommonRoad Obstacle for the ego Vehicle
@@ -212,7 +212,7 @@ def run_planner(config, log_path):
             ))
 
             # update init state and curvilinear state
-            x_0 = deepcopy(record_state_list[-1])
+            x_0 = record_state_list[-1]
             x_cl = (optimal[2][1 + temp], optimal[3][1 + temp])
             predictions = None
 
@@ -220,7 +220,7 @@ def run_planner(config, log_path):
         # draw scenario + planning solution
         if config.debug.show_plots or config.debug.save_plots:
             visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle,
-                                          traj_set=sampled_trajectory_bundle, ref_path=ref_path,
+                                          traj_set=planner.all_traj, ref_path=ref_path,
                                           timestep=current_count, config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn, log_path=log_path)
         if planner.check_collision():
