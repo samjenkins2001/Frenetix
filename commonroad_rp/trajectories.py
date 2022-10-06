@@ -373,6 +373,8 @@ class TrajectorySample(Sample):
         self._ext_cartesian = None
         self._ext_curvilinear = None
         self.valid = None
+        self._boundary_harm = None
+        self._coll_detected = None
 
         self._unique_id = unique_id
 

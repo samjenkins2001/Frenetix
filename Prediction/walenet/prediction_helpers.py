@@ -166,7 +166,7 @@ def collision_checker_prediction(
 
             # only check for collision as long as both trajectories (frenét trajectory and prediction) are visible
             pred_traj = predictions[obstacle_id]['pos_list']
-            pred_length = min(len(frenet_traj.t), len(pred_traj))
+            pred_length = min(len(frenet_traj.x), len(pred_traj))
             if pred_length == 0:
                 continue
 
@@ -176,9 +176,8 @@ def collision_checker_prediction(
             pred_orientation = predictions[obstacle_id]['orientation_list']
 
             # create a time variant collision object for the predicted ehicle
-            traj = []
-            for i in range(pred_length):
-                traj.append([x[i], y[i], pred_orientation[i]])
+            traj = [[x[i], y[i], pred_orientation[i]] for i in range(pred_length)]
+
             prediction_collision_object_raw = create_tvobstacle(
                 traj_list=traj,
                 box_length=length / 2,

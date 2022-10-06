@@ -173,7 +173,7 @@ class DefGymSampling(SamplingSet):
     """
 
     def __init__(self, dt, horizon):
-        sampling_level = 4
+        sampling_level = 3
         t_samples = TimeSampling(0.2, horizon, sampling_level, dt)
         d_samples = PositionSampling(-2.0, 2.0, sampling_level)
         v_samples = VelocitySampling(0., 25.0, sampling_level)

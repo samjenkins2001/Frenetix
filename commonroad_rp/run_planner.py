@@ -68,12 +68,12 @@ def run_planner(config, log_path):
     # Initialize Planner
     # *************************************
     # initialize reactive planner
-    planner = ReactivePlanner(config, planning_problem, log_path)
+    planner = ReactivePlanner(config, scenario, planning_problem, log_path)
     # set sampling parameters
     planner.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
     planner.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
     # set collision checker
-    planner.set_collision_checker(scenario)
+    planner.set_collision_checker(planner.scenario)
     # initialize route planner and set reference path
     route_planner = RoutePlanner(scenario, planning_problem)
     ref_path = route_planner.plan_routes().retrieve_first_route().reference_path

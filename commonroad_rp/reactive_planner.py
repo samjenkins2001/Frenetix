@@ -25,9 +25,9 @@ from commonroad.scenario.scenario import Scenario
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_checker, \
-    create_collision_object
-from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
+from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_checker, create_collision_object
+
+from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, trajectories_collision_static_obstacles
 
 # commonroad_rp imports
 from commonroad_rp.cost_function import DefaultCostFunction, CostFunction
@@ -41,6 +41,16 @@ from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
+from Prediction.walenet.prediction_helpers import collision_checker_prediction
+from commonroad_rp.utility import helper_functions as hf
+from Prediction.walenet.risk_assessment.utils.logistic_regression_symmetrical import get_protected_inj_prob_log_reg_ignore_angle
+
+from commonroad_rp.utility.load_json import (
+    load_harm_parameter_json,
+    load_risk_json,
+    load_weight_json
+)
+
 
 # TODO: use mode parameter for longitudinal planning (point following, velocity following, stopping)
 # TODO: acceleration-based sampling
@@ -50,7 +60,7 @@ class ReactivePlanner(object):
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
 
-    def __init__(self, config: Configuration, planning_problem, log_path):
+    def __init__(self, config: Configuration, scenario, planning_problem, log_path):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
@@ -69,7 +79,7 @@ class ReactivePlanner(object):
         self.x_0 = None
 
         # Scenario
-        # self.scenario = None
+        self.scenario = scenario
 
         # initialize internal variables
         # coordinate system & collision checker
@@ -111,6 +121,21 @@ class ReactivePlanner(object):
         # Logger
         self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj, log_mode=2)
         self.opt_trajectory_number = 0
+
+        # load harm parameters
+        self.params_harm = load_harm_parameter_json()
+
+        try:
+            (
+                _,
+                self.road_boundary,
+            ) = create_road_boundary_obstacle(
+                scenario=self.scenario,
+                method="aligned_triangulation",
+                axis=2,
+            )
+        except:
+            raise RuntimeError("Road Boundary can not be created")
 
         self.__goal_checker = GoalReachedChecker(planning_problem)
 
@@ -156,7 +181,7 @@ class ReactivePlanner(object):
         :param scenario: CommonRoad Scenario object
         :param collision_checker: pycrcc.CollisionChecker object
         """
-        self.scenario = scenario
+        # self.scenario = scenario
         if collision_checker is None:
             assert scenario is not None, '<set collision checker>: Please provide a CommonRoad scenario OR a ' \
                                          'CollisionChecker object to the planner.'
@@ -269,6 +294,24 @@ class ReactivePlanner(object):
         """
         return len(self._sampling_v.to_range(samp_level)) * len(self._sampling_d.to_range(samp_level)) * len(
             self._sampling_t.to_range(samp_level))
+
+    def _create_coll_object(self, ft, vehicle_params, ego_state):
+        """Create a collision_object of the trajectory for collision checking with road boundary and with other vehicles."""
+        traj_list = [[ft.x[i], ft.y[i], ft.yaw[i]] for i in range(len(ft.x))]
+        collision_object_raw = hf.create_tvobstacle(
+            traj_list=traj_list,
+            box_length=vehicle_params.length / 2,
+            box_width=vehicle_params.width / 2,
+            start_time_step=ego_state.time_step,
+        )
+        # if the preprocessing fails, use the raw trajectory
+        collision_object, err = trajectory_preprocess_obb_sum(
+            collision_object_raw
+        )
+        if err:
+            collision_object = collision_object_raw
+
+        return collision_object
 
     def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, cost_function: CostFunction, samp_level: int) -> TrajectoryBundle:
         """
@@ -500,13 +543,13 @@ class ReactivePlanner(object):
             # get optimal trajectory
             t0 = time.time()
             self.logger.trajectory_number = x_0.time_step
-            optimal_trajectory = self._get_optimal_trajectory(bundle)
+            optimal_trajectory = self._get_optimal_trajectory(bundle, predictions, i)
             if optimal_trajectory is not None:
                 self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                                 infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0)
                 self.logger.log_pred(predictions)
-            if self.save_all_traj:
-                self.logger.log_all_trajectories(self.all_traj, x_0.time_step)
+                if self.save_all_traj:
+                    self.logger.log_all_trajectories(self.all_traj, x_0.time_step)
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
@@ -519,14 +562,16 @@ class ReactivePlanner(object):
             # increase sampling level (i.e., density) if no optimal trajectory could be found
             i = i + 1
 
-        if optimal_trajectory is None and x_0.velocity <= 0.5:
+        if optimal_trajectory is None:
             print('<ReactivePlanner>: planning standstill for the current scenario')
             t0 = time.time()
             self.logger.trajectory_number = x_0.time_step
             optimal_trajectory = self._compute_standstill_trajectory(x_0, x_0_lon, x_0_lat)
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0)
+                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0)
             self.logger.log_pred(predictions)
+            if self.save_all_traj:
+                self.logger.log_all_trajectories(self.all_traj, x_0.time_step)
 
         # check if feasible trajectory exists -> emergency mode
         if optimal_trajectory is None:
@@ -568,7 +613,7 @@ class ReactivePlanner(object):
                                      x_d=np.array([x_0_lat[0], 0, 0]))
 
         # create Cartesian and Curvilinear trajectory
-        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat)
+        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat, 0)
         p.cartesian = CartesianSample(np.repeat(x_0.position[0], self.N), np.repeat(x_0.position[1], self.N),
                                       np.repeat(x_0.orientation, self.N), np.repeat(0, self.N),
                                       np.repeat(0, self.N), np.repeat(0, self.N), np.repeat(0, self.N),
@@ -875,12 +920,19 @@ class ReactivePlanner(object):
         else:
             return feasible_trajectories, infeasible_trajectories, infeasible_count_kinematics
 
-    def _get_optimal_trajectory(self, trajectory_bundle: TrajectoryBundle):
+    def _get_optimal_trajectory(self, trajectory_bundle: TrajectoryBundle, predictions, samp_lvl):
         """
         Computes the optimal trajectory from a given trajectory bundle
         :param trajectory_bundle: The trajectory bundle
         :return: The optimal trajectory if exists (otherwise None)
         """
+        # VALIDITY_LEVELS = {
+        #     0: "Physically invalid",
+        #     1: "Collision",
+        #     2: "Leaving road boundaries",
+        #     3: "Maximum acceptable risk",
+        #     10: "Valid",
+        # }
         # reset statistics
         self._infeasible_count_collision = 0
         self._infeasible_count_kinematics = np.zeros(9)
@@ -926,7 +978,7 @@ class ReactivePlanner(object):
         self._infeasible_count_kinematics = infeasible_count_kinematics
         self._infeasible_count_kinematics[0] = len(trajectory_bundle.trajectories) - len(feasible_trajectories)
 
-        # for visualization store all trajectories
+        # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj:
             feasible_trajectories_tmp = feasible_trajectories
             [feasible_trajectories_tmp[i].set_valid_status(True) for i in range(len(feasible_trajectories_tmp))]
@@ -944,35 +996,54 @@ class ReactivePlanner(object):
 
         # go through sorted list of trajectories and check for collisions
         for trajectory in trajectory_bundle.get_sorted_list():
-            # compute position and orientation
-            pos1 = trajectory.curvilinear.s if self._collision_check_in_cl else trajectory.cartesian.x
-            pos2 = trajectory.curvilinear.d if self._collision_check_in_cl else trajectory.cartesian.y
-            theta = trajectory.curvilinear.theta if self._collision_check_in_cl else trajectory.cartesian.theta
-            collide = False
-            # check each pose for collisions
-            for i in range(len(pos1)):
-                ego = pycrcc.TimeVariantCollisionObject(self.x_0.time_step + i * self._factor)
-                ego.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
-                                                   theta[i], pos1[i], pos2[i]))
-                if self._cc.collide(ego):
-                    self._infeasible_count_collision += 1
-                    collide = True
-                    break
 
-            # continuous collision check if not collision has been detected before already
-            if self._continuous_cc and not collide:
-                ego_tvo = pycrcc.TimeVariantCollisionObject(self.x_0.time_step)
-                [ego_tvo.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
-                                                   theta[i], pos1[i], pos2[i])) for i in range(len(pos1))]
-                ego_tvo, err = trajectory_preprocess_obb_sum(ego_tvo)
-                if self._cc.collide(ego_tvo):
-                    self._infeasible_count_collision += 1
-                    collide = True
+            # get collision_object
+            coll_obj = self._create_coll_object(trajectory, self.vehicle_params, self.x_0)
 
-            if not collide:
+            collision_detected = collision_checker_prediction(
+                predictions=predictions,
+                scenario=self.scenario,
+                ego_co=coll_obj,
+                frenet_traj=trajectory,
+                ego_state=self.x_0,
+            )
+
+            leaving_road_at = trajectories_collision_static_obstacles(
+                trajectories=[coll_obj],
+                static_obstacles=self.road_boundary,
+                method="grid",
+                num_cells=32,
+                auto_orientation=True,
+            )
+            if leaving_road_at[0] != -1:
+                coll_time_step = leaving_road_at[0] - self.x_0.time_step
+                coll_vel = trajectory.cartesian.v[coll_time_step]
+
+                boundary_harm = get_protected_inj_prob_log_reg_ignore_angle(
+                    velocity=coll_vel, coeff=self.params_harm
+                )
+
+            else:
+                boundary_harm = 0
+
+            # Save Status of Trajectory to sort for alternative
+            trajectory._boundary_harm = boundary_harm
+            trajectory._coll_detected = collision_detected
+
+            if not collision_detected and boundary_harm == 0:
                 return trajectory
-        if trajectory_bundle.get_sorted_list():
-            return trajectory_bundle.get_sorted_list()[0]
+
+        if samp_lvl == self._sampling_level - 1:
+            sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj._boundary_harm, reverse=False)
+
+            if any(bundle._coll_detected==False for bundle in trajectory_bundle.get_sorted_list()):
+                for trajectory in sort_harm:
+                    if not trajectory._coll_detected:
+                        return trajectory
+            elif any(bundle._boundary_harm==0 for bundle in trajectory_bundle.get_sorted_list()):
+                return sort_harm[0]
+            else:
+                return trajectory_bundle.get_sorted_list()[0]
         else:
             return None
 
