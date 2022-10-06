@@ -1,11 +1,11 @@
 # show/save plots
-save_all_traj: True
+save_all_traj: False
 show_plots: False
 save_plots: True
 evaluation: True
 gif: False
 # plot vehicle position with x_y distance in meters. 0=Standard Plot
-plot_window_dyn: 50
+plot_window_dyn: 35
 # draw obstacles with vehicle icons
 draw_icons: True
 # draw sampled trajectory set
