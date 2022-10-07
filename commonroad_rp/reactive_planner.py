@@ -1043,7 +1043,7 @@ class ReactivePlanner(object):
             elif any(bundle._boundary_harm==0 for bundle in trajectory_bundle.get_sorted_list()):
                 return sort_harm[0]
             else:
-                return trajectory_bundle.get_sorted_list()[0]
+                return trajectory_bundle.get_sorted_list()[0] if trajectory_bundle.get_sorted_list() else None
         else:
             return None
 
