@@ -15,7 +15,8 @@ import commonroad_rp.trajectories
 import commonroad_rp.commonroad_sa.partial_cost_functions as cost_functions
 
 from Prediction.walenet.risk_assessment.collision_probability import (
-    get_mahalanobis_dist_dict
+    get_mahalanobis_dist_dict,
+    get_collision_probability_fast
 )
 
 
@@ -159,13 +160,22 @@ class AdaptableCostFunction(CostFunction):
                 total_cost += costlist_weighted[num + len(PartialCostFunctionMapping)]
 
         if self.predictions is not None:
-            mahalanobis_costs = get_mahalanobis_dist_dict(
+            # prediction_costs_raw = get_mahalanobis_dist_dict(
+            #     traj=trajectory,
+            #     predictions=self.predictions,
+            #     vehicle_params=self.vehicle_params
+            # )
+            prediction_costs_raw = get_collision_probability_fast(
                 traj=trajectory,
                 predictions=self.predictions,
                 vehicle_params=self.vehicle_params
             )
-            costlist[-1] = mahalanobis_costs
-            costlist_weighted[-1] = mahalanobis_costs * self.params[scenario]["P"]
+            prediction_costs = 0
+            for key in prediction_costs_raw:
+                prediction_costs += np.sum(prediction_costs_raw[key])
+
+            costlist[-1] = prediction_costs
+            costlist_weighted[-1] = prediction_costs * self.params[scenario]["P"]
             total_cost += costlist_weighted[-1]
 
         # Logging of Cost terms
