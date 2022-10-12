@@ -61,7 +61,7 @@ def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_ve
             if state.time_step > planning_problem.goal.state_list[0].time_step.end:
                 return 0.0
             else:
-                return planning_problem.initial_state.velocity
+                return state.velocity
         else:
             return 0.0
 
