@@ -9,6 +9,7 @@ __status__ = "Beta"
 # standard imports
 from typing import List, Tuple, Union
 import os
+import sys
 
 # third party
 import matplotlib
@@ -33,8 +34,8 @@ from commonroad_rp.configuration import Configuration
 #!/user/bin/env python
 
 """Visualization functions for the frenét planner."""
-
-from prediction.utils.visualization import draw_uncertain_predictions
+from commonroad_prediction.visualization import draw_uncertain_predictions as draw_uncertain_predictions_lb
+from prediction.utils.visualization import draw_uncertain_predictions as draw_uncertain_predictions_wale
 
 
 def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker):
@@ -120,7 +121,10 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # visualize predictions
     if predictions is not None:
-        draw_uncertain_predictions(predictions, rnd.ax)
+        if config.prediction.lanebased:
+            draw_uncertain_predictions_lb(predictions, rnd.ax)
+        elif config.prediction.walenet:
+            draw_uncertain_predictions_wale(predictions, rnd.ax)
 
     # visualize reference path
     if ref_path is not None:

@@ -43,9 +43,11 @@ class PredictionConfiguration:
     """Class to store all prediction configurations"""
     def __init__(self, config: Union[ListConfig, DictConfig]):
         self.walenet = config.walenet
+        self.lanebased = config.lanebased
         self.sensor_radius = config.sensor_radius
         self.cone_angle = config.cone_angle
         self.cone_safety_dist = config.cone_safety_dist
+        self.pred_horizon_in_s = config.pred_horizon_in_s
 
 
 class VehicleConfiguration:

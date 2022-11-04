@@ -8,6 +8,7 @@ __status__ = "Beta"
 
 # standard imports
 import time
+import sys
 from copy import deepcopy
 
 # third party
@@ -32,6 +33,8 @@ from commonroad_rp.utility.general import load_scenario_and_planning_problem
 
 from Prediction.walenet.prediction_helpers import main_prediction, load_walenet
 from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
+
+from commonroad_prediction.prediction_module import PredictionModule
 
 
 def run_planner(config, log_path):
@@ -113,8 +116,10 @@ def run_planner(config, log_path):
     # initialize the prediction network if necessary
     if config.prediction.walenet:
         predictor = load_walenet(scenario=scenario)
-    else:
-        predictor = None
+    elif config.prediction.lanebased:
+        pred_horizon_in_seconds = config.prediction.pred_horizon_in_s
+        pred_horizon_in_timesteps = int(pred_horizon_in_seconds / DT)
+        predictor = PredictionModule(scenario, timesteps=pred_horizon_in_timesteps, dt=DT)
 
     new_state = None
 
@@ -138,13 +143,17 @@ def run_planner(config, log_path):
             if config.prediction.walenet:
                 predictions = main_prediction(predictor, scenario, ego_state, config.prediction.sensor_radius, DT,
                                               [float(config.planning.planning_horizon)])
-                # ignore Predictions in Cone Angle
-                if config.prediction.cone_angle > 0:
-                    predictions = ignore_vehicles_in_cone_angle(predictions, ego_state, config.vehicle.length,
-                                                                config.prediction.cone_angle,
-                                                                config.prediction.cone_safety_dist)
+            elif config.prediction.lanebased:
+                predictions = predictor.main_prediction(ego_state, config.prediction.sensor_radius,
+                                              [float(config.planning.planning_horizon)])
             else:
                 predictions = None
+
+            # ignore Predictions in Cone Angle
+            if config.prediction.cone_angle > 0 and (config.prediction.lanebased or config.prediction.walenet):
+                predictions = ignore_vehicles_in_cone_angle(predictions, ego_state, config.vehicle.length,
+                                                            config.prediction.cone_angle,
+                                                            config.prediction.cone_safety_dist)
 
             # plan trajectory
             optimal, tmn, tmn_ott = planner.plan(x_0, predictions, x_cl)  # returns the planned (i.e., optimal) trajectory

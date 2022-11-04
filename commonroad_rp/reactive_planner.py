@@ -118,6 +118,11 @@ class ReactivePlanner(object):
         self.cost_params = config.cost.params
         self.all_traj = None
 
+        if config.prediction.walenet or config.prediction.lanebased:
+            self.use_prediction = True
+        else:
+            self.use_prediction = False
+
         # Logger
         self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj, log_mode=2)
         self.opt_trajectory_number = 0
@@ -297,7 +302,7 @@ class ReactivePlanner(object):
 
     def _create_coll_object(self, ft, vehicle_params, ego_state):
         """Create a collision_object of the trajectory for collision checking with road boundary and with other vehicles."""
-        traj_list = [[ft.x[i], ft.y[i], ft.yaw[i]] for i in range(len(ft.x))]
+        traj_list = [[ft.cartesian.x[i], ft.cartesian.y[i], ft.cartesian.theta[i]] for i in range(len(ft.cartesian.x))]
         collision_object_raw = hf.create_tvobstacle(
             traj_list=traj_list,
             box_length=vehicle_params.length / 2,
@@ -1000,13 +1005,16 @@ class ReactivePlanner(object):
             # get collision_object
             coll_obj = self._create_coll_object(trajectory, self.vehicle_params, self.x_0)
 
-            collision_detected = collision_checker_prediction(
-                predictions=predictions,
-                scenario=self.scenario,
-                ego_co=coll_obj,
-                frenet_traj=trajectory,
-                ego_state=self.x_0,
-            )
+            if self.use_prediction:
+                collision_detected = collision_checker_prediction(
+                    predictions=predictions,
+                    scenario=self.scenario,
+                    ego_co=coll_obj,
+                    frenet_traj=trajectory,
+                    ego_state=self.x_0,
+                )
+            else:
+                collision_detected = False
 
             leaving_road_at = trajectories_collision_static_obstacles(
                 trajectories=[coll_obj],
