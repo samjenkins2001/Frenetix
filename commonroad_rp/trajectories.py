@@ -515,8 +515,9 @@ class TrajectoryBundle:
         Sorts the trajectories within the TrajectoryBundle according to their costs from lowest to highest.
         """
         if not self._is_sorted:
-            for trajectory in self._trajectory_bundle:
-                trajectory.cost = self._cost_function
+            if not self._trajectory_bundle[0].cost > 0:
+                for trajectory in self._trajectory_bundle:
+                    trajectory.cost = self._cost_function
             self._trajectory_bundle.sort(key=lambda x: x.cost)
             self._is_sorted = True
 

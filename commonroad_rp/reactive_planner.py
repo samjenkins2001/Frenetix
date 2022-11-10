@@ -985,19 +985,17 @@ class ReactivePlanner(object):
 
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj:
-            feasible_trajectories_tmp = feasible_trajectories
-            [feasible_trajectories_tmp[i].set_valid_status(True) for i in range(len(feasible_trajectories_tmp))]
-            infeasible_trajectories_tmp = infeasible_trajectories
-            [infeasible_trajectories_tmp[i].set_valid_status(False) for i in range(len(infeasible_trajectories_tmp))]
-            trajectory_bundle.trajectories_all = feasible_trajectories_tmp + infeasible_trajectories_tmp
+            [feasible_trajectories[i].set_valid_status(True) for i in range(len(feasible_trajectories))]
+            [infeasible_trajectories[i].set_valid_status(False) for i in range(len(infeasible_trajectories))]
+            trajectory_bundle.trajectories_all = feasible_trajectories + infeasible_trajectories
             trajectory_bundle.sort_all()
             self.all_traj = trajectory_bundle.trajectories_all
-
-
-        # set feasible trajectories in bundle
-        trajectory_bundle.trajectories = feasible_trajectories
-        # sort trajectories according to their costs
-        trajectory_bundle.sort()
+            trajectory_bundle.trajectories = feasible_trajectories
+        else:
+            # set feasible trajectories in bundle
+            trajectory_bundle.trajectories = feasible_trajectories
+            # sort trajectories according to their costs
+            trajectory_bundle.sort()
 
         # go through sorted list of trajectories and check for collisions
         for trajectory in trajectory_bundle.get_sorted_list():

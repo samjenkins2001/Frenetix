@@ -8,11 +8,11 @@ pytest>=6.2.5
 scipy>=1.5.2
 sphinx>=2.2.1
 git+https://gitlab.lrz.de/av2.0/commonroad/commonroad-route-planner.git@develop
-commonroad-io>=2021.4
+commonroad-io>=2021.4,<2022.2
 commonroad-drivability-checker>=2021.4
 numba
 commonroad-helper-functions
-wale-net
+wale-net==3.0.0
 ruamel.yaml
 
 
