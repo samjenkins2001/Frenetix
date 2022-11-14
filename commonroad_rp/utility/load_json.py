@@ -22,17 +22,14 @@ def load_risk_json():
     return jsondata
 
 
-def load_harm_parameter_json():
+def load_harm_parameter_json(work_dir):
     """
     Load the harm_parameters.json with model parameters.
 
     Returns:
         Dict: model parameters from parameter.json
     """
-    parameter_config_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "configurations", "harm_parameters.json",
-    )
+    parameter_config_path = os.path.join(work_dir, "configurations", "harm_parameters.json")
     with open(parameter_config_path, "r") as f:
         jsondata = json.load(f)
     return jsondata

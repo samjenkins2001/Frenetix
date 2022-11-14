@@ -60,7 +60,7 @@ class ReactivePlanner(object):
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
 
-    def __init__(self, config: Configuration, scenario, planning_problem, log_path):
+    def __init__(self, config: Configuration, scenario, planning_problem, log_path, work_dir):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
@@ -128,7 +128,7 @@ class ReactivePlanner(object):
         self.opt_trajectory_number = 0
 
         # load harm parameters
-        self.params_harm = load_harm_parameter_json()
+        self.params_harm = load_harm_parameter_json(work_dir)
 
         try:
             (

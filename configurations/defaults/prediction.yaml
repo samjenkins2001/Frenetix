@@ -1,6 +1,6 @@
 # activation of the wale-net prediction
-walenet: False
-lanebased: True
+walenet: True
+lanebased: False
 # Sensor Radius in Meter
 sensor_radius: 60
 cone_angle: 60
