@@ -5,7 +5,7 @@ __maintainer__ = "Gerald Würsching"
 __email__ = "commonroad@lists.lrz.de"
 __status__ = "Beta"
 
-
+import time
 # standard imports
 from typing import List, Tuple, Union
 import os
@@ -108,7 +108,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # visualize optimal trajectory
     pos = np.asarray([state.position for state in ego.prediction.trajectory.state_list])
-    rnd.ax.plot(pos[:, 0], pos[:, 1], color='k', marker='x', markersize=1.5, zorder=21, linewidth=1.5,
+    rnd.ax.plot(pos[:, 0], pos[:, 1], color='k', marker='x', markersize=1.5, zorder=21, linewidth=2,
                  label='optimal trajectory')
 
     # visualize sampled trajectory bundle
@@ -117,7 +117,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         for i in range(0, len(traj_set), step):
             color = 'blue'
             plt.plot(traj_set[i].cartesian.x, traj_set[i].cartesian.y,
-                     color=color, zorder=20, linewidth=0.15, alpha=1.0)
+                     color=color, zorder=20, linewidth=0.3, alpha=1.0)
 
     # visualize predictions
     if predictions is not None:
@@ -135,7 +135,11 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     if config.debug.save_plots:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
-        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300)
+        if config.debug.gif:
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300)
+        else:
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.svg", format='svg')
+
 
     # show plot
     if config.debug.show_plots:
