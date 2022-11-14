@@ -33,6 +33,7 @@ setup(
         'omegaconf>=2.1.1',
         'pytest>=6.2.5',
         'scipy>=1.5.2',
+        'wale-net>=3.0.0'
         'commonroad-io>=2021.4',
         'commonroad-drivability-checker>=2021.4',
         ],
