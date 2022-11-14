@@ -37,18 +37,19 @@ from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, Carte
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from commonroad_rp.configuration import Configuration, VehicleConfiguration
 from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
+from commonroad_rp.utility import reachable_set
 
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
 from Prediction.walenet.prediction_helpers import collision_checker_prediction
+from commonroad_rp.utility.responsibility import assign_responsibility_by_action_space
 from commonroad_rp.utility import helper_functions as hf
 from Prediction.walenet.risk_assessment.utils.logistic_regression_symmetrical import get_protected_inj_prob_log_reg_ignore_angle
 
 from commonroad_rp.utility.load_json import (
     load_harm_parameter_json,
-    load_risk_json,
-    load_weight_json
+    load_risk_json
 )
 
 
@@ -129,6 +130,7 @@ class ReactivePlanner(object):
 
         # load harm parameters
         self.params_harm = load_harm_parameter_json(work_dir)
+        self.params_risk = load_risk_json(work_dir)
 
         try:
             (
@@ -141,6 +143,23 @@ class ReactivePlanner(object):
             )
         except:
             raise RuntimeError("Road Boundary can not be created")
+
+        # check whether reachable sets have to be calculated for responsibility
+        if (
+                'R' in config.cost.params.intersection
+                and config.cost.params.intersection['R'] > 0
+        ):
+            self.responsibility = True
+            self.reach_set = reachable_set.ReachSet(
+                scenario=self.scenario,
+                ego_id=24,
+                ego_length=config.vehicle.length,
+                ego_width=config.vehicle.width,
+                work_dir=work_dir
+            )
+        else:
+            self.responsibility = False
+            self.reach_set = None
 
         self.__goal_checker = GoalReachedChecker(planning_problem)
 
@@ -512,6 +531,14 @@ class ReactivePlanner(object):
         # Check if the goal is alreay reached
         self.__check_goal_reached()
 
+        # Assign responsibility to predictions
+        if self.responsibility:
+            predictions = assign_responsibility_by_action_space(
+                self.scenario, self.x_0, predictions
+            )
+            # calculate reachable sets
+            self.reach_set.calc_reach_sets(self.x_0, list(predictions.keys()))
+
         # check for low velocity mode
         if self.x_0.velocity < self._low_vel_mode_threshold:
             self._LOW_VEL_MODE = True
@@ -540,7 +567,8 @@ class ReactivePlanner(object):
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
             cost_function = AdaptableCostFunction(rp=self, predictions=predictions, timestep=x_0.time_step,
-                                                  scenario=self.scenario, cost_function_params=self.cost_params)
+                                                  scenario=self.scenario, cost_function_params=self.cost_params,
+                                                  reachset=self.reach_set)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)

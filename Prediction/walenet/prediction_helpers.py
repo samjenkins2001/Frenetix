@@ -166,7 +166,7 @@ def collision_checker_prediction(
 
             # only check for collision as long as both trajectories (frenét trajectory and prediction) are visible
             pred_traj = predictions[obstacle_id]['pos_list']
-            pred_length = min(len(frenet_traj.x), len(pred_traj))
+            pred_length = min(len(frenet_traj.cartesian.x), len(pred_traj))
             if pred_length == 0:
                 continue
 

@@ -5,17 +5,14 @@ import numpy as np
 import os
 
 
-def load_risk_json():
+def load_risk_json(work_dir):
     """
     Load the risk.json with harm weights.
 
     Returns:
         Dict: weights and modes form risk.json
     """
-    risk_config_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "configurations", "risk.json"
-    )
+    risk_config_path = os.path.join(work_dir, "configurations", "risk.json")
     with open(risk_config_path, "r") as f:
         jsondata = json.load(f)
 

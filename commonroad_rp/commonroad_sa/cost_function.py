@@ -14,10 +14,11 @@ from omegaconf import OmegaConf
 import commonroad_rp.trajectories
 import commonroad_rp.commonroad_sa.partial_cost_functions as cost_functions
 
-from Prediction.walenet.risk_assessment.collision_probability import (
-    get_mahalanobis_dist_dict,
+from risk_assessment.collision_probability import (
     get_collision_probability_fast
 )
+from risk_assessment.risk_costs import get_responsibility_cost
+from risk_assessment.risk_costs import calc_risk
 
 
 class PartialCostFunction(Enum):
@@ -86,7 +87,7 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, rp, predictions, timestep, scenario, cost_function_params):
+    def __init__(self, rp, predictions, timestep, scenario, cost_function_params, reachset=None):
         super(AdaptableCostFunction, self).__init__()
         self.desired_speed = rp._desired_speed
         # self.desired_d = desired_d
@@ -96,6 +97,7 @@ class AdaptableCostFunction(CostFunction):
         self.timestep = timestep
         self.scenario = scenario
         self.rp = rp
+        self.reachset = reachset
         self.params = OmegaConf.to_object(cost_function_params)
 
     def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample, scenario="intersection"):
@@ -160,6 +162,28 @@ class AdaptableCostFunction(CostFunction):
                 total_cost += costlist_weighted[num + len(PartialCostFunctionMapping)]
 
         if self.predictions is not None:
+
+            if self.reachset is not None:
+                ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict = calc_risk(
+                    traj=trajectory,
+                    ego_state=self.rp.x_0,
+                    predictions=self.predictions,
+                    scenario=self.scenario,
+                    ego_id=24,
+                    vehicle_params=self.vehicle_params,
+                    road_boundary=self.rp.road_boundary,
+                    params_harm=self.rp.params_harm,
+                    params_risk=self.rp.params_risk,
+                )
+                responsibility_cost, bool_contain_cache = get_responsibility_cost(
+                    scenario=scenario,
+                    traj=trajectory,
+                    ego_state=self.rp.x_0,
+                    obst_risk_max=obst_risk_dict,
+                    predictions=self.predictions,
+                    reach_set=self.rp.reach_set
+                )
+
             # prediction_costs_raw = get_mahalanobis_dist_dict(
             #     traj=trajectory,
             #     predictions=self.predictions,

@@ -62,6 +62,7 @@ class VehicleConfiguration:
         self.length = vehicle_parameters.l
         self.width = vehicle_parameters.w
         self.wheelbase = vehicle_parameters.a + vehicle_parameters.b
+        self.mass = vehicle_parameters.m
 
         # get constraints from given vehicle ID
         self.a_max = vehicle_parameters.longitudinal.a_max

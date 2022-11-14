@@ -14,7 +14,7 @@ numba
 commonroad-helper-functions
 wale-net==3.0.0
 ruamel.yaml
-
+pygeos
 
 
 

@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import subprocess
 import zipfile
+import math
 import ruamel.yaml as yaml
 import yaml as yml
 import numpy as np
@@ -297,5 +298,71 @@ def distance(pos1: np.array, pos2: np.array):
         float: Distance between point 1 and point 2.
     """
     return np.linalg.norm(pos1 - pos2)
+
+
+def find_lanelet_by_position_and_orientation(lanelet_network, position, orientation):
+    """Return the IDs of lanelets within a certain radius calculated from an initial state (position and orientation).
+
+    Args:
+        lanelet_network ([CommonRoad LaneletNetwork Object]): [description]
+        position ([np.array]): [position of the vehicle to find lanelet for]
+        orientation ([type]): [orientation of the vehicle for finding best lanelet]
+
+    Returns:
+        [int]: [list of matching lanelet ids]
+    """
+    # TODO: Shift this function to commonroad helpers
+    lanelets = []
+    initial_lanelets = lanelet_network.find_lanelet_by_position([position])[0]
+    best_lanelet = initial_lanelets[0]
+    radius = math.pi / 5.0  # ~0.63 rad = 36 degrees, determined empirically
+    min_orient_diff = math.inf
+    for lnlet in initial_lanelets:
+        center_line = lanelet_network.find_lanelet_by_id(lnlet).center_vertices
+        lanelet_orientation = calc_orientation_of_line(center_line[0], center_line[-1])
+        orient_diff = orientation_diff(orientation, lanelet_orientation)
+
+        if orient_diff < min_orient_diff:
+            min_orient_diff = orient_diff
+            best_lanelet = lnlet
+            if orient_diff < radius:
+                lanelets = [lnlet] + lanelets
+        elif orient_diff < radius:
+            lanelets.append(lnlet)
+
+    if not lanelets:
+        lanelets.append(best_lanelet)
+
+    return lanelets
+
+
+def calc_orientation_of_line(point1: np.ndarray, point2: np.ndarray) -> float:
+    """
+    Calculate the orientation of the line connecting two points (angle in radian, counter-clockwise defined).
+
+    Args:
+        point1 (np.ndarray): Starting point.
+        point2 (np.ndarray): Ending point.
+
+    Returns:
+        float: Orientation in radians.
+
+    """
+    return math.atan2(point2[1] - point1[1], point2[0] - point1[0])
+
+
+def orientation_diff(orientation_1: float, orientation_2: float) -> float:
+    """
+    Calculate the orientation difference between two orientations in radians.
+
+    Args:
+        orientation_1 (float): Orientation 1.
+        orientation_2 (float): Orientation 2.
+
+    Returns:
+        float: Orientation difference in radians.
+
+    """
+    return math.pi - abs(abs(orientation_1 - orientation_2) - math.pi)
 
 # EOF
