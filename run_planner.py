@@ -13,7 +13,7 @@ stack_path = os.path.dirname(
 
 if __name__ == '__main__':
 
-    scenario_name = "DEU_Flensburg-24_1_T-1"
+    scenario_name = "ZAM_Tjunction-1_8_T-1"
     scenario_path = os.path.join(mod_path, "example_scenarios", scenario_name)
     # scenario_path = os.path.join(stack_path, "commonroad-scenarios", "scenarios", "recorded", "scenario-factory", scenario_name)
     config = ConfigurationBuilder.build_configuration(scenario_path+".xml")

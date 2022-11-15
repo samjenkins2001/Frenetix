@@ -1,19 +1,19 @@
 params:
   intersection:
     A: 1.0
-    J: 0.1
-    Jlat: 0.1
-    Jlon: 0.1
+    J: 0.01
+    Jlat: 0.01
+    Jlon: 0.01
     O: 1.0
     L: 1.0
 
     LC: 10.0
-    V: [0.1, 0.5, 0.5]
+    V: 0.1
     VC: 0.1
-    DR: [10., 20.0]
+    DR: 10
     DO: 20
 
-    P: 2000
+    P: 500
     R: 0
 
 slow_section:

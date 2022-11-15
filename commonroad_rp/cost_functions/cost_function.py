@@ -12,7 +12,7 @@ from enum import Enum
 import numpy as np
 from omegaconf import OmegaConf
 import commonroad_rp.trajectories
-import commonroad_rp.commonroad_sa.partial_cost_functions as cost_functions
+import commonroad_rp.cost_functions.partial_cost_functions as cost_functions
 
 from risk_assessment.collision_probability import (
     get_collision_probability_fast
@@ -87,79 +87,66 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, rp, predictions, timestep, scenario, cost_function_params, reachset=None):
+    def __init__(self, rp, cost_function_params):
         super(AdaptableCostFunction, self).__init__()
-        self.desired_speed = rp._desired_speed
-        # self.desired_d = desired_d
-        self.predictions = predictions
+
+        self.scenario = None
+        self.rp = None
+        self.reachset = None
+        self.desired_speed = None
+        self.predictions = None
+
         self.vehicle_params = rp.vehicle_params
-        #self.costs_logger = rp.costs_logger
-        self.timestep = timestep
-        self.scenario = scenario
-        self.rp = rp
-        self.reachset = reachset
         self.params = OmegaConf.to_object(cost_function_params)
 
-    def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample, scenario="intersection"):
-
-        PartialCostFunctionMapping = {
+        self.PartialCostFunctionMapping = {
             PartialCostFunction.A: cost_functions.acceleration_cost,
             PartialCostFunction.J: cost_functions.jerk_cost,
             PartialCostFunction.Jlat: cost_functions.jerk_lat_cost,
             PartialCostFunction.Jlon: cost_functions.jerk_lon_cost,
             PartialCostFunction.O: cost_functions.orientation_offset_cost,
             PartialCostFunction.L: cost_functions.path_length_cost,
-            # PartialCostFunction.SA: cost_functions.steering_angle_cost,
-            # PartialCostFunction.SR: cost_functions.steering_rate_cost,
-            # PartialCostFunction.Y: cost_functions.yaw_cost,
-            # PartialCostFunction.Vlon: cost_functions.longitudinal_velocity_offset_cost,
-            #PartialCostFunction.T: cost_functions.time_cost,
-            #PartialCostFunction.ID: cost_functions.inverse_duration_cost,
-        }
-        PartialCostFunctionMapping_individual = {
+
             PartialCostFunction.LC: cost_functions.lane_center_offset_cost,
             PartialCostFunction.V: cost_functions.velocity_offset_cost,
             PartialCostFunction.VC: cost_functions.velocity_costs,
             PartialCostFunction.DR: cost_functions.distance_to_reference_path_cost,
             PartialCostFunction.DO: cost_functions.distance_to_obstacles_cost,
+            # PartialCostFunction.SA: cost_functions.steering_angle_cost,
+            # PartialCostFunction.SR: cost_functions.steering_rate_cost,
+            # PartialCostFunction.Y: cost_functions.yaw_cost,
+            # PartialCostFunction.Vlon: cost_functions.longitudinal_velocity_offset_cost,
+            # PartialCostFunction.T: cost_functions.time_cost,
+            # PartialCostFunction.ID: cost_functions.inverse_duration_cost,
         }
 
+        irrelevant_costs = []
+        for category in list(self.params.keys()):
+            for costs in list(self.params[category].keys()):
+                if self.params[category][costs] == 0:
+                    irrelevant_costs.append(costs)
+
+        for idx, name in enumerate(list(self.PartialCostFunctionMapping.keys())):
+            if str(name).split('.')[1] in irrelevant_costs:
+                del self.PartialCostFunctionMapping[name]
+
+    def update_state(self, scenario, rp, predictions, reachset):
+        self.scenario = scenario
+        self.rp = rp
+        self.reachset = reachset
+        self.desired_speed = rp._desired_speed
+        self.predictions = predictions
+
+    def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample, scenario="intersection"):
+
         total_cost = 0.0
-        costlist = np.zeros(len(PartialCostFunctionMapping) + len(PartialCostFunctionMapping_individual) + 1)
-        costlist_weighted = np.zeros(len(PartialCostFunctionMapping) + len(PartialCostFunctionMapping_individual) + 1)
+        costlist = np.zeros(len(self.PartialCostFunctionMapping) + 1)
+        costlist_weighted = np.zeros(len(self.PartialCostFunctionMapping) + 1)
 
-        for num, function in enumerate(PartialCostFunctionMapping):
-            if self.params[scenario][function.value] > 0:
-                costlist[num] = PartialCostFunctionMapping[function](trajectory)
-                costlist_weighted[num] = self.params[scenario][function.value] * PartialCostFunctionMapping[function](trajectory)
-                total_cost += costlist_weighted[num]
-
-        for num, function in enumerate(PartialCostFunctionMapping_individual):
-            active = False
-            if isinstance(self.params[scenario][function.value], list):
-                if any(self.params[scenario][function.value]) > 0:
-                    active = True
-            elif self.params[scenario][function.value] > 0:
-                active = True
-
-            if active:
-                if isinstance(self.params[scenario][function.value], list):
-                    params = np.array(self.params[scenario][function.value]) / min(self.params[scenario][function.value])
-                    costlist[num+len(PartialCostFunctionMapping)] = \
-                        PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario,
-                                                                        self.desired_speed, params)
-                    costlist_weighted[num+len(PartialCostFunctionMapping)] = \
-                        PartialCostFunctionMapping_individual[function](trajectory, self.rp, self.scenario,
-                                                                        self.desired_speed, self.params[scenario][function.value])
-                else:
-                    costlist[num + len(PartialCostFunctionMapping)] = PartialCostFunctionMapping_individual[function](
-                                                                        trajectory, self.rp, self.scenario,
-                                                                        self.desired_speed, 1)
-                    costlist_weighted[num + len(PartialCostFunctionMapping)] = PartialCostFunctionMapping_individual[function](
-                                                                        trajectory, self.rp, self.scenario,
-                                                                        self.desired_speed,
-                                                                        self.params[scenario][function.value])
-                total_cost += costlist_weighted[num + len(PartialCostFunctionMapping)]
+        for num, function in enumerate(self.PartialCostFunctionMapping):
+            costlist[num] = self.PartialCostFunctionMapping[function](trajectory, self.rp,
+                                                                      self.scenario, self.desired_speed)
+            costlist_weighted[num] = self.params[scenario][function.value] * costlist[num]
 
         if self.predictions is not None:
 
@@ -200,7 +187,7 @@ class AdaptableCostFunction(CostFunction):
 
             costlist[-1] = prediction_costs
             costlist_weighted[-1] = prediction_costs * self.params[scenario]["P"]
-            total_cost += costlist_weighted[-1]
+            total_cost = np.sum(costlist_weighted)
 
         # Logging of Cost terms
         # self.costs_logger.trajectory_number = self.x_0.time_step

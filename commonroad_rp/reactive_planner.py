@@ -25,18 +25,17 @@ from commonroad.scenario.scenario import Scenario
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_checker, create_collision_object
+from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, trajectories_collision_static_obstacles
 
 # commonroad_rp imports
-from commonroad_rp.cost_function import DefaultCostFunction, CostFunction
 from commonroad_rp.parameter import DefGymSampling, TimeSampling, VelocitySampling, PositionSampling
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from commonroad_rp.configuration import Configuration, VehicleConfiguration
-from commonroad_rp.commonroad_sa.cost_function import AdaptableCostFunction
+from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import reachable_set
 
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
@@ -160,6 +159,8 @@ class ReactivePlanner(object):
         else:
             self.responsibility = False
             self.reach_set = None
+
+        self.cost_function = AdaptableCostFunction(rp=self, cost_function_params=self.cost_params)
 
         self.__goal_checker = GoalReachedChecker(planning_problem)
 
@@ -337,7 +338,7 @@ class ReactivePlanner(object):
 
         return collision_object
 
-    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, cost_function: CostFunction, samp_level: int) -> TrajectoryBundle:
+    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, cost_function: AdaptableCostFunction, samp_level: int) -> TrajectoryBundle:
         """
         Plans trajectory samples that try to reach a certain velocity and samples in this domain.
         Sample in time (duration) and velocity domain. Initial state is given. Longitudinal end state (s) is sampled.
@@ -566,12 +567,11 @@ class ReactivePlanner(object):
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
-            cost_function = AdaptableCostFunction(rp=self, predictions=predictions, timestep=x_0.time_step,
-                                                  scenario=self.scenario, cost_function_params=self.cost_params,
-                                                  reachset=self.reach_set)
+            self.cost_function.update_state(scenario=self.scenario, rp=self,
+                                             predictions=predictions, reachset=reachable_set)
 
             # sample trajectory bundle
-            bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, cost_function, samp_level=i)
+            bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
 
             # get optimal trajectory
             t0 = time.time()

@@ -17,7 +17,8 @@ from commonroad_rp.utility.helper_functions import distance
 from commonroad_rp.utility import helper_functions as hf
 
 
-def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                      planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the acceleration cost for the given trajectory.
     """
@@ -28,7 +29,8 @@ def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -
     return cost
 
 
-def jerk_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def jerk_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+              planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the jerk cost for the given trajectory.
     """
@@ -36,10 +38,12 @@ def jerk_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
     jerk = np.diff(acceleration) / trajectory.dt
     jerk_sq = np.square(jerk)
     cost = simps(jerk_sq, dx=trajectory.dt)
+
     return cost
 
 
-def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                  planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the lateral jerk cost for the given trajectory.
     """
@@ -47,7 +51,8 @@ def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> fl
     return cost
 
 
-def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                  planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the lateral jerk cost for the given trajectory.
     """
@@ -55,21 +60,24 @@ def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> fl
     return cost
 
 
-def steering_angle_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def steering_angle_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                        planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the steering angle cost for the given trajectory.
     """
     raise NotImplementedError
 
 
-def steering_rate_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def steering_rate_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                       planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the steering rate cost for the given trajectory.
     """
     raise NotImplementedError
 
 
-def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+             planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the yaw cost for the given trajectory.
     """
@@ -77,7 +85,7 @@ def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
 
 
 def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
-                    planner=None, scenario=None, desired_speed: float=0, weights=None) -> float:
+                            planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculate the average distance of the trajectory to the center line of a lane.
 
@@ -103,29 +111,31 @@ def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
         else:
             dist = dist + 5
 
-    return (dist / len(trajectory.cartesian.x)) * weights
+    return dist / len(trajectory.cartesian.x)
 
 
 def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
-                         planner=None, scenario=None,
-                         desired_speed: float=0, weights=None) -> float:
+                         planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Velocity Offset cost.
     """
-    cost = np.sum((weights[0] * (trajectory.cartesian.v - desired_speed)) ** 2) + \
-        (weights[1] * (trajectory.cartesian.v[-1] - desired_speed) ** 2) + \
-        (weights[2] * (trajectory.cartesian.v[int(len(trajectory.cartesian.v) / 2)] - desired_speed) ** 2)
-    return cost
+    cost = np.sum(((trajectory.cartesian.v - desired_speed) ** 2) +
+            (10 * (trajectory.cartesian.v[-1] - desired_speed) ** 2) +
+            (20 * (trajectory.cartesian.v[int(len(trajectory.cartesian.v) / 2)] - desired_speed) ** 2))
+
+    return float(cost)
 
 
-def longitudinal_velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def longitudinal_velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                                      planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Velocity Offset cost.
     """
     raise NotImplementedError
 
 
-def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                            planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Orientation Offset cost.
     """
@@ -134,8 +144,7 @@ def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
 
 
 def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
-                         planner=None, scenario=None,
-                         desired_speed: float=0, weights=None) -> float:
+                                    planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Distance to Reference Path costs.
 
@@ -145,18 +154,14 @@ def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.Traje
     Returns:
         float: Average distance of the trajectory to the given path.
     """
-    # Costs of gerneral deviation from ref path
-    cost = np.mean(np.abs(trajectory.curvilinear.d)) * weights[0]
-
-    # Additional costs for deviation at final planning point from ref path
-    cost += np.mean(np.abs(trajectory.curvilinear.d[-1])) * weights[1]
+    # Costs of gerneral deviation from ref path && Additional costs for deviation at final planning point from ref path
+    cost = np.mean(np.abs(trajectory.curvilinear.d)) + np.mean(np.abs(trajectory.curvilinear.d[-1])) * 2
 
     return cost
 
 
 def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
-                         planner=None, scenario=None,
-                         desired_speed: float=0, weights=None) -> float:
+                               planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Distance to Obstacle cost.
     """
@@ -170,7 +175,7 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
         if state is not None:
             for idx in range(0, len(trajectory.cartesian.x)):
                 cost += 1/((np.sqrt((state.position[0] - trajectory.cartesian.x[idx])**2 +
-                                    (state.position[1]-trajectory.cartesian.y[idx])**2))**2)
+                                    (state.position[1] - trajectory.cartesian.y[idx])**2))**2)
 
 
         # if state is not None:
@@ -180,10 +185,11 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
         #     dist = np.sqrt((state.position[0] - pos_x[1]) ** 2 + (state.position[1] - pos_y[1]) ** 2)
         #     if dist < min_distance:
         #         cost += (dist - min_distance) ** 2
-    return cost * weights
+    return cost
 
 
-def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                     planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the path length cost for the given trajectory.
     """
@@ -192,14 +198,16 @@ def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) ->
     return cost
 
 
-def time_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def time_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+              planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the time cost for the given trajectory.
     """
     raise NotImplementedError
 
 
-def inverse_duration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+def inverse_duration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                          planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the inverse time cost for the given trajectory.
     """
@@ -207,8 +215,7 @@ def inverse_duration_cost(trajectory: commonroad_rp.trajectories.TrajectorySampl
 
 
 def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
-                    planner=None, scenario=None,
-                    desired_speed: float=0, weights=None) -> float:
+                   planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculate the costs for the velocity of the given trajectory.
 
@@ -240,7 +247,7 @@ def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
             )
         # otherwise prefer slow trajectories
         else:
-            return np.mean(trajectory.cartesian.v)
+            return float(np.mean(trajectory.cartesian.v))
 
     # if the goal is not reached yet, try to reach it
     # get the center points of the possible goal positions
@@ -289,10 +296,10 @@ def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
     else:
         cost = 30.0 - np.mean(trajectory.cartesian.v)
 
-    return cost*weights
+    return cost
 
 
-def reached_target_position(pos: np.array, goal_area):
+def reached_target_position(pos: np.array, goal_area) -> bool:
     """
     Check if the given position is in the goal area of the planning problem.
 
@@ -316,7 +323,7 @@ def reached_target_position(pos: np.array, goal_area):
     return False
 
 
-def dist_to_nearest_point(center_vertices: np.ndarray, pos: np.array):
+def dist_to_nearest_point(center_vertices: np.ndarray, pos: np.array) -> float:
     """
     Find the closest distance of a given position to a polyline.
 
