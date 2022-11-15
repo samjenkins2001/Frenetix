@@ -117,6 +117,7 @@ class ReactivePlanner(object):
         self.save_all_traj = config.debug.save_all_traj
         self.cost_params = config.cost.params
         self.all_traj = None
+        # self.save_unweighted_costs = config.debug.save_unweighted_costs
 
         if config.prediction.walenet or config.prediction.lanebased:
             self.use_prediction = True
@@ -160,7 +161,8 @@ class ReactivePlanner(object):
             self.responsibility = False
             self.reach_set = None
 
-        self.cost_function = AdaptableCostFunction(rp=self, cost_function_params=self.cost_params)
+        self.cost_function = AdaptableCostFunction(rp=self, cost_function_params=self.cost_params,
+                                                   save_unweighted_costs=config.debug.save_unweighted_costs)
 
         self.__goal_checker = GoalReachedChecker(planning_problem)
 

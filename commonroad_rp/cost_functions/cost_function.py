@@ -87,7 +87,7 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, rp, cost_function_params):
+    def __init__(self, rp, cost_function_params, save_unweighted_costs):
         super(AdaptableCostFunction, self).__init__()
 
         self.scenario = None
@@ -98,6 +98,7 @@ class AdaptableCostFunction(CostFunction):
 
         self.vehicle_params = rp.vehicle_params
         self.params = OmegaConf.to_object(cost_function_params)
+        self.save_unweighted_costs = save_unweighted_costs
 
         self.PartialCostFunctionMapping = {
             PartialCostFunction.A: cost_functions.acceleration_cost,
@@ -193,4 +194,8 @@ class AdaptableCostFunction(CostFunction):
         # self.costs_logger.trajectory_number = self.x_0.time_step
         # self.costs_logger.log_data(cost)
 
-        return total_cost, costlist_weighted
+        if self.save_unweighted_costs:
+            return total_cost, costlist
+        else:
+            return total_cost, costlist_weighted
+

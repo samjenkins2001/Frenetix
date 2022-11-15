@@ -92,6 +92,7 @@ class DebugConfiguration:
     """Class to store debug configurations"""
     def __init__(self, config: Union[ListConfig, DictConfig]):
         self.save_all_traj = config.save_all_traj
+        self.save_unweighted_costs = config.save_unweighted_costs
         self.show_plots = config.show_plots
         self.save_plots = config.save_plots
         self.evaluation = config.evaluation

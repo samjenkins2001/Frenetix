@@ -174,10 +174,6 @@ def run_planner(config, log_path, mod_path):
                     print("Scenario succeeded, but outside the time horizon")
                 break
 
-            # if desired, store sampled trajectory bundle for visualization
-            # if config.debug.show_plots or config.debug.save_plots:
-            #     sampled_trajectory_bundle = deepcopy(planner.all_traj)
-
             # correct orientation angle
             new_state_list = planner.shift_orientation(optimal[0])
 
@@ -200,30 +196,6 @@ def run_planner(config, log_path, mod_path):
 
             # create CommonRoad Obstacle for the ego Vehicle
             ego_vehicle = planner.convert_cr_trajectory_to_object(optimal[0])
-        else:
-            # not a planning cycle -> no trajectories sampled -> set sampled_trajectory_bundle to None
-            sampled_trajectory_bundle = None
-
-            # continue on optimal trajectory
-            temp = current_count % config.planning.replanning_frequency
-
-            # add new state to recorded state list
-            new_state = new_state_list.state_list[1 + temp]
-            new_state.time_step = current_count + 1
-            record_state_list.append(new_state)
-
-            # add input to recorded input list
-            record_input_list.append(State(
-                steering_angle=new_state.steering_angle,
-                acceleration=new_state.acceleration,
-                steering_angle_speed=(new_state.steering_angle - record_input_list[-1].steering_angle) / DT,
-                time_step=new_state.time_step
-            ))
-
-            # update init state and curvilinear state
-            x_0 = record_state_list[-1]
-            x_cl = (optimal[2][1 + temp], optimal[3][1 + temp])
-            predictions = None
 
         print(f"current time step: {current_count}")
         # draw scenario + planning solution
@@ -235,7 +207,6 @@ def run_planner(config, log_path, mod_path):
         if planner.check_collision():
             print("Collision Detected!")
             break
-
 
     # plot  final ego vehicle trajectory
     plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
