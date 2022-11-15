@@ -4,5 +4,5 @@ lanebased: False
 # Sensor Radius in Meter
 sensor_radius: 60
 cone_angle: 30
-cone_safety_dist: 2
+cone_safety_dist: 3
 pred_horizon_in_s: 3

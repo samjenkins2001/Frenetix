@@ -8,10 +8,12 @@ from enum import Enum
 
 from commonroad_rp.trajectories import TrajectorySample, CartesianSample
 
+
 class LogMode(Enum):
     visualization = 2
     evaluation = 1
     none = 3
+
 
 class DataLoggingCosts:
     # ----------------------------------------------------------------------------------------------------------
@@ -57,6 +59,7 @@ class DataLoggingCosts:
             "distance_to_reference_path_cost;"
             "distance_to_obstacles_cost;"
             "prediction_cost;"
+            "responsibility_cost;"
         )
         self.prediction_header = (
             "trajectory_number;"
@@ -93,6 +96,7 @@ class DataLoggingCosts:
             "distance_to_reference_path_cost;"
             "distance_to_obstacles_cost;"
             "prediction_cost;"
+            "responsibility_cost;"
         )
         log_file_name = "logs.csv"
         prediction_file_name = "predictions.csv"
@@ -165,6 +169,8 @@ class DataLoggingCosts:
                     + json.dumps(str(costs[9]))
                     + ";"
                     + json.dumps(str(costs[10]))
+                    + ";"
+                    + json.dumps(str(costs[11]))
                 )
 
     def log(self, trajectory: TrajectorySample, infeasible_kinematics, infeasible_collision: int, planning_time: float,

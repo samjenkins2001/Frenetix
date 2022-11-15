@@ -14,7 +14,7 @@ params:
     DO: 20
 
     P: 500
-    R: 0
+    R: 10000
 
 slow_section:
   A: Acceleration
