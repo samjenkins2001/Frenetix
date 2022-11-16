@@ -10,7 +10,8 @@ from typing import Union, List
 import numpy as np
 from abc import ABC, abstractmethod
 import math
-
+import multiprocessing
+from multiprocessing.context import Process
 from commonroad_rp.polynomial_trajectory import PolynomialTrajectory
 
 
@@ -402,6 +403,15 @@ class TrajectorySample(Sample):
     def trajectory_lat(self, trajectory_lat):
         pass
 
+    def set_costs(self, cost, cost_list):#, cost_function):
+        """
+        Evaluated cost of the trajectory sample
+        :return: The cost of the trajectory sample
+        """
+        self._cost = cost
+        self._cost_list = cost_list
+        # self._cost_function = cost_function
+
     @property
     def cost(self) -> float:
         """
@@ -410,14 +420,14 @@ class TrajectorySample(Sample):
         """
         return self._cost
 
-    @cost.setter
-    def cost(self, cost_function):
-        """
-        Sets the cost function for evaluating the costs of the polynomial trajectory
-        :param cost_function: The cost function for computing the costs
-        """
-        self._cost, self._cost_list = cost_function.evaluate(self)
-        self._cost_function = cost_function
+    # @cost.setter
+    # def cost(self, cost_function):
+    #     """
+    #     Sets the cost function for evaluating the costs of the polynomial trajectory
+    #     :param cost_function: The cost function for computing the costs
+    #     """
+    #     self._cost, self._cost_list = cost_function.evaluate(self)
+    #     self._cost_function = cost_function
 
     @property
     def curvilinear(self) -> CurviLinearSample:
@@ -477,7 +487,7 @@ class TrajectoryBundle:
     Class that represents a collection of trajectories
     """
 
-    def __init__(self, trajectories: List[TrajectorySample], cost_function):
+    def __init__(self, trajectories: List[TrajectorySample], cost_function, multiproc, num_workers):
         """
         Initializer of a TrajectoryBundle
         :param trajectories: The list of trajectory samples
@@ -489,10 +499,12 @@ class TrajectoryBundle:
             'valid! List = {}'.format(trajectories)
 
         self.trajectories: List[TrajectorySample] = trajectories
-        self.trajectories_all: List[TrajectorySample] = trajectories
+        # self.trajectories_all: List[TrajectorySample] = trajectories
         self._cost_function = cost_function
         self._is_sorted = False
         self._is_sorted_all = False
+        self._multiproc = multiproc
+        self._num_workers = num_workers
 
     @property
     def trajectories(self) -> List[TrajectorySample]:
@@ -510,6 +522,12 @@ class TrajectoryBundle:
         """
         self._trajectory_bundle = trajectories
 
+    def _process_costs(self, trajectories: List[TrajectorySample], queue_1=None):
+        for trajectory in trajectories:
+            cost, cost_list = self._cost_function.evaluate(trajectory)
+            trajectory.set_costs(cost, cost_list)
+        queue_1.put(trajectories)
+
     def sort(self):
         """
         Sorts the trajectories within the TrajectoryBundle according to their costs from lowest to highest.
@@ -517,20 +535,33 @@ class TrajectoryBundle:
         if not self._is_sorted:
             if self._trajectory_bundle:
                 if not self._trajectory_bundle[0].cost > 0:
-                    for trajectory in self._trajectory_bundle:
-                        trajectory.cost = self._cost_function
+                    if self._multiproc:
+                        # with multiprocessing
+                        # divide trajectory_bundle.trajectories into chunks
+                        chunk_size = math.ceil(len(self._trajectory_bundle) / self._num_workers)
+                        chunks = [self._trajectory_bundle[ii * chunk_size: min(len(self._trajectory_bundle),
+                                  (ii + 1) * chunk_size)] for ii in range(0, self._num_workers)]
+                        list_processes = []
+                        trajectories_proc = []
+                        queue_1 = multiprocessing.Queue()
+                        for chunk in chunks:
+                            p = Process(target=self._process_costs, args=(chunk, queue_1))
+                            list_processes.append(p)
+                            p.start()
+                        # # get return values from queue
+                        for p in list_processes:
+                            trajectories_proc.extend(queue_1.get())
+                        for p in list_processes:
+                            p.join()
+                        self.trajectories = trajectories_proc
+                        self._trajectory_bundle = trajectories_proc
+                    else:
+                        for trajectory in self._trajectory_bundle:
+                            cost, cost_list = self._cost_function.evaluate(trajectory)
+                            trajectory.set_costs(cost, cost_list)
+
             self._trajectory_bundle.sort(key=lambda x: x.cost)
             self._is_sorted = True
-
-    def sort_all(self):
-        """
-        Sorts the trajectories within the TrajectoryBundle according to their costs from lowest to highest.
-        """
-        if not self._is_sorted_all:
-            for trajectory in self.trajectories_all:
-                trajectory.cost = self._cost_function
-            self.trajectories_all.sort(key=lambda x: x.cost)
-            self._is_sorted_all = True
 
     def optimal_trajectory(self) -> Union[TrajectorySample, None]:
         """

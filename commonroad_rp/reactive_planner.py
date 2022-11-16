@@ -385,7 +385,8 @@ class ReactivePlanner(object):
                             trajectories.append(trajectory_sample)
 
         # perform pre check and order trajectories according their cost
-        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function)
+        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
+                                             multiproc=self._multiproc, num_workers=self._num_workers)
         self._total_count = len(trajectory_bundle._trajectory_bundle)
         if self.debug_mode >= 1:
             print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
@@ -1017,10 +1018,10 @@ class ReactivePlanner(object):
         if self._draw_traj_set or self.save_all_traj:
             [feasible_trajectories[i].set_valid_status(True) for i in range(len(feasible_trajectories))]
             [infeasible_trajectories[i].set_valid_status(False) for i in range(len(infeasible_trajectories))]
-            trajectory_bundle.trajectories_all = feasible_trajectories + infeasible_trajectories
-            trajectory_bundle.sort_all()
-            self.all_traj = trajectory_bundle.trajectories_all
-            trajectory_bundle.trajectories = feasible_trajectories
+            trajectory_bundle.trajectories = feasible_trajectories + infeasible_trajectories
+            trajectory_bundle.sort()
+            self.all_traj = trajectory_bundle.trajectories
+            trajectory_bundle.trajectories = [x for x in trajectory_bundle.trajectories if x.valid == True]
         else:
             # set feasible trajectories in bundle
             trajectory_bundle.trajectories = feasible_trajectories
