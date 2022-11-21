@@ -35,7 +35,6 @@ from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajec
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from commonroad_rp.configuration import Configuration, VehicleConfiguration
-from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import reachable_set
 
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
@@ -161,8 +160,7 @@ class ReactivePlanner(object):
             self.responsibility = False
             self.reach_set = None
 
-        self.cost_function = AdaptableCostFunction(rp=self, cost_function_params=self.cost_params,
-                                                   save_unweighted_costs=config.debug.save_unweighted_costs)
+        self.cost_function = None
 
         self.__goal_checker = GoalReachedChecker(planning_problem)
 
@@ -231,6 +229,9 @@ class ReactivePlanner(object):
             assert scenario is None, '<set collision checker>: Please provide a CommonRoad scenario OR a ' \
                                      'CollisionChecker object to the planner.'
             self._cc: pycrcc.CollisionChecker = collision_checker
+
+    def set_cost_function(self, cost_function):
+        self.cost_function = cost_function
 
     def set_reference_path(self, reference_path: np.ndarray = None, coordinate_system: CoordinateSystem = None):
         """
@@ -340,7 +341,7 @@ class ReactivePlanner(object):
 
         return collision_object
 
-    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, cost_function: AdaptableCostFunction, samp_level: int) -> TrajectoryBundle:
+    def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, cost_function, samp_level: int) -> TrajectoryBundle:
         """
         Plans trajectory samples that try to reach a certain velocity and samples in this domain.
         Sample in time (duration) and velocity domain. Initial state is given. Longitudinal end state (s) is sampled.

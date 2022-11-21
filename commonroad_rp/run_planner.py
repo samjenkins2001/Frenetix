@@ -8,7 +8,6 @@ __status__ = "Beta"
 
 # standard imports
 import time
-import sys
 from copy import deepcopy
 
 # third party
@@ -26,6 +25,7 @@ from commonroad_rp.reactive_planner import ReactivePlanner
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states
+from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility.helper_functions import (
     get_goal_area_shape_group,
 )
@@ -70,8 +70,12 @@ def run_planner(config, log_path, mod_path):
     # *************************************
     # Initialize Planner
     # *************************************
+
     # initialize reactive planner
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
+    cost_function = AdaptableCostFunction(rp=planner, cost_function_params=planner.cost_params,
+                                          save_unweighted_costs=config.debug.save_unweighted_costs)
+    planner.set_cost_function(cost_function)
     # set sampling parameters
     planner.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
     planner.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
