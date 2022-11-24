@@ -207,9 +207,9 @@ def run_planner(config, log_path, mod_path):
         # draw scenario + planning solution
         if config.debug.show_plots or config.debug.save_plots:
             visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle,
-                                          traj_set=planner.all_traj, ref_path=ref_path,
-                                          timestep=current_count, config=config, predictions=predictions,
-                                          plot_window=config.debug.plot_window_dyn, log_path=log_path)
+                                          traj_set=planner.all_traj, ref_path=ref_path, timestep=current_count,
+                                          config=config, predictions=predictions, plot_window=config.debug.plot_window_dyn,
+                                          log_path=log_path, visible_area=visible_area)
         if planner.check_collision():
             print("Collision Detected!")
             break

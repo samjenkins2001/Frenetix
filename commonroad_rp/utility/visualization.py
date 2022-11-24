@@ -51,8 +51,10 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
 
 
 def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
-                                  timestep: int, config: Configuration, log_path: str, traj_set: List[TrajectorySample] = None,
-                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None):
+                                  timestep: int, config: Configuration, log_path: str,
+                                  traj_set: List[TrajectorySample] = None, ref_path: np.ndarray = None,
+                                  rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
+                                  visible_area=None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -110,6 +112,18 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     pos = np.asarray([state.position for state in ego.prediction.trajectory.state_list])
     rnd.ax.plot(pos[:, 0], pos[:, 1], color='k', marker='x', markersize=1.5, zorder=21, linewidth=2,
                  label='optimal trajectory')
+
+    # draw visible sensor area
+    if visible_area is not None:
+        if visible_area.geom_type == "MultiPolygon":
+            for geom in visible_area.geoms:
+                rnd.ax.fill(*geom.exterior.xy, "g", alpha=0.2, zorder=10)
+        elif visible_area.geom_type == "Polygon":
+            rnd.ax.fill(*visible_area.exterior.xy, "g", alpha=0.2, zorder=10)
+        else:
+            for obj in visible_area:
+                if obj.geom_type == "Polygon":
+                    rnd.ax.fill(*obj.exterior.xy, "g", alpha=0.2, zorder=10)
 
     # visualize sampled trajectory bundle
     step = 1  # draw every trajectory (step=2 would draw every second trajectory)
