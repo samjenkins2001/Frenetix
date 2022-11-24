@@ -44,6 +44,7 @@ class PredictionConfiguration:
     def __init__(self, config: Union[ListConfig, DictConfig]):
         self.walenet = config.walenet
         self.lanebased = config.lanebased
+        self.calc_visible_area = config.calc_visible_area
         self.sensor_radius = config.sensor_radius
         self.cone_angle = config.cone_angle
         self.cone_safety_dist = config.cone_safety_dist

@@ -16,6 +16,8 @@ sys.path.append(module_path)
 
 from Prediction.walenet.helper_functions import create_tvobstacle, distance
 from prediction import WaleNet
+from commonroad_helper_functions.sensor_model import get_visible_objects
+
 
 def get_obstacles_in_radius(scenario, ego_id: int, ego_state, radius: float):
     """
@@ -289,22 +291,43 @@ def get_ground_truth_prediction(
     return prediction_result
 
 
-def main_prediction(predictor, scenario, ego_state, sensor_radius, DT, t_list):
-    visible_obstacles = get_obstacles_in_radius(
-        scenario=scenario,
-        ego_id=42,
-        ego_state=ego_state,
-        radius=sensor_radius,
-    )
-    # predictions may fail (e.g. SetBasedPrediction DEU_Ffb-1_2_S-1)
+def prediction_preprocessing(scenario, ego_state, config):
+    if config.prediction.calc_visible_area:
+        try:
+            visible_obstacles, visible_area = get_visible_objects(
+                scenario=scenario,
+                ego_pos=ego_state.position,
+                time_step=ego_state.time_step,
+                sensor_radius=config.prediction.sensor_radius,
+            )
+            return visible_obstacles, visible_area
+        except:
+            print("Could not calculate visible area!")
+            visible_obstacles = get_obstacles_in_radius(
+                scenario=scenario,
+                ego_id=42,
+                ego_state=ego_state,
+                radius=config.prediction.sensor_radius,
+            )
+            return visible_obstacles, None
+    else:
+        visible_obstacles = get_obstacles_in_radius(
+            scenario=scenario,
+            ego_id=42,
+            ego_state=ego_state,
+            radius=config.prediction.sensor_radius,
+        )
+        return visible_obstacles, None
 
+
+def main_prediction(predictor, scenario, visible_obstacles, ego_state, DT, t_list):
     # get dynamic and static visible obstacles since predictor can not handle static obstacles
     (
         dyn_visible_obstacles,
         stat_visible_obstacles,
     ) = get_dyn_and_stat_obstacles(
-        scenario=scenario, obstacle_ids=visible_obstacles
-    )
+        scenario=scenario, obstacle_ids=visible_obstacles)
+
     # get prediction for dynamic obstacles
     predictions = predictor.step(
         time_step=ego_state.time_step,
@@ -322,10 +345,6 @@ def main_prediction(predictor, scenario, ego_state, sensor_radius, DT, t_list):
         predictions=predictions, scenario=scenario
     )
 
-    # Assign responsibility to predictions
-    # predictions = assign_responsibility_by_action_space(
-    #     self.scenario, self.ego_state, predictions
-    # )
     return predictions
 
 

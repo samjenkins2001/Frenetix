@@ -2,6 +2,7 @@
 walenet: True
 lanebased: False
 # Sensor Radius in Meter
+calc_visible_area: True
 sensor_radius: 60
 cone_angle: 30
 cone_safety_dist: 3

@@ -40,7 +40,7 @@ from commonroad_rp.utility import reachable_set
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
-from Prediction.walenet.prediction_helpers import collision_checker_prediction
+from commonroad_rp.prediction_helpers import collision_checker_prediction
 from commonroad_rp.utility.responsibility import assign_responsibility_by_action_space
 from commonroad_rp.utility import helper_functions as hf
 from Prediction.walenet.risk_assessment.utils.logistic_regression_symmetrical import get_protected_inj_prob_log_reg_ignore_angle

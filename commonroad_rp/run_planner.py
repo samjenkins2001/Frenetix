@@ -31,7 +31,7 @@ from commonroad_rp.utility.helper_functions import (
 )
 from commonroad_rp.utility.general import load_scenario_and_planning_problem
 
-from Prediction.walenet.prediction_helpers import main_prediction, load_walenet
+from commonroad_rp.prediction_helpers import main_prediction, load_walenet, prediction_preprocessing
 from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
 
 from commonroad_prediction.prediction_module import PredictionModule
@@ -123,7 +123,7 @@ def run_planner(config, log_path, mod_path):
     elif config.prediction.lanebased:
         pred_horizon_in_seconds = config.prediction.pred_horizon_in_s
         pred_horizon_in_timesteps = int(pred_horizon_in_seconds / DT)
-        predictor = PredictionModule(scenario, timesteps=pred_horizon_in_timesteps, dt=DT)
+        predictor_lanelet = PredictionModule(scenario, timesteps=pred_horizon_in_timesteps, dt=DT)
 
     new_state = None
 
@@ -144,11 +144,13 @@ def run_planner(config, log_path, mod_path):
                 ego_state = x_0
 
             # get visible objects if the prediction is used
+            visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config)
+
             if config.prediction.walenet:
-                predictions = main_prediction(predictor, scenario, ego_state, config.prediction.sensor_radius, DT,
+                predictions = main_prediction(predictor, scenario, visible_obstacles, ego_state, DT,
                                               [float(config.planning.planning_horizon)])
             elif config.prediction.lanebased:
-                predictions = predictor.main_prediction(ego_state, config.prediction.sensor_radius,
+                predictions = predictor_lanelet.main_prediction(ego_state, config.prediction.sensor_radius,
                                               [float(config.planning.planning_horizon)])
             else:
                 predictions = None
