@@ -144,7 +144,8 @@ def run_planner(config, log_path, mod_path):
                 ego_state = x_0
 
             # get visible objects if the prediction is used
-            visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config)
+            if config.prediction.walenet or config.prediction.calc_visible_area:
+                visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config)
 
             if config.prediction.walenet:
                 predictions = main_prediction(predictor, scenario, visible_obstacles, ego_state, DT,
