@@ -110,6 +110,8 @@ class AdaptableCostFunction(CostFunction):
 
             PartialCostFunction.LC: cost_functions.lane_center_offset_cost,
             PartialCostFunction.V: cost_functions.velocity_offset_cost,
+
+            # TODO: In long term, delete VC cost term, because Velocity Planner is calculating target speed needed
             PartialCostFunction.VC: cost_functions.velocity_costs,
             PartialCostFunction.DR: cost_functions.distance_to_reference_path_cost,
             PartialCostFunction.DO: cost_functions.distance_to_obstacles_cost,

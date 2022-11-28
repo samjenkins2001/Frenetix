@@ -15,6 +15,7 @@ import commonroad_dc.pycrcc as pycrcc
 from shapely.geometry import LineString, Point
 from commonroad_rp.utility.helper_functions import distance
 from commonroad_rp.utility import helper_functions as hf
+from scipy.spatial.distance import cdist
 
 
 def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
@@ -99,17 +100,17 @@ def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
     dist = 0.0
     for i in range(len(trajectory.cartesian.x)):
         # find the lanelet of every position
-        pos = [trajectory.cartesian.x[i], trajectory.cartesian.y[i]]
+        pos = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
         lanelet_ids = scenario.lanelet_network.find_lanelet_by_position([np.array(pos)])
         if len(lanelet_ids[0]) > 0:
             lanelet_id = lanelet_ids[0][0]
             lanelet_obj = scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
             # find the distance of the current position to the center line of the lanelet
-            dist = dist + dist_to_nearest_point(lanelet_obj.center_vertices, pos)
+            dist += dist + dist_to_nearest_point(lanelet_obj.center_vertices, pos)
         # theirs should always be a lanelet for the current position
         # otherwise the trajectory should not be valid and no costs are calculated
         else:
-            dist = dist + 5
+            dist += 5
 
     return dist / len(trajectory.cartesian.x)
 
@@ -166,25 +167,12 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
     Calculates the Distance to Obstacle cost.
     """
     cost = 0.0
-    pos_x = [trajectory.cartesian.x[1], trajectory.cartesian.x[-1]]
-    pos_y = [trajectory.cartesian.y[1], trajectory.cartesian.y[-1]]
-    min_distance = 40
-
-    for obstacle in scenario.dynamic_obstacles:
+    for obstacle in scenario.obstacles:
         state = obstacle.state_at_time(planner.x_0.time_step)
         if state is not None:
-            for idx in range(0, len(trajectory.cartesian.x)):
-                cost += 1/((np.sqrt((state.position[0] - trajectory.cartesian.x[idx])**2 +
-                                    (state.position[1] - trajectory.cartesian.y[idx])**2))**2)
+            cost += np.sum(np.reciprocal(cdist(np.transpose(np.array([trajectory.cartesian.x, trajectory.cartesian.y])),
+                    np.reshape(np.array([state.position[0], state.position[1]]), (1, 2)), metric='euclidean')))
 
-
-        # if state is not None:
-        #     dist = np.sqrt((state.position[0] - pos_x[0])**2 + (state.position[1]-pos_y[0])**2)
-        #     if dist < min_distance:
-        #         cost += (dist - min_distance) ** 2
-        #     dist = np.sqrt((state.position[0] - pos_x[1]) ** 2 + (state.position[1] - pos_y[1]) ** 2)
-        #     if dist < min_distance:
-        #         cost += (dist - min_distance) ** 2
     return cost
 
 

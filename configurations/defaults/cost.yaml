@@ -1,7 +1,7 @@
 params:
   intersection:
-    A: 1.0
-    J: 0.01
+    A: 0.0
+    J: 0.00
     Jlat: 0.01
     Jlon: 0.01
     O: 1.0
@@ -14,25 +14,28 @@ params:
     DO: 20
 
     P: 500
-    R: 10000
+    R: 1
 
 slow_section:
   A: Acceleration
   J: Jerk
   Jlat: Lateral Jerk
   Jlon: Longitudinal Jerk
-  SA: Steering Angle
-  SR: Steering Rate
-  Y: Yaw Rate
+  O: Orientation Offset
+  L: Path Length
+
   LC: Lane Center Offset
   V: Velocity Offset
   VC: Velocity Costs
-  Vlon: Longitudinal Velocity Offset
-  O: Orientation Offset
   DR: Distance to Reference Path
   DO: Distance to Obstacles
-  L: Path Length
-  T: Time
-  ID: Inverse Duration
+
   P: Prediction
   R: Responsibility
+
+  # SA: Steering Angle
+  # SR: Steering Rate
+  # Y: Yaw Rate
+  # Vlon: Longitudinal Velocity Offset
+  # T: Time
+  # ID: Inverse Duration
