@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from enum import Enum
 
-from commonroad_rp.trajectories import TrajectorySample, CartesianSample
+from commonroad_rp.trajectories import TrajectorySample
 
 
 class LogMode(Enum):
@@ -85,7 +85,7 @@ class DataLoggingCosts:
             "acceleration_mps2;"
             "s_position_m;"
             "d_position_m;"
-            "costs;"
+            "costs_cumulative_weighted;"
             +
             cost_names
             +
@@ -107,7 +107,7 @@ class DataLoggingCosts:
             "d_position_m;"
             "_trajectory_long;"
             "_trajectory_lat;"           
-            "costs;"
+            "costs_cumulative_weighted;"
             +
             cost_names
             +
