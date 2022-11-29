@@ -232,6 +232,7 @@ class ReactivePlanner(object):
 
     def set_cost_function(self, cost_function):
         self.cost_function = cost_function
+        self.logger.set_logging_header(cost_function.PartialCostFunctionMapping)
 
     def set_reference_path(self, reference_path: np.ndarray = None, coordinate_system: CoordinateSystem = None):
         """

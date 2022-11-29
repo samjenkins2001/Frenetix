@@ -122,7 +122,9 @@ class AdaptableCostFunction(CostFunction):
             # PartialCostFunction.T: cost_functions.time_cost,
             # PartialCostFunction.ID: cost_functions.inverse_duration_cost,
         }
+        self.delete_irrelevant_costs()
 
+    def delete_irrelevant_costs(self):
         irrelevant_costs = []
         for category in list(self.params.keys()):
             for costs in list(self.params[category].keys()):

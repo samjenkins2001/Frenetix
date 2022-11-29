@@ -28,6 +28,44 @@ class DataLoggingCosts:
 
         self.log_mode = LogMode(log_mode)
 
+        self.header = None
+        self.trajectories_header = None
+        self.prediction_header = None
+        self.path_logs = path_logs
+
+        log_file_name = "logs.csv"
+        prediction_file_name = "predictions.csv"
+        collision_file_name = "collision.csv"
+        self.trajectories_file_name = "trajectories.csv"
+        if header_only:
+            return
+        self.trajectory_number = 0
+
+        self.__trajectories_log_path = None
+
+        # Create directories
+        if not os.path.exists(path_logs):
+            os.makedirs(path_logs)
+        self.__log_path = os.path.join(path_logs, log_file_name)
+        self.__prediction_log_path = os.path.join(
+            path_logs, prediction_file_name)
+        self.__collision_log_path = os.path.join(
+            path_logs, collision_file_name)
+        Path(os.path.dirname(self.__log_path)).mkdir(
+            parents=True, exist_ok=True)
+
+        self.set_logging_header()
+
+    # ----------------------------------------------------------------------------------------------------------
+    # CLASS METHODS --------------------------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------------------------------------
+    def set_logging_header(self, cost_function_names=None):
+
+        cost_names = str()
+        if cost_function_names:
+            for names in cost_function_names.keys():
+                cost_names += cost_function_names[names].__name__ + ";"
+
         self.header = (
             "trajectory_number;"
             "calculation_time_s;"
@@ -47,23 +85,12 @@ class DataLoggingCosts:
             "acceleration_mps2;"
             "s_position_m;"
             "d_position_m;"
-            "acceleration_cost;"
-            "jerk_cost;"
-            "jerk_lat_cost;"
-            "jerk_long_cost;"
-            "orientation_cost;"
-            "path_length_cost;"
-            "lane_center_offset_cost;"
-            "velocity_offset_cost;"
-            "velocity_cost;"
-            "distance_to_reference_path_cost;"
-            "distance_to_obstacles_cost;"
+            "costs;"
+            +
+            cost_names
+            +
             "prediction_cost;"
             "responsibility_cost;"
-        )
-        self.prediction_header = (
-            "trajectory_number;"
-            "prediction"
         )
         self.trajectories_header = (
             "time_step;"
@@ -78,43 +105,20 @@ class DataLoggingCosts:
             "acceleration_mps2;"
             "s_position_m;"
             "d_position_m;"
-            # "x;"
-            # "y;"
-            # "yaw;"
             "_trajectory_long;"
-            "_trajectory_lat;"
+            "_trajectory_lat;"           
             "costs;"
-            "acceleration_cost;"
-            "jerk_cost;"
-            "jerk_lat_cost;"
-            "jerk_long_cost;"
-            "orientation_cost;"
-            "path_length_cost;"
-            "lane_center_offset_cost;"
-            "velocity_offset_cost;"
-            "velocity_cost;"
-            "distance_to_reference_path_cost;"
-            "distance_to_obstacles_cost;"
+            +
+            cost_names
+            +
             "prediction_cost;"
             "responsibility_cost;"
         )
-        log_file_name = "logs.csv"
-        prediction_file_name = "predictions.csv"
-        collision_file_name = "collision.csv"
-        trajectories_file_name = "trajectories.csv"
-        if header_only:
-            return
-        self.trajectory_number = 0
-        # Create directories
-        if not os.path.exists(path_logs):
-            os.makedirs(path_logs)
-        self.__log_path = os.path.join(path_logs, log_file_name)
-        self.__prediction_log_path = os.path.join(
-            path_logs, prediction_file_name)
-        self.__collision_log_path = os.path.join(
-            path_logs, collision_file_name)
-        Path(os.path.dirname(self.__log_path)).mkdir(
-            parents=True, exist_ok=True)
+
+        self.prediction_header = (
+            "trajectory_number;"
+            "prediction"
+        )
 
         # write header to logging file
         with open(self.__log_path, "w+") as fh:
@@ -123,55 +127,51 @@ class DataLoggingCosts:
         with open(self.__prediction_log_path, "w+") as fh:
             fh.write(self.prediction_header)
 
-        if save_all_traj:
+        if self.save_all_traj:
             self.__trajectories_log_path = os.path.join(
-                path_logs, trajectories_file_name)
+                self.path_logs, self.trajectories_file_name)
             with open(self.__trajectories_log_path, "w+") as fh:
                 fh.write(self.trajectories_header)
-
-    # ----------------------------------------------------------------------------------------------------------
-    # CLASS METHODS --------------------------------------------------------------------------------------------
-    # ----------------------------------------------------------------------------------------------------------
 
     def get_headers(self):
         return self.header
 
-    def log_cost(
-        self,
-        costs: list
-    ) -> None:
-        """log_data _summary_
-        """
-        if (self.log_mode == LogMode.visualization or self.log_mode == LogMode.evaluation):
-            with open(self.__log_path, "a") as fh:
-                fh.write(
-                    "\n"
-                    + str(self.trajectory_number)
-                    + ";"
-                    + json.dumps(str(costs[0]))
-                    + ";"
-                    + json.dumps(str(costs[1]))
-                    + ";"
-                    + json.dumps(str(costs[2]))
-                    + ";"
-                    + json.dumps(str(costs[3]))
-                    + ";"
-                    + json.dumps(str(costs[4]))
-                    + ";"
-                    + json.dumps(str(costs[5]))
-                    + ";"
-                    + json.dumps(str(costs[6]))
-                    + ";"
-                    + json.dumps(str(costs[7]))
-                    + ";"
-                    + json.dumps(str(costs[8]))
-                    + ";"
-                    + json.dumps(str(costs[9]))
-                    + ";"
-                    + json.dumps(str(costs[10]))
-                    + ";"
-                    + json.dumps(str(costs[11]))
-                )
+    # def log_cost(
+    #     self,
+    #     costs: list
+    # ) -> None:
+    #     """log_data _summary_
+    #     """
+    #     if (self.log_mode == LogMode.visualization or self.log_mode == LogMode.evaluation):
+    #         with open(self.__log_path, "a") as fh:
+    #             fh.write(
+    #                 "\n"
+    #                 + str(self.trajectory_number)
+    #                 + ";"
+    #                 + json.dumps(str(costs[0]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[1]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[2]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[3]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[4]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[5]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[6]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[7]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[8]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[9]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[10]))
+    #                 + ";"
+    #                 + json.dumps(str(costs[11]))
+    #             )
 
     def log(self, trajectory: TrajectorySample, infeasible_kinematics, infeasible_collision: int, planning_time: float,
             collision: bool = False):
@@ -204,6 +204,8 @@ class DataLoggingCosts:
             new_line += ";" + \
                 json.dumps(str(trajectory._curvilinear.d[0]), default=default)
 
+            # log costs
+            new_line += ";" + json.dumps(str(trajectory._cost), default=default)
             # log costs
             for cost in cost_list:
                 new_line += ";" + json.dumps(str(cost), default=default)
