@@ -1,5 +1,5 @@
 params:
-  intersection:
+  cluster0:
     A: 0.0
     J: 0.00
     Jlat: 0.01
@@ -14,24 +14,111 @@ params:
     DO: 20
 
     P: 500
-    R: 1
+    R: 0
 
-slow_section:
-  A: Acceleration
-  J: Jerk
-  Jlat: Lateral Jerk
-  Jlon: Longitudinal Jerk
-  O: Orientation Offset
-  L: Path Length
+  cluster1:
+    A: 0.0
+    J: 0.00
+    Jlat: 0.01
+    Jlon: 0.01
+    O: 1.0
+    L: 1.0
 
-  LC: Lane Center Offset
-  V: Velocity Offset
-  VC: Velocity Costs
-  DR: Distance to Reference Path
-  DO: Distance to Obstacles
+    LC: 10.0
+    V: 0.1
+    VC: 0.1
+    DR: 10
+    DO: 20
 
-  P: Prediction
-  R: Responsibility
+    P: 500
+    R: 0
+
+  cluster2:
+    A: 0.0
+    J: 0.00
+    Jlat: 0.01
+    Jlon: 0.01
+    O: 1.0
+    L: 1.0
+
+    LC: 10.0
+    V: 0.1
+    VC: 0.1
+    DR: 10
+    DO: 20
+
+    P: 500
+    R: 0
+
+  cluster3:
+    A: 0.0
+    J: 0.00
+    Jlat: 0.01
+    Jlon: 0.01
+    O: 1.0
+    L: 1.0
+
+    LC: 10.0
+    V: 0.1
+    VC: 0.1
+    DR: 10
+    DO: 20
+
+    P: 500
+    R: 0
+
+  cluster4:
+    A: 0.0
+    J: 0.00
+    Jlat: 0.01
+    Jlon: 0.01
+    O: 1.0
+    L: 1.0
+
+    LC: 10.0
+    V: 0.1
+    VC: 0.1
+    DR: 10
+    DO: 20
+
+    P: 500
+    R: 0
+
+  cluster5:
+    A: 0.0
+    J: 0.00
+    Jlat: 0.01
+    Jlon: 0.01
+    O: 1.0
+    L: 1.0
+
+    LC: 10.0
+    V: 0.1
+    VC: 0.1
+    DR: 10
+    DO: 20
+
+    P: 500
+    R: 0
+
+#names:
+#  A: Acceleration
+#  J: Jerk
+#  Jlat: Lateral Jerk
+#  Jlon: Longitudinal Jerk
+#  O: Orientation Offset
+#  L: Path Length
+
+#  LC: Lane Center Offset
+#  V: Velocity Offset
+#  VC: Velocity Costs
+#  Vlon: Longitudinal Velocity Offset
+#  O: Orientation Offset
+#  DR: Distance to Reference Path
+#  DO: Distance to Obstacles
+
+#  P: Prediction
+#  R: Responsibility
 
   # SA: Steering Angle
   # SR: Steering Rate

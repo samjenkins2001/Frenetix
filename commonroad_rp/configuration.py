@@ -37,6 +37,9 @@ class PlanningConfiguration:
         self.collision_check_in_cl = config.collision_check_in_cl
         self.factor = config.factor
         self.low_vel_mode_threshold = config.low_vel_mode_threshold
+        self.use_clusters = config.use_clusters
+        self.cluster_means = config.cluster_means
+        self.cluster_stds = config.cluster_stds
 
 
 class PredictionConfiguration:

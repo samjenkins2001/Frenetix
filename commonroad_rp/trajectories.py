@@ -11,6 +11,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 import math
 import multiprocessing
+from itertools import repeat
 from multiprocessing.context import Process
 from commonroad_rp.polynomial_trajectory import PolynomialTrajectory
 
@@ -522,10 +523,13 @@ class TrajectoryBundle:
         """
         self._trajectory_bundle = trajectories
 
-    def _process_costs(self, trajectories: List[TrajectorySample], queue_1=None):
-        for trajectory in trajectories:
-            cost, cost_list = self._cost_function.evaluate(trajectory)
-            trajectory.set_costs(cost, cost_list)
+    def _calc_prediction(self, trajectories: List[TrajectorySample], index: int, queue_prediction=None, queue_responsibility=None):
+        prediction_cost_list, responsibility_cost_list = self._cost_function.calc_prediction(trajectories)
+        queue_prediction.put((index, prediction_cost_list))
+        queue_responsibility.put((index, responsibility_cost_list))
+
+    def _calc_cost(self, trajectories: List[TrajectorySample], list_predictions, list_responsibilities, cluster_name=None, queue_1=None):
+        self._cost_function.calc_cost(trajectories, list_predictions, list_responsibilities, cluster_name)
         queue_1.put(trajectories)
 
     def sort(self):
@@ -543,9 +547,41 @@ class TrajectoryBundle:
                                   (ii + 1) * chunk_size)] for ii in range(0, self._num_workers)]
                         list_processes = []
                         trajectories_proc = []
+
+                        # first calculate the prediction cost, which needed for cluster assignment
+                        # setup lists
+                        list_predictions = ([[] for pred in repeat(None, self._num_workers)])
+                        list_responsibilities = ([[] for resp in repeat(None, self._num_workers)])
+
                         queue_1 = multiprocessing.Queue()
-                        for chunk in chunks:
-                            p = Process(target=self._process_costs, args=(chunk, queue_1))
+                        queue_prediction = multiprocessing.Queue()
+                        queue_responsibility = multiprocessing.Queue()
+
+                        for i, chunk in enumerate(chunks):
+                            p = Process(target=self._calc_prediction, args=(chunk, i, queue_prediction, queue_responsibility))
+                            list_processes.append(p)
+                            p.start()
+                        # # get return values from queue
+                        for p in enumerate(list_processes):
+                            pred = (queue_prediction.get())
+                            list_predictions[pred[0]] = pred[1]
+                            resp = (queue_responsibility.get())
+                            list_responsibilities[resp[0]] = resp[1]
+                        for p in list_processes:
+                            p.join()
+
+                        if self._cost_function.use_clusters:
+                            # get cluster assignment based on prediction cost
+                            flattened_pred_cost = np.concatenate(list_predictions).flat
+                            cluster = self._cost_function.cluster_prediction.evaluate(self._trajectory_bundle, flattened_pred_cost)
+                            cluster_name = self._cost_function.get_cluster_name_by_index(cluster)
+                        else:
+                            cluster_name = "cluster0"
+
+                        # calculate costs based on cluster
+                        list_processes = []
+                        for i, chunk in enumerate(chunks):
+                            p = Process(target=self._calc_cost, args=(chunk, list_predictions[i], list_responsibilities[i], cluster_name, queue_1))
                             list_processes.append(p)
                             p.start()
                         # # get return values from queue
@@ -553,12 +589,11 @@ class TrajectoryBundle:
                             trajectories_proc.extend(queue_1.get())
                         for p in list_processes:
                             p.join()
+
                         self.trajectories = trajectories_proc
                         self._trajectory_bundle = trajectories_proc
                     else:
-                        for trajectory in self._trajectory_bundle:
-                            cost, cost_list = self._cost_function.evaluate(trajectory)
-                            trajectory.set_costs(cost, cost_list)
+                        self._cost_function.evaluate(self._trajectory_bundle)
 
             self._trajectory_bundle.sort(key=lambda x: x.cost)
             self._is_sorted = True

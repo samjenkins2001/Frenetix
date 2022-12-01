@@ -73,9 +73,6 @@ def run_planner(config, log_path, mod_path):
 
     # initialize reactive planner
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
-    cost_function = AdaptableCostFunction(rp=planner, cost_function_params=planner.cost_params,
-                                          save_unweighted_costs=config.debug.save_unweighted_costs)
-    planner.set_cost_function(cost_function)
     # set sampling parameters
     planner.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
     planner.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
@@ -92,7 +89,9 @@ def run_planner(config, log_path, mod_path):
     )
     planner.set_goal_area(goal_area)
     planner.set_planning_problem(planning_problem)
-
+    # set cost function
+    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
+    planner.set_cost_function(cost_function)
 
     # **************************
     # Run Planning

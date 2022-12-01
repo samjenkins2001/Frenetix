@@ -8,11 +8,13 @@ __status__ = ""
 
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import List
 
 import numpy as np
 from omegaconf import OmegaConf
-import commonroad_rp.trajectories
+from commonroad_rp.trajectories import TrajectorySample
 import commonroad_rp.cost_functions.partial_cost_functions as cost_functions
+from commonroad_rp.cost_functions.cluster_based_cost_functions import ClusterBasedCostFunction
 
 from risk_assessment.collision_probability import (
     get_collision_probability_fast
@@ -73,7 +75,7 @@ class CostFunction(ABC):
         pass
 
     @abstractmethod
-    def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample) -> float:
+    def evaluate(self, trajectories: List[TrajectorySample]):
         """
         Computes the costs of a given trajectory sample
         :param trajectory: The trajectory sample for the cost computation
@@ -87,18 +89,24 @@ class AdaptableCostFunction(CostFunction):
     Default cost function for comfort driving
     """
 
-    def __init__(self, rp, cost_function_params, save_unweighted_costs):
+    def __init__(self, rp, configuration):
         super(AdaptableCostFunction, self).__init__()
 
         self.scenario = None
-        self.rp = None
+        self.rp = rp
         self.reachset = None
         self.desired_speed = None
         self.predictions = None
+        self.configuration = configuration
+
+        self.cluster_mapping = None
+        self.cluster_prediction = None
+
 
         self.vehicle_params = rp.vehicle_params
-        self.params = OmegaConf.to_object(cost_function_params)
-        self.save_unweighted_costs = save_unweighted_costs
+        self.params = OmegaConf.to_object(configuration.cost.params)
+        self.save_unweighted_costs = configuration.debug.save_unweighted_costs
+        self.use_clusters = configuration.planning.use_clusters
 
         self.PartialCostFunctionMapping = {
             PartialCostFunction.A: cost_functions.acceleration_cost,
@@ -135,6 +143,11 @@ class AdaptableCostFunction(CostFunction):
             if str(name).split('.')[1] in irrelevant_costs:
                 del self.PartialCostFunctionMapping[name]
 
+        if self.use_clusters:
+            self.cluster_mapping = {0: "cluster0", 1: "cluster1", 2: "cluster2", 3: "cluster3",
+                                    4: "cluster4", 5: "cluster5"}
+            self.cluster_prediction = ClusterBasedCostFunction(self.rp, self.configuration)
+
     def update_state(self, scenario, rp, predictions, reachset):
         self.scenario = scenario
         self.rp = rp
@@ -142,75 +155,90 @@ class AdaptableCostFunction(CostFunction):
         self.desired_speed = rp._desired_speed
         self.predictions = predictions
 
-    def evaluate(self, trajectory: commonroad_rp.trajectories.TrajectorySample, scenario="intersection"):
+    def get_cluster_name_by_index(self, index: int):
+        return self.cluster_mapping[index]
 
-        total_cost = 0.0
-        costlist = np.zeros(len(self.PartialCostFunctionMapping) + 2)
-        costlist_weighted = np.zeros(len(self.PartialCostFunctionMapping) + 2)
+    # calculate all costs for all trajcetories
+    def evaluate(self, trajectories: List[TrajectorySample], scenario="cluster0"):
 
-        for num, function in enumerate(self.PartialCostFunctionMapping):
-            costlist[num] = self.PartialCostFunctionMapping[function](trajectory, self.rp,
-                                                                      self.scenario, self.desired_speed)
-            costlist_weighted[num] = self.params[scenario][function.value] * costlist[num]
+        # calculate prediction cost
+        prediction_cost_list, responsibility_cost_list = self.calc_prediction(trajectories)
 
-        if self.predictions is not None:
+        # get cluster
+        if self.use_clusters:
+            cluster = self.cluster_prediction.evaluate(trajectories, prediction_cost_list)
+            scenario = self.get_cluster_name_by_index(cluster)
 
-            if self.reachset is not None:
-                ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict = calc_risk(
+        # calculate total cost
+        self.calc_cost(trajectories, prediction_cost_list, responsibility_cost_list, scenario)
+
+    # calculate prediction costs for all trajectories
+    def calc_prediction(self, trajectories: List[TrajectorySample]):
+        prediction_cost_list = []
+        responsibility_cost_list = []
+        for trajectory in trajectories:
+            if self.predictions is not None:
+                if self.reachset is not None:
+                    ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict = calc_risk(
+                        traj=trajectory,
+                        ego_state=self.rp.x_0,
+                        predictions=self.predictions,
+                        scenario=self.scenario,
+                        ego_id=24,
+                        vehicle_params=self.vehicle_params,
+                        road_boundary=self.rp.road_boundary,
+                        params_harm=self.rp.params_harm,
+                        params_risk=self.rp.params_risk,
+                    )
+                    responsibility_cost, bool_contain_cache = get_responsibility_cost(
+                        scenario=self.scenario,
+                        traj=trajectory,
+                        ego_state=self.rp.x_0,
+                        obst_risk_max=obst_risk_dict,
+                        predictions=self.predictions,
+                        reach_set=self.rp.reach_set
+                    )
+                else:
+                    responsibility_cost = 0.0
+                prediction_costs_raw = get_collision_probability_fast(
                     traj=trajectory,
-                    ego_state=self.rp.x_0,
                     predictions=self.predictions,
-                    scenario=self.scenario,
-                    ego_id=24,
-                    vehicle_params=self.vehicle_params,
-                    road_boundary=self.rp.road_boundary,
-                    params_harm=self.rp.params_harm,
-                    params_risk=self.rp.params_risk,
+                    vehicle_params=self.vehicle_params
                 )
-                responsibility_cost, bool_contain_cache = get_responsibility_cost(
-                    scenario=scenario,
-                    traj=trajectory,
-                    ego_state=self.rp.x_0,
-                    obst_risk_max=obst_risk_dict,
-                    predictions=self.predictions,
-                    reach_set=self.rp.reach_set
-                )
-            else:
-                responsibility_cost = 0.0
+                prediction_costs = 0
+                for key in prediction_costs_raw:
+                    prediction_costs += np.sum(prediction_costs_raw[key])
 
-            # prediction_costs_raw = get_mahalanobis_dist_dict(
-            #     traj=trajectory,
-            #     predictions=self.predictions,
-            #     vehicle_params=self.vehicle_params
-            # )
+                prediction_cost_list.append(prediction_costs)
+                responsibility_cost_list.append(responsibility_cost)
+        return prediction_cost_list, responsibility_cost_list
 
-            prediction_costs_raw = get_collision_probability_fast(
-                traj=trajectory,
-                predictions=self.predictions,
-                vehicle_params=self.vehicle_params
-            )
-            prediction_costs = 0
-            for key in prediction_costs_raw:
-                prediction_costs += np.sum(prediction_costs_raw[key])
+    # calculate all costs (except prediction) and weigh them
+    def calc_cost(self,  trajectories: List[TrajectorySample], prediction_cost_list, responsibility_cost_list, scenario="cluster0"):
 
-            costlist[-2] = prediction_costs
-            costlist_weighted[-2] = prediction_costs * self.params[scenario]["P"]
+        for i, trajectory in enumerate(trajectories):
+            costlist = np.zeros(len(self.PartialCostFunctionMapping) + 2)
+            costlist_weighted = np.zeros(len(self.PartialCostFunctionMapping) + 2)
 
-            if responsibility_cost * self.params[scenario]["R"] > prediction_costs * self.params[scenario]["P"]:
+            for num, function in enumerate(self.PartialCostFunctionMapping):
+                costlist[num] = self.PartialCostFunctionMapping[function](trajectory, self.rp,
+                                                                          self.scenario, self.desired_speed)
+                costlist_weighted[num] = self.params[scenario][function.value] * costlist[num]
+
+            # add prediction lost to list
+            costlist[-2] = prediction_cost_list[i]
+            costlist_weighted[-2] = prediction_cost_list[i] * self.params[scenario]["P"]
+
+            if responsibility_cost_list[i] * self.params[scenario]["R"] > prediction_cost_list[i] * self.params[scenario]["P"]:
                 costlist_weighted[-1] = costlist_weighted[-2] * 0.8
             else:
-                costlist_weighted[-1] = responsibility_cost * self.params[scenario]["R"]
+                costlist_weighted[-1] = responsibility_cost_list[i] * self.params[scenario]["R"]
 
-            costlist[-1] = responsibility_cost
+            costlist[-1] = responsibility_cost_list[i]
 
             total_cost = np.sum(costlist_weighted)
 
-        # Logging of Cost terms
-        # self.costs_logger.trajectory_number = self.x_0.time_step
-        # self.costs_logger.log_data(cost)
-
-        if self.save_unweighted_costs:
-            return total_cost, costlist
-        else:
-            return total_cost, costlist_weighted
-
+            if self.save_unweighted_costs:
+                trajectory.set_costs(total_cost, costlist)
+            else:
+                trajectory.set_costs(total_cost, costlist_weighted)

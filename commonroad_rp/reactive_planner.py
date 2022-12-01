@@ -114,7 +114,6 @@ class ReactivePlanner(object):
         # Debug mode
         self.debug_mode = config.debug.debug_mode
         self.save_all_traj = config.debug.save_all_traj
-        self.cost_params = config.cost.params
         self.all_traj = None
         # self.save_unweighted_costs = config.debug.save_unweighted_costs
 
@@ -145,8 +144,8 @@ class ReactivePlanner(object):
 
         # check whether reachable sets have to be calculated for responsibility
         if (
-                'R' in config.cost.params.intersection
-                and config.cost.params.intersection['R'] > 0
+                'R' in config.cost.params.cluster0
+                and config.cost.params.cluster0['R'] > 0
         ):
             self.responsibility = True
             self.reach_set = reachable_set.ReachSet(
@@ -386,7 +385,7 @@ class ReactivePlanner(object):
                             trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat, len(trajectories))
                             trajectories.append(trajectory_sample)
 
-        # perform pre check and order trajectories according their cost
+        # perform pre-check and order trajectories according their cost
         trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
                                              multiproc=self._multiproc, num_workers=self._num_workers)
         self._total_count = len(trajectory_bundle._trajectory_bundle)
@@ -573,7 +572,7 @@ class ReactivePlanner(object):
                 print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
             self.cost_function.update_state(scenario=self.scenario, rp=self,
-                                             predictions=predictions, reachset=reachable_set)
+                                            predictions=predictions, reachset=reachable_set)
 
             # sample trajectory bundle
             bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
