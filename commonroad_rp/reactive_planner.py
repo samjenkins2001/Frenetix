@@ -580,13 +580,13 @@ class ReactivePlanner(object):
             # get optimal trajectory
             t0 = time.time()
             self.logger.trajectory_number = x_0.time_step
-            optimal_trajectory = self._get_optimal_trajectory(bundle, predictions, i)
+            optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, predictions, i)
             if optimal_trajectory is not None:
                 self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                                infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0)
+                                infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0, cluster=cluster_)
                 self.logger.log_pred(predictions)
                 if self.save_all_traj:
-                    self.logger.log_all_trajectories(self.all_traj, x_0.time_step)
+                    self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
@@ -1069,7 +1069,7 @@ class ReactivePlanner(object):
             trajectory._coll_detected = collision_detected
 
             if not collision_detected and boundary_harm == 0:
-                return trajectory
+                return trajectory, trajectory_bundle._cluster
 
         if samp_lvl == self._sampling_level - 1:
             sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj._boundary_harm, reverse=False)
@@ -1077,13 +1077,13 @@ class ReactivePlanner(object):
             if any(bundle._coll_detected==False for bundle in trajectory_bundle.get_sorted_list()):
                 for trajectory in sort_harm:
                     if not trajectory._coll_detected:
-                        return trajectory
+                        return trajectory, trajectory_bundle._cluster
             elif any(bundle._boundary_harm==0 for bundle in trajectory_bundle.get_sorted_list()):
-                return sort_harm[0]
+                return sort_harm[0], trajectory_bundle._cluster
             else:
-                return trajectory_bundle.get_sorted_list()[0] if trajectory_bundle.get_sorted_list() else None
+                return trajectory_bundle.get_sorted_list()[0] if trajectory_bundle.get_sorted_list() else None, trajectory_bundle._cluster
         else:
-            return None
+            return None, trajectory_bundle._cluster
 
     def convert_cr_trajectory_to_object(self, trajectory: Trajectory):
         """

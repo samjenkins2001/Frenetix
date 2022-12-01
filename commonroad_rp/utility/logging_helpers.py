@@ -85,6 +85,7 @@ class DataLoggingCosts:
             "acceleration_mps2;"
             "s_position_m;"
             "d_position_m;"
+            "cluster_number;"
             "costs_cumulative_weighted;"
             +
             cost_names
@@ -106,7 +107,8 @@ class DataLoggingCosts:
             "s_position_m;"
             "d_position_m;"
             "_trajectory_long;"
-            "_trajectory_lat;"           
+            "_trajectory_lat;"     
+            "cluster_number;"
             "costs_cumulative_weighted;"
             +
             cost_names
@@ -173,7 +175,7 @@ class DataLoggingCosts:
     #                 + json.dumps(str(costs[11]))
     #             )
 
-    def log(self, trajectory: TrajectorySample, infeasible_kinematics, infeasible_collision: int, planning_time: float,
+    def log(self, trajectory: TrajectorySample, infeasible_kinematics, infeasible_collision: int, planning_time: float, cluster: int,
             collision: bool = False):
         if (self.log_mode == LogMode.visualization or self.log_mode == LogMode.evaluation):
             new_line = "\n" + str(self.trajectory_number)
@@ -203,6 +205,9 @@ class DataLoggingCosts:
                 json.dumps(str(trajectory._curvilinear.s[0]), default=default)
             new_line += ";" + \
                 json.dumps(str(trajectory._curvilinear.d[0]), default=default)
+
+            # log cluster number
+            new_line += ";" + json.dumps(str(cluster), default=default)
 
             # log costs
             new_line += ";" + json.dumps(str(trajectory._cost), default=default)
@@ -255,14 +260,14 @@ class DataLoggingCosts:
             with open(self.__collision_log_path, "a") as fh:
                 fh.write(new_line)
 
-    def log_all_trajectories(self, all_trajectories, time_step):
+    def log_all_trajectories(self, all_trajectories, time_step, cluster: int):
         if (self.log_mode == LogMode.visualization):
             i = 0
             for trajectory in all_trajectories:
-                self.log_trajectory(trajectory, i, time_step, trajectory.valid)
+                self.log_trajectory(trajectory, i, time_step, trajectory.valid, cluster)
                 i += 1
 
-    def log_trajectory(self, trajectory: TrajectorySample, trajectory_number: int, time_step, feasible: bool):
+    def log_trajectory(self, trajectory: TrajectorySample, trajectory_number: int, time_step, feasible: bool, cluster: int):
         new_line = "\n" + str(time_step)
         new_line += ";" + str(trajectory_number)
         new_line += ";" + str(trajectory._unique_id)
@@ -300,6 +305,9 @@ class DataLoggingCosts:
             json.dumps(trajectory._trajectory_long.__dict__, default=default)
         new_line += ";" + \
             json.dumps(trajectory._trajectory_lat.__dict__, default=default)
+
+        # log cluster number
+        new_line += ";" + json.dumps(str(cluster), default=default)
 
         # log costs
         new_line += ";" + json.dumps(str(trajectory._cost), default=default)

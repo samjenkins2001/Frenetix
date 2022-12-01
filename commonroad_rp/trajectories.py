@@ -506,6 +506,7 @@ class TrajectoryBundle:
         self._is_sorted_all = False
         self._multiproc = multiproc
         self._num_workers = num_workers
+        self._cluster = None
 
     @property
     def trajectories(self) -> List[TrajectorySample]:
@@ -575,8 +576,10 @@ class TrajectoryBundle:
                             flattened_pred_cost = np.concatenate(list_predictions).flat
                             cluster = self._cost_function.cluster_prediction.evaluate(self._trajectory_bundle, flattened_pred_cost)
                             cluster_name = self._cost_function.get_cluster_name_by_index(cluster)
+                            self._cluster = int(cluster_name[-1])  # currently limited to 10 clusters
                         else:
                             cluster_name = "cluster0"
+                            self._cluster = int(0)
 
                         # calculate costs based on cluster
                         list_processes = []

@@ -155,7 +155,7 @@ class AdaptableCostFunction(CostFunction):
         self.desired_speed = rp._desired_speed
         self.predictions = predictions
 
-    def get_cluster_name_by_index(self, index: int):
+    def get_cluster_name_by_index(self, index: int) -> str:
         return self.cluster_mapping[index]
 
     # calculate all costs for all trajcetories
