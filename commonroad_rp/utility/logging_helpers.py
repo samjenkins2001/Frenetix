@@ -79,10 +79,11 @@ class DataLoggingCosts:
             "inf_kin_max_curvature_rate;"
             "inf_kin_vehicle_acc;"
             "infeasible_collision;"
-            "x_position_m;"
-            "y_position_m;"
-            "velocity_mps;"
-            "acceleration_mps2;"
+            "x_positions_m;"
+            "y_positions_m;"
+            "theta_orientations_rad;"
+            "velocities_mps;"
+            "accelerations_mps2;"
             "s_position_m;"
             "d_position_m;"
             "cluster_number;"
@@ -100,14 +101,13 @@ class DataLoggingCosts:
             "feasible;"
             "horizon;"
             "dt;"
-            "x_position_m;"
-            "y_position_m;"
-            "velocity_mps;"
-            "acceleration_mps2;"
+            "x_positions_m;"
+            "y_positions_m;"
+            "theta_orientations_rad;"
+            "velocities_mps;"
+            "accelerations_mps2;"
             "s_position_m;"
             "d_position_m;"
-            "_trajectory_long;"
-            "_trajectory_lat;"     
             "cluster_number;"
             "costs_cumulative_weighted;"
             +
@@ -193,14 +193,14 @@ class DataLoggingCosts:
                 json.dumps(str(infeasible_collision), default=default)
 
             # log position
-            new_line += ";" + json.dumps(str(cartesian.x[0]), default=default)
-            new_line += ";" + json.dumps(str(cartesian.y[0]), default=default)
-
+            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
+            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)
+            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.theta))), default=default)
             # log velocity & acceleration
-            new_line += ";" + json.dumps(str(cartesian.v[0]), default=default)
-            new_line += ";" + json.dumps(str(cartesian.a[0]), default=default)
+            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.v))), default=default)
+            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.a))), default=default)
 
-            # log frenet coordinates (distance to reference path)
+            # # log frenet coordinates (distance to reference path)
             new_line += ";" + \
                 json.dumps(str(trajectory._curvilinear.s[0]), default=default)
             new_line += ";" + \
@@ -279,12 +279,12 @@ class DataLoggingCosts:
         cost_list = trajectory._cost_list
 
         # log position
-        new_line += ";" + json.dumps(str(cartesian.x[0]), default=default)
-        new_line += ";" + json.dumps(str(cartesian.y[0]), default=default)
-
+        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
+        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)
+        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.theta))), default=default)
         # log velocity & acceleration
-        new_line += ";" + json.dumps(str(cartesian.v[0]), default=default)
-        new_line += ";" + json.dumps(str(cartesian.a[0]), default=default)
+        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.v))), default=default)
+        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.a))), default=default)
 
         # log frenet coordinates (distance to reference path)
         new_line += ";" + \
@@ -301,10 +301,10 @@ class DataLoggingCosts:
         #     json.dumps(trajectory.yaw, default=default)
 
         # log _trajectory_long and _trajectory_lat
-        new_line += ";" + \
-            json.dumps(trajectory._trajectory_long.__dict__, default=default)
-        new_line += ";" + \
-            json.dumps(trajectory._trajectory_lat.__dict__, default=default)
+        # new_line += ";" + \
+        #     json.dumps(trajectory._trajectory_long.__dict__, default=default)
+        # new_line += ";" + \
+        #     json.dumps(trajectory._trajectory_lat.__dict__, default=default)
 
         # log cluster number
         new_line += ";" + json.dumps(str(cluster), default=default)
