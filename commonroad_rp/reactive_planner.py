@@ -290,18 +290,21 @@ class ReactivePlanner(object):
         """
         self._sampling_v = VelocitySampling(v_min, v_max, self._sampling_level)
 
-    def set_desired_velocity(self, desired_velocity: float, current_speed: float = None, stopping: bool = False):
+    def set_desired_velocity(self, desired_velocity: float, current_speed: float = None, stopping: bool = False,
+                             v_limit: float = 1000):
         """
         Sets desired velocity and calculates velocity for each sample
         :param desired_velocity: velocity in m/s
         :param current_speed: velocity in m/s
         :param stopping
+        :param v_limit: limit velocity due to behavior planner in m/s
         :return: velocity in m/s
         """
         self._desired_speed = desired_velocity
 
         min_v = max(0.01, current_speed - self.vehicle_params.a_max * self.horizon)
-        max_v = min(current_speed + (self.vehicle_params.a_max / 3.0) * self.horizon, self.vehicle_params.v_max)
+        max_v = min(min(current_speed + (self.vehicle_params.a_max / 3.0) * self.horizon, v_limit),
+                    self.vehicle_params.v_max)
 
         self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_level)
 
