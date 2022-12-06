@@ -136,7 +136,7 @@ def run_planner(config, log_path, mod_path):
             comp_time_start = time.time()
             # set desired velocity
             desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
-            planner.set_desired_velocity(desired_velocity)
+            planner.set_desired_velocity(desired_velocity, x_0.velocity)
             if current_count > 1:
                 ego_state = new_state
             else:

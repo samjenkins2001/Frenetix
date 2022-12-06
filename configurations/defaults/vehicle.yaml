@@ -8,6 +8,7 @@ width: !!null
 wheelbase: !!null
 # acceleration
 a_max: !!null
+v_max: !!null
 # switching velocity
 v_switch: !!null
 #steering angle

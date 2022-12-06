@@ -299,18 +299,12 @@ class ReactivePlanner(object):
         :return: velocity in m/s
         """
         self._desired_speed = desired_velocity
-        if not stopping:
-            if current_speed is not None:
-                reference_speed = current_speed
-            else:
-                reference_speed = self._desired_speed
 
-            min_v = max(0, reference_speed - (0.125 * self.horizon * self.vehicle_params.a_max))
-            # max_v = max(min_v + 5.0, reference_speed + (0.25 * self.horizon * self.constraints.a_max))
-            max_v = max(min_v + 5.0, reference_speed + 2)
-            self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_level)
-        else:
-            self._sampling_v = VelocitySampling(self._desired_speed, self._desired_speed, self._sampling_level)
+        min_v = max(0.01, current_speed - self.vehicle_params.a_max * self.horizon)
+        max_v = min(current_speed + (self.vehicle_params.a_max / 3.0) * self.horizon, self.vehicle_params.v_max)
+
+        self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_level)
+
         if self.debug_mode >= 1:
             print('<Reactive_planner>: Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
