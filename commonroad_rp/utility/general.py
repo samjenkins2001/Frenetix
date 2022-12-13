@@ -22,7 +22,8 @@ def load_scenario_and_planning_problem(config, idx_planning_problem: int = 0):
 def check_if_obstacle_on_same_position(scenario, init_state):
     init_pos = np.array((init_state[0], init_state[1]))
     for i in scenario.dynamic_obstacles:
-        obs_pos = np.array((i.initial_state.position[0], i.initial_state.position[1]))
-        if hf.distance(init_pos, obs_pos) < 2:
-            scenario.remove_obstacle(i)
+        if i.prediction.initial_time_step < 2:
+            obs_pos = np.array((i.initial_state.position[0], i.initial_state.position[1]))
+            if hf.distance(init_pos, obs_pos) < 2:
+                scenario.remove_obstacle(i)
     return scenario
