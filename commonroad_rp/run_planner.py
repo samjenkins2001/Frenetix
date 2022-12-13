@@ -34,7 +34,6 @@ from commonroad_rp.utility.general import load_scenario_and_planning_problem
 from commonroad_rp.prediction_helpers import main_prediction, load_walenet, prediction_preprocessing
 from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
 
-from commonroad_helper_functions.interpolation import interpolate_scenario
 from commonroad_prediction.prediction_module import PredictionModule
 
 
@@ -43,6 +42,7 @@ def run_planner(config, log_path, mod_path):
     # *************************************
     # Set Configurations
     # *************************************
+
     DT = config.planning.dt            # planning time step
 
     # *************************************
@@ -50,10 +50,6 @@ def run_planner(config, log_path, mod_path):
     # *************************************
 
     scenario, planning_problem, planning_problem_set = load_scenario_and_planning_problem(config)
-
-    if DT != scenario.dt:
-        scenario, planning_problem_set = interpolate_scenario(scenario=scenario, dt_new=0.1,
-                                                              planning_problem_set=planning_problem_set)
 
     # *************************************
     # Init and Goal State
