@@ -1,7 +1,7 @@
 commonroad_vehicle_models>=3.0.2
 matplotlib>=3.1.0
 networkx>=2.6.3
-numpy>=1.21.1
+numpy>=1.21.6
 methodtools
 omegaconf>=2.1.1
 pytest>=6.2.5
@@ -16,7 +16,7 @@ wale-net==3.0.0
 ruamel.yaml
 pygeos
 imageio
-
+git+https://gitlab.lrz.de/motionplanning1/commonroad_helper_functions.git@highd-comparison
 
 
 
