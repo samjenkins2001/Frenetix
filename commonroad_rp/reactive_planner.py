@@ -580,7 +580,8 @@ class ReactivePlanner(object):
             optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, predictions, i)
             if optimal_trajectory is not None:
                 self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                                infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0, cluster=cluster_)
+                                infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
+                                cluster=cluster_)
                 self.logger.log_pred(predictions)
                 if self.save_all_traj:
                     self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
@@ -602,10 +603,11 @@ class ReactivePlanner(object):
             self.logger.trajectory_number = x_0.time_step
             optimal_trajectory = self._compute_standstill_trajectory(x_0, x_0_lon, x_0_lat)
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0)
+                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
+                            cluster=cluster_)
             self.logger.log_pred(predictions)
             if self.save_all_traj:
-                self.logger.log_all_trajectories(self.all_traj, x_0.time_step)
+                self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
 
         # check if feasible trajectory exists -> emergency mode
         if optimal_trajectory is None:
