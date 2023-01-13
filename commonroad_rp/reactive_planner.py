@@ -10,7 +10,8 @@ __status__ = "Beta"
 import math
 import time
 import numpy as np
-from typing import List
+from typing import List, Union
+from dataclasses import dataclass
 import multiprocessing
 from multiprocessing.context import Process
 
@@ -25,8 +26,8 @@ from commonroad.scenario.scenario import Scenario
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
-
+from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_checker, \
+    create_collision_object
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, trajectories_collision_static_obstacles
 
 # commonroad_rp imports
@@ -401,6 +402,7 @@ class ReactivePlanner(object):
             s, d = self._co.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
         except ValueError:
             print('<Reactive_planner>: Value Error for curvilinear transformation')
+            # TODO: Remove this fix from the reactive planner -> fix in CCosy
             tmp = np.array([x_0.position])
             print(x_0.position)
             if self._co.reference[0][0] > x_0.position[0]:
@@ -411,8 +413,8 @@ class ReactivePlanner(object):
             s, d = self._co.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
 
         # factor for interpolation
-        s_idx = np.argmax(self._co.ref_pos > s)
-        s_lambda = (self._co.ref_pos[s_idx] - s) / (
+        s_idx = np.argmax(self._co.ref_pos > s) - 1
+        s_lambda = (s - self._co.ref_pos[s_idx]) / (
                 self._co.ref_pos[s_idx + 1] - self._co.ref_pos[s_idx])
 
         # compute orientation in curvilinear coordinate frame
@@ -486,9 +488,9 @@ class ReactivePlanner(object):
             cart_states = dict()
             cart_states['time_step'] = self.x_0.time_step+self._factor*i
             cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
+            cart_states['orientation'] = trajectory.cartesian.theta[i]
             cart_states['velocity'] = trajectory.cartesian.v[i]
             cart_states['acceleration'] = trajectory.cartesian.a[i]
-            cart_states['orientation'] = trajectory.cartesian.theta[i]
             if i > 0:
                 cart_states['yaw_rate'] = (trajectory.cartesian.theta[i] - trajectory.cartesian.theta[i-1]) / self.dT
             else:
@@ -780,14 +782,11 @@ class ReactivePlanner(object):
                     dpp = d_acceleration[i]
 
                 # factor for interpolation
-                s_idx = np.argmax(self._co.ref_pos > s[i])
+                s_idx = np.argmax(self._co.ref_pos > s[i]) - 1
                 if s_idx + 1 >= len(self._co.ref_pos):
                     feasible = False
-                    infeasible_count_kinematics[3] += 1
-                    if not self._kinematic_debug:
-                        break
-
-                s_lambda = (self._co.ref_pos[s_idx] - s[i]) / (self._co.ref_pos[s_idx + 1] - self._co.ref_pos[s_idx])
+                    break
+                s_lambda = (s[i] - self._co.ref_pos[s_idx]) / (self._co.ref_pos[s_idx + 1] - self._co.ref_pos[s_idx])
 
                 # compute curvilinear (theta_cl) and global Cartesian (theta_gl) orientation
                 if s_velocity[i] > 0.001:
@@ -869,10 +868,12 @@ class ReactivePlanner(object):
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # curvature rate constraint
+                # TODO: chck if kappa_gl[i-1] ??
                 steering_angle = np.arctan2(self.vehicle_params.wheelbase * kappa_gl[i], 1.0)
                 kappa_dot_max = self.vehicle_params.v_delta_max / (self.vehicle_params.wheelbase *
                                                                    math.cos(steering_angle) ** 2)
-                if abs((kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.) > kappa_dot_max:
+                kappa_dot = (kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.
+                if abs(kappa_dot) > kappa_dot_max:
                     # feasible = False
                     infeasible_count_kinematics[7] += 1
                     if not self._draw_traj_set and not self._kinematic_debug:
@@ -1084,17 +1085,24 @@ class ReactivePlanner(object):
         else:
             return None, trajectory_bundle._cluster
 
-    def convert_cr_trajectory_to_object(self, trajectory: Trajectory):
+    def shift_and_convert_trajectory_to_object(self, trajectory: Trajectory):
         """
         Converts a CR trajectory to a CR dynamic obstacle with given dimensions
         :param trajectory: The trajectory of the vehicle
         :return: CR dynamic obstacles representing the ego vehicle
         """
+        # shift trajectory positions to center
+        new_state_list = list()
+        for state in trajectory.state_list:
+            new_state_list.append(state.translate_rotate(np.array([self.vehicle_params.rear_ax_distance * np.cos(state.orientation),
+                                                                   self.vehicle_params.rear_ax_distance * np.sin(state.orientation)]), 0.0))
+
+        new_trajectory = Trajectory(initial_time_step=new_state_list[0].time_step, state_list=new_state_list)
         # get shape of vehicle
         shape = Rectangle(self.vehicle_params.length, self.vehicle_params.width)
         # get trajectory prediction
-        prediction = TrajectoryPrediction(trajectory, shape)
-        return DynamicObstacle(42, ObstacleType.CAR, shape, trajectory.state_list[0], prediction)
+        prediction = TrajectoryPrediction(new_trajectory, shape)
+        return DynamicObstacle(42, ObstacleType.CAR, shape, new_trajectory.state_list[0], prediction)
 
     @staticmethod
     def shift_orientation(trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
@@ -1104,6 +1112,23 @@ class ReactivePlanner(object):
             while state.orientation > interval_end:
                 state.orientation -= 2 * np.pi
         return trajectory
+
+    # def process_initial_state_from_pp(self, x0_pp: InitialState):
+    #     """
+    #     Function converts the initial state from the CommonRoad planning problem to the reactive planner state:
+    #     - initial positions (x, y) from planning problem are shifted from vehicle center to rear axle
+    #     - initial steering angle is computed from initial yaw rate and velocity
+    #     """
+    #     # shift initial position to rear axle
+    #     x0_shifted = x0_pp.translate_rotate(np.array([-self.vehicle_params.rear_ax_distance * np.cos(x0_pp.orientation),
+    #                                                   -self.vehicle_params.rear_ax_distance * np.sin(x0_pp.orientation)])
+    #                                         , 0.0)
+    #
+    #     # create initial state for planner and compute initial steering angle
+    #     x0_planner = CartesianState()
+    #     x0_planner = x0_shifted.convert_state_to_state(x0_planner)
+    #     x0_planner.steering_angle = np.arctan2(self.vehicle_params.wheelbase * x0_planner.yaw_rate, x0_planner.velocity)
+    #     return x0_planner
 
     def __check_goal_reached(self):
         # Get the ego vehicle

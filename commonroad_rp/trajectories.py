@@ -187,25 +187,8 @@ class CartesianSample(Sample):
         self.kappa_dot[self.current_time_step:] = np.repeat(self.kappa_dot[last_time_step], steps)
 
         # enlarge positions
-        last_time_step_x_y = last_time_step
-        for idx in range(0, last_time_step):
-            if self.x[last_time_step_x_y] == 0:
-                last_time_step_x_y -= 1
-
-        diff_last_step = last_time_step - last_time_step_x_y
-
-        steps_tmp = self.length() - self.current_time_step + diff_last_step
-        # create time index
-        t = np.arange(1, steps_tmp + 1, 1) * dt
-
-        # enlarge velocities by considering acceleration
-        # TODO remove a?
-        v_temp = self.v[last_time_step] + t * self.a[-1]
-        # remove negative velocities
-        v_temp = v_temp * np.greater_equal(v_temp, 0)
-
-        self.x[self.current_time_step-diff_last_step:] = self.x[last_time_step_x_y] + np.cumsum(dt * v_temp * math.cos(self.theta[last_time_step]))
-        self.y[self.current_time_step-diff_last_step:] = self.y[last_time_step_x_y] + np.cumsum(dt * v_temp * math.sin(self.theta[last_time_step]))
+        self.x[self.current_time_step:] = self.x[last_time_step] + np.cumsum(dt * v_temp * math.cos(self.theta[last_time_step]))
+        self.y[self.current_time_step:] = self.y[last_time_step] + np.cumsum(dt * v_temp * math.sin(self.theta[last_time_step]))
         self.current_time_step = self.length()
 
 

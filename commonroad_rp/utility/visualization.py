@@ -5,11 +5,10 @@ __maintainer__ = "Gerald Würsching"
 __email__ = "commonroad@lists.lrz.de"
 __status__ = "Beta"
 
-import time
+
 # standard imports
-from typing import List, Tuple, Union
+from typing import List, Union
 import os
-import sys
 
 # third party
 import matplotlib
@@ -31,7 +30,7 @@ from commonroad_dc import pycrcc
 # commonroad-rp
 from commonroad_rp.trajectories import TrajectorySample
 from commonroad_rp.configuration import Configuration
-#!/user/bin/env python
+
 
 """Visualization functions for the frenét planner."""
 from commonroad_prediction.visualization import draw_uncertain_predictions as draw_uncertain_predictions_lb
@@ -219,6 +218,7 @@ def make_gif(config: Configuration, scenario: Scenario, time_steps: Union[range,
     """
     if not config.debug.save_plots:
         # only create GIF when saving of plots is enabled
+        print("...GIF not created: Enable config.debug.save_plots to generate GIF.")
         pass
     else:
         print("...Generating GIF")
@@ -237,5 +237,3 @@ def make_gif(config: Configuration, scenario: Scenario, time_steps: Union[range,
 
         imageio.mimsave(os.path.join(config.general.path_output, str(scenario.scenario_id) + ".gif"),
                         images, duration=duration)
-
-

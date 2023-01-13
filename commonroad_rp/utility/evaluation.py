@@ -7,11 +7,12 @@ __status__ = "Beta"
 
 
 import os
-from typing import List
+from typing import List, Union
 from matplotlib import pyplot as plt
 import numpy as np
 
 from commonroad.scenario.trajectory import Trajectory, State
+# from commonroad.scenario.state import InputState, TraceState
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.scenario.scenario import Scenario
 from commonroad.common.solution import Solution, PlanningProblemSolution, VehicleModel, \
@@ -75,6 +76,35 @@ def reconstruct_inputs(config: Configuration, pps: PlanningProblemSolution):
     return feasible_state_list, reconstructed_inputs
 
 
+# def check_acceleration(config: Configuration, state_list:  List[Union[CartesianState, TraceState]], plot=False):
+#     """Checks whether the computed acceleration the trajectory matches the velocity difference (dv/dt), i.e., assuming
+#     piecewise constant acceleration input"""
+#     # computed acceleration of trajectory
+#     a_planned = np.array([state.acceleration for state in state_list])
+#     a_piecewise_constant = np.array([(a_planned[i] + a_planned[i+1]) / 2 for i in range(len(a_planned)-1)])
+#     # recalculated acceleration via velocity
+#     v = np.array([state.velocity for state in state_list])
+#     a_recalculated = np.diff(v) / config.planning.dt
+#     # check
+#     diff = np.abs(a_piecewise_constant-a_recalculated)
+#     acc_correct = np.all(diff < 1e-01)
+#     print("Acceleration correct: %s, with max deviation %s" % (acc_correct, np.max(diff)))
+#
+#     if plot:
+#         plt.figure(figsize=(7, 3.5))
+#         plt.suptitle("Acceleration check")
+#         plt.plot(list(range(len(a_planned[1:]))),
+#                  a_planned[1:], color="black", label="planned acceleration")
+#         plt.plot(list(range(len(a_piecewise_constant))),
+#                  a_piecewise_constant, color="green", label="planned (piecewise constant)")
+#         plt.plot(list(range(len(a_recalculated))),
+#                  a_recalculated, color="orange", label="recomputed (dv/dt)")
+#         plt.xlabel("t in s")
+#         plt.ylabel("a_long in m/s^2")
+#         plt.legend()
+#         plt.tight_layout()
+#         plt.show()
+
 def plot_states(config: Configuration, state_list: List[State], save_path: str, reconstructed_states=None, plot_bounds=False):
     """
     Plots states of trajectory from a given state_list
@@ -89,6 +119,8 @@ def plot_states(config: Configuration, state_list: List[State], save_path: str, 
                  [state.position[1] for state in reconstructed_states], color="blue", label="reconstructed")
     plt.xlabel("x")
     plt.ylabel("y")
+
+    # steering angle
     plt.subplot(5, 1, 2)
     plt.plot(list(range(len(state_list))),
              [state.steering_angle for state in state_list], color="black", label="planned")
@@ -101,6 +133,8 @@ def plot_states(config: Configuration, state_list: List[State], save_path: str, 
         plt.plot([0, len(state_list)], [config.vehicle.delta_max, config.vehicle.delta_max],
                  color="red")
     plt.ylabel("delta")
+
+    # velocity
     plt.subplot(5, 1, 3)
     plt.plot(list(range(len(state_list))),
              [state.velocity for state in state_list], color="black", label="planned")
@@ -109,6 +143,8 @@ def plot_states(config: Configuration, state_list: List[State], save_path: str, 
                  [state.velocity for state in reconstructed_states], color="blue", label="reconstructed")
     plt.legend()
     plt.ylabel("v")
+
+    # orientation
     plt.subplot(5, 1, 4)
     plt.plot(list(range(len(state_list))),
              [state.orientation for state in state_list], color="black", label="planned")
@@ -116,10 +152,15 @@ def plot_states(config: Configuration, state_list: List[State], save_path: str, 
         plt.plot(list(range(len(reconstructed_states))),
                  [state.orientation for state in reconstructed_states], color="blue", label="reconstructed")
     plt.ylabel("theta")
-    plt.tight_layout()
+
+    # yaw rate
     plt.subplot(5, 1, 5)
     plt.plot(list(range(len(state_list))),
              [state.yaw_rate for state in state_list], color="black", label="planned")
+    reconstructed_yaw_rate = np.diff(np.array([state.orientation for state in reconstructed_states])) / config.planning.dt
+    reconstructed_yaw_rate = np.insert(reconstructed_yaw_rate, 0, state_list[0].yaw_rate, axis=0)
+    plt.plot(list(range(len(state_list))),
+             reconstructed_yaw_rate, color="blue", label="reconstructed")
     plt.ylabel("theta_dot")
     plt.tight_layout()
 
@@ -129,18 +170,29 @@ def plot_states(config: Configuration, state_list: List[State], save_path: str, 
 
     # plot errors in position, velocity, orientation
     if reconstructed_states:
-        plt.figure(figsize=(7, 7.5))
-        plt.subplot(3, 1, 1)
+        plt.figure(figsize=(7, 8.0))
+        plt.suptitle("State Errors (planned vs. forward simulated)")
+
+        plt.subplot(5, 1, 1)
         plt.plot(list(range(len(state_list))), [abs(state_list[i].position[0] - reconstructed_states[i].position[0])
                                                 for i in range(len(state_list))], color="black")
-        plt.ylabel("pos_x error")
-        plt.subplot(3, 1, 2)
+        plt.ylabel("x error")
+        plt.subplot(5, 1, 2)
         plt.plot(list(range(len(state_list))), [abs(state_list[i].position[1] - reconstructed_states[i].position[1])
                                                 for i in range(len(state_list))], color="black")
-        plt.ylabel("pos_y error")
-        plt.subplot(3, 1, 3)
+        plt.ylabel("y error")
+        plt.subplot(5, 1, 3)
         plt.plot(list(range(len(state_list))), [abs(_angle_diff(state_list[i].orientation,
                                                                 reconstructed_states[i].orientation))
+                                                for i in range(len(state_list))], color="black")
+        plt.ylabel("delta error")
+        plt.subplot(5, 1, 4)
+        plt.plot(list(range(len(state_list))), [abs(state_list[i].velocity - reconstructed_states[i].velocity)
+                                                for i in range(len(state_list))], color="black")
+        plt.ylabel("velocity error")
+        plt.subplot(5, 1, 5)
+        plt.plot(list(range(len(state_list))), [abs(_angle_diff(state_list[i].steering_angle,
+                                                                reconstructed_states[i].steering_angle))
                                                 for i in range(len(state_list))], color="black")
         plt.ylabel("theta error")
         plt.tight_layout()
@@ -157,6 +209,9 @@ def plot_inputs(config: Configuration, input_list: List[State], save_path: str, 
     optionally plots reconstructed_inputs
     """
     plt.figure()
+    plt.suptitle("Inputs")
+
+    # steering angle speed
     plt.subplot(2, 1, 1)
     plt.plot(list(range(len(input_list))),
              [state.steering_angle_speed for state in input_list], color="black", label="planned")
@@ -170,9 +225,11 @@ def plot_inputs(config: Configuration, input_list: List[State], save_path: str, 
         plt.plot([0, len(input_list)], [config.vehicle.v_delta_max, config.vehicle.v_delta_max],
                  color="red")
     plt.legend()
-    plt.ylabel("v_delta")
+    plt.ylabel("v_delta in rad/s")
+
+    # acceleration
     plt.subplot(2, 1, 2)
-    plt.plot(list(range(len(input_list))),
+    plt.plot(np.array(list(range(len(input_list)))),
              [state.acceleration for state in input_list], color="black", label="planned")
     if reconstructed_inputs:
         plt.plot(list(range(len(reconstructed_inputs))),
@@ -182,7 +239,7 @@ def plot_inputs(config: Configuration, input_list: List[State], save_path: str, 
                  color="red", label="bounds")
         plt.plot([0, len(input_list)], [config.vehicle.a_max, config.vehicle.a_max],
                  color="red")
-    plt.ylabel("a_long")
+    plt.ylabel("a_long in m/s^2")
     plt.tight_layout()
 
     # Save Output

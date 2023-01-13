@@ -13,5 +13,5 @@ unit_tests/img/
 evals/
 doc/build
 example_scenarios/
-
+output/
 logs
