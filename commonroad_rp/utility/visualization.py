@@ -23,6 +23,7 @@ from commonroad.scenario.state import CustomState
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams
 from commonroad.geometry.shape import Rectangle
+from commonroad.visualization.draw_params import MPDrawParams
 
 # commonroad_dc
 from commonroad_dc import pycrcc
@@ -117,11 +118,19 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     ego_params.vehicle_shape.occupancy.shape.zorder = 50
     ego_params.vehicle_shape.occupancy.shape.opacity = 1
 
-    # visualize scenario, planning problem, ego vehicle
-    scenario.draw(rnd) # , draw_params={'time_begin': timestep, 'dynamic_obstacle': {"draw_icon": config.debug.draw_icons}, 'focus_obstacle_id': 42})
-    planning_problem.draw(rnd) # , draw_params={'planning_problem': {'initial_state': {'state': {'draw_arrow': False, "radius": 0.5}}}})
+    obs_params = MPDrawParams()
+    obs_params.dynamic_obstacle.time_begin = timestep
+    obs_params.dynamic_obstacle.draw_icon = config.debug.draw_icons
+    obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#0065BD"
+    obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
+    obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.zorder = 50
+    obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.opacity = 1
 
+    # visualize scenario, planning problem, ego vehicle
+    scenario.draw(rnd, draw_params=obs_params)
+    planning_problem.draw(rnd)
     ego.draw(rnd, draw_params=ego_params)
+
     rnd.render()
 
     # visualize optimal trajectory

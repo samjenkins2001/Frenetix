@@ -23,7 +23,7 @@ setup(
     packages=find_packages(exclude=['doc', 'unit_tests']),
     zip_safe=False,
     include_package_data=True,
-    python_requires='>=3.7',
+    python_requires='>=3.8',
     install_requires=[
         'commonroad_vehicle_models>=3.0.2',
         'matplotlib>=3.1.0',
@@ -32,13 +32,14 @@ setup(
         'methodtools',
         'omegaconf>=2.1.1',
         'pytest>=6.2.5',
+        'shapely==1.8.5'
         'scipy>=1.7.0',
         'wale-net>=3.0.1'
         'commonroad-io>=2022.3',
         'commonroad-drivability-checker>=2022.2',
         ],
     classifiers=[
-        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS",

@@ -577,8 +577,8 @@ class ReactivePlanner(object):
 
         # sample until trajectory has been found or sampling sets are empty
         while optimal_trajectory is None and i < self._sampling_level:
-            if self.debug_mode >= 1:
-                print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
+            #if self.debug_mode >= 1:
+            #    print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
 
             self.cost_function.update_state(scenario=self.scenario, rp=self,
                                             predictions=predictions, reachset=reachable_set)
@@ -597,8 +597,8 @@ class ReactivePlanner(object):
                 self.logger.log_pred(predictions)
                 if self.save_all_traj:
                     self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
-            if self.debug_mode >= 1:
-                print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
+            #if self.debug_mode >= 1:
+            #    print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
@@ -953,8 +953,6 @@ class ReactivePlanner(object):
                     # store trajectory in infeasible trajectories list
                     infeasible_trajectories.append(trajectory)
 
-        if self.debug_mode >= 1:
-            print('<ReactivePlanner>: Kinematic check of %s trajectories done' % len(trajectories))
 
         if self._multiproc:
             # store feasible trajectories in Queue 1
@@ -1020,6 +1018,9 @@ class ReactivePlanner(object):
         else:
             # without multiprocessing
             feasible_trajectories, infeasible_trajectories, infeasible_count_kinematics = self._check_kinematics(trajectory_bundle.trajectories)
+
+        if self.debug_mode >= 1:
+            print('<ReactivePlanner>: Kinematic check of %s trajectories done' % len(trajectory_bundle.trajectories))
 
         # update number of infeasible trajectories
         self._infeasible_count_kinematics = infeasible_count_kinematics
