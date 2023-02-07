@@ -20,7 +20,8 @@ from commonroad.common.validity import *
 from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-from commonroad.scenario.trajectory import Trajectory, State
+from commonroad.scenario.trajectory import Trajectory
+from commonroad.scenario.state import KSState, FloatExactOrInterval, CustomState, InitialState
 from commonroad.scenario.scenario import Scenario
 
 # commonroad_dc
@@ -52,8 +53,16 @@ from commonroad_rp.utility.load_json import (
 )
 
 
-# TODO: use mode parameter for longitudinal planning (point following, velocity following, stopping)
-# TODO: acceleration-based sampling
+@dataclass(eq=False)
+class CartesianState(KSState):
+    """
+    State class used for output trajectory of reactive-planner: Extends KS State attributes by acceleration and
+    yaw rate
+    """
+
+    acceleration: FloatExactOrInterval = None
+    yaw_rate: FloatExactOrInterval = None
+
 
 class ReactivePlanner(object):
     """
@@ -391,7 +400,7 @@ class ReactivePlanner(object):
             print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
         return trajectory_bundle
 
-    def _compute_initial_states(self, x_0: State) -> (np.ndarray, np.ndarray):
+    def _compute_initial_states(self, x_0: CartesianState) -> (np.ndarray, np.ndarray):
         """
         Computes the curvilinear initial states for the polynomial planner based on a Cartesian CommonRoad state
         :param x_0: The CommonRoad state object representing the initial state of the vehicle
@@ -495,9 +504,10 @@ class ReactivePlanner(object):
                 cart_states['yaw_rate'] = (trajectory.cartesian.theta[i] - trajectory.cartesian.theta[i-1]) / self.dT
             else:
                 cart_states['yaw_rate'] = self.x_0.yaw_rate
-            cart_states['steering_angle'] = np.arctan2(self.vehicle_params.wheelbase * cart_states['yaw_rate'],
-                                                       cart_states['velocity'])
-            cart_list.append(State(**cart_states))
+            # TODO Check why computation with yaw rate was faulty ??
+            cart_states['steering_angle'] = np.arctan2(self.vehicle_params.wheelbase *
+                                                       trajectory.cartesian.kappa[i], 1.0)
+            cart_list.append(CartesianState(**cart_states))
 
             # create curvilinear state
             # TODO: This is not correct
@@ -508,7 +518,7 @@ class ReactivePlanner(object):
             cl_states['acceleration'] = trajectory.cartesian.a[i]
             cl_states['orientation'] = trajectory.cartesian.theta[i]
             cl_states['yaw_rate'] = trajectory.cartesian.kappa[i]
-            cl_list.append(State(**cl_states))
+            cl_list.append(CustomState(**cl_states))
 
             lon_list.append(
                 [trajectory.curvilinear.s[i], trajectory.curvilinear.s_dot[i], trajectory.curvilinear.s_ddot[i]])
@@ -521,7 +531,7 @@ class ReactivePlanner(object):
 
         return cartTraj, cvlnTraj, lon_list, lat_list
 
-    def plan(self, x_0: State, predictions: dict, cl_states=None) -> tuple:
+    def plan(self, x_0: CartesianState, predictions: dict, cl_states=None) -> tuple:
         """
         Plans an optimal trajectory
         :param x_0: Initial state as CR state
@@ -763,20 +773,20 @@ class ReactivePlanner(object):
                     if s_velocity[i] > 0.001:
                         dp = d_velocity[i] / s_velocity[i]
                     else:
-                        # if abs(d_velocity[i]) > 0.001:
-                        #     dp = None
-                        # else:
-                        dp = 0.
+                        if abs(d_velocity[i]) > 0.001:
+                            dp = None
+                        else:
+                            dp = 0.
                     # see Eq. (A.8) from Moritz Werling's Diss
                     ddot = d_acceleration[i] - dp * s_acceleration[i]
 
                     if s_velocity[i] > 0.001:
                         dpp = ddot / (s_velocity[i] ** 2)
                     else:
-                        # if np.abs(ddot) > 0.00003:
-                        #     dpp = None
-                        # else:
-                        dpp = 0.
+                        if np.abs(ddot) > 0.00003:
+                            dpp = None
+                        else:
+                            dpp = 0.
                 else:
                     dp = d_velocity[i]
                     dpp = d_acceleration[i]
@@ -1113,22 +1123,22 @@ class ReactivePlanner(object):
                 state.orientation -= 2 * np.pi
         return trajectory
 
-    # def process_initial_state_from_pp(self, x0_pp: InitialState):
-    #     """
-    #     Function converts the initial state from the CommonRoad planning problem to the reactive planner state:
-    #     - initial positions (x, y) from planning problem are shifted from vehicle center to rear axle
-    #     - initial steering angle is computed from initial yaw rate and velocity
-    #     """
-    #     # shift initial position to rear axle
-    #     x0_shifted = x0_pp.translate_rotate(np.array([-self.vehicle_params.rear_ax_distance * np.cos(x0_pp.orientation),
-    #                                                   -self.vehicle_params.rear_ax_distance * np.sin(x0_pp.orientation)])
-    #                                         , 0.0)
-    #
-    #     # create initial state for planner and compute initial steering angle
-    #     x0_planner = CartesianState()
-    #     x0_planner = x0_shifted.convert_state_to_state(x0_planner)
-    #     x0_planner.steering_angle = np.arctan2(self.vehicle_params.wheelbase * x0_planner.yaw_rate, x0_planner.velocity)
-    #     return x0_planner
+    def process_initial_state_from_pp(self, x0_pp: InitialState):
+        """
+        Function converts the initial state from the CommonRoad planning problem to the reactive planner state:
+        - initial positions (x, y) from planning problem are shifted from vehicle center to rear axle
+        - initial steering angle is computed from initial yaw rate and velocity
+        """
+        # shift initial position to rear axle
+        x0_shifted = x0_pp.translate_rotate(np.array([-self.vehicle_params.rear_ax_distance * np.cos(x0_pp.orientation),
+                                                      -self.vehicle_params.rear_ax_distance * np.sin(x0_pp.orientation)])
+                                            , 0.0)
+
+        # create initial state for planner and compute initial steering angle
+        x0_planner = CartesianState()
+        x0_planner = x0_shifted.convert_state_to_state(x0_planner)
+        x0_planner.steering_angle = np.arctan2(self.vehicle_params.wheelbase * x0_planner.yaw_rate, x0_planner.velocity)
+        return x0_planner
 
     def __check_goal_reached(self):
         # Get the ego vehicle

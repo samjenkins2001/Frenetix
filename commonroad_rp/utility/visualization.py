@@ -19,9 +19,9 @@ import imageio
 # commonroad-io
 from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.obstacle import DynamicObstacle
-from commonroad.scenario.trajectory import State
+from commonroad.scenario.state import CustomState
 from commonroad.planning.planning_problem import PlanningProblem
-from commonroad.visualization.mp_renderer import MPRenderer
+from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams
 from commonroad.geometry.shape import Rectangle
 
 # commonroad_dc
@@ -35,6 +35,31 @@ from commonroad_rp.configuration import Configuration
 """Visualization functions for the frenét planner."""
 from commonroad_prediction.visualization import draw_uncertain_predictions as draw_uncertain_predictions_lb
 from prediction.utils.visualization import draw_uncertain_predictions as draw_uncertain_predictions_wale
+
+
+def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProblem, cosy=None):
+    """Visualizes scenario, planning problem and (optionally) the reference path"""
+    plot_limits = None
+    ref_path = None
+    if cosy is not None:
+        ref_path = cosy.reference
+        x_min = np.min(ref_path[:, 0]) - 50
+        x_max = np.max(ref_path[:, 0]) + 50
+        y_min = np.min(ref_path[:, 1]) - 50
+        y_max = np.max(ref_path[:, 1]) + 50
+        plot_limits = [x_min, x_max, y_min, y_max]
+
+    rnd = MPRenderer(figsize=(20, 10), plot_limits=plot_limits)
+    rnd.draw_params.time_begin = 0
+    scenario.draw(rnd)
+    planning_problem.draw(rnd)
+    rnd.render()
+    if ref_path is not None:
+        rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=19,
+                    linewidth=0.8, label='reference path')
+        proj_domain_border = np.array(cosy.ccosy.projection_domain())
+        rnd.ax.plot(proj_domain_border[:, 0], proj_domain_border[:, 1], color="orange", linewidth=0.8)
+    plt.show(block=True)
 
 
 def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker):
@@ -82,29 +107,21 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
                            plot_window + ego.initial_state.position[0],
                            -plot_window + ego.initial_state.position[1],
                            plot_window + ego.initial_state.position[1]]
-    # visualize scenario
-    scenario.draw(rnd, draw_params={'time_begin': timestep, 'dynamic_obstacle': {"draw_icon": config.debug.draw_icons}, 'focus_obstacle_id': 42})
-    # visualize planning problem
-    planning_problem.draw(rnd, draw_params={'planning_problem': {'initial_state': {'state': {
-                'draw_arrow': False, "radius": 0.5}}}})
-    # visualize ego vehicle
-    ego.draw(rnd, draw_params={"time_begin": timestep,
-                               "dynamic_obstacle": {
-                                   "vehicle_shape": {
-                                       "occupancy": {
-                                           "shape": {
-                                               "rectangle": {
-                                                   "facecolor": "#E37222",
-                                                   "edgecolor": '#E37222',
-                                                   "zorder": 50,
-                                                   "opacity": 1
-                                               }
-                                           }
-                                       }
-                                   }
-                               }
-                               })
-    # render scenario and ego vehicle
+
+    # set ego vehicle draw params
+    ego_params = DynamicObstacleParams()
+    ego_params.time_begin = timestep
+    ego_params.draw_icon = config.debug.draw_icons
+    ego_params.vehicle_shape.occupancy.shape.facecolor = "#E37222"
+    ego_params.vehicle_shape.occupancy.shape.edgecolor = "#9C4100"
+    ego_params.vehicle_shape.occupancy.shape.zorder = 50
+    ego_params.vehicle_shape.occupancy.shape.opacity = 1
+
+    # visualize scenario, planning problem, ego vehicle
+    scenario.draw(rnd) # , draw_params={'time_begin': timestep, 'dynamic_obstacle': {"draw_icon": config.debug.draw_icons}, 'focus_obstacle_id': 42})
+    planning_problem.draw(rnd) # , draw_params={'planning_problem': {'initial_state': {'state': {'draw_arrow': False, "radius": 0.5}}}})
+
+    ego.draw(rnd, draw_params=ego_params)
     rnd.render()
 
     # visualize optimal trajectory
@@ -157,11 +174,10 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     # show plot
     if config.debug.show_plots:
         matplotlib.use("TkAgg")
-        # plt.show(block=False)
         plt.pause(0.0001)
 
 
-def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[State],
+def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[CustomState],
                           config: Configuration, log_path: str, ref_path: np.ndarray = None):
     """
     Function plots occupancies for a given CommonRoad trajectory (of the ego vehicle)
@@ -173,20 +189,40 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
     :param save_path: Path to save plot as .png (optional)
     """
     # create renderer object (if no existing renderer is passed)
-    rnd = MPRenderer(figsize=(10, 5))
+    rnd = MPRenderer(figsize=(20, 10))
+
+    # set renderer draw params
+    rnd.draw_params.time_begin = 0
+    rnd.draw_params.planning_problem.initial_state.state.draw_arrow = False
+    rnd.draw_params.planning_problem.initial_state.state.radius = 0.5
+
+    # set occupancy shape params
+    occ_params = ShapeParams()
+    occ_params.facecolor = '#E37222'
+    occ_params.edgecolor = '#9C4100'
+    occ_params.opacity = 1.0
+    occ_params.zorder = 51
 
     # visualize scenario
-    scenario.draw(rnd, draw_params={'time_begin': 0})
+    scenario.draw(rnd)
     # visualize planning problem
-    planning_problem.draw(rnd, draw_params={'planning_problem': {'initial_state': {'state': {
-                'draw_arrow': False, "radius": 0.5}}}})
+    planning_problem.draw(rnd)
     # visualize occupancies of trajectory
-    for state in state_list:
+    for i in range(len(state_list)):
+        state = state_list[i]
         occ_pos = Rectangle(length=config.vehicle.length, width=config.vehicle.width, center=state.position,
                             orientation=state.orientation)
-        occ_pos.draw(rnd, draw_params={'shape': {'rectangle': {'facecolor': '#E37222', 'opacity': 0.6}}})
+        if i >= 1:
+            occ_params.opacity = 0.3
+            occ_params.zorder = 50
+        occ_pos.draw(rnd, draw_params=occ_params)
     # render scenario and occupancies
     rnd.render()
+
+    # visualize trajectory
+    pos = np.asarray([state.position for state in state_list])
+    rnd.ax.plot(pos[:, 0], pos[:, 1], color='k', marker='x', markersize=3.0, markeredgewidth=0.4, zorder=21,
+                linewidth=0.8)
 
     # visualize reference path
     if ref_path is not None:

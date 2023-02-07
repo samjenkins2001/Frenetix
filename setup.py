@@ -28,14 +28,14 @@ setup(
         'commonroad_vehicle_models>=3.0.2',
         'matplotlib>=3.1.0',
         'networkx>=2.6',
-        'numpy>=1.21',
+        'numpy>=1.21.6',
         'methodtools',
         'omegaconf>=2.1.1',
         'pytest>=6.2.5',
         'scipy>=1.7.0',
-        'wale-net>=3.0.0'
-        'commonroad-io>=2021.4',
-        'commonroad-drivability-checker>=2021.4',
+        'wale-net>=3.0.1'
+        'commonroad-io>=2022.3',
+        'commonroad-drivability-checker>=2022.2',
         ],
     classifiers=[
         "Programming Language :: Python :: 3.7",

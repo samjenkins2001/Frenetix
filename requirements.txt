@@ -8,11 +8,11 @@ pytest>=6.2.5
 scipy>=1.7.1
 sphinx>=2.2.1
 commonroad-route-planner<2022.2
-commonroad-io>=2021.4,<2022.2
-commonroad-drivability-checker>=2021.4,<2022.2
+commonroad-io==2022.3
+commonroad-drivability-checker==2022.2
 numba
 commonroad-helper-functions
-wale-net==3.0.0
+wale-net==3.0.1
 ruamel.yaml
 pygeos
 imageio

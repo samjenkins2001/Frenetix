@@ -15,3 +15,4 @@ doc/build
 example_scenarios/
 output/
 logs
+venv

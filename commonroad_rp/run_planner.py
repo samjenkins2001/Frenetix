@@ -16,6 +16,9 @@ import numpy as np
 # commonroad-io
 from commonroad.scenario.trajectory import State
 
+# commonroad-io
+from commonroad.scenario.state import InputState
+
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 from commonroad_rp.utility import helper_functions as hf
@@ -24,7 +27,7 @@ from commonroad_rp.utility import helper_functions as hf
 from commonroad_rp.reactive_planner import ReactivePlanner
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
-    plot_inputs, reconstruct_states
+    plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility.helper_functions import (
     get_goal_area_shape_group,
@@ -106,17 +109,15 @@ def run_planner(config, log_path, mod_path):
     planning_times = list()
     ego_vehicle = None
 
-    # add initial state to recorded state list
+    # convert initial state from planning problem to reactive planner (Cartesian) state type
+    x_0 = planner.process_initial_state_from_pp(x0_pp=x_0)
     record_state_list.append(x_0)
-    delattr(record_state_list[0], "slip_angle")
-    record_state_list[0].steering_angle = np.arctan2(config.vehicle.wheelbase * record_state_list[0].yaw_rate,
-                                                     record_state_list[0].velocity)
-    record_input_state = State(
-            steering_angle=np.arctan2(config.vehicle.wheelbase * x_0.yaw_rate, x_0.velocity),
-            acceleration=x_0.acceleration,
-            time_step=x_0.time_step,
-            steering_angle_speed=0.)
-    record_input_list.append(record_input_state)
+
+    # add initial inputs to recorded input list
+    record_input_list.append(InputState(
+        acceleration=x_0.acceleration,
+        time_step=x_0.time_step,
+        steering_angle_speed=0.))
 
     # initialize the prediction network if necessary
     if config.prediction.walenet:
@@ -183,27 +184,30 @@ def run_planner(config, log_path, mod_path):
             break
 
         # correct orientation angle
-        new_state_list = planner.shift_orientation(optimal[0])
+        new_state_list = planner.shift_orientation(optimal[0], interval_start=x_0.orientation-np.pi,
+                                                   interval_end=x_0.orientation+np.pi)
 
-        # add new state to recorded state list
+
+        # get next state from state list of planned trajectory
         new_state = new_state_list.state_list[1]
         new_state.time_step = current_count + 1
-        record_state_list.append(new_state)
 
         # add input to recorded input list
-        record_input_list.append(State(
-            steering_angle=new_state.steering_angle,
+        record_input_list.append(InputState(
             acceleration=new_state.acceleration,
-            steering_angle_speed=(new_state.steering_angle - record_input_list[-1].steering_angle) / DT,
+            steering_angle_speed=(new_state.steering_angle - record_state_list[-1].steering_angle) / DT,
             time_step=new_state.time_step
         ))
+        # add new state to recorded state list
+        record_state_list.append(new_state)
 
         # update init state and curvilinear state
-        x_0 = record_state_list[-1]
+        x_0 = deepcopy(record_state_list[-1])
         x_cl = (optimal[2][1], optimal[3][1])
 
         # create CommonRoad Obstacle for the ego Vehicle
-        ego_vehicle = planner.shift_and_convert_trajectory_to_object(optimal[0])
+        if config.debug.show_plots or config.debug.save_plots:
+            ego_vehicle = planner.shift_and_convert_trajectory_to_object(optimal[0])
 
         print(f"current time step: {current_count}")
         # draw scenario + planning solution
@@ -233,18 +237,34 @@ def run_planner(config, log_path, mod_path):
 
     if config.debug.evaluation:
         from commonroad.common.solution import CommonRoadSolutionWriter
+        from commonroad_dc.feasibility.solution_checker import valid_solution
+
+        # create full solution trajectory
+        ego_solution_trajectory = create_full_solution_trajectory(config, record_state_list)
+
+        # plot full ego vehicle trajectory
+        plot_final_trajectory(scenario, planning_problem, ego_solution_trajectory.state_list, config, log_path)
 
         # create CR solution
-        solution = create_planning_problem_solution(config, record_state_list, scenario, planning_problem)
+        solution = create_planning_problem_solution(config, ego_solution_trajectory, scenario, planning_problem)
 
         # check feasibility
         # reconstruct inputs (state transition optimizations)
         feasible, reconstructed_inputs = reconstruct_inputs(config, solution.planning_problem_solutions[0])
         try:
             # reconstruct states from inputs
-            reconstructed_states = reconstruct_states(config, record_state_list, reconstructed_inputs)
+            reconstructed_states = reconstruct_states(config, ego_solution_trajectory.state_list, reconstructed_inputs)
+            # check acceleration correctness
+            check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
+
+            # remove first element from input list
+            record_input_list.pop(0)
+
             # evaluate
-            plot_states(config, record_state_list, log_path, reconstructed_states, plot_bounds=True)
+            plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
+            # CR validity check
+            print("Feasibility Check Result: ")
+            print(valid_solution(scenario, planning_problem_set, solution))
         except:
             print("Could not reconstruct states")
 

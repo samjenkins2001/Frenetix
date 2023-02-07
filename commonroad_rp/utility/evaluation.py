@@ -11,37 +11,50 @@ from typing import List, Union
 from matplotlib import pyplot as plt
 import numpy as np
 
-from commonroad.scenario.trajectory import Trajectory, State
-# from commonroad.scenario.state import InputState, TraceState
+from commonroad.scenario.trajectory import Trajectory
+from commonroad.scenario.state import InputState, TraceState
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.scenario.scenario import Scenario
 from commonroad.common.solution import Solution, PlanningProblemSolution, VehicleModel, \
     VehicleType, CostFunction
 
-from commonroad_dc.feasibility.feasibility_checker import trajectory_feasibility, VehicleDynamics, \
+from commonroad_dc.feasibility.feasibility_checker import VehicleDynamics, \
     state_transition_feasibility, position_orientation_objective, position_orientation_feasibility_criteria, _angle_diff
 
 from commonroad_rp.configuration import Configuration
+from commonroad_rp.reactive_planner import CartesianState
 
 
-def create_planning_problem_solution(config: Configuration, state_list: List[State], scenario: Scenario,
-                                     planning_problem: PlanningProblem):
+def create_full_solution_trajectory(config: Configuration, state_list: List[CartesianState]) -> Trajectory:
+    """
+    Create CR solution trajectory from recorded state list of the reactive planner
+    Positions are shifted from rear axis to vehicle center due to CR position convention
+    """
+    new_state_list = list()
+    for state in state_list:
+        new_state_list.append(
+            state.translate_rotate(np.array([config.vehicle.rear_ax_distance * np.cos(state.orientation),
+                                             config.vehicle.rear_ax_distance * np.sin(state.orientation)]), 0.0))
+    return Trajectory(initial_time_step=new_state_list[0].time_step, state_list=new_state_list)
+
+
+def create_planning_problem_solution(config: Configuration, solution_trajectory: Trajectory, scenario: Scenario,
+                                     planning_problem: PlanningProblem) -> Solution:
     """
     Creates CommonRoad Solution object
     """
-    ego_vehicle_trajectory = Trajectory(initial_time_step=state_list[0].time_step, state_list=state_list)
     pps = PlanningProblemSolution(planning_problem_id=planning_problem.planning_problem_id,
                                   vehicle_type=VehicleType(config.vehicle.cr_vehicle_id),
                                   vehicle_model=VehicleModel.KS,
                                   cost_function=CostFunction.WX1,
-                                  trajectory=ego_vehicle_trajectory)
+                                  trajectory=solution_trajectory)
 
     # create solution object
     solution = Solution(scenario.scenario_id, [pps])
     return solution
 
 
-def reconstruct_states(config: Configuration, states: List[State], inputs: List[State]):
+def reconstruct_states(config: Configuration, states: List[Union[CartesianState, TraceState]], inputs: List[InputState]):
     """reconstructs states from a given list of inputs by forward simulation"""
     vehicle_dynamics = VehicleDynamics.from_model(VehicleModel.KS, VehicleType(config.vehicle.cr_vehicle_id))
 
@@ -76,41 +89,44 @@ def reconstruct_inputs(config: Configuration, pps: PlanningProblemSolution):
     return feasible_state_list, reconstructed_inputs
 
 
-# def check_acceleration(config: Configuration, state_list:  List[Union[CartesianState, TraceState]], plot=False):
-#     """Checks whether the computed acceleration the trajectory matches the velocity difference (dv/dt), i.e., assuming
-#     piecewise constant acceleration input"""
-#     # computed acceleration of trajectory
-#     a_planned = np.array([state.acceleration for state in state_list])
-#     a_piecewise_constant = np.array([(a_planned[i] + a_planned[i+1]) / 2 for i in range(len(a_planned)-1)])
-#     # recalculated acceleration via velocity
-#     v = np.array([state.velocity for state in state_list])
-#     a_recalculated = np.diff(v) / config.planning.dt
-#     # check
-#     diff = np.abs(a_piecewise_constant-a_recalculated)
-#     acc_correct = np.all(diff < 1e-01)
-#     print("Acceleration correct: %s, with max deviation %s" % (acc_correct, np.max(diff)))
-#
-#     if plot:
-#         plt.figure(figsize=(7, 3.5))
-#         plt.suptitle("Acceleration check")
-#         plt.plot(list(range(len(a_planned[1:]))),
-#                  a_planned[1:], color="black", label="planned acceleration")
-#         plt.plot(list(range(len(a_piecewise_constant))),
-#                  a_piecewise_constant, color="green", label="planned (piecewise constant)")
-#         plt.plot(list(range(len(a_recalculated))),
-#                  a_recalculated, color="orange", label="recomputed (dv/dt)")
-#         plt.xlabel("t in s")
-#         plt.ylabel("a_long in m/s^2")
-#         plt.legend()
-#         plt.tight_layout()
-#         plt.show()
+def check_acceleration(config: Configuration, state_list:  List[Union[CartesianState, TraceState]], plot=False):
+    """Checks whether the computed acceleration the trajectory matches the velocity difference (dv/dt), i.e., assuming
+    piecewise constant acceleration input"""
+    # computed acceleration of trajectory
+    a_planned = np.array([state.acceleration for state in state_list])
+    a_piecewise_constant = np.array([(a_planned[i] + a_planned[i+1]) / 2 for i in range(len(a_planned)-1)])
+    # recalculated acceleration via velocity
+    v = np.array([state.velocity for state in state_list])
+    a_recalculated = np.diff(v) / config.planning.dt
+    # check
+    diff = np.abs(a_piecewise_constant-a_recalculated)
+    acc_correct = np.all(diff < 1e-01)
+    print("Acceleration correct: %s, with max deviation %s" % (acc_correct, np.max(diff)))
 
-def plot_states(config: Configuration, state_list: List[State], save_path: str, reconstructed_states=None, plot_bounds=False):
+    if plot:
+        plt.figure(figsize=(7, 3.5))
+        plt.suptitle("Acceleration check")
+        plt.plot(list(range(len(a_planned[1:]))),
+                 a_planned[1:], color="black", label="planned acceleration")
+        plt.plot(list(range(len(a_piecewise_constant))),
+                 a_piecewise_constant, color="green", label="planned (piecewise constant)")
+        plt.plot(list(range(len(a_recalculated))),
+                 a_recalculated, color="orange", label="recomputed (dv/dt)")
+        plt.xlabel("t in s")
+        plt.ylabel("a_long in m/s^2")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+def plot_states(config: Configuration, state_list: List[Union[CartesianState, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
     """
     Plots states of trajectory from a given state_list
     state_list must contain the following states: steering_angle, velocity, orientation and yaw_rate
     """
-    plt.figure(figsize=(7, 7.5))
+    plt.figure(figsize=(7, 8.0))
+    plt.suptitle("States")
+
+    # x, y position
     plt.subplot(5, 1, 1)
     plt.plot([state.position[0] for state in state_list],
              [state.position[1] for state in state_list], color="black", label="planned")
@@ -202,7 +218,7 @@ def plot_states(config: Configuration, state_list: List[State], save_path: str, 
         plt.savefig(f"{plot_path}.svg", format='svg')
 
 
-def plot_inputs(config: Configuration, input_list: List[State], save_path: str, reconstructed_inputs=None, plot_bounds=False):
+def plot_inputs(config: Configuration, input_list: List[InputState], save_path: str, reconstructed_inputs=None, plot_bounds=False):
     """
     Plots inputs of trajectory from a given input_list
     input_list must contain the following states: steering_angle_speed, acceleration
