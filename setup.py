@@ -32,9 +32,8 @@ setup(
         'methodtools',
         'omegaconf>=2.1.1',
         'pytest>=6.2.5',
-        'shapely==1.8.5'
+        'shapely>=1.8.1',
         'scipy>=1.7.0',
-        'wale-net>=3.0.1'
         'commonroad-io>=2022.3',
         'commonroad-drivability-checker>=2022.2',
         ],
