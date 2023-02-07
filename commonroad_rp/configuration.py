@@ -45,8 +45,7 @@ class PlanningConfiguration:
 class PredictionConfiguration:
     """Class to store all prediction configurations"""
     def __init__(self, config: Union[ListConfig, DictConfig]):
-        self.walenet = config.walenet
-        self.lanebased = config.lanebased
+        self.mode = config.mode
         self.calc_visible_area = config.calc_visible_area
         self.sensor_radius = config.sensor_radius
         self.cone_angle = config.cone_angle
@@ -103,6 +102,7 @@ class DebugConfiguration:
         self.show_plots = config.show_plots
         self.save_plots = config.save_plots
         self.evaluation = config.evaluation
+        self.collision_report = config.collision_report
         self.gif = config.gif
         self.plot_window_dyn = config.plot_window_dyn
         self.draw_icons = config.draw_icons
@@ -121,6 +121,7 @@ class GeneralConfiguration:
         self.path_scenario = name_scenario  # config.path_scenarios + name_scenario + ".xml"
         self.path_output = config.path_output
         self.max_steps = config.max_steps
+
 
 class CostConfiguration:
     def __init__(self, config: Union[ListConfig, DictConfig]):

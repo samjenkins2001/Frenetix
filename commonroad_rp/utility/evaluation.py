@@ -116,7 +116,7 @@ def check_acceleration(config: Configuration, state_list:  List[Union[CartesianS
         plt.ylabel("a_long in m/s^2")
         plt.legend()
         plt.tight_layout()
-        plt.show()
+        # plt.show()
 
 def plot_states(config: Configuration, state_list: List[Union[CartesianState, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
     """

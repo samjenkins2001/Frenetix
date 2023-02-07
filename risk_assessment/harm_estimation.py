@@ -60,7 +60,7 @@ obstacle_protection = {
 
 def harm_model(
     scenario,
-    ego_vehicle_id: int,
+    ego_vehicle_sc,
     vehicle_params,
     ego_velocity: float,
     ego_yaw: float,
@@ -107,15 +107,15 @@ def harm_model(
     obstacle = HarmParameters()
 
     # assign parameters to dictionary
-    ego_vehicle.type = scenario.obstacle_by_id(ego_vehicle_id).obstacle_type
+    ego_vehicle.type = ego_vehicle_sc.obstacle_type
     obstacle.type = scenario.obstacle_by_id(obstacle_id).obstacle_type
     ego_vehicle.protection = obstacle_protection[ego_vehicle.type]
     obstacle.protection = obstacle_protection[obstacle.type]
     if ego_vehicle.protection is not None:
-        ego_vehicle.mass = vehicle_params.m
+        ego_vehicle.mass = vehicle_params.mass
         ego_vehicle.velocity = ego_velocity
         ego_vehicle.yaw = ego_yaw
-        ego_vehicle.size = vehicle_params.w * vehicle_params.l
+        ego_vehicle.size = vehicle_params.width * vehicle_params.length
     else:
         ego_vehicle.mass = None
         ego_vehicle.velocity = None

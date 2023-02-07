@@ -3,10 +3,13 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from commonroad.visualization.draw_dispatch_cr import draw_object
+from commonroad.visualization.mp_renderer import MPRenderer
+from commonroad.visualization.draw_params import MPDrawParams, DynamicObstacleParams
 
 
 def collision_vis(scenario,
+                  record_state_list,
+                  ego_vehicle,
                   destination: str,
                   ego_harm: float,
                   ego_type,
@@ -65,31 +68,45 @@ def collision_vis(scenario,
     fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
     fig.set_size_inches(5.833, 8.25)
 
+    ego_params = DynamicObstacleParams()
+    ego_params.time_begin = time_step
+    ego_params.draw_icon = True
+    ego_params.vehicle_shape.occupancy.shape.facecolor = "#E37222"
+    ego_params.vehicle_shape.occupancy.shape.edgecolor = "#9C4100"
+    ego_params.vehicle_shape.occupancy.shape.zorder = 50
+    ego_params.vehicle_shape.occupancy.shape.opacity = 1
+
     # set plot limits to show the road section around the ego vehicle
-    position = scenario.obstacle_by_id(marked_vehicle).\
-        occupancy_at_time(time_step=time_step).shape.center
+    position = record_state_list[-1].position
     plot_limits = [position[0] - 20,
                    position[0] + 20,
                    position[1] - 20,
                    position[1] + 20]
 
+    scenario_params = MPDrawParams()
+    scenario_params.time_begin = time_step
+    scenario_params.dynamic_obstacle.show_label = True
+    scenario_params.dynamic_obstacle.draw_icon = True
+    scenario_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#0065BD"
+    scenario_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
+    scenario_params.dynamic_obstacle.vehicle_shape.occupancy.shape.zorder = 50
+    scenario_params.dynamic_obstacle.vehicle_shape.occupancy.shape.opacity = 1
+
+    rnd = MPRenderer(ax=ax2, plot_limits=plot_limits)
     # plot the scenario at the current time step
-    draw_object(scenario,
-                draw_params={'time_begin': time_step, 'scenario':
-                             {'dynamic_obstacle': {'show_label': True}}},
-                plot_limits=plot_limits)
+    scenario.draw(rnd, draw_params=scenario_params)
 
     plt.gca().set_aspect('equal')
 
     # draw the planning problem
     if planning_problem is not None:
-        draw_object(planning_problem)
+        planning_problem.draw(rnd)
 
     # mark the ego vehicle
-    if marked_vehicle is not None:
-        draw_object(obj=scenario.obstacle_by_id(marked_vehicle),
-                    draw_params={'time_begin': time_step,
-                                 'facecolor': 'g'})
+    if ego_vehicle is not None:
+        ego_vehicle.draw(rnd, draw_params=ego_params)
+
+    rnd.render()
 
     # Draw global path
     if global_path is not None:
@@ -147,7 +164,7 @@ def collision_vis(scenario,
     # description of crash
     description = "Collision at {:.1f} s in ".\
         format(time_step * scenario.dt) + \
-        str(scenario.benchmark_id) + \
+        str(scenario.scenario_id) + \
         "\n\nCalculate harm using the " + mode + " model by " + angle + \
         "\n\nEgo vehicle harm " + harm + ": {:.3f}".format(ego_harm) + \
         "\nObstacle harm " + harm + ": {:.3f}".format(obs_harm) + \
@@ -171,7 +188,7 @@ def collision_vis(scenario,
     ax1.text(0, 1, description, verticalalignment='top', fontsize=8,
              wrap=True)
 
-    fig.suptitle("Collision in " + str(scenario.benchmark_id) + " detected",
+    fig.suptitle("Collision in " + str(scenario.scenario_id) + " detected",
                  fontsize=16)
 
     # Create directory for pictures
@@ -179,5 +196,5 @@ def collision_vis(scenario,
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    plt.savefig(destination + "/" + str(scenario.benchmark_id) + ".png")
+    plt.savefig(destination + "/" + str(scenario.scenario_id) + ".svg", format="svg")
     plt.close()

@@ -127,7 +127,7 @@ class ReactivePlanner(object):
         self.all_traj = None
         # self.save_unweighted_costs = config.debug.save_unweighted_costs
 
-        if config.prediction.walenet or config.prediction.lanebased:
+        if config.prediction.mode:
             self.use_prediction = True
         else:
             self.use_prediction = False
@@ -171,12 +171,19 @@ class ReactivePlanner(object):
 
         self.cost_function = None
 
-        self.__goal_checker = GoalReachedChecker(planning_problem)
+        self._goal_checker = GoalReachedChecker(planning_problem)
+
+        # Set Sampling Parameters#
+        self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
+        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
+
+        # set collision checker
+        self.set_collision_checker(self.scenario)
 
     @property
     def goal_checker(self):
         """Return the goal checker."""
-        return self.__goal_checker
+        return self._goal_checker
 
     def _check_valid_settings(self):
         """Checks validity of provided dt and horizon"""
@@ -634,8 +641,8 @@ class ReactivePlanner(object):
 
             self._optimal_cost = optimal_trajectory.cost
 
-        return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None, \
-               self.__goal_checker.goal_reached_message, self.__goal_checker.goal_reached_message_oot
+        return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
+
 
     def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
         """
@@ -773,20 +780,20 @@ class ReactivePlanner(object):
                     if s_velocity[i] > 0.001:
                         dp = d_velocity[i] / s_velocity[i]
                     else:
-                        if abs(d_velocity[i]) > 0.001:
-                            dp = None
-                        else:
-                            dp = 0.
+                        # if abs(d_velocity[i]) > 0.001:
+                        #     dp = None
+                        # else:
+                        dp = 0.
                     # see Eq. (A.8) from Moritz Werling's Diss
                     ddot = d_acceleration[i] - dp * s_acceleration[i]
 
                     if s_velocity[i] > 0.001:
                         dpp = ddot / (s_velocity[i] ** 2)
                     else:
-                        if np.abs(ddot) > 0.00003:
-                            dpp = None
-                        else:
-                            dpp = 0.
+                        # if np.abs(ddot) > 0.00003:
+                        #     dpp = None
+                        # else:
+                        dpp = 0.
                 else:
                     dp = d_velocity[i]
                     dpp = d_acceleration[i]
@@ -1145,10 +1152,10 @@ class ReactivePlanner(object):
         # Get the ego vehicle
         self.goal_checker.register_current_state(self.x_0)
         if self.goal_checker.goal_reached_status():
-            self.__goal_checker.goal_reached_message = True
+            self._goal_checker.goal_reached_message = True
         elif self.goal_checker.goal_reached_status(ignore_exceeded_time=True):
-            self.__goal_checker.goal_reached_message = True
-            self.__goal_checker.goal_reached_message_oot = True
+            self._goal_checker.goal_reached_message = True
+            self._goal_checker.goal_reached_message_oot = True
 
     def check_collision(self):
         ego = pycrcc.TimeVariantCollisionObject(self.x_0.time_step * self._factor)

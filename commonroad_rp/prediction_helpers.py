@@ -17,6 +17,47 @@ sys.path.append(module_path)
 from Prediction.walenet.helper_functions import create_tvobstacle, distance
 from prediction import WaleNet
 from commonroad_helper_functions.sensor_model import get_visible_objects
+from commonroad_prediction.prediction_module import PredictionModule
+from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
+
+
+def load_prediction(scenario, mode, config):
+    if mode == "walenet":
+        predictor = load_walenet(scenario=scenario)
+    elif mode == "lanebased":
+        pred_horizon_in_seconds = config.prediction.pred_horizon_in_s
+        pred_horizon_in_timesteps = int(pred_horizon_in_seconds / scenario.dt)
+        predictor = PredictionModule(scenario, timesteps=pred_horizon_in_timesteps, dt=scenario.dt)
+    else:
+        predictor = None
+
+    return predictor
+
+
+def step_prediction(scenario, predictor, config, ego_state):
+    if config.prediction.mode:
+        visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config)
+    else:
+        visible_obstacles = None
+        visible_area = None
+
+    if config.prediction.mode == "walenet":
+        predictions = main_prediction(predictor, scenario, visible_obstacles, ego_state, scenario.dt,
+                                         [float(config.planning.planning_horizon)])
+
+    elif config.prediction.mode== "lanebased":
+        predictions = predictor.main_prediction(ego_state, config.prediction.sensor_radius,
+                                                [float(config.planning.planning_horizon)])
+    else:
+        predictions = None
+
+    # ignore Predictions in Cone Angle
+    if config.prediction.cone_angle > 0 and (config.prediction.lanebased or config.prediction.walenet):
+        predictions = ignore_vehicles_in_cone_angle(predictions, ego_state, config.vehicle.length,
+                                                    config.prediction.cone_angle,
+                                                    config.prediction.cone_safety_dist)
+
+    return predictions, visible_area
 
 
 def get_obstacles_in_radius(scenario, ego_id: int, ego_state, radius: float):

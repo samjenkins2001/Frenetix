@@ -160,9 +160,9 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # visualize predictions
     if predictions is not None:
-        if config.prediction.lanebased:
+        if config.prediction.mode == "lanebased":
             draw_uncertain_predictions_lb(predictions, rnd.ax)
-        elif config.prediction.walenet:
+        elif config.prediction.mode == "walenet":
             draw_uncertain_predictions_wale(predictions, rnd.ax)
 
     # visualize reference path

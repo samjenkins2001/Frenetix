@@ -14,30 +14,24 @@ from copy import deepcopy
 import numpy as np
 
 # commonroad-io
-from commonroad.scenario.trajectory import State
+from commonroad_rp.utility.collision_report import coll_report
 
 # commonroad-io
 from commonroad.scenario.state import InputState
 
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
-from commonroad_rp.utility import helper_functions as hf
-
 # reactive planner
 from commonroad_rp.reactive_planner import ReactivePlanner
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
-from commonroad_rp.utility.helper_functions import (
-    get_goal_area_shape_group,
-)
+from commonroad_rp.utility import helper_functions as hf
+
 from commonroad_rp.utility.general import load_scenario_and_planning_problem
 
-from commonroad_rp.prediction_helpers import main_prediction, load_walenet, prediction_preprocessing
-from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
-
-from commonroad_prediction.prediction_module import PredictionModule
+import commonroad_rp.prediction_helpers as ph
 
 
 def run_planner(config, log_path, mod_path):
@@ -71,29 +65,25 @@ def run_planner(config, log_path, mod_path):
     else:
         desired_velocity = x_0.velocity + 5
 
-
     # *************************************
     # Initialize Planner
     # *************************************
 
     # initialize reactive planner
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
-    # set sampling parameters
-    planner.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-    planner.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
-    # set collision checker
-    planner.set_collision_checker(planner.scenario)
+
     # initialize route planner and set reference path
     route_planner = RoutePlanner(scenario, planning_problem)
     ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
 
     # ref_path = extrapolate_ref_path(ref_path)
     planner.set_reference_path(ref_path)
-    goal_area = get_goal_area_shape_group(
+    goal_area = hf.get_goal_area_shape_group(
        planning_problem=planning_problem, scenario=scenario
     )
     planner.set_goal_area(goal_area)
     planner.set_planning_problem(planning_problem)
+
     # set cost function
     cost_function = AdaptableCostFunction(rp=planner, configuration=config)
     planner.set_cost_function(cost_function)
@@ -120,17 +110,17 @@ def run_planner(config, log_path, mod_path):
         steering_angle_speed=0.))
 
     # initialize the prediction network if necessary
-    if config.prediction.walenet:
-        predictor = load_walenet(scenario=scenario)
-    elif config.prediction.lanebased:
-        pred_horizon_in_seconds = config.prediction.pred_horizon_in_s
-        pred_horizon_in_timesteps = int(pred_horizon_in_seconds / DT)
-        predictor_lanelet = PredictionModule(scenario, timesteps=pred_horizon_in_timesteps, dt=DT)
+    predictor = ph.load_prediction(scenario, config.prediction.mode, config)
 
     new_state = None
 
+    # Run variables
+    goal_reached = False
+    goal_reached_ott = False
+
     # Run planner
-    while not goal.is_reached(x_0) and current_count < config.general.max_steps:
+    while not goal_reached and not goal_reached_ott and current_count < config.general.max_steps:
+
         current_count = len(record_state_list) - 1
 
         # new planning cycle -> plan a new optimal trajectory
@@ -146,26 +136,14 @@ def run_planner(config, log_path, mod_path):
             ego_state = x_0
 
         # get visible objects if the prediction is used
-        if config.prediction.walenet or config.prediction.calc_visible_area:
-            visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config)
-
-        if config.prediction.walenet:
-            predictions = main_prediction(predictor, scenario, visible_obstacles, ego_state, DT,
-                                          [float(config.planning.planning_horizon)])
-        elif config.prediction.lanebased:
-            predictions = predictor_lanelet.main_prediction(ego_state, config.prediction.sensor_radius,
-                                          [float(config.planning.planning_horizon)])
+        if config.prediction.mode:
+            predictions, visible_area = ph.step_prediction(scenario, predictor, config, ego_state)
         else:
             predictions = None
-
-        # ignore Predictions in Cone Angle
-        if config.prediction.cone_angle > 0 and (config.prediction.lanebased or config.prediction.walenet):
-            predictions = ignore_vehicles_in_cone_angle(predictions, ego_state, config.vehicle.length,
-                                                        config.prediction.cone_angle,
-                                                        config.prediction.cone_safety_dist)
+            visible_area = None
 
         # plan trajectory
-        optimal, tmn, tmn_ott = planner.plan(x_0, predictions, x_cl)  # returns the planned (i.e., optimal) trajectory
+        optimal = planner.plan(x_0, predictions, x_cl)  # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
         # END TIMER
 
@@ -173,20 +151,9 @@ def run_planner(config, log_path, mod_path):
         planning_times.append(comp_time_end - comp_time_start)
         print(f"***Total Planning Time: {planning_times[-1]}")
 
-        # if the planner fails to find an optimal trajectory -> terminate
-        if not optimal or tmn:
-            if not optimal:
-                print("not optimal")
-            if tmn and not tmn_ott:
-                print("Scenario succeeded")
-            elif tmn and not tmn_ott:
-                print("Scenario succeeded, but outside the time horizon")
-            break
-
         # correct orientation angle
         new_state_list = planner.shift_orientation(optimal[0], interval_start=x_0.orientation-np.pi,
                                                    interval_end=x_0.orientation+np.pi)
-
 
         # get next state from state list of planned trajectory
         new_state = new_state_list.state_list[1]
@@ -217,9 +184,24 @@ def run_planner(config, log_path, mod_path):
                                           config=config, predictions=predictions, plot_window=config.debug.plot_window_dyn,
                                           log_path=log_path, visible_area=visible_area)
         if x_0.time_step > 1:
-            if planner.check_collision():
+            crash = planner.check_collision()
+            if crash:
                 print("Collision Detected!")
+                if config.debug.collision_report:
+                    coll_report(record_state_list, planner, x_0.time_step, scenario, ego_vehicle, planning_problem,
+                                log_path)
                 break
+
+        # Check if Goal is reached:
+        goal_reached = planner._goal_checker.goal_reached_message
+        goal_reached_ott = planner._goal_checker.goal_reached_message_oot
+
+    if goal_reached and not goal_reached_ott:
+        print("Scenario Successfully Completed!")
+    if not goal_reached and goal_reached_ott:
+        print("Scenario Completed Out of Time Horizon!")
+    if not goal_reached and not goal_reached_ott:
+        print("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory
     plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
