@@ -193,12 +193,13 @@ def run_planner(config, log_path, mod_path):
                 break
 
         # Check if Goal is reached:
+        planner._check_goal_reached()
         goal_reached = planner._goal_checker.goal_reached_message
         goal_reached_ott = planner._goal_checker.goal_reached_message_oot
 
     if goal_reached and not goal_reached_ott:
         print("Scenario Successfully Completed!")
-    if not goal_reached and goal_reached_ott:
+    if goal_reached and goal_reached_ott:
         print("Scenario Completed Out of Time Horizon!")
     if not goal_reached and not goal_reached_ott:
         print("Scenario Aborted! Maximum Time Step Reached!")

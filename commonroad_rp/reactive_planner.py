@@ -549,9 +549,6 @@ class ReactivePlanner(object):
         # set Cartesian initial state
         self.x_0 = x_0
 
-        # Check if the goal is alreay reached
-        self.__check_goal_reached()
-
         # Assign responsibility to predictions
         if self.responsibility:
             predictions = assign_responsibility_by_action_space(
@@ -1148,7 +1145,7 @@ class ReactivePlanner(object):
         x0_planner.steering_angle = np.arctan2(self.vehicle_params.wheelbase * x0_planner.yaw_rate, x0_planner.velocity)
         return x0_planner
 
-    def __check_goal_reached(self):
+    def _check_goal_reached(self):
         # Get the ego vehicle
         self.goal_checker.register_current_state(self.x_0)
         if self.goal_checker.goal_reached_status():
