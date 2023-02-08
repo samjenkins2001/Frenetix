@@ -5,7 +5,7 @@ __maintainer__ = "Gerald Würsching"
 __email__ = "commonroad@lists.lrz.de"
 __status__ = "Beta"
 
-
+import os
 # standard imports
 import time
 from copy import deepcopy
@@ -32,6 +32,7 @@ from commonroad_rp.utility import helper_functions as hf
 from commonroad_rp.utility.general import load_scenario_and_planning_problem
 
 import commonroad_rp.prediction_helpers as ph
+from behavior_planner.behavior_module import BehaviorModule
 
 
 def run_planner(config, log_path, mod_path):
@@ -60,10 +61,6 @@ def run_planner(config, log_path, mod_path):
 
     # goal state configuration
     goal = planning_problem.goal
-    if hasattr(planning_problem.goal.state_list[0], 'velocity'):
-        desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[0].velocity.end) / 2
-    else:
-        desired_velocity = x_0.velocity + 5
 
     # *************************************
     # Initialize Planner
@@ -73,11 +70,28 @@ def run_planner(config, log_path, mod_path):
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
 
     # initialize route planner and set reference path
-    route_planner = RoutePlanner(scenario, planning_problem)
-    ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
+    use_behavior_planner = False
+    if not use_behavior_planner:
+        if hasattr(planning_problem.goal.state_list[0], 'velocity'):
+            desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[
+                0].velocity.end) / 2
+        else:
+            desired_velocity = x_0.velocity + 5
+        route_planner = RoutePlanner(scenario, planning_problem)
+        ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
+        # ref_path = extrapolate_ref_path(ref_path)
+        planner.set_reference_path(ref_path)
+    else:
+        # *************************************
+        # Load Behavior Planner
+        # *************************************
 
-    # ref_path = extrapolate_ref_path(ref_path)
-    planner.set_reference_path(ref_path)
+        behavior_modul = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
+                                        init_sc_path=config.general.path_scenario,
+                                        init_ego_state=x_0,
+                                        vehicle_parameters=config.vehicle)  # testing
+        planner.set_reference_path(behavior_modul.reference_path)
+        ref_path = behavior_modul.reference_path
     goal_area = hf.get_goal_area_shape_group(
        planning_problem=planning_problem, scenario=scenario
     )
@@ -127,9 +141,7 @@ def run_planner(config, log_path, mod_path):
 
         # START TIMER
         comp_time_start = time.time()
-        # set desired velocity
-        desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
-        planner.set_desired_velocity(desired_velocity, x_0.velocity)
+
         if current_count > 1:
             ego_state = new_state
         else:
@@ -141,7 +153,22 @@ def run_planner(config, log_path, mod_path):
         else:
             predictions = None
             visible_area = None
+        if not use_behavior_planner:
+            # set desired velocity
+            desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
+            planner.set_desired_velocity(desired_velocity, x_0.velocity)
+        else:
+            """-----------------------------------------Testing:---------------------------------------------"""
+            behavior_comp_time1 = time.time()
+            behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
 
+            # set desired behavior outputs
+            planner.set_desired_velocity(behavior_modul.desired_velocity, x_0.velocity)
+            planner.set_reference_path(behavior_modul.reference_path)
+            behavior_comp_time2 = time.time()
+            print("\n***Behavior Planning Time: \n", behavior_comp_time2 - behavior_comp_time1)
+
+            """----------------------------------------Testing:---------------------------------------------"""
         # plan trajectory
         optimal = planner.plan(x_0, predictions, x_cl)  # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()

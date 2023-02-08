@@ -1,0 +1,273 @@
+from commonroad.common.file_reader import CommonRoadFileReader
+from behavior_planner.configuration_builder import ConfigurationBuilder
+from commonroad_route_planner.route_planner import RoutePlanner
+
+import behavior_planner.utils.helper_functions as hf
+from behavior_planner.velocity_planner import VelocityPlanner
+from behavior_planner.path_planner import PathPlanner
+from behavior_planner.FSM_model import EgoFSM
+
+
+class BehaviorModule(object):
+    """
+    Behavior Module: Coordinates Path Planner, Velocity Planner and Finite State Machine (FSM) to determine the
+    reference path and desired velocity for the reactive planner.
+
+    TODO: Include FSM
+    """
+
+    def __init__(self, proj_path, init_sc_path, init_ego_state, vehicle_parameters):
+        """ Init Behavior Module.
+
+        Args:
+        pro_path (str): project path.
+        init_sc_path (str): scenario path.
+        init_ego_state : initialized ego state.
+        """
+
+        self.BM_state = BehaviorModuleState()  # behavior module information
+
+        # load config
+        self.config = ConfigurationBuilder.build_configuration(proj_path)
+        self.BM_state.priority_right = self.config.mission.priorityright
+        self.BM_state.overtaking = self.config.mode.overtaking
+
+        # init behavior planner and load scenario information
+        self.VP_state = self.BM_state.VP_state  # velocity planner information
+        self.PP_state = self.BM_state.PP_state  # path planner information
+        self.FSM_state = self.BM_state.FSM_state  # FSM information
+        self.BM_state.init_velocity = init_ego_state.velocity
+        self.BM_state.vehicle_params = vehicle_parameters
+
+        self.BM_state.scenario, self.planning_problem_set = CommonRoadFileReader(init_sc_path).open()
+        self.BM_state.planning_problem = list(self.planning_problem_set.planning_problem_dict.values())[0]
+
+        self.BM_state.country = hf.find_country_traffic_sign_id(self.BM_state.scenario)
+        self.BM_state.current_lanelet_id, self.BM_state.speed_limit, self.BM_state.street_setting = \
+            hf.get_lanelet_information(
+                scenario=self.BM_state.scenario,
+                ego_state=init_ego_state,
+                country=self.BM_state.country)
+
+        # get navigation plan
+        self.navigation = RoutePlanner(self.BM_state.scenario, self.BM_state.planning_problem)
+        self._retrieve_nav_route()
+        self._retrieve_lane_changes_from_navigation()
+
+        # init path planner
+        self.path_planner = PathPlanner(BM_state=self.BM_state)
+        self.path_planner.execute_route_planning()
+
+        # init velocity planner
+        self.velocity_planner = VelocityPlanner(BM_state=self.BM_state)
+
+        # init ego FSM
+        self.ego_FSM = EgoFSM(BM_state=self.BM_state)
+        self.FSM_state = self.ego_FSM.FSM_state
+
+        # outputs
+        self.reference_path = self.BM_state.PP_state.reference_path
+        self.desired_velocity = None
+
+    def execute(self, predictions, ego_state, time_step):
+        """ Execute behavior module.
+
+        Args:
+        predictions (dict): current predictions.
+        ego_state (List): current state of ego vehicle.
+        """
+
+        # inputs
+        self.BM_state.predictions = predictions
+        self.BM_state.ego_state = ego_state
+        self.BM_state.time_step = time_step
+
+        self.BM_state.position_s = self.PP_state.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+                            ego_state.position[0], ego_state.position[1])[0]
+        self.BM_state.future_factor = int(self.BM_state.ego_state.velocity // 4) + 1  # for lane change maneuvers
+        self._collect_necessary_information()
+
+        # execute FSM
+        self.ego_FSM.execute()
+
+        # execute path planner
+        if self.FSM_state.do_lane_change:
+            self.path_planner.execute_lane_change()
+        if self.FSM_state.undo_lane_change:
+            self.path_planner.undo_lane_change()
+        self.reference_path = self.PP_state.reference_path
+
+        # execute velocity planner
+        self.velocity_planner.execute()
+        self.desired_velocity = self.VP_state.desired_velocity
+
+        print("\nVP velocity mode: ", self.VP_state.velocity_mode)
+        print("VP TTC velocity: ", self.VP_state.TTC)
+        print("VP MAX velocity: ", self.VP_state.MAX)
+        if self.VP_state.closest_preceding_vehicle is not None:
+            print("VP position of preceding vehicle: ", self.VP_state.closest_preceding_vehicle.get('pos_list')[0])
+        print("VP velocity of preceding vehicle: ", self.VP_state.vel_preceding_veh)
+        print("VP distance to preceding vehicle: ", self.VP_state.dist_preceding_veh)
+        print("VP safety distance to preceding vehicle: ", self.VP_state.safety_dist)
+        print("VP recommended velocity: ", self.VP_state.goal_velocity)
+        print("BP recommended desired velocity: ", self.desired_velocity)
+        print("current ego velocity: ", self.BM_state.ego_state.velocity, "\n")
+
+    def _retrieve_nav_route(self):
+        global_nav_routes = self.navigation.plan_routes()
+        self.BM_state.global_nav_route = global_nav_routes.retrieve_best_route_by_orientation()
+
+    def _retrieve_lane_changes_from_navigation(self):
+        self.BM_state.nav_lane_changes_left = 0
+        self.BM_state.nav_lane_changes_right = 0
+        lane_change_instructions = hf.retrieve_glb_nav_path_lane_changes(self.BM_state.global_nav_route)
+        for idx, instruction in enumerate(lane_change_instructions):
+            if lane_change_instructions[idx] == 1:
+                lanelet = self.BM_state.scenario.lanelet_network.find_lanelet_by_id(
+                    self.BM_state.global_nav_route.list_ids_lanelets[idx])
+                if lanelet.adj_left == self.BM_state.global_nav_route.list_ids_lanelets[idx+1]:
+                    self.BM_state.nav_lane_changes_left += 1
+                if lanelet.adj_right == self.BM_state.global_nav_route.list_ids_lanelets[idx+1]:
+                    self.BM_state.nav_lane_changes_right += 1
+
+    def _collect_necessary_information(self):
+        self.BM_state.current_lanelet_id, self.BM_state.speed_limit, self.BM_state.street_setting_scenario = \
+            hf.get_lanelet_information(
+                scenario=self.BM_state.scenario,
+                ego_state=self.BM_state.ego_state,
+                country=self.BM_state.country)
+        self.BM_state.current_lanelet = \
+            self.BM_state.scenario.lanelet_network.find_lanelet_by_id(self.BM_state.current_lanelet_id)
+
+
+class BehaviorModuleState(object):
+    """Behavior Module State class holding all information for transfer"""
+    def __init__(self):
+        # general
+        self.vehicle_params = None
+        self.country = None
+        self.scenario = None
+        self.planning_problem = None
+        self.priority_right = None
+        self.overtaking = None
+
+        # Behavior Module inputs
+        self.ego_state = None
+        self.predictions = None
+        self.time_step = None
+
+        # FSM and Velocity Planner information
+        self.FSM_state = FSMState()
+        self.VP_state = VelocityPlannerState()
+        self.PP_state = PathPlannerState()
+
+        # Behavior Module information
+        self.position_s = None
+        self.current_lanelet_id = None
+        self.current_lanelet = None
+
+        # velocity
+        self.init_velocity = None
+        self.speed_limit = None
+        self.street_setting = None
+
+        # navigation
+        self.global_nav_route = None
+        self.nav_lane_changes_left = 0
+        self.nav_lane_changes_right = 0
+
+
+class FSMState(object):
+    """FSM state class holding all information for transfer"""
+    def __init__(self):
+        # street setting state
+        self.street_setting = None
+
+        # static behavior states
+        self.behavior_state_static = None
+        self.situation_state_static = None
+
+        # dynamic behavior states
+        self.behavior_state_dynamic = None
+        self.situation_state_dynamic = None
+
+        # time_step_counter
+        self.situation_time_step_counter = None
+
+        # vehicle status
+        self.detected_lanelets = None
+
+        # information
+        self.lane_change_target_lanelet_id = None
+        self.lane_change_target_lanelet = None
+        self.obstacles_on_target_lanelet = None
+
+        # free space offset
+        self.free_space_offset = 0
+        self.change_velocity_for_lane_change = None
+
+        # permission flags
+        self.free_space_on_target_lanelet = None
+
+        self.lane_change_left_ok = None
+        self.lane_change_right_ok = None
+        self.lane_change_left_done = None
+        self.lane_change_right_done = None
+
+        self.lane_change_prep_right_abort = None
+        self.lane_change_prep_left_abort = None
+        self.lane_change_right_abort = None
+        self.lane_change_left_abort = None
+
+        self.overtake_ok = None
+        self.overtake_done = None
+
+        self.no_auto_lane_change = None
+
+        # action flags
+        self.do_lane_change = None
+        self.undo_lane_change = None
+
+        # reaction flags
+        self.initiated_lane_change = None
+        self.undid_lane_change = None
+
+        # situation states
+        self.situation_state_dynamic = None
+
+
+class VelocityPlannerState(object):
+    """Velocity Planner State class holding all information for transfer"""
+    def __init__(self):
+        # outputs
+        self.desired_velocity = None
+        self.goal_velocity = None
+        self.velocity_mode = None
+
+        # general
+        self.ttc_norm = 8
+        self.speed_limit_default = None
+        self.TTC = None
+        self.MAX = None
+
+        # TTC velocity
+        self.closest_preceding_vehicle = None
+        self.dist_preceding_veh = None
+        self.vel_preceding_veh = None
+        self.ttc_conditioned = None
+        self.ttc_relative = None  # optimal relative velocity to the preceding vehicle
+        self.safety_dist = None
+
+        # conditions
+        self.condition_factor = None  # factor to express driving conditions of the vehicle; ∈ [0,1]
+        self.lon_dyn_cond_factor = None  # factor to express longitudinal driving conditions; ∈ [0,1]
+        self.lat_dyn_cond_factor = None  # factor to express lateral driving; ∈ [0,1]
+        self.visual_cond_factor = None  # factor to express visual driving conditions; ∈ [0,1]
+
+
+class PathPlannerState(object):
+    """Velocity Planner State class holding all information for transfer"""
+    def __init__(self):
+        self.static_route_plan = None
+        self.reference_path = None
+        self.cl_ref_coordinate_system = None

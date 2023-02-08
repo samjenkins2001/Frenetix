@@ -13,10 +13,11 @@ commonroad-io==2022.3
 commonroad-drivability-checker==2022.2
 numba
 commonroad-helper-functions
-wale-net==3.0.1
+#wale-net==3.0.1
 ruamel.yaml
 pygeos
 imageio
+shapely==1.8.5
 # git+https://gitlab.lrz.de/motionplanning1/commonroad_helper_functions.git@highd-comparison
 git+https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction@main
 
