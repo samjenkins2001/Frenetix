@@ -1,6 +1,6 @@
 import numpy as np
 from commonroad.common.file_reader import CommonRoadFileReader
-from commonroad_helper_functions.interpolation import interpolate_scenario
+# from commonroad_helper_functions.interpolation import interpolate_scenario
 import commonroad_rp.utility.helper_functions as hf
 
 
@@ -10,11 +10,11 @@ def load_scenario_and_planning_problem(config, idx_planning_problem: int = 0):
         idx_planning_problem
     ]
 
-    if config.planning.dt != scenario.dt:
-        scenario, planning_problem_set = interpolate_scenario(scenario=scenario, dt_new=config.planning.dt,
-                                                              planning_problem_set=planning_problem_set)
-
-    scenario = check_if_obstacle_on_same_position(scenario, planning_problem.initial_state.position)
+    # if config.planning.dt != scenario.dt:
+    #     scenario, planning_problem_set = interpolate_scenario(scenario=scenario, dt_new=config.planning.dt,
+    #                                                           planning_problem_set=planning_problem_set)
+    #
+    # scenario = check_if_obstacle_on_same_position(scenario, planning_problem.initial_state.position)
 
     return scenario, planning_problem, planning_problem_set
 
