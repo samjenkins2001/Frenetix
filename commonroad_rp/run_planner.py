@@ -127,13 +127,9 @@ def run_planner(config, log_path, mod_path):
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
 
     new_state = None
-
-    # Run variables
-    goal_reached = False
-    goal_reached_ott = False
-
+    max_time_steps_scenario = int(config.general.max_steps*planning_problem.goal.state_list[0].time_step.end)
     # Run planner
-    while not goal_reached and not goal_reached_ott and current_count < config.general.max_steps:
+    while not planner.goal_status and current_count < max_time_steps_scenario:
 
         current_count = len(record_state_list) - 1
 
@@ -221,14 +217,10 @@ def run_planner(config, log_path, mod_path):
 
         # Check if Goal is reached:
         planner._check_goal_reached()
-        goal_reached = planner._goal_checker.goal_reached_message
-        goal_reached_ott = planner._goal_checker.goal_reached_message_oot
 
-    if goal_reached and not goal_reached_ott:
-        print("Scenario Successfully Completed!")
-    if goal_reached and goal_reached_ott:
-        print("Scenario Completed Out of Time Horizon!")
-    if not goal_reached and not goal_reached_ott:
+    print(planner.goal_message)
+    print("\n\n", planner.full_goal_status)
+    if not planner.goal_status:
         print("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory

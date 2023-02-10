@@ -172,6 +172,8 @@ class ReactivePlanner(object):
         self.cost_function = None
 
         self._goal_checker = GoalReachedChecker(planning_problem)
+        self.goal_status = False
+        self.full_goal_status = None
 
         # Set Sampling Parameters#
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
@@ -1148,11 +1150,8 @@ class ReactivePlanner(object):
     def _check_goal_reached(self):
         # Get the ego vehicle
         self.goal_checker.register_current_state(self.x_0)
-        if self.goal_checker.goal_reached_status():
-            self._goal_checker.goal_reached_message = True
-        elif self.goal_checker.goal_reached_status(ignore_exceeded_time=True):
-            self._goal_checker.goal_reached_message = True
-            self._goal_checker.goal_reached_message_oot = True
+        self.goal_status, self.goal_message, self.full_goal_status = self.goal_checker.goal_reached_status()
+
 
     def check_collision(self):
         ego = pycrcc.TimeVariantCollisionObject(self.x_0.time_step * self._factor)

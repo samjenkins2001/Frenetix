@@ -9,8 +9,7 @@ class GoalReachedChecker:
         """__init__ function."""
         self.goal = planning_problem.goal
         self.status = []
-        self.goal_reached_message = False
-        self.goal_reached_message_oot = False
+        self.last_position_check = False
 
     def register_current_state(self, current_state):
         """Register the current state and check if in goal."""
@@ -21,27 +20,30 @@ class GoalReachedChecker:
             normalized_state = self._normalize_states(current_state, goal_state)
             self._check_position(normalized_state, goal_state, state_status)
             self._check_orientation(normalized_state, goal_state, state_status)
-            self._check_velocity(normalized_state, goal_state, state_status)
+            # self._check_velocity(normalized_state, goal_state, state_status)
             self._check_time_step(normalized_state, goal_state, state_status)
             self.status.append(state_status)
 
-    def goal_reached_status(self, ignore_exceeded_time=False):
+    def goal_reached_status(self):
         """Get the goal status."""
         for state_status in copy.deepcopy(self.status):
-            if "time_step" in state_status:
+            if "time_step" in state_status: # time step info available
                 timing_flag = state_status.pop("timing_flag")
-            if all(list(state_status.values())):
-                return True
+            if all(list(state_status.values())): # every condition fulfilled
+                return True, "Scenario Successful!", state_status
             elif "time_step" in state_status:
                 _ = state_status.pop("time_step")
                 if (
-                    ignore_exceeded_time
-                    and timing_flag == "exceeded"
+                    timing_flag == "exceeded"
                     and all(list(state_status.values()))
                 ):
-                    return True
-
-            return False
+                    return True, "Scenario Completet out of Time!", state_status
+            elif "position" in state_status:
+                if self.last_position_check and not state_status["position"]:
+                    return True, "Scenario Completet Faster than Target Time!", state_status
+            if "position" in state_status:
+                self.last_position_check = state_status["position"]
+            return False, "Scenario is still running!", state_status
 
     def _check_position(self, normalized_state, goal_state, state_status):
         if hasattr(goal_state, "position"):
