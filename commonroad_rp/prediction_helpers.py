@@ -16,7 +16,7 @@ sys.path.append(module_path)
 
 from Prediction.walenet.helper_functions import create_tvobstacle, distance
 from prediction import WaleNet
-from commonroad_helper_functions.sensor_model import get_visible_objects
+from commonroad_rp.utility.sensor_model import get_visible_objects
 from commonroad_prediction.prediction_module import PredictionModule
 from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
 
@@ -340,6 +340,8 @@ def prediction_preprocessing(scenario, ego_state, config):
                 ego_pos=ego_state.position,
                 time_step=ego_state.time_step,
                 sensor_radius=config.prediction.sensor_radius,
+                ego_state=ego_state,
+                ego_id=42,
             )
             return visible_obstacles, visible_area
         except:

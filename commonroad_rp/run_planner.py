@@ -220,7 +220,7 @@ def run_planner(config, log_path, mod_path):
 
     print(planner.goal_message)
     print("\n\n", planner.full_goal_status)
-    if not planner.goal_status:
+    if not planner.goal_status and current_count >= max_time_steps_scenario:
         print("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory
