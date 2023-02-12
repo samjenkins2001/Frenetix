@@ -78,6 +78,7 @@ class DataLoggingCosts:
             "inf_kin_yaw_rate;"
             "inf_kin_max_curvature_rate;"
             "inf_kin_vehicle_acc;"
+            "inf_cartesian_transform;"
             "infeasible_collision;"
             "x_positions_m;"
             "y_positions_m;"

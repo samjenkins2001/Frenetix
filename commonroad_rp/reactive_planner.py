@@ -97,7 +97,7 @@ class ReactivePlanner(object):
         # statistics
         self._total_count = 0
         self._infeasible_count_collision = 0
-        self._infeasible_count_kinematics = np.zeros(9)
+        self._infeasible_count_kinematics = np.zeros(10)
         self._optimal_cost = 0
         self._continuous_cc = config.planning.continuous_cc
         self._collision_check_in_cl = config.planning.collision_check_in_cl
@@ -642,7 +642,6 @@ class ReactivePlanner(object):
 
         return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
 
-
     def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
         """
         Computes a standstill trajectory if the vehicle is already at velocity 0
@@ -692,7 +691,7 @@ class ReactivePlanner(object):
         """
         # initialize lists for output trajectories
         # infeasible trajectory list is only used for visualization when self._draw_traj_set is True
-        infeasible_count_kinematics = [0] * 9
+        infeasible_count_kinematics = np.zeros(10)
         feasible_trajectories = list()
         infeasible_trajectories = list()
 
@@ -772,6 +771,7 @@ class ReactivePlanner(object):
                     infeasible_count_kinematics[2] += 1
                     continue
 
+            infeasible_count_kinematics_traj = np.zeros(10)
             for i in range(0, traj_len):
                 # compute orientations
                 # see Appendix A.1 of Moritz Werling's PhD Thesis for equations
@@ -801,6 +801,7 @@ class ReactivePlanner(object):
                 s_idx = np.argmax(self._co.ref_pos > s[i]) - 1
                 if s_idx + 1 >= len(self._co.ref_pos):
                     feasible = False
+                    infeasible_count_kinematics_traj[3] = 1
                     break
                 s_lambda = (s[i] - self._co.ref_pos[s_idx]) / (self._co.ref_pos[s_idx + 1] - self._co.ref_pos[s_idx])
 
@@ -865,14 +866,14 @@ class ReactivePlanner(object):
                 # velocity constraint
                 if v[i] < -0.1:
                     feasible = False
-                    infeasible_count_kinematics[4] += 1
+                    infeasible_count_kinematics_traj[4] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # curvature constraint
                 kappa_max = np.tan(self.vehicle_params.delta_max) / self.vehicle_params.wheelbase
                 if abs(kappa_gl[i]) > kappa_max:
                     feasible = False
-                    infeasible_count_kinematics[5] += 1
+                    infeasible_count_kinematics_traj[5] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # yaw rate (orientation change) constraint
@@ -880,7 +881,7 @@ class ReactivePlanner(object):
                 theta_dot_max = kappa_max * v[i]
                 if abs(yaw_rate) > theta_dot_max:
                     feasible = False
-                    infeasible_count_kinematics[6] += 1
+                    infeasible_count_kinematics_traj[6] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # curvature rate constraint
@@ -890,8 +891,8 @@ class ReactivePlanner(object):
                                                                    math.cos(steering_angle) ** 2)
                 kappa_dot = (kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.
                 if abs(kappa_dot) > kappa_dot_max:
-                    # feasible = False
-                    infeasible_count_kinematics[7] += 1
+                    feasible = False
+                    infeasible_count_kinematics_traj[7] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
                 # acceleration constraint (considering switching velocity, see vehicle models documentation)
@@ -900,7 +901,7 @@ class ReactivePlanner(object):
                 a_min = -self.vehicle_params.a_max
                 if not a_min <= a[i] <= a_max:
                     feasible = False
-                    infeasible_count_kinematics[8] += 1
+                    infeasible_count_kinematics_traj[8] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
 
@@ -914,6 +915,7 @@ class ReactivePlanner(object):
                         y[i] = pos[1]
                     else:
                         feasible = False
+                        infeasible_count_kinematics_traj[9] = 1
                         if self.debug_mode >= 2:
                             print("Out of projection domain")
                         break
@@ -959,6 +961,7 @@ class ReactivePlanner(object):
                     # store trajectory in infeasible trajectories list
                     infeasible_trajectories.append(trajectory)
 
+            infeasible_count_kinematics += infeasible_count_kinematics_traj
 
         if self._multiproc:
             # store feasible trajectories in Queue 1
@@ -986,7 +989,7 @@ class ReactivePlanner(object):
         # }
         # reset statistics
         self._infeasible_count_collision = 0
-        self._infeasible_count_kinematics = np.zeros(9)
+        self._infeasible_count_kinematics = np.zeros(10)
 
         # check kinematics of each trajectory
         if self._multiproc:
@@ -1002,7 +1005,7 @@ class ReactivePlanner(object):
             queue_1 = multiprocessing.Queue()
             infeasible_trajectories = []
             queue_2 = multiprocessing.Queue()
-            infeasible_count_kinematics = [0] * 9
+            infeasible_count_kinematics = [0] * 10
             queue_3 = multiprocessing.Queue()
             for chunk in chunks:
                 p = Process(target=self._check_kinematics, args=(chunk, queue_1, queue_2, queue_3))
