@@ -95,7 +95,7 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
         )
         total_harm = ego_harm
 
-        raise NoLocalTrajectoryFoundError("Collision with road boundary. (Harm: {:.2f})".format(ego_harm))
+        print("Collision with road boundary. (Harm: {:.2f})".format(ego_harm))
 
     # get information of colliding obstace
     obs_pos = (

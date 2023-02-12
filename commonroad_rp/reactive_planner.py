@@ -310,7 +310,7 @@ class ReactivePlanner(object):
         self._sampling_v = VelocitySampling(v_min, v_max, self._sampling_level)
 
     def set_desired_velocity(self, desired_velocity: float, current_speed: float = None, stopping: bool = False,
-                             v_limit: float = 1000):
+                             v_limit: float = 80):
         """
         Sets desired velocity and calculates velocity for each sample
         :param desired_velocity: velocity in m/s
@@ -603,7 +603,8 @@ class ReactivePlanner(object):
                 self.logger.log_pred(predictions)
                 if self.save_all_traj:
                     self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
-            #if self.debug_mode >= 1:
+
+            # if self.debug_mode >= 1:
             #    print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
             if self.debug_mode >= 1:
