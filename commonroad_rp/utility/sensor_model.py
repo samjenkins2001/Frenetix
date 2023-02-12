@@ -81,14 +81,17 @@ def get_visible_objects(
     # if occlusions through dynamic objects should be considered
     if occlusions:
 
-        for dyn_obst in scenario.dynamic_obstacles:
+        for obst in scenario.obstacles:
             # check if obstacle is still there
             try:
-                pos = dyn_obst.prediction.trajectory.state_list[time_step].position
-                orientation = dyn_obst.prediction.trajectory.state_list[
-                    time_step
-                ].orientation
-
+                if obst.obstacle_role.name == "STATIC":
+                    pos = obst.initial_state.position
+                    orientation = obst.initial_state.orientation
+                else:
+                    pos = obst.prediction.trajectory.state_list[time_step].position
+                    orientation = obst.prediction.trajectory.state_list[
+                        time_step
+                    ].orientation
             except IndexError:
                 continue
 
@@ -98,7 +101,7 @@ def get_visible_objects(
                 # Substract occlusions from dynamic obstacles
                 # Calculate corner points in world coordinates
                 corner_points = _calc_corner_points(
-                    pos, orientation, dyn_obst.obstacle_shape
+                    pos, orientation, obst.obstacle_shape
                 )
 
                 # Identify points for geometric projection
@@ -117,42 +120,44 @@ def get_visible_objects(
     # Get visible objects
     visible_object_ids = []
 
-    for dyn_obst in scenario.dynamic_obstacles:
+    for obst in scenario.obstacles:
         # check if obstacle is still there
         try:
-            pos = dyn_obst.prediction.trajectory.state_list[time_step].position
-            orientation = dyn_obst.prediction.trajectory.state_list[
-                time_step
-            ].orientation
+            if obst.obstacle_role.name == "STATIC":
+                pos = obst.initial_state.position
+                orientation = obst.initial_state.orientation
+            else:
+                pos = obst.prediction.trajectory.state_list[time_step].position
+                orientation = obst.prediction.trajectory.state_list[
+                    time_step
+                ].orientation
 
         except IndexError:
             continue
 
-        corner_points = _calc_corner_points(pos, orientation, dyn_obst.obstacle_shape)
+        corner_points = _calc_corner_points(pos, orientation, obst.obstacle_shape)
         dyn_obst_shape = Polygon(corner_points)
 
         if dyn_obst_shape.intersects(visible_area):
-            visible_object_ids.append(dyn_obst.obstacle_id)
+            visible_object_ids.append(obst.obstacle_id)
 
-    # Add static obstacles
-    obstacles_within_radius = []
-    for obstacle in scenario.static_obstacles:
-        # do not consider the ego vehicle
-        if obstacle.obstacle_id != ego_id:
-            occ = obstacle.occupancy_at_time(ego_state.time_step)
-            # if the obstacle is not in the lanelet network at the given time, its occupancy is None
-            if occ is not None:
-                # calculate the distance between the two obstacles
-                dist = hf.distance(
-                    pos1=ego_state.position,
-                    pos2=obstacle.occupancy_at_time(ego_state.time_step).shape.center,
-                )
-                # add obstacles that are close enough
-                if dist < sensor_radius:
-                    obstacles_within_radius.append(obstacle.obstacle_id)
-    for i in range(0, len(obstacles_within_radius)):
-        visible_object_ids.append(obstacles_within_radius[i])
-    visible_object_ids.sort()
+    # # Add static obstacles
+    # obstacles_within_radius = []
+    # for obstacle in scenario.static_obstacles:
+    #     # do not consider the ego vehicle
+    #     if obstacle.obstacle_id != ego_id:
+    #         occ = obstacle.occupancy_at_time(ego_state.time_step)
+    #         # if the obstacle is not in the lanelet network at the given time, its occupancy is None
+    #         if occ is not None:
+    #             # calculate the distance between the two obstacles
+    #             dist = hf.distance(
+    #                 pos1=ego_state.position,
+    #                 pos2=obstacle.occupancy_at_time(ego_state.time_step).shape.center,
+    #             )
+    #             # add obstacles that are close enough
+    #             if dist < sensor_radius:
+    #                 obstacles_within_radius.append(obstacle.obstacle_id)
+
     return visible_object_ids, visible_area
 
 
