@@ -187,8 +187,8 @@ class CartesianSample(Sample):
         self.kappa_dot[self.current_time_step:] = np.repeat(self.kappa_dot[last_time_step], steps)
 
         # enlarge positions
-        self.x[self.current_time_step:] = self.x[last_time_step] + np.cumsum(dt * v_temp * math.cos(self.theta[last_time_step]))
-        self.y[self.current_time_step:] = self.y[last_time_step] + np.cumsum(dt * v_temp * math.sin(self.theta[last_time_step]))
+        #self.x[self.current_time_step:] = self.x[last_time_step] + np.cumsum(dt * v_temp * math.cos(self.theta[last_time_step]))
+        #self.y[self.current_time_step:] = self.y[last_time_step] + np.cumsum(dt * v_temp * math.sin(self.theta[last_time_step]))
         self.current_time_step = self.length()
 
 

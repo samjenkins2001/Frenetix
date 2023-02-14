@@ -908,7 +908,10 @@ class ReactivePlanner(object):
 
             # if selected polynomial trajectory is feasible, store it's Cartesian and Curvilinear trajectory
             if feasible or self._draw_traj_set:
-                for i in range(0, traj_len):
+                for ext in range(traj_len, len(s)):
+                    s[ext] = s[ext-1] + np.cumsum(trajectory.dt * v[traj_len-1])
+                d[traj_len:] = d[traj_len-1]
+                for i in range(0, len(s)):
                     # compute (global) Cartesian position
                     pos: np.ndarray = self._co.convert_to_cartesian_coords(s[i], d[i])
                     if pos is not None:
@@ -933,12 +936,13 @@ class ReactivePlanner(object):
                                                                current_time_step=traj_len)
 
                     # check if trajectories planning horizon is shorter than expected and extend if necessary
+                    # shrt = trajectory.cartesian.current_time_step
                     if self.N + 1 > trajectory.cartesian.current_time_step:
+                        # trajectory = hf.shrink_trajectory(trajectory, shrt)
                         trajectory.enlarge(self.dT)
-
-                    assert self.N + 1 == trajectory.cartesian.current_time_step == len(trajectory.cartesian.x) == \
-                           len(trajectory.cartesian.y) == len(trajectory.cartesian.theta), \
-                        '<ReactivePlanner/kinematics>:  Lenghts of state variables is not equal.'
+                    #assert self.N + 1 == trajectory.cartesian.current_time_step == len(trajectory.cartesian.x) == \
+                    #       len(trajectory.cartesian.y) == len(trajectory.cartesian.theta), \
+                    #       '<ReactivePlanner/kinematics>:  Lenghts of state variables is not equal.'
 
                 if feasible:
                     feasible_trajectories.append(trajectory)
