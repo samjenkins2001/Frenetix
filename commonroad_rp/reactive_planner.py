@@ -921,12 +921,11 @@ class ReactivePlanner(object):
                             print("Out of projection domain")
                         break
 
-                if feasible:
+                if feasible or self._draw_traj_set:
                     # store Cartesian trajectory
                     trajectory.cartesian = CartesianSample(x, y, theta_gl, v, a, kappa_gl,
                                                            kappa_dot=np.append([0], np.diff(kappa_gl)),
                                                            current_time_step=traj_len)
-
                     # store Curvilinear trajectory
                     trajectory.curvilinear = CurviLinearSample(s, d, theta_gl,
                                                                ss=s_velocity, sss=s_acceleration,
@@ -940,26 +939,10 @@ class ReactivePlanner(object):
                     assert self.N + 1 == trajectory.cartesian.current_time_step == len(trajectory.cartesian.x) == \
                            len(trajectory.cartesian.y) == len(trajectory.cartesian.theta), \
                         '<ReactivePlanner/kinematics>:  Lenghts of state variables is not equal.'
-                    # store trajectory in feasible trajectories list
+
+                if feasible:
                     feasible_trajectories.append(trajectory)
-
-                if not feasible and self._draw_traj_set:
-                    # store Cartesian trajectory
-                    trajectory.cartesian = CartesianSample(x, y, theta_gl, v, a, kappa_gl,
-                                                           kappa_dot=np.append([0], np.diff(kappa_gl)),
-                                                           current_time_step=traj_len)
-
-                    # store Curvilinear trajectory
-                    trajectory.curvilinear = CurviLinearSample(s, d, theta_gl,
-                                                               ss=s_velocity, sss=s_acceleration,
-                                                               dd=d_velocity, ddd=d_acceleration,
-                                                               current_time_step=traj_len)
-
-                    # check if trajectories planning horizon is shorter than expected and extend if necessary
-                    if self.N + 1 > trajectory.cartesian.current_time_step:
-                        trajectory.enlarge(self.dT)
-
-                    # store trajectory in infeasible trajectories list
+                elif not feasible and self._draw_traj_set:
                     infeasible_trajectories.append(trajectory)
 
             infeasible_count_kinematics += infeasible_count_kinematics_traj
