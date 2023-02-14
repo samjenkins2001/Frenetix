@@ -616,7 +616,7 @@ class ReactivePlanner(object):
             # increase sampling level (i.e., density) if no optimal trajectory could be found
             i = i + 1
 
-        if optimal_trajectory is None:
+        if optimal_trajectory is None and x_0.velocity <= 0.1:
             print('<ReactivePlanner>: planning standstill for the current scenario')
             t0 = time.time()
             self.logger.trajectory_number = x_0.time_step
@@ -641,7 +641,7 @@ class ReactivePlanner(object):
 
             self._optimal_cost = optimal_trajectory.cost
 
-        return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
+        return self._compute_trajectory_pair(optimal_trajectory)
 
     def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
         """
@@ -892,7 +892,7 @@ class ReactivePlanner(object):
                                                                    math.cos(steering_angle) ** 2)
                 kappa_dot = (kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.
                 if abs(kappa_dot) > kappa_dot_max:
-                    feasible = False
+                    # feasible = False
                     infeasible_count_kinematics_traj[7] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
@@ -1092,17 +1092,16 @@ class ReactivePlanner(object):
             if not collision_detected and boundary_harm == 0:
                 return trajectory, trajectory_bundle._cluster
 
-        if samp_lvl == self._sampling_level - 1:
+        if samp_lvl >= self._sampling_level - 1:
             sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj._boundary_harm, reverse=False)
-
-            if any(bundle._coll_detected==False for bundle in trajectory_bundle.get_sorted_list()):
-                for trajectory in sort_harm:
-                    if not trajectory._coll_detected:
-                        return trajectory, trajectory_bundle._cluster
-            elif any(bundle._boundary_harm==0 for bundle in trajectory_bundle.get_sorted_list()):
+            if any(bundle._boundary_harm == 0 for bundle in sort_harm):
                 return sort_harm[0], trajectory_bundle._cluster
+            elif trajectory_bundle.get_sorted_list():
+                return trajectory_bundle.get_sorted_list()[0], trajectory_bundle._cluster
             else:
-                return trajectory_bundle.get_sorted_list()[0] if trajectory_bundle.get_sorted_list() else None, trajectory_bundle._cluster
+                trajectory_bundle.trajectories = infeasible_trajectories
+                trajectory_bundle.sort()
+                return trajectory_bundle.get_sorted_list()[0], trajectory_bundle._cluster
         else:
             return None, trajectory_bundle._cluster
 

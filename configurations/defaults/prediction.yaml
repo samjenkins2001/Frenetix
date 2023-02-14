@@ -1,11 +1,13 @@
 # activation of the wale-net prediction
 mode: "walenet"  # "walenet" or "lanebased" or None
 
-# Sensor Radius in Meter
+# Sensor Radius in Meter and Occlusion Area
 calc_visible_area: True
-sensor_radius: 60
-cone_angle: 0
+sensor_radius: 80
+
+# Cone Angle and Safety Dist for Cone Angle
+cone_angle: 20
+cone_safety_dist: 3
 
 # Lanebased Params
-cone_safety_dist: 3
 pred_horizon_in_s: 3

@@ -52,7 +52,7 @@ def step_prediction(scenario, predictor, config, ego_state):
         predictions = None
 
     # ignore Predictions in Cone Angle
-    if config.prediction.cone_angle > 0 and (config.prediction.lanebased or config.prediction.walenet):
+    if config.prediction.cone_angle > 0 and config.prediction.mode == "walenet" or config.prediction.mode == "lanebased":
         predictions = ignore_vehicles_in_cone_angle(predictions, ego_state, config.vehicle.length,
                                                     config.prediction.cone_angle,
                                                     config.prediction.cone_safety_dist)
@@ -218,7 +218,7 @@ def collision_checker_prediction(
             y = pred_traj[:, 1][0:pred_length]
             pred_orientation = predictions[obstacle_id]['orientation_list']
 
-            # create a time variant collision object for the predicted ehicle
+            # create a time variant collision object for the predicted vehicle
             traj = [[x[i], y[i], pred_orientation[i]] for i in range(pred_length)]
 
             prediction_collision_object_raw = create_tvobstacle(
