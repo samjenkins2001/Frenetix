@@ -146,7 +146,7 @@ class Country(State):
         self.FSM_state.behavior_state_dynamic = self.cur_state_dynamic
 
         # actions
-        if self.cur_state_static is not 'StaticDefault':
+        if self.cur_state_static != 'StaticDefault':
             self.FSM_state.no_auto_lane_change = True
         else:
             self.FSM_state.no_auto_lane_change = False
@@ -245,7 +245,7 @@ class Urban(State):
         self.FSM_state.behavior_state_dynamic = self.cur_state_dynamic
 
         # actions
-        if self.cur_state_static is not 'StaticDefault':
+        if self.cur_state_static != 'StaticDefault':
             self.FSM_state.no_auto_lane_change = True
         else:
             self.FSM_state.no_auto_lane_change = False
@@ -322,7 +322,7 @@ class Highway(State):
         self.FSM_state.behavior_state_dynamic = self.cur_state_dynamic
 
         # actions
-        if self.cur_state_static is not 'StaticDefault':
+        if self.cur_state_static != 'StaticDefault':
             self.FSM_state.no_auto_lane_change = True
         else:
             self.FSM_state.no_auto_lane_change = False
