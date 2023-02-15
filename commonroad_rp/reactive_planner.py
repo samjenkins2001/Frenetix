@@ -908,8 +908,9 @@ class ReactivePlanner(object):
 
             # if selected polynomial trajectory is feasible, store it's Cartesian and Curvilinear trajectory
             if feasible or self._draw_traj_set:
-                for ext in range(traj_len, len(s)):
-                    s[ext] = s[ext-1] + np.cumsum(trajectory.dt * v[traj_len-1])
+                # Extend Trajectory to get same lenth
+                t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
+                s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
                 d[traj_len:] = d[traj_len-1]
                 for i in range(0, len(s)):
                     # compute (global) Cartesian position
@@ -935,6 +936,7 @@ class ReactivePlanner(object):
                                                                dd=d_velocity, ddd=d_acceleration,
                                                                current_time_step=traj_len)
 
+                    trajectory._actual_traj_length = traj_len
                     # check if trajectories planning horizon is shorter than expected and extend if necessary
                     # shrt = trajectory.cartesian.current_time_step
                     if self.N + 1 > trajectory.cartesian.current_time_step:

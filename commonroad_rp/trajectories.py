@@ -168,19 +168,25 @@ class CartesianSample(Sample):
         steps = self.length() - self.current_time_step
 
         # create time index
-        t = np.arange(1, steps + 1, 1) * dt
+        # t = np.arange(1, steps + 1, 1) * dt
         # enlarge acceleration values
-        self.a[self.current_time_step:] = np.repeat(self.a[last_time_step], steps)
-
+        #self.a[self.current_time_step:] = np.repeat(self.a[last_time_step], steps)
+        self.a[self.current_time_step:] = np.repeat(0, steps)
         # enlarge velocities by considering acceleration
         # TODO remove a?
-        v_temp = self.v[last_time_step] + t * self.a[-1]
+        # v_temp = self.v[last_time_step] + t * self.a[-1]
         # remove negative velocities
-        v_temp = v_temp * np.greater_equal(v_temp, 0)
-        self.v[self.current_time_step:] = v_temp
+        # v_temp = v_temp * np.greater_equal(v_temp, 0)
+        self.v[self.current_time_step:] = self.v[self.current_time_step-1]
 
         # enlarge orientations
-        self.theta[self.current_time_step:] = np.repeat(self.theta[last_time_step], steps)
+        for i in range(last_time_step + 1, last_time_step + steps):
+            radians1 = math.atan2(self.y[i] - self.y[i-1], self.x[i] - self.x[i-1])
+            radians2 = math.atan2(self.y[i+1] - self.y[i], self.x[i+1] - self.x[i])
+            self.theta[i] = (radians1 + radians2) / 2
+        self.theta[-1] = (self.theta[-2]-self.theta[-3]) + self.theta[-2]
+
+        # self.theta[self.current_time_step:] = np.repeat(self.theta[last_time_step], steps)
         # enlarge curvatures
         self.kappa[self.current_time_step:] = np.repeat(self.kappa[last_time_step], steps)
         # enlarge curvature changes
@@ -321,11 +327,11 @@ class CurviLinearSample(Sample):
         self.d_ddot[self.current_time_step:] = np.repeat(self.d_ddot[last_time_step], steps)
 
         # enlarge orientations
-        self.theta[self.current_time_step:] = np.repeat(self.theta[last_time_step], steps)
+        # self.theta[self.current_time_step:] = np.repeat(self.theta[last_time_step], steps)
 
         # enlarge positions
-        self.s[self.current_time_step:] = self.s[last_time_step] + t * self.s_dot[last_time_step]
-        self.d[self.current_time_step:] = self.d[last_time_step] + t * self.d_dot[last_time_step]
+        # self.s[self.current_time_step:] = self.s[last_time_step] + t * self.s_dot[last_time_step]
+        # self.d[self.current_time_step:] = self.d[last_time_step] + t * self.d_dot[last_time_step]
         self.current_time_step = self.length()
 
 
@@ -360,6 +366,7 @@ class TrajectorySample(Sample):
         self.valid = None
         self._boundary_harm = None
         self._coll_detected = None
+        self._actual_traj_length = None
 
         self._unique_id = unique_id
 
