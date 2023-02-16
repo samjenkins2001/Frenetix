@@ -105,6 +105,7 @@ class ReactivePlanner(object):
         self._desired_speed = None
         self._desired_d = 0.
         self._desired_t = self.horizon
+        self.max_seen_costs = 1
         # Default sampling TODO: Improve initialization of Sampling Set
         fs_sampling = DefGymSampling(self.dT, self.horizon)
         self._sampling_d = fs_sampling.d_samples
@@ -638,12 +639,14 @@ class ReactivePlanner(object):
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                             infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
                             cluster=cluster_)
-        elif optimal_trajectory is not None:
+        elif optimal_trajectory is not None and x_0.time_step > 0:
             if self.debug_mode >= 1:
                 self._optimal_cost = optimal_trajectory.cost
-                print('<ReactivePlanner>: Found optimal trajectory with costs = {}'.format(self._optimal_cost))
+                print('Found optimal trajectory with {}% of maximum seen costs'.format(int((self._optimal_cost/self.max_seen_costs)*100)))
 
-
+        if optimal_trajectory is not None and self.debug_mode >= 1:
+            if self.max_seen_costs < self._optimal_cost:
+                self.max_seen_costs = self._optimal_cost
 
         return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
 
