@@ -170,6 +170,11 @@ def run_planner(config, log_path, mod_path):
         comp_time_end = time.time()
         # END TIMER
 
+        # if the planner fails to find an optimal trajectory -> terminate
+        if not optimal:
+            print("No Kinematic Feasible and Optimal Trajectory Available!")
+            break
+
         # store planning times
         planning_times.append(comp_time_end - comp_time_start)
         print(f"***Total Planning Time: {planning_times[-1]}")

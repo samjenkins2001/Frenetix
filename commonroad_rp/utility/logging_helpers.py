@@ -32,6 +32,7 @@ class DataLoggingCosts:
         self.trajectories_header = None
         self.prediction_header = None
         self.path_logs = path_logs
+        self._cost_list_length = None
 
         log_file_name = "logs.csv"
         prediction_file_name = "predictions.csv"
@@ -69,6 +70,7 @@ class DataLoggingCosts:
         self.header = (
             "trajectory_number;"
             "calculation_time_s;"
+            "optimal_trajectory;"
             "infeasible_kinematics_sum;"
             "inf_kin_acceleration;"
             "inf_kin_negative_s_velocity;"
@@ -176,45 +178,80 @@ class DataLoggingCosts:
     #                 + json.dumps(str(costs[11]))
     #             )
 
-    def log(self, trajectory: TrajectorySample, infeasible_kinematics, infeasible_collision: int, planning_time: float, cluster: int,
+    def log(self, trajectory, infeasible_kinematics, infeasible_collision: int, planning_time: float, cluster: int,
             collision: bool = False):
         if (self.log_mode == LogMode.visualization or self.log_mode == LogMode.evaluation):
             new_line = "\n" + str(self.trajectory_number)
 
-            cartesian = trajectory._cartesian
-            cost_list = trajectory._cost_list
+            if trajectory is not None:
 
-            # log time
-            new_line += ";" + json.dumps(str(planning_time), default=default)
+                cartesian = trajectory._cartesian
+                cost_list = trajectory._cost_list
+                self._cost_list_length = len(cost_list)
 
-            # log infeasible
-            for kin in infeasible_kinematics:
-                new_line += ";" + json.dumps(str(kin), default=default)
-            new_line += ";" + \
-                json.dumps(str(infeasible_collision), default=default)
+                # log time
+                new_line += ";" + json.dumps(str(planning_time), default=default)
 
-            # log position
-            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
-            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)
-            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.theta))), default=default)
-            # log velocity & acceleration
-            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.v))), default=default)
-            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.a))), default=default)
+                # optimaltrajectory available
+                new_line += ";True"
+                # log infeasible
+                for kin in infeasible_kinematics:
+                    new_line += ";" + json.dumps(str(kin), default=default)
+                new_line += ";" + \
+                    json.dumps(str(infeasible_collision), default=default)
 
-            # # log frenet coordinates (distance to reference path)
-            new_line += ";" + \
-                json.dumps(str(trajectory._curvilinear.s[0]), default=default)
-            new_line += ";" + \
-                json.dumps(str(trajectory._curvilinear.d[0]), default=default)
+                # log position
+                new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
+                new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)
+                new_line += ";" + json.dumps(str(','.join(map(str, cartesian.theta))), default=default)
+                # log velocity & acceleration
+                new_line += ";" + json.dumps(str(','.join(map(str, cartesian.v))), default=default)
+                new_line += ";" + json.dumps(str(','.join(map(str, cartesian.a))), default=default)
 
-            # log cluster number
-            new_line += ";" + json.dumps(str(cluster), default=default)
+                # # log frenet coordinates (distance to reference path)
+                new_line += ";" + \
+                    json.dumps(str(trajectory._curvilinear.s[0]), default=default)
+                new_line += ";" + \
+                    json.dumps(str(trajectory._curvilinear.d[0]), default=default)
 
-            # log costs
-            new_line += ";" + json.dumps(str(trajectory._cost), default=default)
-            # log costs
-            for cost in cost_list:
-                new_line += ";" + json.dumps(str(cost), default=default)
+                # log cluster number
+                new_line += ";" + json.dumps(str(cluster), default=default)
+
+                # log costs
+                new_line += ";" + json.dumps(str(trajectory._cost), default=default)
+                # log costs
+                for cost in cost_list:
+                    new_line += ";" + json.dumps(str(cost), default=default)
+            else:
+                # log time
+                new_line += ";" + json.dumps(str(planning_time), default=default)
+                new_line += ";False"
+                # log infeasible
+                for kin in infeasible_kinematics:
+                    new_line += ";" + json.dumps(str(kin), default=default)
+                new_line += ";" + \
+                            json.dumps(str(infeasible_collision), default=default)
+
+                # log position
+                new_line += ";None"
+                new_line += ";None"
+                new_line += ";None"
+                # log velocity & acceleration
+                new_line += ";None"
+                new_line += ";None"
+
+                # # log frenet coordinates (distance to reference path)
+                new_line += ";None"
+                new_line += ";None"
+
+                # log cluster number
+                new_line += ";" + json.dumps(str(cluster), default=default)
+
+                # log costs
+                new_line += ";None"
+                # log costs
+                for i in range(0, self._cost_list_length):
+                    new_line += ";None"
 
             with open(self.__log_path, "a") as fh:
                 fh.write(new_line)

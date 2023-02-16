@@ -327,7 +327,7 @@ class ReactivePlanner(object):
 
         self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_level)
 
-        if self.debug_mode >= 1:
+        if self.debug_mode >= 2:
             print('<Reactive_planner>: Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
     def _get_no_of_samples(self, samp_level: int) -> int:
@@ -480,7 +480,7 @@ class ReactivePlanner(object):
         x_0_lon: List[float] = [s, s_velocity, s_acceleration]
         x_0_lat: List[float] = [d, d_velocity, d_acceleration]
 
-        if self.debug_mode >= 1:
+        if self.debug_mode >= 2:
             print("<ReactivePlanner>: Starting planning with: \n#################")
             print(f'Initial state for planning is {x_0}')
             print(f'Initial x_0 lon = {x_0_lon}')
@@ -571,12 +571,15 @@ class ReactivePlanner(object):
         else:
             x_0_lon, x_0_lat = self._compute_initial_states(x_0)
 
-        if self.debug_mode >= 1:
+        if self.debug_mode >= 2:
             print('<Reactive Planner>: initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
+        if self.debug_mode >= 1:
             print('<Reactive Planner>: desired velocity is {} m/s'.format(self._desired_speed))
 
         # initialize optimal trajectory dummy
         optimal_trajectory = None
+        cluster_ = None
+        t0 = time.time()
 
         # initial index of sampling set to use
         i = 1  # Time sampling is not used. To get more samples, start with level 1.
@@ -595,7 +598,9 @@ class ReactivePlanner(object):
             # get optimal trajectory
             t0 = time.time()
             self.logger.trajectory_number = x_0.time_step
+
             optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, predictions, i)
+
             if optimal_trajectory is not None:
                 self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                                 infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
@@ -603,9 +608,6 @@ class ReactivePlanner(object):
                 self.logger.log_pred(predictions)
                 if self.save_all_traj:
                     self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
-
-            # if self.debug_mode >= 1:
-            #    print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
@@ -629,19 +631,21 @@ class ReactivePlanner(object):
                 self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
 
         # check if feasible trajectory exists -> emergency mode
-        if optimal_trajectory is None:
+        if optimal_trajectory is None and x_0.time_step > 0:
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Could not find any trajectory out of {} trajectories'.format(
                     sum([self._get_no_of_samples(i) for i in range(self._sampling_level)])))
-        elif bundle.trajectories:
+            self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
+                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
+                            cluster=cluster_)
+        elif optimal_trajectory is not None:
             if self.debug_mode >= 1:
-                print('<ReactivePlanner>: Found optimal trajectory with costs = {}, which corresponds to {} percent '
-                      'of seen costs'.format(optimal_trajectory.cost, ((optimal_trajectory.cost - bundle.min_costs().cost) / (
-                                bundle.max_costs().cost - bundle.min_costs().cost))))
+                self._optimal_cost = optimal_trajectory.cost
+                print('<ReactivePlanner>: Found optimal trajectory with costs = {}'.format(self._optimal_cost))
 
-            self._optimal_cost = optimal_trajectory.cost
 
-        return self._compute_trajectory_pair(optimal_trajectory)
+
+        return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
 
     def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
         """
@@ -764,12 +768,14 @@ class ReactivePlanner(object):
                         print(f"Acceleration {np.max(np.abs(s_acceleration))}")
                     feasible = False
                     infeasible_count_kinematics[1] += 1
+                    infeasible_trajectories.append(trajectory)
                     continue
                 if np.any(s_velocity < -0.1):
                     if self.debug_mode >= 2:
                         print(f"Velocity {min(s_velocity)} at step")
                     feasible = False
                     infeasible_count_kinematics[2] += 1
+                    infeasible_trajectories.append(trajectory)
                     continue
 
             infeasible_count_kinematics_traj = np.zeros(10)
@@ -1018,7 +1024,7 @@ class ReactivePlanner(object):
             # without multiprocessing
             feasible_trajectories, infeasible_trajectories, infeasible_count_kinematics = self._check_kinematics(trajectory_bundle.trajectories)
 
-        if self.debug_mode >= 1:
+        if self.debug_mode >= 2:
             print('<ReactivePlanner>: Kinematic check of %s trajectories done' % len(trajectory_bundle.trajectories))
 
         # update number of infeasible trajectories
@@ -1088,9 +1094,7 @@ class ReactivePlanner(object):
             elif trajectory_bundle.get_sorted_list():
                 return trajectory_bundle.get_sorted_list()[0], trajectory_bundle._cluster
             else:
-                trajectory_bundle.trajectories = infeasible_trajectories
-                trajectory_bundle.sort()
-                return trajectory_bundle.get_sorted_list()[0], trajectory_bundle._cluster
+                return None, trajectory_bundle._cluster
         else:
             return None, trajectory_bundle._cluster
 
@@ -1143,7 +1147,6 @@ class ReactivePlanner(object):
         # Get the ego vehicle
         self.goal_checker.register_current_state(self.x_0)
         self.goal_status, self.goal_message, self.full_goal_status = self.goal_checker.goal_reached_status()
-
 
     def check_collision(self):
         ego = pycrcc.TimeVariantCollisionObject(self.x_0.time_step * self._factor)
