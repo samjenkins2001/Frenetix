@@ -1,5 +1,5 @@
 commonroad_vehicle_models>=3.0.2
-matplotlib>=3.1.0
+matplotlib==3.5.3
 networkx>=2.6.3
 numpy==1.23.3
 methodtools
@@ -10,16 +10,15 @@ sphinx>=2.2.1
 commonroad-route-planner==2022.3
 shapely>=1.8.1
 commonroad-io==2022.3
-commonroad-drivability-checker==2022.2
+commonroad-drivability-checker==2022.2.1
 numba
 commonroad-helper-functions
-#wale-net==3.0.1
 ruamel.yaml
 pygeos
 imageio
 shapely==1.8.5
-# git+https://gitlab.lrz.de/motionplanning1/commonroad_helper_functions.git@highd-comparison
-git+https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction@main
+git+https://gitlab.lrz.de/motionplanning1/wale-net.git@commonroad_2022.3
+git+https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction
 
 
 
