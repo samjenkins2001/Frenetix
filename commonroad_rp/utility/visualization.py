@@ -248,7 +248,7 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
     if config.debug.save_plots:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
-        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.png", format='png', dpi=200,
+        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.svg", format='svg',
                     bbox_inches='tight')
 
     # show plot

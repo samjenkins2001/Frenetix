@@ -78,7 +78,6 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
         return
 
     # get the colliding obstacle
-    ego_vehicle.obstacle_id = 24
     obs_id = None
     for obs in scenario.obstacles:
         co = create_collision_object(obs)

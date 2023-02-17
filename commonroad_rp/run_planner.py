@@ -131,21 +131,16 @@ def run_planner(config, log_path, mod_path):
     # Run planner
     while not planner.goal_status and current_count < max_time_steps_scenario:
 
-        current_count = len(record_state_list) - 1
+        current_count = x_0.time_step
 
         # new planning cycle -> plan a new optimal trajectory
 
         # START TIMER
         comp_time_start = time.time()
 
-        if current_count > 1:
-            ego_state = new_state
-        else:
-            ego_state = x_0
-
         # get visible objects if the prediction is used
         if config.prediction.mode:
-            predictions, visible_area = ph.step_prediction(scenario, predictor, config, ego_state)
+            predictions, visible_area = ph.step_prediction(scenario, predictor, config, x_0)
         else:
             predictions = None
             visible_area = None
@@ -210,12 +205,12 @@ def run_planner(config, log_path, mod_path):
                                           traj_set=planner.all_traj, ref_path=ref_path, timestep=current_count,
                                           config=config, predictions=predictions, plot_window=config.debug.plot_window_dyn,
                                           log_path=log_path, visible_area=visible_area)
-        if x_0.time_step > 1:
+        if current_count > 1:
             crash = planner.check_collision()
             if crash:
                 print("Collision Detected!")
                 if config.debug.collision_report:
-                    coll_report(record_state_list, planner, x_0.time_step, scenario, ego_vehicle, planning_problem,
+                    coll_report(record_state_list, planner, current_count, scenario, ego_vehicle, planning_problem,
                                 log_path)
                 break
 
