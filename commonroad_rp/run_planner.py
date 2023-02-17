@@ -201,8 +201,7 @@ def run_planner(config, log_path, mod_path):
         x_cl = (optimal[2][1], optimal[3][1])
 
         # create CommonRoad Obstacle for the ego Vehicle
-        if config.debug.show_plots or config.debug.save_plots:
-            ego_vehicle = planner.shift_and_convert_trajectory_to_object(optimal[0])
+        ego_vehicle = planner.shift_and_convert_trajectory_to_object(optimal[0])
 
         print(f"current time step: {current_count}")
         # draw scenario + planning solution
