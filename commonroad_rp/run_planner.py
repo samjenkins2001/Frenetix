@@ -215,7 +215,7 @@ def run_planner(config, log_path, mod_path):
                 break
 
         # Check if Goal is reached:
-        planner._check_goal_reached()
+        planner.check_goal_reached()
 
     print(planner.goal_message)
     print("\n\n", planner.full_goal_status)

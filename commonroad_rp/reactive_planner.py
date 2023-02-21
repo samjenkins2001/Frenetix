@@ -175,6 +175,7 @@ class ReactivePlanner(object):
         self._goal_checker = GoalReachedChecker(planning_problem)
         self.goal_status = False
         self.full_goal_status = None
+        self.goal_message = "Planner is in time step 0!"
 
         # Set Sampling Parameters#
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
@@ -1146,7 +1147,7 @@ class ReactivePlanner(object):
         x0_planner.steering_angle = np.arctan2(self.vehicle_params.wheelbase * x0_planner.yaw_rate, x0_planner.velocity)
         return x0_planner
 
-    def _check_goal_reached(self):
+    def check_goal_reached(self):
         # Get the ego vehicle
         self.goal_checker.register_current_state(self.x_0)
         self.goal_status, self.goal_message, self.full_goal_status = self.goal_checker.goal_reached_status()
