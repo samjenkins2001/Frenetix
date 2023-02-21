@@ -86,7 +86,8 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
                 if obs_id is None:
                     obs_id = obs.obstacle_id
                 else:
-                    raise Exception("More than one collision detected")
+                    print("More than one collision detected")
+                    return
 
     # Collisoin with boundary
     if obs_id is None:
@@ -116,8 +117,8 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
 
     # filter initial collisions
     if time_step < 1:
-        raise ValueError("Collision at initial state")
-
+        print("Collision at initial state")
+        return
     if (
             scenario.obstacle_by_id(obstacle_id=obs_id).obstacle_role
             == ObstacleRole.ENVIRONMENT
