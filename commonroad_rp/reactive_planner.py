@@ -134,7 +134,7 @@ class ReactivePlanner(object):
             self.use_prediction = False
 
         # Logger
-        self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj, log_mode=2)
+        self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj)
         self.opt_trajectory_number = 0
 
         # load harm parameters
