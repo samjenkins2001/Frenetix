@@ -1,6 +1,7 @@
 # show/save plots
 save_all_traj: False
 save_unweighted_costs: False
+log_risk: True
 show_plots: False
 save_plots: True
 evaluation: True
@@ -15,7 +16,7 @@ draw_traj_set: True
 
 kinematic_debug: True
 # set debug level: #0: print no debug info,  #1: print basic debug info,   #2: print all debug info
-debug_mode: 1
+debug_mode: 0
 # use multiprocessing True/False
 multiproc: True
 # number of workers for multiprocessing

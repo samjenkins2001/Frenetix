@@ -364,6 +364,8 @@ class TrajectorySample(Sample):
         self._ext_cartesian = None
         self._ext_curvilinear = None
         self.valid = None
+        self._ego_risk = None
+        self._obst_risk = None
         self._boundary_harm = None
         self._coll_detected = None
         self._actual_traj_length = None

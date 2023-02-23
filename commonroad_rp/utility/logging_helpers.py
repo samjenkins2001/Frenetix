@@ -6,6 +6,7 @@ from enum import Enum
 
 from commonroad_rp.trajectories import TrajectorySample
 
+
 class DataLoggingCosts:
     # ----------------------------------------------------------------------------------------------------------
     # CONSTRUCTOR ----------------------------------------------------------------------------------------------
@@ -76,6 +77,8 @@ class DataLoggingCosts:
             "accelerations_mps2;"
             "s_position_m;"
             "d_position_m;"
+            "ego_risk;"
+            "obst_risk;"
             "cluster_number;"
             "costs_cumulative_weighted;"
             +
@@ -200,6 +203,10 @@ class DataLoggingCosts:
                 json.dumps(str(trajectory._curvilinear.s[0]), default=default)
             new_line += ";" + \
                 json.dumps(str(trajectory._curvilinear.d[0]), default=default)
+
+            # log risk values number
+            new_line += ";" + json.dumps(str(trajectory._ego_risk), default=default)
+            new_line += ";" + json.dumps(str(trajectory._obst_risk), default=default)
 
             # log cluster number
             new_line += ";" + json.dumps(str(cluster), default=default)

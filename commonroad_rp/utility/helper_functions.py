@@ -4,6 +4,7 @@ import subprocess
 import zipfile
 import math
 import ruamel.yaml as yaml
+import pickle
 import yaml as yml
 import numpy as np
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import (
@@ -365,74 +366,11 @@ def orientation_diff(orientation_1: float, orientation_2: float) -> float:
     """
     return math.pi - abs(abs(orientation_1 - orientation_2) - math.pi)
 
+
+def load_pickle(path, name):
+    file_name = os.path.join(path, name + ".pickle")
+    with open(file_name, 'rb') as file:
+        data = pickle.load(file)
+    return data
+
 # EOF
-
-
-def shrink_trajectory(trajectory, shrt):
-    trajectory.cartesian.x = trajectory.cartesian.x[0:shrt]
-    trajectory.cartesian.y = trajectory.cartesian.y[0:shrt]
-    trajectory.cartesian.v = trajectory.cartesian.v[0:shrt]
-    trajectory.cartesian.a = trajectory.cartesian.a[0:shrt]
-    trajectory.cartesian.theta = trajectory.cartesian.theta[0:shrt]
-    trajectory.cartesian.kappa = trajectory.cartesian.kappa[0:shrt]
-    trajectory.cartesian.kappa_dot = trajectory.cartesian.kappa_dot[0:shrt]
-
-    trajectory.cartesian._x = trajectory.cartesian._x[0:shrt]
-    trajectory.cartesian._y = trajectory.cartesian._y[0:shrt]
-    trajectory.cartesian._v = trajectory.cartesian._v[0:shrt]
-    trajectory.cartesian._a = trajectory.cartesian._a[0:shrt]
-    trajectory.cartesian._theta = trajectory.cartesian._theta[0:shrt]
-    trajectory.cartesian._kappa = trajectory.cartesian._kappa[0:shrt]
-    trajectory.cartesian._kappa_dot = trajectory.cartesian._kappa_dot[0:shrt]
-
-    trajectory._cartesian.x = trajectory._cartesian.x[0:shrt]
-    trajectory._cartesian.y = trajectory._cartesian.y[0:shrt]
-    trajectory._cartesian.v = trajectory._cartesian.v[0:shrt]
-    trajectory._cartesian.a = trajectory._cartesian.a[0:shrt]
-    trajectory._cartesian.theta = trajectory._cartesian.theta[0:shrt]
-    trajectory._cartesian.kappa = trajectory._cartesian.kappa[0:shrt]
-    trajectory._cartesian.kappa_dot = trajectory._cartesian.kappa_dot[0:shrt]
-
-    trajectory._cartesian._x = trajectory._cartesian._x[0:shrt]
-    trajectory._cartesian._y = trajectory._cartesian._y[0:shrt]
-    trajectory._cartesian._v = trajectory._cartesian._v[0:shrt]
-    trajectory._cartesian._a = trajectory._cartesian._a[0:shrt]
-    trajectory._cartesian._theta = trajectory._cartesian._theta[0:shrt]
-    trajectory._cartesian._kappa = trajectory._cartesian._kappa[0:shrt]
-    trajectory._cartesian._kappa_dot = trajectory._cartesian._kappa_dot[0:shrt]
-
-
-    trajectory.curvilinear.d = trajectory.curvilinear.d[0:shrt]
-    trajectory.curvilinear.d_ddot = trajectory.curvilinear.d_ddot[0:shrt]
-    trajectory.curvilinear.d_dot = trajectory.curvilinear.d_dot[0:shrt]
-    trajectory.curvilinear.s = trajectory.curvilinear.s[0:shrt]
-    trajectory.curvilinear.s_ddot = trajectory.curvilinear.s_ddot[0:shrt]
-    trajectory.curvilinear.s_dot = trajectory.curvilinear.s_dot[0:shrt]
-    trajectory.curvilinear.theta = trajectory.curvilinear.theta[0:shrt]
-
-
-    trajectory._curvilinear._d = trajectory._curvilinear._d[0:shrt]
-    trajectory._curvilinear._d_ddot = trajectory._curvilinear._d_ddot[0:shrt]
-    trajectory._curvilinear._d_dot = trajectory._curvilinear._d_dot[0:shrt]
-    trajectory._curvilinear._s = trajectory._curvilinear._s[0:shrt]
-    trajectory._curvilinear._s_ddot = trajectory._curvilinear._s_ddot[0:shrt]
-    trajectory._curvilinear._s_dot = trajectory._curvilinear._s_dot[0:shrt]
-    trajectory._curvilinear._theta = trajectory._curvilinear._theta[0:shrt]
-
-    trajectory.curvilinear._d = trajectory.curvilinear._d[0:shrt]
-    trajectory.curvilinear._d_ddot = trajectory.curvilinear._d_ddot[0:shrt]
-    trajectory.curvilinear._d_dot = trajectory.curvilinear._d_dot[0:shrt]
-    trajectory.curvilinear._s = trajectory.curvilinear._s[0:shrt]
-    trajectory.curvilinear._s_ddot = trajectory.curvilinear._s_ddot[0:shrt]
-    trajectory.curvilinear._s_dot = trajectory.curvilinear._s_dot[0:shrt]
-    trajectory.curvilinear._theta = trajectory.curvilinear._theta[0:shrt]
-
-    trajectory._curvilinear.d = trajectory._curvilinear.d[0:shrt]
-    trajectory._curvilinear.d_ddot = trajectory._curvilinear.d_ddot[0:shrt]
-    trajectory._curvilinear.d_dot = trajectory._curvilinear.d_dot[0:shrt]
-    trajectory._curvilinear.s = trajectory._curvilinear.s[0:shrt]
-    trajectory._curvilinear.s_ddot = trajectory._curvilinear.s_ddot[0:shrt]
-    trajectory._curvilinear.s_dot = trajectory._curvilinear.s_dot[0:shrt]
-    trajectory._curvilinear.theta = trajectory._curvilinear.theta[0:shrt]
-
-    return trajectory

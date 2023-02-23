@@ -118,6 +118,7 @@ def check_acceleration(config: Configuration, state_list:  List[Union[CartesianS
         plt.tight_layout()
         # plt.show()
 
+
 def plot_states(config: Configuration, state_list: List[Union[CartesianState, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
     """
     Plots states of trajectory from a given state_list

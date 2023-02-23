@@ -124,6 +124,7 @@ class ReactivePlanner(object):
         self._kinematic_debug = config.debug.kinematic_debug
         # Debug mode
         self.debug_mode = config.debug.debug_mode
+        self.log_risk = config.debug.log_risk
         self.save_all_traj = config.debug.save_all_traj
         self.all_traj = None
         # self.save_unweighted_costs = config.debug.save_unweighted_costs
@@ -602,6 +603,9 @@ class ReactivePlanner(object):
             self.logger.trajectory_number = x_0.time_step
 
             optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, predictions, i)
+
+            if optimal_trajectory is not None and self.log_risk:
+                optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
 
             if optimal_trajectory is not None:
                 self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,

@@ -96,8 +96,13 @@ def calc_risk(
         obst_risk_max[key] = max(obst_risk_traj[key])
         ego_harm_max[key] = max(ego_harm_traj[key])
         obst_harm_max[key] = max(obst_harm_traj[key])
-
-    return ego_risk_max, obst_risk_max, ego_harm_max, obst_harm_max
+    try:
+        ego_risk = max(list(ego_risk_max.values()))
+        obst_risk = max(list(obst_risk_max.values()))
+    except:
+        ego_risk = 0
+        obst_risk = 0
+    return ego_risk_max, obst_risk_max, ego_harm_max, obst_harm_max, ego_risk, obst_risk
 
 
 def get_bayesian_costs(ego_risk_max, obst_risk_max, boundary_harm):

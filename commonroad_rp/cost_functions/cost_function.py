@@ -64,6 +64,7 @@ class PartialCostFunction(Enum):
     #T = "T"
     #ID = "ID"
     P = "P"
+    R = "R"
 
 
 class CostFunction(ABC):
@@ -101,7 +102,6 @@ class AdaptableCostFunction(CostFunction):
 
         self.cluster_mapping = None
         self.cluster_prediction = None
-
 
         self.vehicle_params = rp.vehicle_params
         self.params = OmegaConf.to_object(configuration.cost.params)
@@ -172,14 +172,31 @@ class AdaptableCostFunction(CostFunction):
         # calculate total cost
         self.calc_cost(trajectories, prediction_cost_list, responsibility_cost_list, scenario)
 
+    def set_risk_costs(self, trajectory):
+        if self.reachset is not None:
+            ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict, ego_risk, obst_risk = calc_risk(
+                traj=trajectory,
+                ego_state=self.rp.x_0,
+                predictions=self.predictions,
+                scenario=self.scenario,
+                ego_id=24,
+                vehicle_params=self.vehicle_params,
+                road_boundary=self.rp.road_boundary,
+                params_harm=self.rp.params_harm,
+                params_risk=self.rp.params_risk,
+            )
+            trajectory._ego_risk = ego_risk
+            trajectory._obst_risk = obst_risk
+        return trajectory
+
     # calculate prediction costs for all trajectories
     def calc_prediction(self, trajectories: List[TrajectorySample]):
         prediction_cost_list = []
         responsibility_cost_list = []
         for trajectory in trajectories:
             if self.predictions is not None:
-                if self.reachset is not None:
-                    ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict = calc_risk(
+                if self.reachset is not None and PartialCostFunction.P in list(self.PartialCostFunctionMapping):
+                    ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict, ego_risk, obst_risk = calc_risk(
                         traj=trajectory,
                         ego_state=self.rp.x_0,
                         predictions=self.predictions,
@@ -190,6 +207,9 @@ class AdaptableCostFunction(CostFunction):
                         params_harm=self.rp.params_harm,
                         params_risk=self.rp.params_risk,
                     )
+                    trajectory._ego_risk = ego_risk
+                    trajectory._obst_risk = obst_risk
+
                     responsibility_cost, bool_contain_cache = get_responsibility_cost(
                         scenario=self.scenario,
                         traj=trajectory,
@@ -229,12 +249,16 @@ class AdaptableCostFunction(CostFunction):
             costlist[-2] = prediction_cost_list[i]
             costlist_weighted[-2] = prediction_cost_list[i] * self.params[scenario]["P"]
 
-            if responsibility_cost_list[i] * self.params[scenario]["R"] > prediction_cost_list[i] * self.params[scenario]["P"]:
-                costlist_weighted[-1] = costlist_weighted[-2] * 0.8
-            else:
-                costlist_weighted[-1] = responsibility_cost_list[i] * self.params[scenario]["R"]
+            if PartialCostFunction.P in list(self.PartialCostFunctionMapping):
+                if responsibility_cost_list[i] * self.params[scenario]["R"] > prediction_cost_list[i] * self.params[scenario]["P"]:
+                    costlist_weighted[-1] = costlist_weighted[-2] * 0.8
+                else:
+                    costlist_weighted[-1] = responsibility_cost_list[i] * self.params[scenario]["R"]
 
-            costlist[-1] = responsibility_cost_list[i]
+                costlist[-1] = responsibility_cost_list[i]
+            else:
+                costlist_weighted[-1] = 0.0
+                costlist[-1] = 0.0
 
             total_cost = np.sum(costlist_weighted)
 

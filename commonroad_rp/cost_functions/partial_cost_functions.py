@@ -120,9 +120,8 @@ def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample
     """
     Calculates the Velocity Offset cost.
     """
-    cost = np.sum(((trajectory.cartesian.v - desired_speed) ** 2) +
-            (10 * (trajectory.cartesian.v[-1] - desired_speed) ** 2) +
-            (20 * (trajectory.cartesian.v[int(len(trajectory.cartesian.v) / 2)] - desired_speed) ** 2))
+    cost = np.sum(np.abs(trajectory.cartesian.v[int(len(trajectory.cartesian.v) / 2):-1] - desired_speed))
+    cost += np.abs(((trajectory.cartesian.v[-1] - desired_speed) ** 2))
 
     return float(cost)
 
@@ -140,7 +139,11 @@ def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
     """
     Calculates the Orientation Offset cost.
     """
-    cost = np.sum((np.abs(trajectory.curvilinear.theta)) ** 2) + (np.abs(trajectory.curvilinear.theta[-1])) ** 2
+    theta = trajectory.curvilinear.theta
+    theta = np.diff(theta) / trajectory.dt
+    theta = np.square(theta)
+    cost = simps(theta, dx=trajectory.dt)
+
     return cost
 
 
@@ -171,7 +174,7 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
         state = obstacle.state_at_time(planner.x_0.time_step)
         if state is not None:
             cost += np.sum(np.reciprocal(cdist(np.transpose(np.array([trajectory.cartesian.x, trajectory.cartesian.y])),
-                    np.reshape(np.array([state.position[0], state.position[1]]), (1, 2)), metric='euclidean')))
+                    np.reshape(np.array([state.position[0], state.position[1]]), (1, 2)), metric='euclidean') ** 2))
 
     return cost
 
