@@ -92,6 +92,8 @@ class SamplingConfiguration:
         self.v_max = config.v_max
         self.d_min = config.d_min
         self.d_max = config.d_max
+        self.sampling_min = config.sampling_min
+        self.sampling_max = config.sampling_max
 
 
 class DebugConfiguration:

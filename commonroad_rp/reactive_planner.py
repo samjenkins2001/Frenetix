@@ -107,12 +107,13 @@ class ReactivePlanner(object):
         self._desired_t = self.horizon
         self.max_seen_costs = 1
         # Default sampling TODO: Improve initialization of Sampling Set
-        fs_sampling = DefGymSampling(self.dT, self.horizon)
+        self._sampling_min = config.sampling.sampling_min
+        self._sampling_max = config.sampling.sampling_max
+        fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
         self._sampling_d = fs_sampling.d_samples
         self._sampling_t = fs_sampling.t_samples
         self._sampling_v = fs_sampling.v_samples
-        # sampling levels
-        self._sampling_level = fs_sampling.max_iteration
+
         # threshold for low velocity mode
         self._low_vel_mode_threshold = config.planning.low_vel_mode_threshold
         self._LOW_VEL_MODE = False
@@ -292,7 +293,8 @@ class ReactivePlanner(object):
         :param dt: length of each sampled step
         :param horizon: sampled time horizon
         """
-        self._sampling_t = TimeSampling(t_min, horizon, self._sampling_level, dt)
+        # self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
+        self._sampling_t = TimeSampling(horizon, horizon, self._sampling_max, dt)
         self.N = int(round(horizon / dt))
         self.horizon = horizon
 
@@ -302,7 +304,7 @@ class ReactivePlanner(object):
         :param delta_d_min: lateral distance lower than reference
         :param delta_d_max: lateral distance higher than reference
         """
-        self._sampling_d = PositionSampling(delta_d_min, delta_d_max, self._sampling_level)
+        self._sampling_d = PositionSampling(delta_d_min, delta_d_max, self._sampling_max)
 
     def set_v_sampling_parameters(self, v_min, v_max):
         """
@@ -310,7 +312,7 @@ class ReactivePlanner(object):
         :param v_min: minimal velocity sample bound
         :param v_max: maximal velocity sample bound
         """
-        self._sampling_v = VelocitySampling(v_min, v_max, self._sampling_level)
+        self._sampling_v = VelocitySampling(v_min, v_max, self._sampling_max)
 
     def set_desired_velocity(self, desired_velocity: float, current_speed: float = None, stopping: bool = False,
                              v_limit: float = 80):
@@ -328,7 +330,7 @@ class ReactivePlanner(object):
         max_v = min(min(current_speed + (self.vehicle_params.a_max / 3.0) * self.horizon, v_limit),
                     self.vehicle_params.v_max)
 
-        self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_level)
+        self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_max)
 
         if self.debug_mode >= 2:
             print('<Reactive_planner>: Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
@@ -585,12 +587,12 @@ class ReactivePlanner(object):
         t0 = time.time()
 
         # initial index of sampling set to use
-        i = 1  # Time sampling is not used. To get more samples, start with level 1.
+        i = self._sampling_min  # Time sampling is not used. To get more samples, start with level 1.
 
         # sample until trajectory has been found or sampling sets are empty
-        while optimal_trajectory is None and i < self._sampling_level:
+        while optimal_trajectory is None and i < self._sampling_max:
             #if self.debug_mode >= 1:
-            #    print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_level))
+            #    print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_max))
 
             self.cost_function.update_state(scenario=self.scenario, rp=self,
                                             predictions=predictions, reachset=reachable_set)
@@ -640,7 +642,7 @@ class ReactivePlanner(object):
         if optimal_trajectory is None and x_0.time_step > 0:
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Could not find any trajectory out of {} trajectories'.format(
-                    sum([self._get_no_of_samples(i) for i in range(self._sampling_level)])))
+                    sum([self._get_no_of_samples(i) for i in range(self._sampling_max)])))
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                             infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
                             cluster=cluster_)
@@ -956,7 +958,7 @@ class ReactivePlanner(object):
                     if self.N + 1 > trajectory.cartesian.current_time_step:
                         # trajectory = hf.shrink_trajectory(trajectory, shrt)
                         trajectory.enlarge(self.dT)
-                    #assert self.N + 1 == trajectory.cartesian.current_time_step == len(trajectory.cartesian.x) == \
+                    # assert self.N + 1 == trajectory.cartesian.current_time_step == len(trajectory.cartesian.x) == \
                     #       len(trajectory.cartesian.y) == len(trajectory.cartesian.theta), \
                     #       '<ReactivePlanner/kinematics>:  Lenghts of state variables is not equal.'
 
@@ -1095,7 +1097,7 @@ class ReactivePlanner(object):
             if not collision_detected and boundary_harm == 0:
                 return trajectory, trajectory_bundle._cluster
 
-        if samp_lvl >= self._sampling_level - 1:
+        if samp_lvl >= self._sampling_max - 1:
             sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj._boundary_harm, reverse=False)
             if any(bundle._boundary_harm == 0 for bundle in sort_harm):
                 return sort_harm[0], trajectory_bundle._cluster

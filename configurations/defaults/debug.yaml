@@ -8,7 +8,7 @@ evaluation: True
 collision_report: True
 gif: False
 # plot vehicle position with x_y distance in meters. 0=Standard Plot
-plot_window_dyn: 25
+plot_window_dyn: 30
 # draw obstacles with vehicle icons
 draw_icons: True
 # draw sampled trajectory set
