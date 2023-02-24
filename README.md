@@ -9,22 +9,20 @@ These instructions should help you to install the trajectory planner and use it 
 ### Requirements
 The software is  developed and tested on recent versions of Linux and OS X.
 
-For the python installation, we suggest the usage of [Anaconda](http://www.anaconda.com/download/#download).
+For the python installation, we suggest the usage of Virtual Environment with Python 3.8.
 For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
 
 ### Installation
-1. Clone this repository & create a new conda environment `conda create -n commonroad-py37 python=3.7`
+1. Clone this repository, `checkout develop_RT`  & create a new virtual environment `python3.8 -m venv venv`
 
 
 2. Install the package:
-    * Install the package via pip: `pip install .`
-    * **Or** install the dependencies with `pip install -r requirements.txt` and add the root folder to the python path of your interpreter
-
+    * Source & Install the package via pip: `source venv/bin/activate` & `pip install -r requirements.txt`
 
 
 ### Example script
 
-An example script `run_planner.py` is provided, which plans intended trajectories for motion planning
+An example script `run_planner.py` is provided, which plans intended trajectories for motion planning. 
 
 
 ## Literature
