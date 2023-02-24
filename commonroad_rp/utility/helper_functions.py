@@ -373,4 +373,14 @@ def load_pickle(path, name):
         data = pickle.load(file)
     return data
 
+
+def calculate_angle_between_lines(line_1, line_2):
+    # calculate angle between pairs of lines
+    angle1 = math.atan2(line_1[0][1] - line_1[1][1], line_1[0][0] - line_1[1][0])
+    angle2 = math.atan2(line_2[0][1] - line_2[1][1], line_2[0][0] - line_2[1][0])
+    angle_degrees = (angle1-angle2) * 360 / (2*math.pi)
+    if angle_degrees > 180:
+        angle_degrees = angle_degrees-360
+    return angle_degrees
+
 # EOF

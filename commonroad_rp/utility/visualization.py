@@ -79,7 +79,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
                                   timestep: int, config: Configuration, log_path: str,
                                   traj_set: List[TrajectorySample] = None, ref_path: np.ndarray = None,
                                   rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
-                                  visible_area=None):
+                                  visible_area=None, cluster=None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -123,13 +123,9 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     obs_params.dynamic_obstacle.draw_icon = config.debug.draw_icons
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#E37222"
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
-    obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.zorder = 50
-    obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.opacity = 1
 
     obs_params.static_obstacle.occupancy.shape.facecolor = "#a30000"
     obs_params.static_obstacle.occupancy.shape.edgecolor = "#756f61"
-    obs_params.static_obstacle.occupancy.shape.zorder = 50
-    obs_params.static_obstacle.occupancy.shape.opacity = 1
 
     # visualize scenario, planning problem, ego vehicle
     scenario.draw(rnd, draw_params=obs_params)
@@ -176,6 +172,10 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=19, linewidth=0.8,
                     label='reference path')
 
+    if cluster is not None:
+        rnd.ax.text(traj_set[0].cartesian.x[0]+(plot_window + 5),
+                    traj_set[0].cartesian.y[0]+(plot_window + 5), str(cluster), fontsize=40)
+
     # save as .png file
     if config.debug.save_plots:
         plot_dir = os.path.join(log_path, "plots")
@@ -184,7 +184,6 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300)
         else:
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.svg", format='svg')
-
 
     # show plot
     if config.debug.show_plots:

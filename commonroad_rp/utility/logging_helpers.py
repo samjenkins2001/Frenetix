@@ -258,10 +258,11 @@ class DataLoggingCosts:
         with open(self.__prediction_log_path, "a") as fh:
             fh.write(new_line)
 
-    def log_collision(self, collision_with_obj, ego_length, ego_width, center=None, last_center=None, r_x=None, r_y=None, orientation=None):
+    def log_collision(self, collision_with_obj, ego_length, ego_width, progress, center=None, last_center=None, r_x=None, r_y=None, orientation=None):
         self.collision_header = (
             "ego_length;"
             "ego_width;"
+            "progress;"
             "center_x;"
             "center_y;"
             "last_center_x;"
@@ -276,6 +277,7 @@ class DataLoggingCosts:
 
         new_line = "\n" + str(ego_length)
         new_line += ";" + str(ego_width)
+        new_line += ";" + str(progress)
         if collision_with_obj:
             new_line += ";" + str(center[0])
             new_line += ";" + str(center[1])
