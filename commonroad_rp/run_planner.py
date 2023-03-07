@@ -205,7 +205,8 @@ def run_planner(config, log_path, mod_path):
                                           traj_set=planner.all_traj, ref_path=ref_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
-                                          cluster=cost_function.cluster_prediction.cluster_assignments[-1],
+                                          cluster=cost_function.cluster_prediction.cluster_assignments[-1]
+                                                    if cost_function.cluster_prediction is not None else None,
                                           log_path=log_path, visible_area=visible_area)
 
         if current_count > 1:
