@@ -1167,21 +1167,27 @@ class ReactivePlanner(object):
         else:
             try:
                 goal_position = []
-                for x in self.reference_path:
-                    for goal_state in self.goal_checker.goal.state_list:
-                        if goal_state.position.contains_point(x):
+
+                if self.goal_checker.goal.state_list[0].has_value("position"):
+                    for x in self.reference_path:
+                        if self.goal_checker.goal.state_list[0].position.contains_point(x):
                             goal_position.append(x)
-                s_goal_1, d_goal_1 = self._co.convert_to_curvilinear_coords(goal_position[0][0], goal_position[0][1])
-                s_goal_2, d_goal_2 = self._co.convert_to_curvilinear_coords(goal_position[-1][0], goal_position[-1][1])
-                s_goal = min(s_goal_1, s_goal_2)
-                s_start, d_start = self._co.convert_to_curvilinear_coords(
-                    self.planning_problem.initial_state.position[0],
-                    self.planning_problem.initial_state.position[1])
-                s_current, d_current = self._co.convert_to_curvilinear_coords(self.x_0.position[0], self.x_0.position[1])
-                progress = ((s_current - s_start) / (s_goal - s_start))
-                print(progress)
-            except ValueError:
-                print('<Reactive_planner>: Value Error for curvilinear transformation')
+                    s_goal_1, d_goal_1 = self._co.convert_to_curvilinear_coords(goal_position[0][0], goal_position[0][1])
+                    s_goal_2, d_goal_2 = self._co.convert_to_curvilinear_coords(goal_position[-1][0], goal_position[-1][1])
+                    s_goal = min(s_goal_1, s_goal_2)
+                    s_start, d_start = self._co.convert_to_curvilinear_coords(
+                        self.planning_problem.initial_state.position[0],
+                        self.planning_problem.initial_state.position[1])
+                    s_current, d_current = self._co.convert_to_curvilinear_coords(self.x_0.position[0], self.x_0.position[1])
+                    progress = ((s_current - s_start) / (s_goal - s_start))
+                elif "time_step" in self.goal_checker.goal.state_list[0].attributes:
+                    progress = (self.x_0.time_step / self.goal_checker.goal.state_list[0].time_step.end)
+                else:
+                    print('Could not calculate progress')
+                    progress = None
+            except:
+                progress = None
+                print('Could not calculate progress')
 
             collision_obj = self.collision_checker.find_all_colliding_objects(ego)[0]
             if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
