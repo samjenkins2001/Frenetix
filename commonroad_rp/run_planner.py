@@ -59,8 +59,16 @@ def run_planner(config, log_path, mod_path):
         problem_init_state.acceleration = 0.
     x_0 = deepcopy(problem_init_state)
 
-    # goal state configuration
-    goal = planning_problem.goal
+    # **************************
+    # Run Planning
+    # **************************
+    # initialize lists to store states and inputs
+    record_state_list = list()
+    record_input_list = list()
+    x_cl = None
+    current_count = 0
+    planning_times = list()
+    ego_vehicle = None
 
     # *************************************
     # Initialize Planner
@@ -68,6 +76,15 @@ def run_planner(config, log_path, mod_path):
 
     # initialize reactive planner
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
+    # convert initial state from planning problem to reactive planner (Cartesian) state type
+    x_0 = planner.process_initial_state_from_pp(x0_pp=x_0)
+    record_state_list.append(x_0)
+
+    # add initial inputs to recorded input list
+    record_input_list.append(InputState(
+        acceleration=x_0.acceleration,
+        time_step=x_0.time_step,
+        steering_angle_speed=0.))
 
     # initialize route planner and set reference path
     use_behavior_planner = False
@@ -101,27 +118,6 @@ def run_planner(config, log_path, mod_path):
     # set cost function
     cost_function = AdaptableCostFunction(rp=planner, configuration=config)
     planner.set_cost_function(cost_function)
-
-    # **************************
-    # Run Planning
-    # **************************
-    # initialize lists to store states and inputs
-    record_state_list = list()
-    record_input_list = list()
-    x_cl = None
-    current_count = 0
-    planning_times = list()
-    ego_vehicle = None
-
-    # convert initial state from planning problem to reactive planner (Cartesian) state type
-    x_0 = planner.process_initial_state_from_pp(x0_pp=x_0)
-    record_state_list.append(x_0)
-
-    # add initial inputs to recorded input list
-    record_input_list.append(InputState(
-        acceleration=x_0.acceleration,
-        time_step=x_0.time_step,
-        steering_angle_speed=0.))
 
     # initialize the prediction network if necessary
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
@@ -206,11 +202,11 @@ def run_planner(config, log_path, mod_path):
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
                                           cluster=cost_function.cluster_prediction.cluster_assignments[-1]
-                                                    if cost_function.cluster_prediction is not None else None,
+                                                  if cost_function.cluster_prediction is not None else None,
                                           log_path=log_path, visible_area=visible_area)
 
-        if current_count > 1:
-            crash = planner.check_collision()
+        if current_count > 0:
+            crash = planner.check_collision(ego_vehicle)
             if crash:
                 print("Collision Detected!")
                 if config.debug.collision_report:

@@ -10,7 +10,7 @@ __status__ = "Beta"
 import math
 import time
 import numpy as np
-from typing import List, Union
+from typing import List
 from dataclasses import dataclass
 import multiprocessing
 from multiprocessing.context import Process
@@ -27,8 +27,7 @@ from commonroad.scenario.scenario import Scenario
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_checker, \
-    create_collision_object
+from commonroad_dc.collision.collision_detection.scenario import create_collision_checker_scenario
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, trajectories_collision_static_obstacles
 
 # commonroad_rp imports
@@ -232,19 +231,21 @@ class ReactivePlanner(object):
         if collision_checker is None:
             assert scenario is not None, '<set collision checker>: Please provide a CommonRoad scenario OR a ' \
                                          'CollisionChecker object to the planner.'
-            cc_scenario = pycrcc.CollisionChecker()
-            for co in scenario.static_obstacles:
-                obs = create_collision_object(co)
-                cc_scenario.add_collision_object(obs)
-            for co in scenario.dynamic_obstacles:
-                tvo = create_collision_object(co)
-                if self._continuous_cc:
-                    tvo, err = trajectory_preprocess_obb_sum(tvo)
-                    if err == -1:
-                        raise Exception("Invalid input for trajectory_preprocess_obb_sum: dynamic "
-                                        "obstacle elements overlap")
-                cc_scenario.add_collision_object(tvo)
+            cc_scenario = create_collision_checker_scenario(scenario)
+            # cc_scenario = pycrcc.CollisionChecker()
+            # for co in scenario.static_obstacles:
+            #     obs = create_collision_object(co)
+            #     cc_scenario.add_collision_object(obs)
+            # for co in scenario.dynamic_obstacles:
+            #     tvo = create_collision_object(co)
+            #     if self._continuous_cc:
+            #         tvo, err = trajectory_preprocess_obb_sum(tvo)
+            #         if err == -1:
+            #             raise Exception("Invalid input for trajectory_preprocess_obb_sum: dynamic "
+            #                             "obstacle elements overlap")
+            #     cc_scenario.add_collision_object(tvo)
             _, road_boundary_sg_obb = create_road_boundary_obstacle(scenario)
+            # shape_group_cc = create_collision_object_shape_group(road_boundary_sg_obb)
             cc_scenario.add_collision_object(road_boundary_sg_obb)
             self._cc: pycrcc.CollisionChecker = cc_scenario
         else:
@@ -1158,10 +1159,13 @@ class ReactivePlanner(object):
         self.goal_checker.register_current_state(self.x_0)
         self.goal_status, self.goal_message, self.full_goal_status = self.goal_checker.goal_reached_status()
 
-    def check_collision(self):
+    def check_collision(self, ego_vehicle):
+
         ego = pycrcc.TimeVariantCollisionObject(self.x_0.time_step * self._factor)
         ego.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
-                                           self.x_0.orientation, self.x_0.position[0], self.x_0.position[1]))
+                                            ego_vehicle.initial_state.orientation,
+                                            ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
+
         if not self.collision_checker.collide(ego):
             return False
         else:
