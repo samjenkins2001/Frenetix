@@ -147,7 +147,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         elif visible_area.geom_type == "Polygon":
             rnd.ax.fill(*visible_area.exterior.xy, "g", alpha=0.2, zorder=10)
         else:
-            for obj in visible_area:
+            for obj in visible_area.geoms:
                 if obj.geom_type == "Polygon":
                     rnd.ax.fill(*obj.exterior.xy, "g", alpha=0.2, zorder=10)
 
@@ -285,5 +285,5 @@ def make_gif(config: Configuration, scenario: Scenario, time_steps: Union[range,
         for filename in filenames:
             images.append(imageio.imread(filename))
 
-        imageio.mimsave(os.path.join(config.general.path_output, str(scenario.scenario_id) + ".gif"),
+        imageio.mimsave(os.path.join(log_path, str(scenario.scenario_id) + ".gif"),
                         images, duration=duration)
