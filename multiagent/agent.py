@@ -34,40 +34,6 @@ class Agent:
     planner, and scenario (among others).
     """
 
-    # Agent id, equals the id of the dummy obstacle
-    id = -1
-
-    config = None
-    log_path = None
-    mod_path = None
-
-    planning_problem = None
-
-    # Local view on the scenario, with dummy obstacles
-    # for all agents except the ego agent
-    scenario = None
-
-    # State before the next planning step
-    x_0 = None
-    x_cl = None
-
-    current_timestep = 0
-    max_timestep = 0
-
-    planner = None
-    predictor = None
-
-    cost_function = None
-
-    use_behavior_planner = False
-    behavior_module = None
-
-    desired_velocity = 0
-
-    record_state_list = list()
-    record_input_list = list()
-    planning_times = list()
-
     def __init__(self, agent_id: int, planning_problem: PlanningProblem,
                  scenario: Scenario, config: Configuration, log_path: str, mod_path: str):
         """Initialize an agent.
@@ -80,21 +46,39 @@ class Agent:
                          (containing planner configuration)
         """
 
+        # List of past states
+        self.record_state_list = list()
+        # List of input states for the planner
+        self.record_input_list = list()
+        # log of times required for planning steps
+        self.planning_times = list()
+
+        # Agent id, equals the id of the dummy obstacle
         self.id = agent_id
+
         self.planning_problem = planning_problem
         self.config = config
         self.log_path = log_path
         self.mod_path = mod_path
 
+
+        # Local view on the scenario, with dummy obstacles
+        # for all agents except the ego agent
+        self.scenario = None
         # initialize scenario: Remove dynamic obstacle for ego vehicle
         self.set_scenario(scenario)
 
         # Initialize Planner
-        self.planner = ReactivePlanner(self.config, self.scenario, self.planning_problem, log_path, mod_path)
+        self.planner = ReactivePlanner(self.config, self.scenario, self.planning_problem,
+                                       self.log_path, self.mod_path)
 
+        # State before the next planning step
         # convert initial state from planning problem to reactive planner (Cartesian) state type
-        self.x_0 = self.planner.process_initial_state_from_pp(x0_pp=deepcopy(planning_problem.initial_state))
+        self.x_0 = self.planner.process_initial_state_from_pp(x0_pp=deepcopy(self.planning_problem.initial_state))
         self.record_state_list.append(self.x_0)
+
+        # Curvilinear state, used by the planner
+        self.x_cl = None
 
         self.desired_velocity = self.x_0.velocity
 
@@ -261,6 +245,13 @@ class Agent:
                                           cluster=self.cost_function.cluster_prediction.cluster_assignments[-1]
                                           if self.cost_function.cluster_prediction is not None else None,
                                           log_path=self.log_path, visible_area=visible_area)
+
+        # commonroad obstacle for synchronization between agents
+        full_state_list = deepcopy(self.record_state_list)
+        full_state_list.extend(optimal[0].state_list[2:])
+        full_trajectory = Trajectory(self.planning_problem.initial_state.time_step, full_state_list)
+        ego_vehicle = self.planner.shift_and_convert_trajectory_to_object(full_trajectory, self.id)
+
 
         self.current_timestep += 1
         return 0, ego_vehicle
