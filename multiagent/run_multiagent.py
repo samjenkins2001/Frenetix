@@ -58,9 +58,6 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     #   Load scenarios and configurations   #
     #########################################
 
-    # Set configurations
-    DT = config.planning.dt            # planning time step
-
     # Open the commonroad scenario and the planning problems of the
     # original ego vehicles.
     scenario, ego_planning_problem, original_planning_problem_set = load_scenario_and_planning_problem(config)
@@ -114,6 +111,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
         scenario.add_objects(dummy_obstacle)
 
+    # Initialize predictor
+    predictor = ph.load_prediction(scenario, config.prediction.mode, config)
+
 
     #########################
     #   Initialize Agents   #
@@ -142,6 +142,22 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         dummy_obstacle_list = list()
         terminated_agent_list = list()
 
+        # Calculate predictions
+        if config.prediction.mode:
+            if config.prediction.mode == "walenet":
+                # Calculate predictions for all obstacles using WaleNet.
+                # The state is only used for accessing the current timestep.
+                predictions = ph.main_prediction(predictor, scenario, [obs.obstacle_id for obs in scenario.obstacles],
+                                                 running_agent_list[0].x_0, scenario.dt,
+                                                 [float(config.planning.planning_horizon)])
+            elif config.prediction.mode == "lanebased":
+                print("Lane-based predictions are not supported for multiagent simulations.")
+                predictions = None
+            else:
+                predictions = None
+        else:
+            predictions = None
+
         # Step simulation
         # TODO parallelize
         for agent in running_agent_list:
@@ -153,7 +169,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             print(f"[Simulation] Stepping Agent {agent.id}")
 
             # Simulate.
-            status, dummy_obstacle = agent.step_agent()
+            status, dummy_obstacle = agent.step_agent(scenario, predictions)
 
             msg = ""
             if status > 0:
@@ -183,9 +199,6 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             running_agent_id_list.remove(agent.id)
 
         scenario.add_objects(dummy_obstacle_list)
-
-        for agent in running_agent_list:
-            agent.set_scenario(scenario)
 
         # Plot current frame
         rnd = MPRenderer(figsize=(20, 10))

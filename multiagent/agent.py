@@ -129,8 +129,7 @@ class Agent:
         if self.scenario.obstacle_by_id(self.id) is not None:
             self.scenario.remove_obstacle(self.scenario.obstacle_by_id(self.id))
 
-
-    def step_agent(self):
+    def step_agent(self, scenario, global_predictions):
         """Execute one planning step.
         :returns status: 0, if successful
                          1, if completed
@@ -144,6 +143,23 @@ class Agent:
             self.finalize()
             return 1, None
 
+        # Update scenario
+        self.set_scenario(scenario)
+
+        # Process new predictions
+        predictions = dict()
+        visible_obstacles, visible_area = ph.prediction_preprocessing(
+            self.scenario, self.x_0, self.config, self.id
+        )
+        for obstacle_id in visible_obstacles:
+            predictions[obstacle_id] = global_predictions[obstacle_id]
+        if self.config.prediction.cone_angle > 0 \
+                and self.config.prediction.mode == "walenet" \
+                or self.config.prediction.mode == "lanebased":
+            predictions = ph.ignore_vehicles_in_cone_angle(predictions, self.x_0, self.config.vehicle.length,
+                                                           self.config.prediction.cone_angle,
+                                                           self.config.prediction.cone_safety_dist)
+
 
         # Update scenario of planner
         self.planner.set_scenario(self.scenario)
@@ -151,13 +167,6 @@ class Agent:
         # START TIMER
         comp_time_start = time.time()
 
-        # get visible objects if the prediction is used
-        if self.config.prediction.mode:
-            predictions, visible_area = ph.step_prediction(self.scenario, self.predictor,
-                                                           self.config, self.x_0, ego_id=self.id)
-        else:
-            predictions = None
-            visible_area = None
         if not self.use_behavior_planner:
             # set desired velocity
             self.desired_velocity = hf.calculate_desired_velocity(self.scenario, self.planning_problem,
