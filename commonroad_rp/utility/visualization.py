@@ -37,6 +37,16 @@ from commonroad_rp.configuration import Configuration
 from commonroad_prediction.visualization import draw_uncertain_predictions as draw_uncertain_predictions_lb
 from prediction.utils.visualization import draw_uncertain_predictions as draw_uncertain_predictions_wale
 
+colors =      ["#e3af22", "#d6e322", "#96e322", "#55e322", "#22e32f",
+               "#22e36f", "#22e3af", "#22d6e3", "#2296e3", "#2255e3",
+               "#2f22e3", "#6f22e3", "#af22e3", "#e322d6", "#e32296"]
+darkcolors =  ["#9c0d00", "#8f9c00", "#5b9c00", "#279c00", "#009c0d",
+               "#009c41", "#009c75", "#008f9c", "#005b9c", "#00279c",
+               "#0d009c", "#41009c", "#75009c", "#9c008f", "#9c005b"]
+lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
+               "#69ffa3", "#69ffd5", "#69f8ff", "#69c6ff", "#6993ff",
+               "#7069ff", "#a369ff", "#d569ff", "#ff69f8", "#ff69c5"]
+
 
 def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProblem, cosy=None):
     """Visualizes scenario, planning problem and (optionally) the reference path"""
@@ -175,6 +185,132 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     if cluster is not None:
         rnd.ax.text(traj_set[0].cartesian.x[0]+(plot_window + 5),
                     traj_set[0].cartesian.y[0]+(plot_window + 5), str(cluster), fontsize=40)
+
+    # save as .png file
+    if config.debug.save_plots:
+        plot_dir = os.path.join(log_path, "plots")
+        os.makedirs(plot_dir, exist_ok=True)
+        if config.debug.gif:
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300)
+        else:
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.svg", format='svg')
+
+    # show plot
+    if config.debug.show_plots:
+        matplotlib.use("TkAgg")
+        plt.pause(0.0001)
+
+
+def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_list: List[PlanningProblem],
+                                     agent_list: List[DynamicObstacle], timestep: int,
+                                     config: Configuration, log_path: str,
+                                     traj_set_list: List[List[TrajectorySample]] = None,
+                                     ref_path_list: List[np.ndarray] = None,
+                                     predictions: dict = None, rnd: MPRenderer = None,
+                                     plot_window: int = None):
+    """
+    Function to visualize planning result from the reactive planner for a given time step
+    for all agents in a multiagent simulation.
+
+    :param scenario: CommonRoad scenario object containing no dummy obstacles
+    :param planning_problem_list: Planning problems of all agents
+    :param agent_list: Dummy obstacles for all agents. Assumed to include the recorded path in the trajectory
+    :param timestep: Time step of the scenario to plot
+    :param config: Configuration object for plot/save settings
+    :param log_path: Path to save the plot to (optional, depending on the config)
+    :param traj_set_list: List of lists of sampled trajectories for each agent (optional)
+    :param ref_path_list: Reference paths for every planner as polyline [(nx2) np.ndarray] (optional)
+    :param predictions: Dictionary of all predictions (optional)
+    :param rnd: MPRenderer object (optional: if none is passed, the function creates a new renderer object;
+                otherwise it will visualize on the existing object)
+    :param plot_window: Size of the margin of the plot, or minimum distance between the
+                        plot border and all agents (optional)
+    """
+
+    # create renderer object (if no existing renderer is passed)
+    if rnd is None:
+        rnd = MPRenderer(figsize=(20, 10))
+
+    if plot_window is not None:
+        # focus on window around all agents
+        left = None
+        right = None
+        top = None
+        bottom = None
+        for agent in agent_list:
+            if left is None or agent.state_at_time(timestep).position[0] < left:
+                left = agent.state_at_time(timestep).position[0]
+            if right is None or agent.state_at_time(timestep).position[0] > right:
+                right = agent.state_at_time(timestep).position[0]
+
+            if bottom is None or agent.state_at_time(timestep).position[1] < bottom:
+                bottom = agent.state_at_time(timestep).position[1]
+            if top is None or agent.state_at_time(timestep).position[1] > top:
+                top = agent.state_at_time(timestep).position[1]
+
+        rnd.plot_limits = [-plot_window + left,
+                           plot_window + right,
+                           -plot_window + bottom,
+                           plot_window + top]
+
+    # Set obstacle parameters
+    obs_params = MPDrawParams()
+    obs_params.dynamic_obstacle.time_begin = timestep
+    obs_params.dynamic_obstacle.draw_icon = config.debug.draw_icons
+    obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#E37222"
+    obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
+
+    obs_params.static_obstacle.occupancy.shape.facecolor = "#a30000"
+    obs_params.static_obstacle.occupancy.shape.edgecolor = "#756f61"
+
+    # visualize scenario
+    scenario.draw(rnd, draw_params=obs_params)
+
+    # Visualize agents and planning problems
+    for i in range(len(agent_list)):
+
+        # set ego vehicle draw params
+        ego_params = DynamicObstacleParams()
+        ego_params.time_begin = timestep
+        ego_params.draw_icon = config.debug.draw_icons
+        ego_params.vehicle_shape.occupancy.shape.facecolor = colors[i % len(colors)]
+        ego_params.vehicle_shape.occupancy.shape.edgecolor = darkcolors[i % len(darkcolors)]
+        ego_params.vehicle_shape.occupancy.shape.zorder = 50
+        ego_params.vehicle_shape.occupancy.shape.opacity = 1
+
+        # Visualize planning problem and agent
+        planning_problem_list[i].draw(rnd)
+        agent_list[i].draw(rnd, draw_params=ego_params)
+
+    rnd.render()
+
+    # Visualize trajectories and paths
+    for i in range(len(agent_list)):
+
+        # visualize optimal trajectory
+        pos = np.asarray([state.position for state in agent_list[i].prediction.trajectory.state_list[timestep:]])
+        rnd.ax.plot(pos[:, 0], pos[:, 1], color=darkcolors[i % len(darkcolors)], marker='x', markersize=1.5, zorder=21, linewidth=2,
+                     label='optimal trajectory')
+
+        # visualize sampled trajectory bundle
+        step = 1  # draw every trajectory (step=2 would draw every second trajectory)
+        if traj_set_list is not None:
+            for j in range(0, len(traj_set_list[i]), step):
+                plt.plot(traj_set_list[i][j].cartesian.x[:traj_set_list[i][j]._actual_traj_length],
+                         traj_set_list[i][j].cartesian.y[:traj_set_list[i][j]._actual_traj_length],
+                         color=lightcolors[i % len(lightcolors)], zorder=20, linewidth=0.2, alpha=1.0)
+
+        # visualize reference path
+        if ref_path_list is not None:
+            rnd.ax.plot(ref_path_list[i][:, 0], ref_path_list[i][:, 1], color=colors[i % len(colors)],
+                        marker='.', markersize=1, zorder=19, linewidth=0.8, label='reference path')
+
+    # visualize predictions
+    if predictions is not None:
+        if config.prediction.mode == "lanebased":
+            draw_uncertain_predictions_lb(predictions, rnd.ax)
+        elif config.prediction.mode == "walenet":
+            draw_uncertain_predictions_wale(predictions, rnd.ax)
 
     # save as .png file
     if config.debug.save_plots:

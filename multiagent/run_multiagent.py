@@ -1,30 +1,16 @@
 import os
 # standard imports
-import time
 from copy import deepcopy
 
 # third party
-import numpy as np
-from commonroad.visualization.mp_renderer import MPRenderer
 import matplotlib
 matplotlib.use("TKagg")
-from matplotlib import pyplot as plt
 
 # commonroad-io
-from commonroad_rp.utility.collision_report import coll_report
+from commonroad.scenario.state import CustomState
 
-# commonroad-io
-from commonroad.scenario.state import InputState, InitialState, CustomState
-
-# commonroad-route-planner
-from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner
-from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif, visualize_scenario_and_pp
-from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
-    plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
-from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
-from commonroad_rp.utility import helper_functions as hf
+from commonroad_rp.utility.visualization import make_gif, visualize_multiagent_at_timestep
 
 from commonroad_rp.utility.general import load_scenario_and_planning_problem
 from commonroad_rp.configuration import Configuration
@@ -39,7 +25,6 @@ from commonroad.common.util import Interval
 from multiagent.agent import Agent
 
 import commonroad_rp.prediction_helpers as ph
-from behavior_planner.behavior_module import BehaviorModule
 
 
 def run_multiagent(config: Configuration, log_path: str, mod_path: str):
@@ -198,19 +183,16 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             running_agent_list.remove(agent)
             running_agent_id_list.remove(agent.id)
 
-        scenario.add_objects(dummy_obstacle_list)
-
         # Plot current frame
-        rnd = MPRenderer(figsize=(20, 10))
-        rnd.draw_params.time_begin = current_timestep
-        scenario.draw(rnd)
-        for problem in planning_problem_set.planning_problem_dict.values():
-            problem.draw(rnd)
-        rnd.render()
-        plot_dir = os.path.join(log_path, "plots")
-        os.makedirs(plot_dir, exist_ok=True)
-        plt.savefig(os.path.join(plot_dir,
-                        str(scenario.scenario_id) + "_{}.png".format(current_timestep)))
+        if config.debug.show_plots or config.debug.save_plots:
+            visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in running_agent_list],
+                                             dummy_obstacle_list, current_timestep, config, log_path,
+                                             traj_set_list=[a.planner.all_traj for a in running_agent_list],
+                                             ref_path_list=[a.planner.reference_path for a in running_agent_list],
+                                             predictions=predictions,
+                                             plot_window=config.debug.plot_window_dyn)
+
+        scenario.add_objects(dummy_obstacle_list)
 
         current_timestep += 1
         running = len(running_agent_list) > 0
