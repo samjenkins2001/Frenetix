@@ -61,16 +61,15 @@ class Agent:
         self.log_path = log_path
         self.mod_path = mod_path
 
+        # Initialize Planner
+        self.planner = ReactivePlanner(self.config, scenario, self.planning_problem,
+                                       self.log_path, self.mod_path)
 
         # Local view on the scenario, with dummy obstacles
         # for all agents except the ego agent
         self.scenario = None
         # initialize scenario: Remove dynamic obstacle for ego vehicle
         self.set_scenario(scenario)
-
-        # Initialize Planner
-        self.planner = ReactivePlanner(self.config, self.scenario, self.planning_problem,
-                                       self.log_path, self.mod_path)
 
         # State before the next planning step
         # convert initial state from planning problem to reactive planner (Cartesian) state type
@@ -129,7 +128,27 @@ class Agent:
         if self.scenario.obstacle_by_id(self.id) is not None:
             self.scenario.remove_obstacle(self.scenario.obstacle_by_id(self.id))
 
-    def step_agent(self, scenario, global_predictions):
+        self.planner.set_scenario(self.scenario)
+
+    def update_scenario(self, outdated_agents, dummy_obstacles):
+        """Update the scenario to synchronize the agents.
+        :param outdated_agents: Obstacle IDs of all dummy obstacles that need to be updated
+        :param dummy_obstacles: New dummy obstacles
+        """
+
+        # Remove outdated obstacles
+        for i in outdated_agents:
+            # ego does not have a dummy of itself
+            if i == self.id:
+                continue
+            self.scenario.remove_obstacle(self.scenario.obstacle_by_id(i))
+
+        # Add all dummies except of the ego one
+        self.scenario.add_objects(list(filter(lambda obs: not obs.obstacle_id == self.id, dummy_obstacles)))
+
+        self.planner.set_scenario(self.scenario)
+
+    def step_agent(self, global_predictions):
         """Execute one planning step.
         :returns status: 0, if successful
                          1, if completed
@@ -142,9 +161,6 @@ class Agent:
         if self.planner.goal_status or self.current_timestep >= self.max_timestep:
             self.finalize()
             return 1, None
-
-        # Update scenario
-        self.set_scenario(scenario)
 
         # Process new predictions
         predictions = dict()
@@ -159,10 +175,6 @@ class Agent:
             predictions = ph.ignore_vehicles_in_cone_angle(predictions, self.x_0, self.config.vehicle.length,
                                                            self.config.prediction.cone_angle,
                                                            self.config.prediction.cone_safety_dist)
-
-
-        # Update scenario of planner
-        self.planner.set_scenario(self.scenario)
 
         # START TIMER
         comp_time_start = time.time()

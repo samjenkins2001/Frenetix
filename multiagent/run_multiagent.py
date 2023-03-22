@@ -77,7 +77,6 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         problem = PlanningProblem(id, initial_state, GoalRegion(list([goal_state])))
         planning_problem_set.add_planning_problem(problem)
 
-
     # Add original ego vehicles to the simulation and the scenario.
     for problem in original_planning_problem_set.planning_problem_dict.values():
         id = problem.planning_problem_id
@@ -104,14 +103,18 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     #   Initialize Agents   #
     #########################
 
+    # List of all agents in the simulation
     agent_list = []
     for id in agent_id_list:
         agent_list.append(Agent(id, planning_problem_set.find_planning_problem_by_id(id),
                           scenario, config, os.path.join(log_path, f"{id}"),
                           mod_path))
 
+    # List of all not yet terminated agents in the simulation
     running_agent_list = deepcopy(agent_list)
-    running_agent_id_list = deepcopy(agent_id_list)
+
+    # List of all agents that changed in the previous timestep
+    outdated_agent_id_list = list()
 
     # **************************
     # Run Planning
@@ -143,6 +146,8 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         else:
             predictions = None
 
+        outdated_agent_id_list = [a.id for a in running_agent_list]
+
         # Step simulation
         # TODO parallelize
         for agent in running_agent_list:
@@ -154,7 +159,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             print(f"[Simulation] Stepping Agent {agent.id}")
 
             # Simulate.
-            status, dummy_obstacle = agent.step_agent(scenario, predictions)
+            status, dummy_obstacle = agent.step_agent(predictions)
 
             msg = ""
             if status > 0:
@@ -172,19 +177,22 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
                 # save dummy obstacle
                 dummy_obstacle_list.append(deepcopy(dummy_obstacle))
 
-        # Synchronize scenarios
-        for id in running_agent_id_list:
-            # manage agents that are not active
-            if scenario.obstacle_by_id(id) is not None:
-                scenario.remove_obstacle(scenario.obstacle_by_id(id))
-
         # Terminate agents
         for agent in terminated_agent_list:
             running_agent_list.remove(agent)
-            running_agent_id_list.remove(agent.id)
+
+        # Synchronize agents
+        for agent in running_agent_list:
+            agent.update_scenario(outdated_agent_id_list, dummy_obstacle_list)
+
+        # Update own scenario for predictions and plotting
+        for id in outdated_agent_id_list:
+            # manage agents that are not yet active
+            if scenario.obstacle_by_id(id) is not None:
+                scenario.remove_obstacle(scenario.obstacle_by_id(id))
 
         # Plot current frame
-        if config.debug.show_plots or config.debug.save_plots:
+        if (config.debug.show_plots or config.debug.save_plots) and len(running_agent_list) > 0:
             visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in running_agent_list],
                                              dummy_obstacle_list, current_timestep, config, log_path,
                                              traj_set_list=[a.planner.all_traj for a in running_agent_list],
@@ -202,4 +210,4 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
     # make gif
     if config.debug.gif:
-        make_gif(config, scenario, range(0, current_timestep), log_path, duration=0.1)
+        make_gif(config, scenario, range(0, current_timestep-1), log_path, duration=0.1)
