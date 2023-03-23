@@ -1161,7 +1161,7 @@ class ReactivePlanner(object):
 
     def check_collision(self, ego_vehicle):
 
-        ego = pycrcc.TimeVariantCollisionObject(self.x_0.time_step * self._factor)
+        ego = pycrcc.TimeVariantCollisionObject((self.x_0.time_step - 1) * self._factor)
         ego.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
                                             ego_vehicle.initial_state.orientation,
                                             ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
@@ -1185,7 +1185,7 @@ class ReactivePlanner(object):
                     s_current, d_current = self._co.convert_to_curvilinear_coords(self.x_0.position[0], self.x_0.position[1])
                     progress = ((s_current - s_start) / (s_goal - s_start))
                 elif "time_step" in self.goal_checker.goal.state_list[0].attributes:
-                    progress = (self.x_0.time_step / self.goal_checker.goal.state_list[0].time_step.end)
+                    progress = ((self.x_0.time_step -1) / self.goal_checker.goal.state_list[0].time_step.end)
                 else:
                     print('Could not calculate progress')
                     progress = None
@@ -1195,9 +1195,9 @@ class ReactivePlanner(object):
 
             collision_obj = self.collision_checker.find_all_colliding_objects(ego)[0]
             if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
-                obj = collision_obj.obstacle_at_time(self.x_0.time_step)
+                obj = collision_obj.obstacle_at_time((self.x_0.time_step -1))
                 center = obj.center()
-                last_center = collision_obj.obstacle_at_time(self.x_0.time_step-1).center()
+                last_center = collision_obj.obstacle_at_time(self.x_0.time_step-2).center()
                 r_x = obj.r_x()
                 r_y = obj.r_y()
                 orientation = obj.orientation()

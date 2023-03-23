@@ -65,10 +65,11 @@ def run_planner(config, log_path, mod_path):
     # initialize lists to store states and inputs
     record_state_list = list()
     record_input_list = list()
+    ego_vehicle = list()
+
     x_cl = None
     current_count = 0
     planning_times = list()
-    ego_vehicle = None
 
     # *************************************
     # Initialize Planner
@@ -76,6 +77,7 @@ def run_planner(config, log_path, mod_path):
 
     # initialize reactive planner
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
+
     # convert initial state from planning problem to reactive planner (Cartesian) state type
     x_0 = planner.process_initial_state_from_pp(x0_pp=x_0)
     record_state_list.append(x_0)
@@ -192,12 +194,12 @@ def run_planner(config, log_path, mod_path):
         x_cl = (optimal[2][1], optimal[3][1])
 
         # create CommonRoad Obstacle for the ego Vehicle
-        ego_vehicle = planner.shift_and_convert_trajectory_to_object(optimal[0])
+        ego_vehicle.append(planner.shift_and_convert_trajectory_to_object(optimal[0]))
 
         print(f"current time step: {current_count}")
         # draw scenario + planning solution
         if config.debug.show_plots or config.debug.save_plots:
-            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle,
+            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle[-1],
                                           traj_set=planner.all_traj, ref_path=ref_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
@@ -205,20 +207,20 @@ def run_planner(config, log_path, mod_path):
                                                   if cost_function.cluster_prediction is not None else None,
                                           log_path=log_path, visible_area=visible_area)
 
-        if current_count > 0:
-            crash = planner.check_collision(ego_vehicle)
-            if crash:
-                print("Collision Detected!")
-                if config.debug.collision_report:
-                    coll_report(record_state_list, planner, current_count, scenario, ego_vehicle, planning_problem,
-                                log_path)
-                break
+        crash = planner.check_collision(ego_vehicle[-1])
+        if crash:
+            print("Collision Detected!")
+            if config.debug.collision_report and current_count > 0:
+                coll_report(ego_vehicle, planner, scenario, planning_problem,
+                            log_path)
+            break
 
         # Check if Goal is reached:
         planner.check_goal_reached()
 
     print(planner.goal_message)
-    print("\n\n", planner.full_goal_status)
+    if planner.full_goal_status:
+        print("\n", planner.full_goal_status)
     if not planner.goal_status and current_count >= max_time_steps_scenario:
         print("Scenario Aborted! Maximum Time Step Reached!")
 

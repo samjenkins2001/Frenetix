@@ -8,7 +8,6 @@ from commonroad.visualization.draw_params import MPDrawParams, DynamicObstaclePa
 
 
 def collision_vis(scenario,
-                  record_state_list,
                   ego_vehicle,
                   destination: str,
                   ego_harm: float,
@@ -77,7 +76,7 @@ def collision_vis(scenario,
     ego_params.vehicle_shape.occupancy.shape.opacity = 1
 
     # set plot limits to show the road section around the ego vehicle
-    position = record_state_list[-1].position
+    position = ego_vehicle[-1].initial_state.position
     plot_limits = [position[0] - 20,
                    position[0] + 20,
                    position[1] - 20,

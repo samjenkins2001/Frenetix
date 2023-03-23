@@ -103,16 +103,12 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
                                           plot_window + ego.initial_state.position[1]], figsize=(10, 10))
         else:
             rnd = MPRenderer(figsize=(20, 10))
-    if plot_window is int:
-        rnd.plot_limits = [-plot_window + ego.initial_state.position[0],
-                           plot_window + ego.initial_state.position[0],
-                           -plot_window + ego.initial_state.position[1],
-                           plot_window + ego.initial_state.position[1]]
 
     # set ego vehicle draw params
     ego_params = DynamicObstacleParams()
     ego_params.time_begin = timestep
     ego_params.draw_icon = config.debug.draw_icons
+    ego_params.show_label = True
     ego_params.vehicle_shape.occupancy.shape.facecolor = "#E37222"
     ego_params.vehicle_shape.occupancy.shape.edgecolor = "#9C4100"
     ego_params.vehicle_shape.occupancy.shape.zorder = 50
@@ -121,9 +117,11 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     obs_params = MPDrawParams()
     obs_params.dynamic_obstacle.time_begin = timestep
     obs_params.dynamic_obstacle.draw_icon = config.debug.draw_icons
+    obs_params.dynamic_obstacle.show_label = True
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#E37222"
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
 
+    obs_params.static_obstacle.show_label = True
     obs_params.static_obstacle.occupancy.shape.facecolor = "#a30000"
     obs_params.static_obstacle.occupancy.shape.edgecolor = "#756f61"
 
