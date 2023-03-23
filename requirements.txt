@@ -1,7 +1,7 @@
 commonroad_vehicle_models>=3.0.2
-matplotlib==3.5.3
+matplotlib==3.7.1
 networkx>=2.6.3
-numpy==1.23.3
+numpy==1.24.2
 methodtools
 omegaconf>=2.1.1
 pytest>=6.2.5
@@ -10,7 +10,6 @@ sphinx>=2.2.1
 commonroad-route-planner==2022.3
 commonroad-io==2023.1
 commonroad-drivability-checker==2022.2.1
-numba
 commonroad-helper-functions
 ruamel.yaml
 pygeos
