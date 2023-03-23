@@ -147,7 +147,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         elif visible_area.geom_type == "Polygon":
             rnd.ax.fill(*visible_area.exterior.xy, "g", alpha=0.2, zorder=10)
         else:
-            for obj in visible_area:
+            for obj in visible_area.geoms:
                 if obj.geom_type == "Polygon":
                     rnd.ax.fill(*obj.exterior.xy, "g", alpha=0.2, zorder=10)
 
