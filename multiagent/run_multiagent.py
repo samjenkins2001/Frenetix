@@ -86,11 +86,11 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         planning_problem_set.add_planning_problem(problem)
 
         # add dummy obstacle for original ego vehicle
-        # TODO add shape from vehicle params, here using values for BMW 320i
+        vehicle_params = config.vehicle
         dummy_obstacle = StaticObstacle(
             id,
             ObstacleType.CAR,
-            Rectangle(length=4.508, width=1.61),
+            Rectangle(length=vehicle_params.length, width=vehicle_params.width),
             problem.initial_state)
 
         scenario.add_objects(dummy_obstacle)
@@ -113,6 +113,8 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     # List of all not yet terminated agents in the simulation
     running_agent_list = deepcopy(agent_list)
 
+    # List of all started and not yet terminated agents
+    active_agent_list = list(filter(lambda a: a.current_timestep == 0, running_agent_list))
     # List of all agents that changed in the previous timestep
     outdated_agent_id_list = list()
 
@@ -128,6 +130,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     while running:
         # clear dummy obstacles
         dummy_obstacle_list = list()
+        future_obstacle_list = list()
         terminated_agent_list = list()
 
         # Calculate predictions
@@ -146,7 +149,8 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         else:
             predictions = None
 
-        outdated_agent_id_list = [a.id for a in running_agent_list]
+        active_agent_list = list(filter(lambda a: a.current_timestep == current_timestep, running_agent_list))
+        outdated_agent_id_list = [a.id for a in active_agent_list]
 
         # Step simulation
         # TODO parallelize
@@ -159,7 +163,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             print(f"[Simulation] Stepping Agent {agent.id}")
 
             # Simulate.
-            status, dummy_obstacle = agent.step_agent(predictions)
+            status, dummy_obstacle, future_obstacle = agent.step_agent(predictions)
 
             msg = ""
             if status > 0:
@@ -176,10 +180,13 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             else:
                 # save dummy obstacle
                 dummy_obstacle_list.append(deepcopy(dummy_obstacle))
+                future_obstacle_list.append(deepcopy(future_obstacle))
 
         # Terminate agents
         for agent in terminated_agent_list:
             running_agent_list.remove(agent)
+            # Remove prediction for plotting
+            del predictions[agent.id]
 
         # Synchronize agents
         for agent in running_agent_list:
@@ -193,10 +200,10 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
         # Plot current frame
         if (config.debug.show_plots or config.debug.save_plots) and len(running_agent_list) > 0:
-            visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in running_agent_list],
-                                             dummy_obstacle_list, current_timestep, config, log_path,
-                                             traj_set_list=[a.planner.all_traj for a in running_agent_list],
-                                             ref_path_list=[a.planner.reference_path for a in running_agent_list],
+            visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in active_agent_list],
+                                             future_obstacle_list, current_timestep, config, log_path,
+                                             traj_set_list=[a.planner.all_traj for a in active_agent_list],
+                                             ref_path_list=[a.planner.reference_path for a in active_agent_list],
                                              predictions=predictions,
                                              plot_window=config.debug.plot_window_dyn)
 

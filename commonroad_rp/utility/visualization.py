@@ -238,15 +238,15 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_list: 
         top = None
         bottom = None
         for agent in agent_list:
-            if left is None or agent.state_at_time(timestep).position[0] < left:
-                left = agent.state_at_time(timestep).position[0]
-            if right is None or agent.state_at_time(timestep).position[0] > right:
-                right = agent.state_at_time(timestep).position[0]
+            if left is None or agent.initial_state.position[0] < left:
+                left = agent.initial_state.position[0]
+            if right is None or agent.initial_state.position[0] > right:
+                right = agent.initial_state.position[0]
 
-            if bottom is None or agent.state_at_time(timestep).position[1] < bottom:
-                bottom = agent.state_at_time(timestep).position[1]
-            if top is None or agent.state_at_time(timestep).position[1] > top:
-                top = agent.state_at_time(timestep).position[1]
+            if bottom is None or agent.initial_state.position[1] < bottom:
+                bottom = agent.initial_state.position[1]
+            if top is None or agent.initial_state.position[1] > top:
+                top = agent.initial_state.position[1]
 
         rnd.plot_limits = [-plot_window + left,
                            plot_window + right,
@@ -273,8 +273,10 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_list: 
         ego_params = DynamicObstacleParams()
         ego_params.time_begin = timestep
         ego_params.draw_icon = config.debug.draw_icons
-        ego_params.vehicle_shape.occupancy.shape.facecolor = colors[i % len(colors)]
-        ego_params.vehicle_shape.occupancy.shape.edgecolor = darkcolors[i % len(darkcolors)]
+        ego_params.vehicle_shape.occupancy.shape.facecolor = \
+            colors[agent_list[i].obstacle_id % len(colors)]
+        ego_params.vehicle_shape.occupancy.shape.edgecolor = \
+            darkcolors[agent_list[i].obstacle_id % len(darkcolors)]
         ego_params.vehicle_shape.occupancy.shape.zorder = 50
         ego_params.vehicle_shape.occupancy.shape.opacity = 1
 
@@ -288,9 +290,9 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_list: 
     for i in range(len(agent_list)):
 
         # visualize optimal trajectory
-        pos = np.asarray([state.position for state in agent_list[i].prediction.trajectory.state_list[timestep:]])
-        rnd.ax.plot(pos[:, 0], pos[:, 1], color=darkcolors[i % len(darkcolors)], marker='x', markersize=1.5, zorder=21, linewidth=2,
-                     label='optimal trajectory')
+        pos = np.asarray([state.position for state in agent_list[i].prediction.trajectory.state_list])
+        rnd.ax.plot(pos[:, 0], pos[:, 1], color=darkcolors[agent_list[i].obstacle_id % len(darkcolors)],
+                    marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
 
         # visualize sampled trajectory bundle
         step = 1  # draw every trajectory (step=2 would draw every second trajectory)
@@ -298,11 +300,13 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_list: 
             for j in range(0, len(traj_set_list[i]), step):
                 plt.plot(traj_set_list[i][j].cartesian.x[:traj_set_list[i][j]._actual_traj_length],
                          traj_set_list[i][j].cartesian.y[:traj_set_list[i][j]._actual_traj_length],
-                         color=lightcolors[i % len(lightcolors)], zorder=20, linewidth=0.2, alpha=1.0)
+                         color=lightcolors[agent_list[i].obstacle_id % len(lightcolors)], zorder=20,
+                         linewidth=0.2, alpha=1.0)
 
         # visualize reference path
         if ref_path_list is not None:
-            rnd.ax.plot(ref_path_list[i][:, 0], ref_path_list[i][:, 1], color=colors[i % len(colors)],
+            rnd.ax.plot(ref_path_list[i][:, 0], ref_path_list[i][:, 1],
+                        color=colors[agent_list[i].obstacle_id % len(colors)],
                         marker='.', markersize=1, zorder=19, linewidth=0.8, label='reference path')
 
     # visualize predictions
