@@ -88,15 +88,6 @@ def get_visible_objects(
                     pos = obst.initial_state.position
                     orientation = obst.initial_state.orientation
                 else:
-                    # # Workaround while agents don't have a history
-                    # state = None
-                    # for s in obst.prediction.trajectory.state_list:
-                    #     if s.time_step == time_step:
-                    #         state = s
-                    #         break
-                    # if state is not None:
-                    #     pos = state.position
-                    #     orientation = state.orientation
                     pos = obst.prediction.trajectory.state_list[time_step].position
                     orientation = obst.prediction.trajectory.state_list[
                         time_step
@@ -136,15 +127,6 @@ def get_visible_objects(
                 pos = obst.initial_state.position
                 orientation = obst.initial_state.orientation
             else:
-                # # Workaround while agents don't have a history
-                # state = None
-                # for s in obst.prediction.trajectory.state_list:
-                #     if s.time_step == time_step:
-                #         state = s
-                #         break
-                # if state is not None:
-                #     pos = state.position
-                #     orientation = state.orientation
                 pos = obst.prediction.trajectory.state_list[time_step].position
                 orientation = obst.prediction.trajectory.state_list[
                     time_step

@@ -18,7 +18,7 @@ from commonroad.planning.planning_problem import PlanningProblem
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner
+from commonroad_rp.reactive_planner import ReactivePlanner, CartesianState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, make_gif
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import helper_functions as hf
@@ -29,7 +29,7 @@ from behavior_planner.behavior_module import BehaviorModule
 
 from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
-from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
+from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType, Obstacle
 
 
 class Agent:
@@ -63,31 +63,52 @@ class Agent:
         # Vehicle shape
         self.shape = Rectangle(config.vehicle.length, config.vehicle.width)
 
-        # Dummy obstacles for the agent:
-        # Containing only the future trajectory, for collision checker and plotting
-        self.ego_obstacle = None
-        # Containing also the past trajectory, for synchronization and prediction
-        self.full_ego_obstacle = None
-
         self.planning_problem = planning_problem
+
+        # Configuration
         self.config = config
         self.log_path = log_path
         self.mod_path = mod_path
 
-        # Initialize Planner
-        self.planner = ReactivePlanner(self.config, scenario, self.planning_problem,
-                                       self.log_path, self.mod_path)
+        # dummy obstacle containing only the future trajectory,
+        # for collision checker and plotting
+        self.ego_obstacle = scenario.obstacle_by_id(self.id)
 
         # Local view on the scenario, with dummy obstacles
         # for all agents except the ego agent
         self.scenario = None
         # initialize scenario: Remove dynamic obstacle for ego vehicle
-        self.set_scenario(scenario)
+        self.scenario = deepcopy(scenario)
+        if self.scenario.obstacle_by_id(self.id) is not None:
+            self.scenario.remove_obstacle(self.scenario.obstacle_by_id(self.id))
+
+        # Initialize Planner
+        self.planner = ReactivePlanner(self.config, self.scenario, self.planning_problem,
+                                       self.log_path, self.mod_path)
 
         # State before the next planning step
         # convert initial state from planning problem to reactive planner (Cartesian) state type
         self.x_0 = self.planner.process_initial_state_from_pp(x0_pp=deepcopy(self.planning_problem.initial_state))
+
+        self.current_timestep = self.x_0.time_step
+        self.max_timestep = int(self.config.general.max_steps * planning_problem.goal.state_list[0].time_step.end)
+
+        # In case of late startup, fill history with empty states
+        for i in range(self.current_timestep):
+            self.record_state_list.append(
+                CartesianState(time_step=i,
+                               position=np.array([float("NaN"), float("NaN")]),
+                               steering_angle=0, velocity=0, orientation=0,
+                               acceleration=0, yaw_rate=0)
+            )
         self.record_state_list.append(self.x_0)
+
+        # Dummy obstacle for the agent,
+        # containing also the past trajectory, for synchronization and prediction
+        full_state_list = deepcopy(self.record_state_list)
+        #full_state_list.extend(self.ego_obstacle.prediction.trajectory.state_list)
+        full_trajectory = Trajectory(full_state_list[0].time_step, full_state_list)
+        self.full_ego_obstacle = self.planner.shift_and_convert_trajectory_to_object(full_trajectory, self.id)
 
         # Curvilinear state, used by the planner
         self.x_cl = None
@@ -129,20 +150,6 @@ class Agent:
         # initialize the prediction network if necessary
         self.predictor = ph.load_prediction(self.scenario, self.config.prediction.mode, config)
 
-        self.current_timestep = self.x_0.time_step
-        self.max_timestep = int(self.config.general.max_steps * planning_problem.goal.state_list[0].time_step.end)
-
-    def set_scenario(self, scenario):
-        """ Set the scenario.
-        Required for updating the other agents after every planning step.
-        :param scenario: The new scenario, will be copied by the agent.
-        """
-        self.scenario = deepcopy(scenario)
-        if self.scenario.obstacle_by_id(self.id) is not None:
-            self.scenario.remove_obstacle(self.scenario.obstacle_by_id(self.id))
-
-        self.planner.set_scenario(self.scenario)
-
     def update_scenario(self, outdated_agents, dummy_obstacles):
         """Update the scenario to synchronize the agents.
         :param outdated_agents: Obstacle IDs of all dummy obstacles that need to be updated
@@ -151,10 +158,10 @@ class Agent:
 
         # Remove outdated obstacles
         for i in outdated_agents:
-            # ego does not have a dummy of itself
-            if i == self.id:
-                continue
-            self.scenario.remove_obstacle(self.scenario.obstacle_by_id(i))
+            # ego does not have a dummy of itself,
+            # joining agents may not yet be in the scenario
+            if self.scenario.obstacle_by_id(i) is not None:
+                self.scenario.remove_obstacle(self.scenario.obstacle_by_id(i))
 
         # Add all dummies except of the ego one
         self.scenario.add_objects(list(filter(lambda obs: not obs.obstacle_id == self.id, dummy_obstacles)))

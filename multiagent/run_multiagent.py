@@ -2,10 +2,6 @@ import os
 # standard imports
 from copy import deepcopy
 
-# third party
-import matplotlib
-matplotlib.use("TKagg")
-
 # commonroad-io
 from commonroad.scenario.state import CustomState
 
@@ -52,6 +48,8 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     agent_id_list = config.multiagent.agent_ids
     # Planning problems for all agents.
     planning_problem_set = PlanningProblemSet()
+    # Dummy obstacles for all agents.
+    initial_obstacle_list = list()
 
 
     ###################################
@@ -62,6 +60,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     # TODO parallelize
     for id in agent_id_list:
         obstacle = scenario.obstacle_by_id(id)
+        initial_obstacle_list.append(obstacle)
         initial_state = obstacle.initial_state
         if not hasattr(initial_state, 'acceleration'):
             initial_state.acceleration = 0.
@@ -94,6 +93,12 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             problem.initial_state)
 
         scenario.add_objects(dummy_obstacle)
+        initial_obstacle_list.append(dummy_obstacle)
+
+    # Remove pending agents from the scenario
+    for obs in initial_obstacle_list:
+        if obs.initial_state.time_step > 0:
+            scenario.remove_obstacle(obs)
 
     # Initialize predictor
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
@@ -107,16 +112,14 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     agent_list = []
     for id in agent_id_list:
         agent_list.append(Agent(id, planning_problem_set.find_planning_problem_by_id(id),
-                          scenario, config, os.path.join(log_path, f"{id}"),
-                          mod_path))
+                                scenario, config, os.path.join(log_path, f"{id}"), mod_path))
 
-    # List of all not yet terminated agents in the simulation
-    running_agent_list = deepcopy(agent_list)
-
-    # List of all started and not yet terminated agents
-    active_agent_list = list(filter(lambda a: a.current_timestep == 0, running_agent_list))
-    # List of all agents that changed in the previous timestep
-    outdated_agent_id_list = list()
+    # List of all not yet started agents
+    pending_agent_list = list(filter(lambda a: a.current_timestep > 0, agent_list))
+    # List of all active agents
+    running_agent_list = list(filter(lambda a: a.current_timestep == 0, agent_list))
+    # IDs of agents that will change during the next simulation step
+    outdated_agent_id_list = [agent.id for agent in running_agent_list]
 
     # **************************
     # Run Planning
@@ -149,16 +152,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         else:
             predictions = None
 
-        active_agent_list = list(filter(lambda a: a.current_timestep == current_timestep, running_agent_list))
-        outdated_agent_id_list = [a.id for a in active_agent_list]
-
         # Step simulation
         # TODO parallelize
         for agent in running_agent_list:
-
-            # Handle agents that join later
-            if agent.current_timestep > current_timestep:
-                continue
 
             print(f"[Simulation] Stepping Agent {agent.id}")
 
@@ -188,6 +184,15 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             # Remove prediction for plotting
             del predictions[agent.id]
 
+        # start pending agents
+        for agent in pending_agent_list:
+            if agent.current_timestep == current_timestep+1:
+                running_agent_list.append(agent)
+                outdated_agent_id_list.append(agent.id)
+                dummy_obstacle_list.append(agent.full_ego_obstacle)
+
+                pending_agent_list.remove(agent)
+
         # Synchronize agents
         for agent in running_agent_list:
             agent.update_scenario(outdated_agent_id_list, dummy_obstacle_list)
@@ -200,14 +205,18 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
         # Plot current frame
         if (config.debug.show_plots or config.debug.save_plots) and len(running_agent_list) > 0:
-            visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in active_agent_list],
+            visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in running_agent_list],
                                              future_obstacle_list, current_timestep, config, log_path,
-                                             traj_set_list=[a.planner.all_traj for a in active_agent_list],
-                                             ref_path_list=[a.planner.reference_path for a in active_agent_list],
+                                             traj_set_list=[a.planner.all_traj for a in running_agent_list],
+                                             ref_path_list=[a.planner.reference_path for a in running_agent_list],
                                              predictions=predictions,
                                              plot_window=config.debug.plot_window_dyn)
 
         scenario.add_objects(dummy_obstacle_list)
+
+        # remove terminated agents from outdated agents list
+        for agent in terminated_agent_list:
+            outdated_agent_id_list.remove(agent.id)
 
         current_timestep += 1
         running = len(running_agent_list) > 0
