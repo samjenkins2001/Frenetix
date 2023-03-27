@@ -189,8 +189,8 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
                 terminated_agent_list.append(agent)
             else:
                 # save dummy obstacle
-                dummy_obstacle_list.append(deepcopy(dummy_obstacle))
-                future_obstacle_list.append(deepcopy(future_obstacle))
+                dummy_obstacle_list.append(dummy_obstacle)
+                future_obstacle_list.append(future_obstacle)
 
         # STOP TIMER
         step_time_end = time.time()
