@@ -1,4 +1,5 @@
 import os
+import time
 # standard imports
 from copy import deepcopy
 
@@ -19,6 +20,7 @@ from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 
 from multiagent.agent import Agent
+from multiagent.multiagent_logging import *
 
 import commonroad_rp.prediction_helpers as ph
 
@@ -95,6 +97,12 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         scenario.add_objects(dummy_obstacle)
         initial_obstacle_list.append(dummy_obstacle)
 
+    # Return values of the last agent step
+    agent_state_dict = dict()
+    for id in agent_id_list:
+        agent_state_dict[id] = -1
+
+
     # Remove pending agents from the scenario
     for obs in initial_obstacle_list:
         if obs.initial_state.time_step > 0:
@@ -126,6 +134,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     # **************************
 
     # Step simulation as long as some agents have not completed
+    init_log(log_path)
 
     current_timestep = 0
 
@@ -152,6 +161,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         else:
             predictions = None
 
+        # START TIMER
+        step_time_start = time.time()
+
         # Step simulation
         # TODO parallelize
         for agent in running_agent_list:
@@ -160,6 +172,8 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
             # Simulate.
             status, dummy_obstacle, future_obstacle = agent.step_agent(predictions)
+
+            agent_state_dict[agent.id] = status
 
             msg = ""
             if status > 0:
@@ -178,6 +192,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
                 dummy_obstacle_list.append(deepcopy(dummy_obstacle))
                 future_obstacle_list.append(deepcopy(future_obstacle))
 
+        # STOP TIMER
+        step_time_end = time.time()
+
         # Terminate agents
         for agent in terminated_agent_list:
             running_agent_list.remove(agent)
@@ -193,6 +210,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
                 pending_agent_list.remove(agent)
 
+        # START TIMER
+        sync_time_start = time.time()
+
         # Synchronize agents
         for agent in running_agent_list:
             agent.update_scenario(outdated_agent_id_list, dummy_obstacle_list)
@@ -202,6 +222,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             # manage agents that are not yet active
             if scenario.obstacle_by_id(id) is not None:
                 scenario.remove_obstacle(scenario.obstacle_by_id(id))
+
+        # STOP TIMER
+        sync_time_end = time.time()
 
         # Plot current frame
         if (config.debug.show_plots or config.debug.save_plots) and len(running_agent_list) > 0:
@@ -217,6 +240,10 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         # remove terminated agents from outdated agents list
         for agent in terminated_agent_list:
             outdated_agent_id_list.remove(agent.id)
+
+        append_log(log_path, current_timestep, current_timestep * scenario.dt,
+                   step_time_end-step_time_start, sync_time_end-sync_time_start,
+                   agent_id_list, [agent_state_dict[id] for id in agent_id_list])
 
         current_timestep += 1
         running = len(running_agent_list) > 0
