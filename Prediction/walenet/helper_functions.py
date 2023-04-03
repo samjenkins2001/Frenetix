@@ -31,7 +31,6 @@ from commonroad_helper_functions.sensor_model import (
 )
 from shapely.geometry import Point, Polygon
 from shapely.ops import unary_union
-from numba import njit
 from typing import Any, List
 
 
@@ -110,7 +109,6 @@ def print_planning_problem(
         )
 
 
-@njit
 def distance(pos1: np.array, pos2: np.array):
     """
     Return the euclidean distance between 2 points.
