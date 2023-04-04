@@ -26,9 +26,9 @@ setup(
     python_requires='>=3.10',
     install_requires=[
         'commonroad_vehicle_models>=3.0.2',
-        'matplotlib==3.7.1',
+        'matplotlib>=3.7.1',
         'networkx>=2.6',
-        'numpy==1.24.2',
+        'numpy>=1.24.2',
         'methodtools',
         'omegaconf>=2.1.1',
         'pytest>=6.2.5',

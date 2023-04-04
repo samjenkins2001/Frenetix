@@ -16,6 +16,7 @@ class Configuration:
     """
     def __init__(self, config: Union[ListConfig, DictConfig]):
         # initialize subclasses
+        self.multiagent: MultiagentConfiguration = MultiagentConfiguration(config.multiagent)
         self.planning: PlanningConfiguration = PlanningConfiguration(config.planning)
         self.prediction: PredictionConfiguration = PredictionConfiguration(config.prediction)
         self.vehicle: VehicleConfiguration = VehicleConfiguration(config.vehicle)
@@ -25,6 +26,13 @@ class Configuration:
         self.cost: CostConfiguration = CostConfiguration(config.cost)
         self.occlusion: OcclusionModuleConfiguration = OcclusionModuleConfiguration(config.occlusion)
 
+class MultiagentConfiguration:
+    """Class to store additional configurations for multiagent simulations"""
+    def __init__(self, config: Union[ListConfig, DictConfig]):
+        self.agent_ids = config.agent_ids
+        self.show_individual_plots = config.show_individual_plots
+        self.save_individual_plots= config.save_individual_plots
+        self.save_individual_gifs = config.save_individual_gifs
 
 class PlanningConfiguration:
     """Class to store all planning configurations"""

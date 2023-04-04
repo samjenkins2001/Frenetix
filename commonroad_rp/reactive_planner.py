@@ -220,6 +220,11 @@ class ReactivePlanner(object):
         """Number of kinematically infeasible trajectories"""
         return self._infeasible_count_kinematics
 
+    def set_scenario(self, scenario: Scenario):
+        """Update the scenario to synchronize between agents"""
+        self.scenario = scenario
+        self.set_collision_checker(scenario)
+
     def set_collision_checker(self, scenario: Scenario = None, collision_checker: pycrcc.CollisionChecker = None):
         """
         Sets the collision checker used by the planner using either of the two options:
@@ -1121,10 +1126,11 @@ class ReactivePlanner(object):
         else:
             return None, trajectory_bundle._cluster
 
-    def shift_and_convert_trajectory_to_object(self, trajectory: Trajectory):
+    def shift_and_convert_trajectory_to_object(self, trajectory: Trajectory, obstacle_id: int = 42):
         """
         Converts a CR trajectory to a CR dynamic obstacle with given dimensions
         :param trajectory: The trajectory of the vehicle
+        :param obstacle_id: The id assigned to the DynamicObstacle. Default: 42
         :return: CR dynamic obstacles representing the ego vehicle
         """
         # shift trajectory positions to center
@@ -1138,7 +1144,7 @@ class ReactivePlanner(object):
         shape = Rectangle(self.vehicle_params.length, self.vehicle_params.width)
         # get trajectory prediction
         prediction = TrajectoryPrediction(new_trajectory, shape)
-        return DynamicObstacle(42, ObstacleType.CAR, shape, new_trajectory.state_list[0], prediction)
+        return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, new_trajectory.state_list[0], prediction)
 
     @staticmethod
     def shift_orientation(trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
