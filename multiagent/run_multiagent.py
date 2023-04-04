@@ -53,13 +53,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     # Dummy obstacles for all agents.
     initial_obstacle_list = list()
 
-
     ###################################
     #   Initialize PlanningProblems   #
     ###################################
-
-    # Create missing planning problems for additional agents
-    # TODO parallelize
     for id in agent_id_list:
         obstacle = scenario.obstacle_by_id(id)
         initial_obstacle_list.append(obstacle)
@@ -78,7 +74,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         problem = PlanningProblem(id, initial_state, GoalRegion(list([goal_state])))
         planning_problem_set.add_planning_problem(problem)
 
-    # Add original ego vehicles to the simulation and the scenario.
+    ###########################################
+    #   Initialize PlanningProblems of Original   #
+    ###########################################
     for problem in original_planning_problem_set.planning_problem_dict.values():
         id = problem.planning_problem_id
         agent_id_list.append(id)
@@ -102,21 +100,19 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     for id in agent_id_list:
         agent_state_dict[id] = -1
 
-
     # Remove pending agents from the scenario
     for obs in initial_obstacle_list:
         if obs.initial_state.time_step > 0:
             scenario.remove_obstacle(obs)
 
-    # Initialize predictor
+    #########################
+    #   Initialize Prediction   #
+    #########################
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
-
 
     #########################
     #   Initialize Agents   #
     #########################
-
-    # List of all agents in the simulation
     agent_list = []
     for id in agent_id_list:
         agent_list.append(Agent(id, planning_problem_set.find_planning_problem_by_id(id),
