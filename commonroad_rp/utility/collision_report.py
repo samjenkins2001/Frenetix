@@ -150,7 +150,7 @@ def coll_report(ego_vehicle, planner, scenario, planning_problem, collision_repo
     # calculate harm
     ego_harm, obs_harm, ego_obj, obs_obj = harm_model(
         scenario=scenario,
-        ego_vehicle_sc=ego_vehicle,
+        ego_vehicle_sc=ego_vehicle[-1],
         vehicle_params=planner.vehicle_params,
         ego_velocity=ego_vel,
         ego_yaw=ego_yaw,
@@ -168,7 +168,7 @@ def coll_report(ego_vehicle, planner, scenario, planning_problem, collision_repo
     # if collision report should be shown
     collision_vis(
         scenario=scenario,
-        ego_vehicle=ego_vehicle,
+        ego_vehicle=ego_vehicle[-1],
         destination=collision_report_path,
         ego_harm=ego_harm,
         ego_type=ego_obj.type,

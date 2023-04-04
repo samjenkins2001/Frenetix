@@ -35,6 +35,7 @@ def collision_vis(scenario,
 
     Args:
         scenario (Scenario): Considered Scenario.
+        ego_vehicle (DynamicObstacle): Ego obstacle.
         destination (str): Path to save output.
         ego_type (Obstacle): Type of the ego vehicle (usually CAR).
         ego_harm (float): Harm for the ego vehicle.
@@ -76,7 +77,7 @@ def collision_vis(scenario,
     ego_params.vehicle_shape.occupancy.shape.opacity = 1
 
     # set plot limits to show the road section around the ego vehicle
-    position = ego_vehicle[-1].initial_state.position
+    position = ego_vehicle.initial_state.position
     plot_limits = [position[0] - 20,
                    position[0] + 20,
                    position[1] - 20,
