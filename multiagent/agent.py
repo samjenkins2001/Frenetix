@@ -50,6 +50,8 @@ class Agent:
                          (containing planner configuration)
         """
 
+        # List of dummy obstacles for past timesteps
+        self.ego_obstacle_list = list()
         # List of past states
         self.record_state_list = list()
         # List of input states for the planner
@@ -72,7 +74,8 @@ class Agent:
 
         # dummy obstacle containing only the future trajectory,
         # for collision checker and plotting
-        self.ego_obstacle = scenario.obstacle_by_id(self.id)
+
+        self.ego_obstacle_list.append(scenario.obstacle_by_id(self.id))
 
         # Local view on the scenario, with dummy obstacles
         # for all agents except the ego agent
@@ -190,13 +193,13 @@ class Agent:
             return 1, None, None
 
         # Check for collisions in previous timestep
-        if self.current_timestep > 0 and self.ego_obstacle is not None:
-            crash = self.planner.check_collision(self.ego_obstacle)
+        if self.current_timestep > 0 and self.ego_obstacle_list[-1] is not None:
+            crash = self.planner.check_collision(self.ego_obstacle_list[-1])
             if crash:
                 print(f"[Agent {self.id}] Collision Detected!")
                 if self.config.debug.collision_report:
-                    coll_report(self.record_state_list, self.planner, self.current_timestep,
-                                self.scenario, self.ego_obstacle, self.planning_problem, self.log_path)
+                    coll_report(self.ego_obstacle_list, self.planner, self.scenario,
+                                self.planning_problem, self.log_path)
                 self.finalize()
                 return 3, None, None
 
@@ -282,7 +285,9 @@ class Agent:
         # List of planned states, including the current state.
         future_state_list = optimal[0].state_list
         future_trajectory = Trajectory(future_state_list[0].time_step, future_state_list)
-        self.ego_obstacle = self.planner.shift_and_convert_trajectory_to_object(future_trajectory, self.id)
+        self.ego_obstacle_list.append(self.planner.shift_and_convert_trajectory_to_object(
+                future_trajectory, self.id))
+
         #future_prediction = TrajectoryPrediction(future_trajectory, self.shape)
         #self.ego_obstacle = DynamicObstacle(self.id, ObstacleType.CAR, self.shape,
         #                                    future_state_list[0], future_prediction)
@@ -300,7 +305,7 @@ class Agent:
         # plot own view on scenario
         if self.config.multiagent.show_individual_plots or self.config.multiagent.save_individual_plots:
             visualize_planner_at_timestep(scenario=self.scenario, planning_problem=self.planning_problem,
-                                          ego=self.ego_obstacle,
+                                          ego=self.ego_obstacle_list[-1],
                                           traj_set=self.planner.all_traj, ref_path=self.ref_path,
                                           timestep=self.current_timestep,
                                           config=self.config, predictions=predictions,
@@ -310,7 +315,7 @@ class Agent:
                                           log_path=self.log_path, visible_area=visible_area)
 
         self.current_timestep += 1
-        return 0, self.full_ego_obstacle, self.ego_obstacle
+        return 0, self.full_ego_obstacle, self.ego_obstacle_list[-1]
 
     def finalize(self):
         # make gif

@@ -89,7 +89,7 @@ def coll_report(ego_vehicle, planner, scenario, planning_problem, collision_repo
                     print("More than one collision detected")
                     return
 
-    # Collisoin with boundary
+    # Collision with boundary
     if obs_id is None:
         ego_harm = get_protected_inj_prob_log_reg_ignore_angle(
             velocity=ego_vel, coeff=planner.params_harm
