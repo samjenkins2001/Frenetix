@@ -3,5 +3,5 @@ agent_ids: [5]
 
 # Create visualization from the view of every individual agent
 show_individual_plots: False
-save_individual_plots: True
-save_individual_gifs: True
+save_individual_plots: False
+save_individual_gifs: False

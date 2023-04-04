@@ -15,7 +15,7 @@ ruamel.yaml
 pygeos
 imageio
 shapely>=2.0.1
-git+https://gitlab.lrz.de/motionplanning1/wale-net.git@commonroad_2022.3
+git+https://gitlab.lrz.de/motionplanning1/wale-net.git@develop
 git+https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction
 
 

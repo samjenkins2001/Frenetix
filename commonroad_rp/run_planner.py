@@ -1,8 +1,8 @@
-__author__ = "Gerald Würsching"
+__author__ = "Rainer Trauth, Gerald Würsching"
 __copyright__ = "TUM Cyber-Physical Systems Group"
 __version__ = "0.5"
-__maintainer__ = "Gerald Würsching"
-__email__ = "commonroad@lists.lrz.de"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
 import os
@@ -34,14 +34,12 @@ from commonroad_rp.utility.general import load_scenario_and_planning_problem
 import commonroad_rp.prediction_helpers as ph
 from behavior_planner.behavior_module import BehaviorModule
 
+from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
+
 
 def run_planner(config, log_path, mod_path):
 
-    # *************************************
-    # Set Configurations
-    # *************************************
-
-    DT = config.planning.dt            # planning time step
+    DT = config.planning.dt  # planning time step
 
     # *************************************
     # Open CommonRoad scenario
@@ -52,7 +50,6 @@ def run_planner(config, log_path, mod_path):
     # *************************************
     # Init and Goal State
     # *************************************
-    # initial state configuration
     problem_init_state = planning_problem.initial_state
 
     if not hasattr(problem_init_state, 'acceleration'):
@@ -62,20 +59,19 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Run Planning
     # **************************
-    # initialize lists to store states and inputs
     record_state_list = list()
     record_input_list = list()
+    ego_vehicle = list()
+
     x_cl = None
     current_count = 0
     planning_times = list()
-    ego_vehicle = None
 
     # *************************************
-    # Initialize Planner
+    # Initialize Reactive Planner
     # *************************************
-
-    # initialize reactive planner
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
+
     # convert initial state from planning problem to reactive planner (Cartesian) state type
     x_0 = planner.process_initial_state_from_pp(x0_pp=x_0)
     record_state_list.append(x_0)
@@ -86,7 +82,9 @@ def run_planner(config, log_path, mod_path):
         time_step=x_0.time_step,
         steering_angle_speed=0.))
 
-    # initialize route planner and set reference path
+    # *************************************
+    # Load Behavior Planner
+    # *************************************
     use_behavior_planner = False
     if not use_behavior_planner:
         if hasattr(planning_problem.goal.state_list[0], 'velocity'):
@@ -99,10 +97,6 @@ def run_planner(config, log_path, mod_path):
         # ref_path = extrapolate_ref_path(ref_path)
         planner.set_reference_path(ref_path)
     else:
-        # *************************************
-        # Load Behavior Planner
-        # *************************************
-
         behavior_modul = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
                                         init_sc_path=config.general.path_scenario,
                                         init_ego_state=x_0,
@@ -115,37 +109,51 @@ def run_planner(config, log_path, mod_path):
     planner.set_goal_area(goal_area)
     planner.set_planning_problem(planning_problem)
 
-    # set cost function
+    # **************************
+    # Set Cost Function
+    # **************************
     cost_function = AdaptableCostFunction(rp=planner, configuration=config)
     planner.set_cost_function(cost_function)
 
-    # initialize the prediction network if necessary
+    # **************************
+    # Load Prediction
+    # **************************
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
 
-    new_state = None
+    # **************************
+    # Initialize Occlusion Module
+    # **************************
+    if config.occlusion.use_occlusion_module:
+        occlusion_module = OcclusionModule(scenario, config, ref_path, log_path)
+        planner.set_occlusion_module(occ_module=occlusion_module)
+    else:
+        occlusion_module = None
+
+    # **************************
+    # Run Planner Cycle
+    # **************************
     max_time_steps_scenario = int(config.general.max_steps*planning_problem.goal.state_list[0].time_step.end)
-    # Run planner
     while not planner.goal_status and current_count < max_time_steps_scenario:
 
         current_count = x_0.time_step
 
-        # new planning cycle -> plan a new optimal trajectory
-
-        # START TIMER
-        comp_time_start = time.time()
-
-        # get visible objects if the prediction is used
+        # **************************
+        # Cycle Prediction
+        # **************************
         if config.prediction.mode:
-            predictions, visible_area = ph.step_prediction(scenario, predictor, config, x_0)
+            predictions, visible_area = ph.step_prediction(scenario, predictor, config, x_0, occlusion_module)
         else:
             predictions = None
             visible_area = None
+
+        # **************************
+        # Cycle Behavior Planner
+        # **************************
         if not use_behavior_planner:
             # set desired velocity
             desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
             planner.set_desired_velocity(desired_velocity, x_0.velocity)
         else:
-            """-----------------------------------------Testing:---------------------------------------------"""
             behavior_comp_time1 = time.time()
             behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
 
@@ -155,11 +163,20 @@ def run_planner(config, log_path, mod_path):
             behavior_comp_time2 = time.time()
             print("\n***Behavior Planning Time: \n", behavior_comp_time2 - behavior_comp_time1)
 
-            """----------------------------------------Testing:---------------------------------------------"""
-        # plan trajectory
+        # **************************
+        # Cycle Occlusion Module
+        # **************************
+        if config.occlusion.use_occlusion_module and (current_count == 0 or current_count % 1 == 0):
+            occlusion_map = occlusion_module.step()
+        else:
+            occlusion_map = None
+
+        # **************************
+        # Execute Planner
+        # **************************
+        comp_time_start = time.time()
         optimal = planner.plan(x_0, predictions, x_cl)  # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
-        # END TIMER
 
         # if the planner fails to find an optimal trajectory -> terminate
         if not optimal:
@@ -192,33 +209,44 @@ def run_planner(config, log_path, mod_path):
         x_cl = (optimal[2][1], optimal[3][1])
 
         # create CommonRoad Obstacle for the ego Vehicle
-        ego_vehicle = planner.shift_and_convert_trajectory_to_object(optimal[0])
+        ego_vehicle.append(planner.shift_and_convert_trajectory_to_object(optimal[0]))
 
         print(f"current time step: {current_count}")
-        # draw scenario + planning solution
+
+        # **************************
+        # Visualize Scenario
+        # **************************
         if config.debug.show_plots or config.debug.save_plots:
-            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle,
+            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle[-1],
                                           traj_set=planner.all_traj, ref_path=ref_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
                                           cluster=cost_function.cluster_prediction.cluster_assignments[-1]
                                                   if cost_function.cluster_prediction is not None else None,
-                                          log_path=log_path, visible_area=visible_area)
+                                          log_path=log_path, visible_area=visible_area, occlusion_map=occlusion_map)
 
-        if current_count > 0:
-            crash = planner.check_collision(ego_vehicle)
-            if crash:
-                print("Collision Detected!")
-                if config.debug.collision_report:
-                    coll_report(record_state_list, planner, current_count, scenario, ego_vehicle, planning_problem,
-                                log_path)
-                break
+        # **************************
+        # Check Collision
+        # **************************
+        crash = planner.check_collision(ego_vehicle[-1])
+        if crash:
+            print("Collision Detected!")
+            if config.debug.collision_report and current_count > 0:
+                coll_report(ego_vehicle, planner, scenario, planning_problem,
+                            log_path)
+            break
 
-        # Check if Goal is reached:
+        # **************************
+        # Check Goal Status
+        # **************************
         planner.check_goal_reached()
 
+    # **************************
+    # End of Cycle
+    # **************************
     print(planner.goal_message)
-    print("\n\n", planner.full_goal_status)
+    if planner.full_goal_status:
+        print("\n", planner.full_goal_status)
     if not planner.goal_status and current_count >= max_time_steps_scenario:
         print("Scenario Aborted! Maximum Time Step Reached!")
 
@@ -235,7 +263,6 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Evaluate results
     # **************************
-
     if config.debug.evaluation:
         from commonroad.common.solution import CommonRoadSolutionWriter
         from commonroad_dc.feasibility.solution_checker import valid_solution

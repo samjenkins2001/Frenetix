@@ -18,12 +18,12 @@ from risk_assessment.visualization.collision_visualization import (
 )
 
 
-def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, planning_problem, collision_report_path):
+def coll_report(ego_vehicle, planner, scenario, planning_problem, collision_report_path):
     # check if the current state is collision-free
     vel_list = []
     # get ego position and orientation
     try:
-        ego_pos = record_state_list[-1].position
+        ego_pos = ego_vehicle[-1].initial_state.position
         # ego_pos = (
         #     self.scenario.obstacle_by_id(obstacle_id=agent.agent_id)
         #     .occupancy_at_time(time_step=time_step)
@@ -42,13 +42,13 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
         axis=2,
     )
 
-    if time_step == 0:
-        ego_vel = record_state_list[-1].velocity
-        ego_yaw = record_state_list[-1].orientation
+    if ego_vehicle[-1].initial_state.time_step == 0:
+        ego_vel = ego_vehicle[-1].initial_state.velocity
+        ego_yaw = ego_vehicle[-1].initial_state.orientation
 
         vel_list.append(ego_vel)
     else:
-        ego_pos_last = record_state_list[-2].position
+        ego_pos_last = ego_vehicle[-2].initial_state.position
 
         delta_ego_pos = ego_pos - ego_pos_last
 
@@ -68,7 +68,7 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
         ],
         box_length= planner.vehicle_params.length / 2,
         box_width=planner.vehicle_params.width / 2,
-        start_time_step=time_step,
+        start_time_step=ego_vehicle[-1].initial_state.time_step,
     )
 
     # Add road boundary to collision checker
@@ -82,7 +82,7 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
     for obs in scenario.obstacles:
         co = create_collision_object(obs)
         if current_state_collision_object.collide(co):
-            if obs.obstacle_id != ego_vehicle.obstacle_id:
+            if obs.obstacle_id != ego_vehicle[-1].obstacle_id:
                 if obs_id is None:
                     obs_id = obs.obstacle_id
                 else:
@@ -102,12 +102,12 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
     # get information of colliding obstace
     obs_pos = (
         scenario.obstacle_by_id(obstacle_id=obs_id)
-        .occupancy_at_time(time_step=time_step)
+        .occupancy_at_time(time_step=ego_vehicle[-1].initial_state.time_step)
         .shape.center
     )
     obs_pos_last = (
         scenario.obstacle_by_id(obstacle_id=obs_id)
-        .occupancy_at_time(time_step=time_step - 1)
+        .occupancy_at_time(time_step=ego_vehicle[-1].initial_state.time_step - 1)
         .shape.center
     )
     obs_size = (
@@ -116,7 +116,7 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
     )
 
     # filter initial collisions
-    if time_step < 1:
+    if ego_vehicle[-1].initial_state.time_step < 1:
         print("Collision at initial state")
         return
     if (
@@ -168,7 +168,6 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
     # if collision report should be shown
     collision_vis(
         scenario=scenario,
-        record_state_list=record_state_list,
         ego_vehicle=ego_vehicle,
         destination=collision_report_path,
         ego_harm=ego_harm,
@@ -182,9 +181,9 @@ def coll_report(record_state_list, planner, time_step, scenario, ego_vehicle, pl
         pdof=pdof,
         ego_angle=ego_angle,
         obs_angle=obs_angle,
-        time_step=time_step,
+        time_step=ego_vehicle[-1].initial_state.time_step,
         modes=planner.params_risk,
-        marked_vehicle=ego_vehicle.obstacle_id,
+        marked_vehicle=ego_vehicle[-1].obstacle_id,
         planning_problem=planning_problem,
         global_path=None,
         driven_traj=None,

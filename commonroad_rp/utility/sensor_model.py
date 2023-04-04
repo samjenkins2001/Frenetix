@@ -7,17 +7,14 @@ Author: Maximilian Geisslinger <maximilian.geisslinger@tum.de>
 # Standard imports
 import os
 
-# Thrird-party imports
+# Third-party imports
 import numpy as np
 from commonroad.common.file_reader import CommonRoadFileReader
 from shapely.geometry import Point, Polygon
-import shapely
 import commonroad_rp.utility.helper_functions as hf
 
 
-def get_visible_objects(
-    scenario, time_step, ego_pos, ego_state, ego_id=42, sensor_radius=50, occlusions=True, wall_buffer=0.0
-):
+def get_visible_objects(scenario, time_step, ego_pos, sensor_radius=50, occlusions=True, wall_buffer=0.0):
     """This function simulates a sensor model of a camera/lidar sensor.
 
     It returns the visible objects and the visible area.
@@ -64,10 +61,9 @@ def get_visible_objects(
 
     # Substract areas that can not be seen due to geometry
     if visible_area.geom_type == 'MultiPolygon':
-        allparts = [p.buffer(0) for p in visible_area.geometry]
-        visible_area.geometry = shapely.ops.cascaded_union(allparts)
-
-    points_vis_area = np.array(visible_area.exterior.xy).T
+        points_vis_area = np.concatenate([np.array(p.exterior.xy).T for p in visible_area.geoms])
+    else:
+        points_vis_area = np.array(visible_area.exterior.xy).T
 
     for idx in range(points_vis_area.shape[0] - 1):
         vert_point1 = points_vis_area[idx]
@@ -96,13 +92,14 @@ def get_visible_objects(
                 continue
 
             pos_point = Point(pos)
+            # Calculate corner points in world coordinates
+            corner_points = _calc_corner_points(pos, orientation, obst.obstacle_shape)
+            # Create polygon from corner points
+            obst_shape = Polygon(corner_points)
+
             # check if within sensor radius
-            if pos_point.within(visible_area):
-                # Substract occlusions from dynamic obstacles
-                # Calculate corner points in world coordinates
-                corner_points = _calc_corner_points(
-                    pos, orientation, obst.obstacle_shape
-                )
+            if pos_point.within(visible_area) or obst_shape.intersects(visible_area):
+                # Subtract occlusions from dynamic obstacles
 
                 # Identify points for geometric projection
                 r1, r2 = _identify_projection_points(corner_points, ego_pos)
@@ -113,7 +110,10 @@ def get_visible_objects(
 
                 occlusion = Polygon([r1, r2, r3, r4])
 
-                # Substract occlusion from visible area
+                # Subtract obstacle shape from visible area
+                visible_area = visible_area.difference(obst_shape)
+
+                # Subtract occlusion caused by obstacle (everything behind obstacle) from visible area
                 if occlusion.is_valid:
                     visible_area = visible_area.difference(occlusion)
 
@@ -136,9 +136,9 @@ def get_visible_objects(
             continue
 
         corner_points = _calc_corner_points(pos, orientation, obst.obstacle_shape)
-        dyn_obst_shape = Polygon(corner_points)
+        obst_shape = Polygon(corner_points)
 
-        if dyn_obst_shape.intersects(visible_area):
+        if obst_shape.intersects(visible_area):
             visible_object_ids.append(obst.obstacle_id)
 
     # # Add static obstacles

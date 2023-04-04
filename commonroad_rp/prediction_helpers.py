@@ -34,9 +34,9 @@ def load_prediction(scenario, mode, config):
     return predictor
 
 
-def step_prediction(scenario, predictor, config, ego_state, ego_id = 42):
+def step_prediction(scenario, predictor, config, ego_state, occlusion_module=None, ego_id=42):
     if config.prediction.mode:
-        visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config, ego_id=ego_id)
+        visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config, occlusion_module, ego_id=ego_id)
     else:
         visible_obstacles = None
         visible_area = None
@@ -45,7 +45,7 @@ def step_prediction(scenario, predictor, config, ego_state, ego_id = 42):
         predictions = main_prediction(predictor, scenario, visible_obstacles, ego_state, scenario.dt,
                                          [float(config.planning.planning_horizon)])
 
-    elif config.prediction.mode== "lanebased":
+    elif config.prediction.mode == "lanebased":
         predictions = predictor.main_prediction(ego_state, config.prediction.sensor_radius,
                                                 [float(config.planning.planning_horizon)])
     else:
@@ -332,17 +332,19 @@ def get_ground_truth_prediction(
     return prediction_result
 
 
-def prediction_preprocessing(scenario, ego_state, config, ego_id = 42):
+def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None, ego_id=42):
     if config.prediction.calc_visible_area:
         try:
-            visible_obstacles, visible_area = get_visible_objects(
-                scenario=scenario,
-                ego_pos=ego_state.position,
-                time_step=ego_state.time_step,
-                sensor_radius=config.prediction.sensor_radius,
-                ego_state=ego_state,
-                ego_id=ego_id,
-            )
+            if config.occlusion.use_occlusion_module:
+                visible_obstacles, visible_area = occlusion_module.vis_module.get_visible_area_and_objects(ego_state=ego_state)
+            else:
+                visible_obstacles, visible_area = get_visible_objects(
+                    scenario=scenario,
+                    time_step=ego_state.time_step,
+                    ego_pos=ego_state.position,
+                    ego_id=ego_id,
+                    sensor_radius=config.prediction.sensor_radius
+                )
             return visible_obstacles, visible_area
         except:
             print("Could not calculate visible area!")

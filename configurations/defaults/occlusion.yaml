@@ -1,0 +1,19 @@
+use_occlusion_module: False
+scope: 30 # "sensor_radius" uses sensor radius from prediction or custom number
+
+# visibility estimation
+visibility_estimation: True
+
+# trajectory evaluation
+trajectory_eval: True
+
+# phantom pedestrians
+use_phantom_ped: True
+
+# show/save occlusion debug plots
+show_occlusion_plot: True
+interactive_plot: True # works on Mac only when debug mode is used
+plot_backend: "TkAgg" # Qt5Agg or TkAgg
+save_plot: True
+use_fast_plot: False # only calculated areas are shown, not the discretized dots
+plot_window_dyn: 40 # plot vehicle position with x_y distance in meters

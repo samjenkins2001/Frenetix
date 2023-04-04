@@ -24,6 +24,7 @@ class Configuration:
         self.debug: DebugConfiguration = DebugConfiguration(config.debug)
         self.general: GeneralConfiguration = GeneralConfiguration(config.general)
         self.cost: CostConfiguration = CostConfiguration(config.cost)
+        self.occlusion: OcclusionModuleConfiguration = OcclusionModuleConfiguration(config.occlusion)
 
 class MultiagentConfiguration:
     """Class to store additional configurations for multiagent simulations"""
@@ -137,3 +138,19 @@ class GeneralConfiguration:
 class CostConfiguration:
     def __init__(self, config: Union[ListConfig, DictConfig]):
         self.params = config.params
+
+
+class OcclusionModuleConfiguration:
+    """Class to store all occlusion configurations"""
+    def __init__(self, config: Union[ListConfig, DictConfig]):
+        self.use_occlusion_module = config.use_occlusion_module
+        self.scope = config.scope
+        self.visibility_estimation = config.visibility_estimation
+        self.trajectory_eval = config.trajectory_eval
+        self.use_phantom_ped = config.use_phantom_ped
+        self.show_occlusion_plot = config.show_occlusion_plot
+        self.save_plot = config.save_plot
+        self.interactive_plot = config.interactive_plot
+        self.plot_backend = config.plot_backend
+        self.use_fast_plot = config.use_fast_plot
+        self.plot_window_dyn = config.plot_window_dyn

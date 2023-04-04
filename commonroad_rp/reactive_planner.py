@@ -1,9 +1,9 @@
-__author__ = "Gerald Würsching, Christian Pek"
+__author__ = "Rainer Trauth, Gerald Würsching, Christian Pek"
 __copyright__ = "TUM Cyber-Physical Systems Group"
 __credits__ = ["BMW Group CAR@TUM, interACT"]
 __version__ = "0.5"
-__maintainer__ = "Gerald Würsching"
-__email__ = "gerald.wuersching@tum.de"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
 # python packages
@@ -127,6 +127,8 @@ class ReactivePlanner(object):
         self.log_risk = config.debug.log_risk
         self.save_all_traj = config.debug.save_all_traj
         self.all_traj = None
+        self.use_occ_model = config.occlusion.use_occlusion_module
+
         # self.save_unweighted_costs = config.debug.save_unweighted_costs
 
         if config.prediction.mode:
@@ -284,6 +286,9 @@ class ReactivePlanner(object):
         :param planning_problem: PlanningProblem
         """
         self.goal_area = goal_area
+
+    def set_occlusion_module(self, occ_module):
+        self.occlusion_module = occ_module
 
     def set_planning_problem(self, planning_problem):
         """
@@ -611,6 +616,9 @@ class ReactivePlanner(object):
             self.logger.trajectory_number = x_0.time_step
 
             optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, predictions, i)
+
+            if self.use_occ_model:
+                self.occlusion_module.occ_plot.plot_trajectories(optimal_trajectory, 'c')
 
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
@@ -1040,6 +1048,10 @@ class ReactivePlanner(object):
             # without multiprocessing
             feasible_trajectories, infeasible_trajectories, infeasible_count_kinematics = self._check_kinematics(trajectory_bundle.trajectories)
 
+        if self.use_occ_model and feasible_trajectories:
+            self.occlusion_module.occ_visibility_estimator.evaluate_trajectories(feasible_trajectories, predictions)
+            self.occlusion_module.occ_trajectory_evaluator.evaluate_trajectories(feasible_trajectories)
+
         if self.debug_mode >= 2:
             print('<ReactivePlanner>: Kinematic check of %s trajectories done' % len(trajectory_bundle.trajectories))
 
@@ -1054,7 +1066,7 @@ class ReactivePlanner(object):
             trajectory_bundle.trajectories = feasible_trajectories + infeasible_trajectories
             trajectory_bundle.sort()
             self.all_traj = trajectory_bundle.trajectories
-            trajectory_bundle.trajectories = [x for x in trajectory_bundle.trajectories if x.valid == True]
+            trajectory_bundle.trajectories = [x for x in trajectory_bundle.trajectories if x.valid is True]
         else:
             # set feasible trajectories in bundle
             trajectory_bundle.trajectories = feasible_trajectories
@@ -1167,7 +1179,7 @@ class ReactivePlanner(object):
 
     def check_collision(self, ego_vehicle):
 
-        ego = pycrcc.TimeVariantCollisionObject(self.x_0.time_step * self._factor)
+        ego = pycrcc.TimeVariantCollisionObject((self.x_0.time_step - 1) * self._factor)
         ego.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
                                             ego_vehicle.initial_state.orientation,
                                             ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
@@ -1191,7 +1203,7 @@ class ReactivePlanner(object):
                     s_current, d_current = self._co.convert_to_curvilinear_coords(self.x_0.position[0], self.x_0.position[1])
                     progress = ((s_current - s_start) / (s_goal - s_start))
                 elif "time_step" in self.goal_checker.goal.state_list[0].attributes:
-                    progress = (self.x_0.time_step / self.goal_checker.goal.state_list[0].time_step.end)
+                    progress = ((self.x_0.time_step -1) / self.goal_checker.goal.state_list[0].time_step.end)
                 else:
                     print('Could not calculate progress')
                     progress = None
@@ -1201,9 +1213,9 @@ class ReactivePlanner(object):
 
             collision_obj = self.collision_checker.find_all_colliding_objects(ego)[0]
             if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
-                obj = collision_obj.obstacle_at_time(self.x_0.time_step)
+                obj = collision_obj.obstacle_at_time((self.x_0.time_step -1))
                 center = obj.center()
-                last_center = collision_obj.obstacle_at_time(self.x_0.time_step-1).center()
+                last_center = collision_obj.obstacle_at_time(self.x_0.time_step-2).center()
                 r_x = obj.r_x()
                 r_y = obj.r_y()
                 orientation = obj.orientation()
