@@ -13,6 +13,7 @@ import os
 # third party
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import imageio
 
@@ -79,7 +80,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
                                   timestep: int, config: Configuration, log_path: str,
                                   traj_set: List[TrajectorySample] = None, ref_path: np.ndarray = None,
                                   rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
-                                  visible_area=None, cluster=None):
+                                  visible_area=None, cluster=None, occlusion_map=None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -148,6 +149,14 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
             for obj in visible_area.geoms:
                 if obj.geom_type == "Polygon":
                     rnd.ax.fill(*obj.exterior.xy, "g", alpha=0.2, zorder=10)
+
+    # draw occlusion map - first version
+    if occlusion_map is not None:
+        cmap = LinearSegmentedColormap.from_list('rg', ["r", "y", "g"], N=10)
+        scatter = rnd.ax.scatter(occlusion_map[:, 1], occlusion_map[:, 2], c=occlusion_map[:, 4], cmap=cmap, zorder=25, s=5)
+        handles, labels = scatter.legend_elements(prop="colors", alpha=0.6)
+        rnd.ax.legend(handles, labels, loc="upper right", title="Occlusion")
+
 
     # visualize sampled trajectory bundle
     step = 1  # draw every trajectory (step=2 would draw every second trajectory)
