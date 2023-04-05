@@ -31,6 +31,8 @@ from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType, Obstacle
 
+from multiagent.multiagent_helpers import check_collision
+
 
 class Agent:
     """ Adapted from commonroad_rp/run_planner.py
@@ -52,6 +54,8 @@ class Agent:
 
         # List of dummy obstacles for past timesteps
         self.ego_obstacle_list = list()
+        # List of dummy obstacles for past timesteps
+        self.full_ego_obstacle_list = list()
         # List of past states
         self.record_state_list = list()
         # List of input states for the planner
@@ -111,7 +115,7 @@ class Agent:
         full_state_list = deepcopy(self.record_state_list)
         #full_state_list.extend(self.ego_obstacle.prediction.trajectory.state_list)
         full_trajectory = Trajectory(full_state_list[0].time_step, full_state_list)
-        self.full_ego_obstacle = self.planner.shift_and_convert_trajectory_to_object(full_trajectory, self.id)
+        self.full_ego_obstacle_list.append(self.planner.shift_and_convert_trajectory_to_object(full_trajectory, self.id))
 
         # Curvilinear state, used by the planner
         self.x_cl = None
@@ -194,8 +198,9 @@ class Agent:
 
         # Check for collisions in previous timestep
         if self.current_timestep > 0 and self.ego_obstacle_list[-1] is not None:
-            crash = self.planner.check_collision(self.ego_obstacle_list[-1])
+            crash = check_collision(self.planner, self.ego_obstacle_list[-1])
             if crash:
+                crash = check_collision(self.planner, self.ego_obstacle_list[-1])
                 print(f"[Agent {self.id}] Collision Detected!")
                 if self.config.debug.collision_report:
                     coll_report(self.ego_obstacle_list, self.planner, self.scenario,
@@ -297,7 +302,7 @@ class Agent:
         full_state_list = deepcopy(self.record_state_list)
         full_state_list.extend(future_state_list[2:])
         full_trajectory = Trajectory(full_state_list[0].time_step, full_state_list)
-        self.full_ego_obstacle = self.planner.shift_and_convert_trajectory_to_object(full_trajectory, self.id)
+        self.full_ego_obstacle_list.append(self.planner.shift_and_convert_trajectory_to_object(full_trajectory, self.id))
         #full_prediction = TrajectoryPrediction(full_trajectory, self.shape)
         #self.full_ego_obstacle = DynamicObstacle(self.id, ObstacleType.CAR, self.shape,
         #                                         full_state_list[0], full_prediction)
@@ -315,7 +320,7 @@ class Agent:
                                           log_path=self.log_path, visible_area=visible_area)
 
         self.current_timestep += 1
-        return 0, self.full_ego_obstacle, self.ego_obstacle_list[-1]
+        return 0, self.full_ego_obstacle_list[-1], self.ego_obstacle_list[-1]
 
     def finalize(self):
         # make gif
