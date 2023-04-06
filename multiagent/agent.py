@@ -197,10 +197,10 @@ class Agent:
             return 1, None, None
 
         # Check for collisions in previous timestep
-        if self.current_timestep > 0 and self.ego_obstacle_list[-1] is not None:
-            crash = check_collision(self.planner, self.ego_obstacle_list[-1])
+        if self.current_timestep > 1 and self.full_ego_obstacle_list[-1] is not None:
+            crash = check_collision(self.planner, self.full_ego_obstacle_list[-1], self.current_timestep-1)
             if crash:
-                crash = check_collision(self.planner, self.ego_obstacle_list[-1])
+                crash = check_collision(self.planner, self.full_ego_obstacle_list[-1], self.current_timestep-1)
                 print(f"[Agent {self.id}] Collision Detected!")
                 if self.config.debug.collision_report:
                     coll_report(self.ego_obstacle_list, self.planner, self.scenario,

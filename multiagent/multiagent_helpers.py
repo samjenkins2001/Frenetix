@@ -32,7 +32,7 @@ lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
                "#7069ff", "#a369ff", "#d569ff", "#ff69f8", "#ff69c5"]
 
 
-def check_collision(planner: ReactivePlanner, ego_vehicle: DynamicObstacle):
+def check_collision(planner: ReactivePlanner, ego_vehicle: DynamicObstacle, timestep: int):
     """Replaces ReactivePlanner.check_collision().
 
     The modifications allow checking for collisions
@@ -43,10 +43,11 @@ def check_collision(planner: ReactivePlanner, ego_vehicle: DynamicObstacle):
     :param ego_vehicle: The ego obstacle.
     """
 
-    ego = pycrcc.TimeVariantCollisionObject((planner.x_0.time_step+1) * planner._factor)
+    ego = pycrcc.TimeVariantCollisionObject(timestep)
     ego.append_obstacle(pycrcc.RectOBB(0.5 * planner.vehicle_params.length, 0.5 * planner.vehicle_params.width,
-                                        ego_vehicle.initial_state.orientation,
-                                        ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
+                                       ego_vehicle.state_at_time(timestep).orientation,
+                                       ego_vehicle.state_at_time(timestep).position[0],
+                                       ego_vehicle.state_at_time(timestep).position[1]))
 
     if not planner.collision_checker.collide(ego):
         return False
@@ -64,10 +65,12 @@ def check_collision(planner: ReactivePlanner, ego_vehicle: DynamicObstacle):
                 s_start, d_start = planner._co.convert_to_curvilinear_coords(
                     planner.planning_problem.initial_state.position[0],
                     planner.planning_problem.initial_state.position[1])
-                s_current, d_current = planner._co.convert_to_curvilinear_coords(planner.x_0.position[0], planner.x_0.position[1])
+                s_current, d_current = planner._co.convert_to_curvilinear_coords(
+                    ego_vehicle.state_at_time(timestep-1).position[0],
+                    ego_vehicle.state_at_time(timestep-1).position[1])
                 progress = ((s_current - s_start) / (s_goal - s_start))
             elif "time_step" in planner.goal_checker.goal.state_list[0].attributes:
-                progress = ((planner.x_0.time_step+1) / planner.goal_checker.goal.state_list[0].time_step.end)
+                progress = (timestep-1 / planner.goal_checker.goal.state_list[0].time_step.end)
             else:
                 print('Could not calculate progress')
                 progress = None
@@ -77,9 +80,9 @@ def check_collision(planner: ReactivePlanner, ego_vehicle: DynamicObstacle):
 
         collision_obj = planner.collision_checker.find_all_colliding_objects(ego)[0]
         if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
-            obj = collision_obj.obstacle_at_time((planner.x_0.time_step+1))
+            obj = collision_obj.obstacle_at_time(timestep)
             center = obj.center()
-            last_center = collision_obj.obstacle_at_time(planner.x_0.time_step).center()
+            last_center = collision_obj.obstacle_at_time(timestep-1).center()
             r_x = obj.r_x()
             r_y = obj.r_y()
             orientation = obj.orientation()
