@@ -31,7 +31,7 @@ from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType, Obstacle
 
-from multiagent.multiagent_helpers import check_collision
+from multiagent.multiagent_helpers import check_collision, visualize_multiagent_at_timestep
 
 
 class Agent:
@@ -308,23 +308,24 @@ class Agent:
         #                                         full_state_list[0], full_prediction)
 
         # plot own view on scenario
-        if self.config.multiagent.show_individual_plots or self.config.multiagent.save_individual_plots:
-            visualize_planner_at_timestep(scenario=self.scenario, planning_problem=self.planning_problem,
-                                          ego=self.ego_obstacle_list[-1],
-                                          traj_set=self.planner.all_traj, ref_path=self.ref_path,
-                                          timestep=self.current_timestep,
-                                          config=self.config, predictions=predictions,
-                                          plot_window=self.config.debug.plot_window_dyn,
-                                          cluster=self.cost_function.cluster_prediction.cluster_assignments[-1]
-                                          if self.cost_function.cluster_prediction is not None else None,
-                                          log_path=self.log_path, visible_area=visible_area)
+        if self.id in self.config.multiagent.show_individual_plots or \
+                self.id in self.config.multiagent.save_individual_plots:
+            visualize_multiagent_at_timestep(scenario=self.scenario,
+                                             planning_problem_list=[self.planning_problem],
+                                             agent_list=[self.full_ego_obstacle_list[-1]],
+                                             timestep=self.current_timestep,
+                                             config=self.config, log_path=self.log_path,
+                                             traj_set_list=[self.planner.all_traj],
+                                             ref_path_list=[self.ref_path],
+                                             predictions=predictions, visible_area=visible_area,
+                                             plot_window=self.config.debug.plot_window_dyn)
 
         self.current_timestep += 1
         return 0, self.full_ego_obstacle_list[-1], self.ego_obstacle_list[-1]
 
     def finalize(self):
         # make gif
-        if self.config.multiagent.save_individual_gifs:
+        if self.id in self.config.multiagent.save_individual_gifs:
             make_gif(self.config, self.scenario,
                      range(self.planning_problem.initial_state.time_step,
                            self.current_timestep),

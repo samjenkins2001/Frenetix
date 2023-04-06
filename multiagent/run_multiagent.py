@@ -7,7 +7,7 @@ from copy import deepcopy
 from commonroad.scenario.state import CustomState
 
 # reactive planner
-from commonroad_rp.utility.visualization import make_gif, visualize_multiagent_at_timestep
+from commonroad_rp.utility.visualization import make_gif
 
 from commonroad_rp.utility.general import load_scenario_and_planning_problem
 from commonroad_rp.configuration import Configuration
@@ -20,6 +20,7 @@ from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 
 from multiagent.agent import Agent
+from multiagent.multiagent_helpers import visualize_multiagent_at_timestep
 from multiagent.multiagent_logging import *
 
 import commonroad_rp.prediction_helpers as ph
@@ -228,7 +229,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         # Plot current frame
         if (config.debug.show_plots or config.debug.save_plots) and len(running_agent_list) > 0:
             visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in running_agent_list],
-                                             future_obstacle_list, current_timestep, config, log_path,
+                                             dummy_obstacle_list, current_timestep, config, log_path,
                                              traj_set_list=[a.planner.all_traj for a in running_agent_list],
                                              ref_path_list=[a.planner.reference_path for a in running_agent_list],
                                              predictions=predictions,
