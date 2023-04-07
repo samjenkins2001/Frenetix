@@ -1,7 +1,4 @@
-import os
 import time
-# standard imports
-from copy import deepcopy
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
@@ -14,7 +11,7 @@ from commonroad_rp.configuration import Configuration
 
 from commonroad.scenario.obstacle import StaticObstacle, ObstacleType
 from commonroad.geometry.shape import Rectangle, Circle
-from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
+from commonroad.planning.planning_problem import PlanningProblemSet
 from commonroad.planning.goal import GoalRegion
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
@@ -142,7 +139,6 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     while running:
         # clear dummy obstacles
         dummy_obstacle_list = list()
-        future_obstacle_list = list()
         terminated_agent_list = list()
 
         # Calculate predictions
@@ -171,7 +167,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             print(f"[Simulation] Stepping Agent {agent.id}")
 
             # Simulate.
-            status, dummy_obstacle, future_obstacle = agent.step_agent(predictions)
+            status, dummy_obstacle = agent.step_agent(predictions)
 
             agent_state_dict[agent.id] = status
 
@@ -190,7 +186,6 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             else:
                 # save dummy obstacle
                 dummy_obstacle_list.append(dummy_obstacle)
-                future_obstacle_list.append(future_obstacle)
 
         # STOP TIMER
         step_time_end = time.time()
@@ -206,7 +201,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             if agent.current_timestep == current_timestep+1:
                 running_agent_list.append(agent)
                 outdated_agent_id_list.append(agent.id)
-                dummy_obstacle_list.append(agent.full_ego_obstacle)
+                dummy_obstacle_list.append(agent.ego_obstacle_list[-1])
 
                 pending_agent_list.remove(agent)
 
