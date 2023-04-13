@@ -91,6 +91,7 @@ class ReactivePlanner(object):
         self.scenario = scenario
         self.predictions = None
         self.behavior = None
+        self.set_new_ref_path = None
 
         # initialize internal variables
         # coordinate system & collision checker
@@ -292,6 +293,7 @@ class ReactivePlanner(object):
             assert reference_path is None, '<set reference path>: Please provide a reference path OR a ' \
                                            'CoordinateSystem object to the planner.'
             self._co: CoordinateSystem = coordinate_system
+        self.set_new_ref_path = True
 
     def set_goal_area(self, goal_area):
         """
@@ -626,10 +628,11 @@ class ReactivePlanner(object):
             self._LOW_VEL_MODE = False
 
         # compute curvilinear initial states
-        if cl_states is not None:
+        if cl_states is not None and not self.set_new_ref_path:
             x_0_lon, x_0_lat = cl_states
         else:
             x_0_lon, x_0_lat = self._compute_initial_states(x_0)
+            self.set_new_ref_path = False
 
         if self.debug_mode >= 2:
             print('<Reactive Planner>: initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
