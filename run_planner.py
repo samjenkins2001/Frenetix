@@ -13,12 +13,10 @@ stack_path = os.path.dirname(os.path.dirname(
 
 if __name__ == '__main__':
 
-    scenario_name = "ZAM_Tjunction-1_294_T-1"
+    scenario_name = "USA_US101-22_3_T-1"
     scenario_path = os.path.join(stack_path, "commonroad-scenarios", "scenarios", scenario_name)
 
     config = ConfigurationBuilder.build_configuration(scenario_path+".xml")
-
     log_path = "./logs/"+scenario_path.split("/")[-1]
-    cost_function_path = "configurations/cost_weights.yaml"
 
     run_planner(config, log_path, mod_path)
