@@ -9,6 +9,7 @@ __status__ = "Beta"
 # python packages
 import math
 import time
+import sys
 import numpy as np
 from typing import List
 from dataclasses import dataclass
@@ -186,6 +187,10 @@ class ReactivePlanner(object):
 
         # set collision checker
         self.set_collision_checker(self.scenario)
+
+        # check if planner is running on Mac --> multiproc start method has to be changed
+        if sys.platform == "darwin":
+            multiprocessing.set_start_method('fork', force=True)
 
     @property
     def goal_checker(self):
