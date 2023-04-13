@@ -1,6 +1,8 @@
 import os
 # standard imports
 import time
+import traceback
+import warnings
 from copy import deepcopy
 
 # third party
@@ -10,7 +12,7 @@ import numpy as np
 from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.state import InputState
 from commonroad.scenario.trajectory import Trajectory
-from commonroad.planning.planning_problem import PlanningProblem
+from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
@@ -18,6 +20,8 @@ from commonroad_route_planner.route_planner import RoutePlanner
 from commonroad_rp.reactive_planner import ReactivePlanner, CartesianState
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import helper_functions as hf
+from commonroad_rp.utility.evaluation import create_full_solution_trajectory, create_planning_problem_solution, \
+    reconstruct_inputs, reconstruct_states, check_acceleration, plot_states, plot_inputs
 from commonroad_rp.configuration import Configuration
 
 import commonroad_rp.prediction_helpers as ph
@@ -25,6 +29,11 @@ from behavior_planner.behavior_module import BehaviorModule
 
 from commonroad.geometry.shape import Rectangle
 
+from commonroad_dc.feasibility.solution_checker import valid_solution, SolutionCheckerException, CollisionException, \
+    GoalNotReachedException, MissingSolutionException
+from commonroad.common.solution import CommonRoadSolutionWriter
+
+from commonroad_rp.utility.visualization import plot_final_trajectory
 from multiagent.multiagent_helpers import check_collision, visualize_multiagent_at_timestep, make_gif
 from multiagent.multiagent_logging import coll_report
 
@@ -75,8 +84,10 @@ class Agent:
         self.scenario = None
         # initialize scenario: Remove dynamic obstacle for ego vehicle
         self.scenario = deepcopy(scenario)
-        if self.scenario.obstacle_by_id(self.id) is not None:
-            self.scenario.remove_obstacle(self.scenario.obstacle_by_id(self.id))
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*not contained in the scenario")
+            if self.scenario.obstacle_by_id(self.id) is not None:
+                self.scenario.remove_obstacle(self.scenario.obstacle_by_id(self.id))
 
         # Initialize Planner
         self.planner = ReactivePlanner(self.config, self.scenario, self.planning_problem,
@@ -154,8 +165,10 @@ class Agent:
         for i in outdated_agents:
             # ego does not have a dummy of itself,
             # joining agents may not yet be in the scenario
-            if self.scenario.obstacle_by_id(i) is not None:
-                self.scenario.remove_obstacle(self.scenario.obstacle_by_id(i))
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*not contained in the scenario")
+                if self.scenario.obstacle_by_id(i) is not None:
+                    self.scenario.remove_obstacle(self.scenario.obstacle_by_id(i))
 
         # Add all dummies except of the ego one
         self.scenario.add_objects(list(filter(lambda obs: not obs.obstacle_id == self.id, dummy_obstacles)))
@@ -183,11 +196,11 @@ class Agent:
 
         # Check for collisions in previous timestep
         if self.current_timestep > 1 and self.ego_obstacle_list[-1] is not None:
-            crash = check_collision(self.planner, self.ego_obstacle_list[-1], self.current_timestep - 1)
+            crash = check_collision(self.planner, self.ego_obstacle_list[-1], self.current_timestep-1)
             if crash:
                 print(f"[Agent {self.id}] Collision Detected!")
                 if self.config.debug.collision_report:
-                    coll_report(self.ego_obstacle_list, self.current_timestep - 1,
+                    coll_report(self.ego_obstacle_list, self.current_timestep-1,
                                 self.planner, self.scenario, self.planning_problem, self.log_path)
                 self.finalize()
                 return 3, None
@@ -300,3 +313,55 @@ class Agent:
                      range(self.planning_problem.initial_state.time_step,
                            self.current_timestep),
                      self.log_path, duration=0.1)
+
+        # **************************
+        # Evaluate results
+        # **************************
+        if self.config.debug.evaluation:
+
+            # create full solution trajectory
+            ego_solution_trajectory = create_full_solution_trajectory(self.config, self.record_state_list)
+
+            # plot full ego vehicle trajectory
+            plot_final_trajectory(self.scenario, self.planning_problem, ego_solution_trajectory.state_list,
+                                  self.config, self.log_path)
+
+            # create CR solution
+            solution = create_planning_problem_solution(self.config, ego_solution_trajectory,
+                                                        self.scenario, self.planning_problem)
+
+            # check feasibility
+            # reconstruct inputs (state transition optimizations)
+            feasible, reconstructed_inputs = reconstruct_inputs(self.config, solution.planning_problem_solutions[0])
+            try:
+                # reconstruct states from inputs
+                reconstructed_states = reconstruct_states(self.config, ego_solution_trajectory.state_list,
+                                                          reconstructed_inputs)
+                # check acceleration correctness
+                check_acceleration(self.config, ego_solution_trajectory.state_list, plot=True)
+
+                # remove first element from input list
+                self.record_input_list.pop(0)
+
+                # evaluate
+                plot_states(self.config, ego_solution_trajectory.state_list, self.log_path, reconstructed_states,
+                            plot_bounds=False)
+                # CR validity check
+                print("Feasibility Check Result: ")
+                print(valid_solution(self.scenario, PlanningProblemSet([self.planning_problem]), solution)[0])
+            except CollisionException:
+                print("Infeasible: Collision")
+            except GoalNotReachedException:
+                print("Infeasible: Goal not reached")
+            except MissingSolutionException:
+                print("Infeasible: Missing solution")
+            except:
+                print("Could not reconstruct states")
+
+            plot_inputs(self.config, self.record_input_list, self.log_path, reconstructed_inputs, plot_bounds=True)
+
+            # Write Solution to XML File for later evaluation
+            solutionwrtiter = CommonRoadSolutionWriter(solution)
+            solutionwrtiter.write_to_file(self.log_path, "solution.xml", True)
+
+

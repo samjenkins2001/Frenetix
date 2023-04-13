@@ -1,4 +1,5 @@
 import time
+import warnings
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
@@ -215,8 +216,10 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         # Update own scenario for predictions and plotting
         for id in outdated_agent_id_list:
             # manage agents that are not yet active
-            if scenario.obstacle_by_id(id) is not None:
-                scenario.remove_obstacle(scenario.obstacle_by_id(id))
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*not contained in the scenario")
+                if scenario.obstacle_by_id(id) is not None:
+                    scenario.remove_obstacle(scenario.obstacle_by_id(id))
 
         # STOP TIMER
         sync_time_end = time.time()
