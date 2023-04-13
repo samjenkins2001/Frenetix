@@ -331,6 +331,7 @@ class PathPlannerState(object):
     """Velocity Planner State class holding all information for transfer"""
     def __init__(self):
         self.static_route_plan = None
+        self.route_plan_ids = None
         self.reference_path = None
         self.reference_path_ids = None
         self.cl_ref_coordinate_system = None

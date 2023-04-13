@@ -132,8 +132,8 @@ def get_lanelet_information(scenario, reference_path_ids, ego_state, country: Su
         street_setting = 'Country'
     elif LaneletType('urban') in lanelet_type:
         street_setting = 'Urban'
-    else:  # default is highway
-        street_setting = 'Highway'
+    else:  # default is urban
+        street_setting = 'Urban'
 
     if scenario.scenario_id.map_name == 'US101':  # only highway scenarios
         street_setting = 'Highway'
@@ -242,14 +242,17 @@ def get_predicted_obstacles_on_lanelet(predictions, lanelet_network, lanelet_id,
     return obstacles_on_lanelet
 
 
-def create_consecutive_lanelet_id_list(lanelet_network, start_lanelet_id):
+def create_consecutive_lanelet_id_list(lanelet_network, start_lanelet_id, navigation_route_ids=None):
     consecutive_lanelet_ids = [start_lanelet_id]
     # predecessors
     end = False
     while not end:
         lanelet = lanelet_network.find_lanelet_by_id(consecutive_lanelet_ids[0])
         if lanelet.predecessor:
-            consecutive_lanelet_ids = lanelet.predecessor + consecutive_lanelet_ids
+            if len(lanelet.predecessor) == 1:
+                consecutive_lanelet_ids = lanelet.predecessor + consecutive_lanelet_ids
+            else:
+                consecutive_lanelet_ids = [lanelet.predecessor[0]] + consecutive_lanelet_ids
         else:
             end = True
     # successors
@@ -257,7 +260,15 @@ def create_consecutive_lanelet_id_list(lanelet_network, start_lanelet_id):
     while not end:
         lanelet = lanelet_network.find_lanelet_by_id(consecutive_lanelet_ids[-1])
         if lanelet.successor:
-            consecutive_lanelet_ids += lanelet.successor
+            if len(lanelet.successor) == 1:
+                consecutive_lanelet_ids += lanelet.successor
+            else:
+                if navigation_route_ids is not None:
+                    for successor_id in lanelet.successor:
+                        if successor_id in navigation_route_ids:
+                            consecutive_lanelet_ids += [successor_id]
+                else:
+                    consecutive_lanelet_ids += [lanelet.successor[0]]
         else:
             end = True
     return consecutive_lanelet_ids

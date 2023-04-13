@@ -30,6 +30,13 @@ class PathPlanner(object):
         self.FSM_state = BM_state.FSM_state
         self.PP_state = BM_state.PP_state
 
+        # route planning
+        self.route_planner = RoutePlan(lanelet_network=BM_state.scenario.lanelet_network,
+                                       global_nav_route=BM_state.global_nav_route)
+        self.PP_state.route_plan_ids = self.route_planner.global_nav_path_ids
+
+        self.PP_state.cl_nav_coordinate_system = self.route_planner.cl_nav_coordinate_system
+
         # reference path planning
         self.reference_path_planner = ReferencePath(lanelet_network=BM_state.scenario.lanelet_network,
                                                     global_nav_route=BM_state.global_nav_route,
@@ -39,12 +46,6 @@ class PathPlanner(object):
         self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
         self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
 
-        # route planning
-        self.route_planner = RoutePlan(lanelet_network=BM_state.scenario.lanelet_network,
-                                       global_nav_route=BM_state.global_nav_route)
-
-        self.PP_state.cl_nav_coordinate_system = self.route_planner.cl_nav_coordinate_system
-
     def execute_route_planning(self):
         """ Execute path planners static goal planning along the navigation route. Time horizont is the CC Scenario
         Returns: route plan with static goals along navigation route
@@ -52,6 +53,7 @@ class PathPlanner(object):
         self.route_planner.execute_static_planning()
 
         self.PP_state.static_route_plan = self.route_planner.static_route_plan
+        self.PP_state.route_plan_ids = self.route_planner.global_nav_path_ids
 
     def execute_lane_change(self):
         """ Execute reference path planner and do lane change maneuver
@@ -387,7 +389,8 @@ class ReferencePath(object):
     def _create_base_ref_path(self, global_nav_route):
         # create lanelet list for straight base route
         base_lanelet_ids = hf.create_consecutive_lanelet_id_list(self.lanelet_network,
-                                                                 global_nav_route.list_ids_lanelets[0])
+                                                                 global_nav_route.list_ids_lanelets[0],
+                                                                 self.BM_state.PP_state.route_plan_ids)
         # create empty list_portions
         base_list_portions = []
         for i in base_lanelet_ids:
@@ -405,7 +408,8 @@ class ReferencePath(object):
     def create_lane_change(self, ego_state, current_lanelet_id, goal_lanelet_id, number_vertices_lane_change=6):
         old_path = self.reference_path[:]
         # create straight reference path on goal lanelet
-        new_path_ids = hf.create_consecutive_lanelet_id_list(self.lanelet_network, goal_lanelet_id)
+        new_path_ids = hf.create_consecutive_lanelet_id_list(self.lanelet_network, goal_lanelet_id,
+                                                             self.BM_state.PP_state.route_plan_ids)
         old_ref_path_ids = self.list_ids_ref_path[:self.list_ids_ref_path.index(current_lanelet_id)+1]
         self.list_ids_ref_path = old_ref_path_ids + new_path_ids
         new_path = hf.compute_straight_reference_path(self.lanelet_network, new_path_ids)
