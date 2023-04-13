@@ -7,9 +7,6 @@ from copy import deepcopy
 import numpy as np
 
 # commonroad-io
-from commonroad_rp.utility.collision_report import coll_report
-
-# commonroad-io
 from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.state import InputState
 from commonroad.scenario.trajectory import Trajectory
@@ -19,7 +16,6 @@ from commonroad.planning.planning_problem import PlanningProblem
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
 from commonroad_rp.reactive_planner import ReactivePlanner, CartesianState
-from commonroad_rp.utility.visualization import visualize_planner_at_timestep, make_gif
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import helper_functions as hf
 from commonroad_rp.configuration import Configuration
@@ -28,8 +24,9 @@ import commonroad_rp.prediction_helpers as ph
 from behavior_planner.behavior_module import BehaviorModule
 
 from commonroad.geometry.shape import Rectangle
-from commonroad.prediction.prediction import TrajectoryPrediction
-from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType, Obstacle
+
+from multiagent.multiagent_helpers import check_collision, visualize_multiagent_at_timestep, make_gif
+from multiagent.multiagent_logging import coll_report
 
 
 class Agent:
@@ -41,6 +38,7 @@ class Agent:
     def __init__(self, agent_id: int, planning_problem: PlanningProblem,
                  scenario: Scenario, config: Configuration, log_path: str, mod_path: str):
         """Initialize an agent.
+
         :param agent_id: The agent ID, equal to the obstacle_id of the
                          DynamicObstacle it is represented by
         :param planning_problem: The planning problem of this agent
@@ -50,6 +48,8 @@ class Agent:
                          (containing planner configuration)
         """
 
+        # List of dummy obstacles for past times teps
+        self.ego_obstacle_list = list()
         # List of past states
         self.record_state_list = list()
         # List of input states for the planner
@@ -69,10 +69,6 @@ class Agent:
         self.config = config
         self.log_path = log_path
         self.mod_path = mod_path
-
-        # dummy obstacle containing only the future trajectory,
-        # for collision checker and plotting
-        self.ego_obstacle = scenario.obstacle_by_id(self.id)
 
         # Local view on the scenario, with dummy obstacles
         # for all agents except the ego agent
@@ -103,12 +99,10 @@ class Agent:
             )
         self.record_state_list.append(self.x_0)
 
-        # Dummy obstacle for the agent,
-        # containing also the past trajectory, for synchronization and prediction
-        full_state_list = deepcopy(self.record_state_list)
-        #full_state_list.extend(self.ego_obstacle.prediction.trajectory.state_list)
-        full_trajectory = Trajectory(full_state_list[0].time_step, full_state_list)
-        self.full_ego_obstacle = self.planner.shift_and_convert_trajectory_to_object(full_trajectory, self.id)
+        # Dummy obstacle for the agent
+        state_list = deepcopy(self.record_state_list)
+        trajectory = Trajectory(state_list[0].time_step, state_list)
+        self.ego_obstacle_list.append(self.planner.shift_and_convert_trajectory_to_object(trajectory, self.id))
 
         # Curvilinear state, used by the planner
         self.x_cl = None
@@ -175,11 +169,9 @@ class Agent:
                          1, if completed
                          2, on error
                          3, on collision
-        :returns full_ego_obstacle: the dummy obstacle at the new position of the agent,
-                                    including both history and planned trajectory,
-                                    or None if status > 0
-        :returns ego_obstacle: the dummy obstacle at the new position of the agent, including
-                               only the future trajectory, or None if status > 0
+        :returns ego_obstacle: the dummy obstacle at the new position of the agent,
+                               including both history and planned trajectory,
+                               or None if status > 0
         """
 
         print(f"[Agent {self.id}] current time step: {self.current_timestep}")
@@ -187,18 +179,18 @@ class Agent:
         # check for completion of this agent
         if self.planner.goal_status or self.current_timestep >= self.max_timestep:
             self.finalize()
-            return 1, None, None
+            return 1, None
 
         # Check for collisions in previous timestep
-        if self.current_timestep > 0 and self.ego_obstacle is not None:
-            crash = self.planner.check_collision(self.ego_obstacle)
+        if self.current_timestep > 1 and self.ego_obstacle_list[-1] is not None:
+            crash = check_collision(self.planner, self.ego_obstacle_list[-1], self.current_timestep - 1)
             if crash:
                 print(f"[Agent {self.id}] Collision Detected!")
                 if self.config.debug.collision_report:
-                    coll_report(self.record_state_list, self.planner, self.current_timestep,
-                                self.scenario, self.ego_obstacle, self.planning_problem, self.log_path)
+                    coll_report(self.ego_obstacle_list, self.current_timestep - 1,
+                                self.planner, self.scenario, self.planning_problem, self.log_path)
                 self.finalize()
-                return 3, None, None
+                return 3, None
 
         # Process new predictions
         predictions = dict()
@@ -247,7 +239,7 @@ class Agent:
         if not optimal:
             print(f"[Agent {self.id}] No Kinematic Feasible and Optimal Trajectory Available!")
             self.finalize()
-            return 2, None, None
+            return 2, None
 
         # store planning times
         self.planning_times.append(comp_time_end - comp_time_start)
@@ -265,7 +257,7 @@ class Agent:
         self.record_input_list.append(InputState(
             acceleration=new_state.acceleration,
             steering_angle_speed=(new_state.steering_angle - self.record_state_list[-1].steering_angle)
-                                 / self.config.planning.dt,
+                                     / self.config.planning.dt,
             time_step=new_state.time_step
         ))
         # add new state to recorded state list
@@ -278,44 +270,33 @@ class Agent:
         # Check if Goal is reached:
         self.planner.check_goal_reached()
 
-        # commonroad obstacle for the ego vehicle, for collision checking and plotting
-        # List of planned states, including the current state.
-        future_state_list = optimal[0].state_list
-        future_trajectory = Trajectory(future_state_list[0].time_step, future_state_list)
-        self.ego_obstacle = self.planner.shift_and_convert_trajectory_to_object(future_trajectory, self.id)
-        #future_prediction = TrajectoryPrediction(future_trajectory, self.shape)
-        #self.ego_obstacle = DynamicObstacle(self.id, ObstacleType.CAR, self.shape,
-        #                                    future_state_list[0], future_prediction)
-
         # commonroad obstacle for synchronization between agents
         # List of all past and future states.
-        full_state_list = deepcopy(self.record_state_list)
-        full_state_list.extend(future_state_list[2:])
-        full_trajectory = Trajectory(full_state_list[0].time_step, full_state_list)
-        self.full_ego_obstacle = self.planner.shift_and_convert_trajectory_to_object(full_trajectory, self.id)
-        #full_prediction = TrajectoryPrediction(full_trajectory, self.shape)
-        #self.full_ego_obstacle = DynamicObstacle(self.id, ObstacleType.CAR, self.shape,
-        #                                         full_state_list[0], full_prediction)
+        state_list = deepcopy(self.record_state_list)
+        state_list.extend(optimal[0].state_list[2:])
+        trajectory = Trajectory(state_list[0].time_step, state_list)
+        self.ego_obstacle_list.append(self.planner.shift_and_convert_trajectory_to_object(trajectory, self.id))
 
         # plot own view on scenario
-        if self.config.multiagent.show_individual_plots or self.config.multiagent.save_individual_plots:
-            visualize_planner_at_timestep(scenario=self.scenario, planning_problem=self.planning_problem,
-                                          ego=self.ego_obstacle,
-                                          traj_set=self.planner.all_traj, ref_path=self.ref_path,
-                                          timestep=self.current_timestep,
-                                          config=self.config, predictions=predictions,
-                                          plot_window=self.config.debug.plot_window_dyn,
-                                          cluster=self.cost_function.cluster_prediction.cluster_assignments[-1]
-                                          if self.cost_function.cluster_prediction is not None else None,
-                                          log_path=self.log_path, visible_area=visible_area)
+        if self.id in self.config.multiagent.show_individual_plots or \
+                self.id in self.config.multiagent.save_individual_plots:
+            visualize_multiagent_at_timestep(scenario=self.scenario,
+                                             planning_problem_list=[self.planning_problem],
+                                             agent_list=[self.ego_obstacle_list[-1]],
+                                             timestep=self.current_timestep,
+                                             config=self.config, log_path=self.log_path,
+                                             traj_set_list=[self.planner.all_traj],
+                                             ref_path_list=[self.ref_path],
+                                             predictions=predictions, visible_area=visible_area,
+                                             plot_window=self.config.debug.plot_window_dyn)
 
         self.current_timestep += 1
-        return 0, self.full_ego_obstacle, self.ego_obstacle
+        return 0, self.ego_obstacle_list[-1]
 
     def finalize(self):
         # make gif
-        if self.config.multiagent.save_individual_gifs:
-            make_gif(self.config, self.scenario,
+        if self.id in self.config.multiagent.save_individual_gifs:
+            make_gif(self.scenario,
                      range(self.planning_problem.initial_state.time_step,
                            self.current_timestep),
                      self.log_path, duration=0.1)

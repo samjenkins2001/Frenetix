@@ -1,7 +1,7 @@
-# List of vehicle ids to use as agents
+# List of vehicle IDs to use as agents
 agent_ids: [1,2,4,5,7]
 
-# Create visualization from the view of every individual agent
-show_individual_plots: False
-save_individual_plots: False
-save_individual_gifs: False
+# List of vehicle IDs for which to create individual plots
+show_individual_plots: []
+save_individual_plots: []
+save_individual_gifs: []

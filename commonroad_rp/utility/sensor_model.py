@@ -14,7 +14,7 @@ from shapely.geometry import Point, Polygon
 import commonroad_rp.utility.helper_functions as hf
 
 
-def get_visible_objects(scenario, time_step, ego_pos, sensor_radius=50, occlusions=True, wall_buffer=0.0):
+def get_visible_objects(scenario, time_step, ego_pos, ego_id=42, sensor_radius=50, occlusions=True, wall_buffer=0.0):
     """This function simulates a sensor model of a camera/lidar sensor.
 
     It returns the visible objects and the visible area.

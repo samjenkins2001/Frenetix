@@ -1,25 +1,23 @@
-import os
 import time
-# standard imports
-from copy import deepcopy
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
 
 # reactive planner
-from commonroad_rp.utility.visualization import make_gif, visualize_multiagent_at_timestep
+from commonroad_rp.utility.visualization import make_gif
 
 from commonroad_rp.utility.general import load_scenario_and_planning_problem
 from commonroad_rp.configuration import Configuration
 
 from commonroad.scenario.obstacle import StaticObstacle, ObstacleType
 from commonroad.geometry.shape import Rectangle, Circle
-from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
+from commonroad.planning.planning_problem import PlanningProblemSet
 from commonroad.planning.goal import GoalRegion
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 
 from multiagent.agent import Agent
+from multiagent.multiagent_helpers import visualize_multiagent_at_timestep
 from multiagent.multiagent_logging import *
 
 import commonroad_rp.prediction_helpers as ph
@@ -56,6 +54,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     ###################################
     #   Initialize PlanningProblems   #
     ###################################
+
     for id in agent_id_list:
         obstacle = scenario.obstacle_by_id(id)
         initial_obstacle_list.append(obstacle)
@@ -74,9 +73,10 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         problem = PlanningProblem(id, initial_state, GoalRegion(list([goal_state])))
         planning_problem_set.add_planning_problem(problem)
 
-    ###########################################
-    #   Initialize PlanningProblems of Original   #
-    ###########################################
+    ###########################################################
+    # Initialize PlanningProblem and Obstacle of original ego #
+    ###########################################################
+
     for problem in original_planning_problem_set.planning_problem_dict.values():
         id = problem.planning_problem_id
         agent_id_list.append(id)
@@ -105,14 +105,15 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         if obs.initial_state.time_step > 0:
             scenario.remove_obstacle(obs)
 
-    #########################
+    #############################
     #   Initialize Prediction   #
-    #########################
+    #############################
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
 
     #########################
     #   Initialize Agents   #
     #########################
+
     agent_list = []
     for id in agent_id_list:
         agent_list.append(Agent(id, planning_problem_set.find_planning_problem_by_id(id),
@@ -125,9 +126,9 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     # IDs of agents that will change during the next simulation step
     outdated_agent_id_list = [agent.id for agent in running_agent_list]
 
-    # **************************
-    # Run Planning
-    # **************************
+    ########################
+    #      Run Planning    #
+    ########################
 
     # Step simulation as long as some agents have not completed
     init_log(log_path)
@@ -138,7 +139,6 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     while running:
         # clear dummy obstacles
         dummy_obstacle_list = list()
-        future_obstacle_list = list()
         terminated_agent_list = list()
 
         # Calculate predictions
@@ -167,7 +167,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             print(f"[Simulation] Stepping Agent {agent.id}")
 
             # Simulate.
-            status, dummy_obstacle, future_obstacle = agent.step_agent(predictions)
+            status, dummy_obstacle = agent.step_agent(predictions)
 
             agent_state_dict[agent.id] = status
 
@@ -186,7 +186,6 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             else:
                 # save dummy obstacle
                 dummy_obstacle_list.append(dummy_obstacle)
-                future_obstacle_list.append(future_obstacle)
 
         # STOP TIMER
         step_time_end = time.time()
@@ -202,7 +201,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
             if agent.current_timestep == current_timestep+1:
                 running_agent_list.append(agent)
                 outdated_agent_id_list.append(agent.id)
-                dummy_obstacle_list.append(agent.full_ego_obstacle)
+                dummy_obstacle_list.append(agent.ego_obstacle_list[-1])
 
                 pending_agent_list.remove(agent)
 
@@ -225,7 +224,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         # Plot current frame
         if (config.debug.show_plots or config.debug.save_plots) and len(running_agent_list) > 0:
             visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in running_agent_list],
-                                             future_obstacle_list, current_timestep, config, log_path,
+                                             dummy_obstacle_list, current_timestep, config, log_path,
                                              traj_set_list=[a.planner.all_traj for a in running_agent_list],
                                              ref_path_list=[a.planner.reference_path for a in running_agent_list],
                                              predictions=predictions,

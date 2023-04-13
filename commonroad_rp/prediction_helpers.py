@@ -36,7 +36,7 @@ def load_prediction(scenario, mode, config):
 
 def step_prediction(scenario, predictor, config, ego_state, occlusion_module=None, ego_id=42):
     if config.prediction.mode:
-        visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config, occlusion_module)
+        visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config, occlusion_module, ego_id=ego_id)
     else:
         visible_obstacles = None
         visible_area = None

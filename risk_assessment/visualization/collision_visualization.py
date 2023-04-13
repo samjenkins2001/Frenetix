@@ -35,6 +35,7 @@ def collision_vis(scenario,
 
     Args:
         scenario (Scenario): Considered Scenario.
+        ego_vehicle (DynamicObstacle): Ego obstacle.
         destination (str): Path to save output.
         ego_type (Obstacle): Type of the ego vehicle (usually CAR).
         ego_harm (float): Harm for the ego vehicle.
