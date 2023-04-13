@@ -61,16 +61,21 @@ def run_planner(config, log_path, mod_path):
     )
 
     # **************************
-    # Run Planning
+    # Run Variables
     # **************************
     record_state_list = list()
     record_input_list = list()
     ego_vehicle = list()
-
     x_cl = None
     current_count = 0
     planning_times = list()
+
     behavior = None
+    behavior_modul = None
+    predictions = None
+    visible_area = None
+    occlusion_map = None
+    occlusion_module = None
 
     # *************************************
     # Initialize Reactive Planner
@@ -90,14 +95,13 @@ def run_planner(config, log_path, mod_path):
     # *************************************
     # Load Behavior Planner
     # *************************************
-    use_behavior_planner = False
     if hasattr(planning_problem.goal.state_list[0], 'velocity'):
         desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[
             0].velocity.end) / 2
     else:
         desired_velocity = x_0.velocity + 5
 
-    if not use_behavior_planner:
+    if not config.behavior.use_behavior_planner:
         route_planner = RoutePlanner(scenario, planning_problem)
         ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
     else:
@@ -123,8 +127,6 @@ def run_planner(config, log_path, mod_path):
     # **************************
     if config.occlusion.use_occlusion_module:
         occlusion_module = OcclusionModule(scenario, config, ref_path, log_path)
-    else:
-        occlusion_module = None
 
     # ***************************
     # Set External Planner Setups
@@ -133,7 +135,7 @@ def run_planner(config, log_path, mod_path):
     planner.set_planning_problem(planning_problem)
     planner.set_reference_path(ref_path)
     planner.set_cost_function(cost_function)
-    planner.set_occlusion_module(occ_module=occlusion_module)
+    planner.set_occlusion_module(occlusion_module)
 
     # **************************
     # Run Planner Cycle
@@ -148,14 +150,11 @@ def run_planner(config, log_path, mod_path):
         # **************************
         if config.prediction.mode:
             predictions, visible_area = ph.step_prediction(scenario, predictor, config, x_0, occlusion_module)
-        else:
-            predictions = None
-            visible_area = None
 
         # **************************
         # Cycle Behavior Planner
         # **************************
-        if not use_behavior_planner:
+        if not config.behavior.use_behavior_planner:
             # set desired velocity
             desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
         else:
@@ -172,8 +171,6 @@ def run_planner(config, log_path, mod_path):
         # **************************
         if config.occlusion.use_occlusion_module and (current_count == 0 or current_count % 1 == 0):
             occlusion_map = occlusion_module.step()
-        else:
-            occlusion_map = None
 
         # **************************
         # Set Planner Subscriptions
@@ -253,9 +250,10 @@ def run_planner(config, log_path, mod_path):
         # **************************
         planner.check_goal_reached()
 
-    # **************************
+    # ******************************************************************************
     # End of Cycle
-    # **************************
+    # ******************************************************************************
+
     print(planner.goal_message)
     if planner.full_goal_status:
         print("\n", planner.full_goal_status)

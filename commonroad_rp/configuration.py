@@ -25,14 +25,23 @@ class Configuration:
         self.general: GeneralConfiguration = GeneralConfiguration(config.general)
         self.cost: CostConfiguration = CostConfiguration(config.cost)
         self.occlusion: OcclusionModuleConfiguration = OcclusionModuleConfiguration(config.occlusion)
+        self.behavior: BehaviorPlannerConfiguration = BehaviorPlannerConfiguration(config.behaviorplanner)
+
+
+class BehaviorPlannerConfiguration:
+    """Class to store additional configurations for multiagent simulations"""
+    def __init__(self, config: Union[ListConfig, DictConfig]):
+        self.use_behavior_planner = config.use_behavior_planner
+
 
 class MultiagentConfiguration:
     """Class to store additional configurations for multiagent simulations"""
     def __init__(self, config: Union[ListConfig, DictConfig]):
         self.agent_ids = config.agent_ids
         self.show_individual_plots = config.show_individual_plots
-        self.save_individual_plots= config.save_individual_plots
+        self.save_individual_plots = config.save_individual_plots
         self.save_individual_gifs = config.save_individual_gifs
+
 
 class PlanningConfiguration:
     """Class to store all planning configurations"""
