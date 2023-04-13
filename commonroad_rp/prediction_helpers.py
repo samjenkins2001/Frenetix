@@ -14,11 +14,10 @@ module_path = os.path.dirname(
 )
 sys.path.append(module_path)
 
-from Prediction.walenet.helper_functions import create_tvobstacle, distance
+from commonroad_rp.utility.helper_functions import create_tvobstacle, distance, ignore_vehicles_in_cone_angle
 from prediction import WaleNet
 from commonroad_rp.utility.sensor_model import get_visible_objects
 from commonroad_prediction.prediction_module import PredictionModule
-from Prediction.walenet.risk_assessment.collision_probability import ignore_vehicles_in_cone_angle
 
 
 def load_prediction(scenario, mode, config):

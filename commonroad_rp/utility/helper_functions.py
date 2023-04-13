@@ -383,4 +383,89 @@ def calculate_angle_between_lines(line_1, line_2):
         angle_degrees = angle_degrees-360
     return angle_degrees
 
+
+def ignore_vehicles_in_cone_angle(predictions, ego_pose, veh_length, cone_angle, cone_safety_dist):
+    """Ignore vehicles behind ego for prediction if inside specific cone.
+
+    Cone is spaned from center of rear-axle (cog - length / 2.0)
+
+    cone_angle = Totel Angle of Cone. 0.5 per side (right, left)
+
+    return bool: True if vehicle is ignored, i.e. inside cone
+    """
+
+    ego_pose = np.array([ego_pose.position[0], ego_pose.position[1], ego_pose.orientation])
+    cone_angle = cone_angle / 180 * np.pi
+    ignore_pred_list = list()
+
+    for i in predictions:
+        ignore_object = True
+        obj_pose = np.array(
+            [predictions[i]['pos_list'][0][0],
+            predictions[i]['pos_list'][0][1], predictions[i]['orientation_list'][0]]
+        )
+
+        # Function not necessary since we already have global coordinates
+        # obj_pose[:2] += rotate_loc_glob(
+        #     np.array([veh_length / 2.0, 0.0]), obj_pose[2], matrix=False
+        # )
+
+        loc_obj_pos = rotate_glob_loc(
+            obj_pose[:2] - ego_pose[:2], ego_pose[2], matrix=False
+        )
+        loc_obj_pos[0] += veh_length / 2.0
+
+        if loc_obj_pos[0] > -cone_safety_dist:
+            ignore_object = False
+
+        obj_angle = pi_range(math.atan2(loc_obj_pos[1], loc_obj_pos[0]) - np.pi)
+
+        if abs(obj_angle) > cone_angle / 2.0:
+            ignore_object = False
+        if ignore_object:
+            ignore_pred_list.append(i)
+
+    if len(ignore_pred_list) > 0:
+        for obj in range(len(ignore_pred_list)):
+            del predictions[ignore_pred_list[obj]]
+
+    return predictions
+
+
+def pi_range(yaw):
+    """Clip yaw to (-pi, +pi]."""
+    if yaw <= -np.pi:
+        yaw += 2 * np.pi
+        return yaw
+    elif yaw > np.pi:
+        yaw -= 2 * np.pi
+        return yaw
+    return yaw
+
+
+def rotate_glob_loc(global_matrix, rot_angle, matrix=True):
+    """
+    helper function to rotate matrices from global to local coordinates (vehicle coordinates)
+
+    Angle Convention:
+    yaw = 0: local x-axis parallel to global y-axis
+    yaw = -np.pi / 2: local x-axis parallel to global x-axis --> should result in np.eye(2)
+
+    rot_mat: Rotation from global to local (x_local = np.matmul(rot_mat, x_global))
+    """
+
+    rot_mat = np.array(
+        [
+            [np.cos(rot_angle), np.sin(rot_angle)],
+            [-np.sin(rot_angle), np.cos(rot_angle)],
+        ]
+    )
+
+    mat_temp = np.matmul(rot_mat, global_matrix)
+
+    if matrix:
+        return np.matmul(mat_temp, rot_mat.T)
+
+    return mat_temp
+
 # EOF
