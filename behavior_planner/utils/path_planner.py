@@ -30,16 +30,20 @@ class PathPlanner(object):
         self.FSM_state = BM_state.FSM_state
         self.PP_state = BM_state.PP_state
 
-        # route planning
-        self.route_planner = RoutePlan(lanelet_network=BM_state.scenario.lanelet_network,
-                                       global_nav_route=BM_state.global_nav_route)
-
         # reference path planning
         self.reference_path_planner = ReferencePath(lanelet_network=BM_state.scenario.lanelet_network,
                                                     global_nav_route=BM_state.global_nav_route,
                                                     BM_state=BM_state)
+
         self.PP_state.reference_path = self.reference_path_planner.reference_path
+        self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
         self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
+
+        # route planning
+        self.route_planner = RoutePlan(lanelet_network=BM_state.scenario.lanelet_network,
+                                       global_nav_route=BM_state.global_nav_route)
+
+        self.PP_state.cl_nav_coordinate_system = self.route_planner.cl_nav_coordinate_system
 
     def execute_route_planning(self):
         """ Execute path planners static goal planning along the navigation route. Time horizont is the CC Scenario
@@ -54,10 +58,12 @@ class PathPlanner(object):
         Returns: updated reference_path, updated curvilinear reference coordinate system
         """
         self.reference_path_planner.create_lane_change(ego_state=self.BM_state.ego_state,
+                                                       current_lanelet_id=self.BM_state.current_lanelet_id,
                                                        goal_lanelet_id=self.FSM_state.lane_change_target_lanelet_id)
         self.FSM_state.initiated_lane_change = True
 
         self.PP_state.reference_path = self.reference_path_planner.reference_path
+        self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
         self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
 
     def undo_lane_change(self):
@@ -65,11 +71,13 @@ class PathPlanner(object):
         Returns: updated reference_path, updated curvilinear reference coordinate system
         """
         self.reference_path_planner.create_lane_change(ego_state=self.BM_state.ego_state,
+                                                       current_lanelet_id=self.BM_state.current_lanelet_id,
                                                        goal_lanelet_id=self.BM_state.current_lanelet_id)
         self.FSM_state.lane_change_right_abort = None
         self.FSM_state.lane_change_left_abort = None
 
         self.PP_state.reference_path = self.reference_path_planner.reference_path
+        self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
         self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
 
 
@@ -125,16 +133,27 @@ class RoutePlan(object):
                         start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
                         end_s = static_goal.get('position_s')
                         end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
+                        traffic_sign_object = self.lanelet_network.find_traffic_light_by_id(static_goal.get('id'))
                         goal = StaticGoal(goal_type=static_goal.get('type'),
                                           start_s=start_s,
                                           start_xy=start_xy,
                                           end_s=end_s,
                                           end_xy=end_xy,
                                           stop_point_s=static_goal.get('stop_position_s'),
-                                          stop_point_xy=static_goal.get('stop_position_xy'))
+                                          stop_point_xy=static_goal.get('stop_position_xy'),
+                                          goal_object=traffic_sign_object)
+                        prep_start_xy =\
+                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s - 10, 0).tolist()
+                        prep_end_xy = \
+                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
                                           start_s=start_s - 10,
-                                          end_s=start_s)
+                                          start_xy=prep_start_xy,
+                                          end_s=start_s,
+                                          end_xy=prep_end_xy,
+                                          stop_point_s=static_goal.get('stop_position_s'),
+                                          stop_point_xy=static_goal.get('stop_position_xy'),
+                                          goal_object=traffic_sign_object)
 
                     # all static goals with a lane change maneuver
                     elif static_goal.get('type') in ['LaneMerge', 'RoadExit']:
@@ -148,9 +167,15 @@ class RoutePlan(object):
                                           start_xy=start_xy,
                                           end_s=end_s,
                                           end_xy=end_xy)
+                        prep_start_xy = \
+                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s - 10, 0).tolist()
+                        prep_end_xy = \
+                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
                                           start_s=start_s - 10,
-                                          end_s=start_s)
+                                          start_xy=prep_start_xy,
+                                          end_s=start_s,
+                                          end_xy=prep_end_xy)
 
                     # intersections
                     elif static_goal.get('type') == 'Intersection':
@@ -159,9 +184,15 @@ class RoutePlan(object):
                                           start_xy=static_goal.get('start_xy'),
                                           end_s=static_goal.get('end_s'),
                                           end_xy=static_goal.get('end_xy'))
+                        prep_start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
+                            static_goal.get('start_s') - 10, 0).tolist()
+                        prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
+                            static_goal.get('start_s'), 0).tolist()
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
                                           start_s=static_goal.get('start_s') - 10,
-                                          end_s=static_goal.get('start_s'))
+                                          start_xy=prep_start_xy,
+                                          end_s=static_goal.get('start_s'),
+                                          end_xy=prep_end_xy)
                     self.static_route_plan += [prep, goal]
 
         # sort goals for cl cosy coordinate s
@@ -189,7 +220,7 @@ class RoutePlan(object):
                         traffic_sign = self.lanelet_network.find_traffic_sign_by_id(traffic_sign_id)
                         traffic_sign_position_xy = [traffic_sign.position[0], traffic_sign.position[1]]
                         traffic_sign_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                            traffic_sign.position[0], traffic_sign.position[1])[0]
+                            traffic_sign_position_xy[0], traffic_sign_position_xy[1])[0]
                         for traffic_sign_element in traffic_sign.traffic_sign_elements:
                             if traffic_sign_element.traffic_sign_element_id.name == 'YIELD':
                                 self.yield_signs += [{'id': traffic_sign_id,
@@ -210,8 +241,12 @@ class RoutePlan(object):
                     if traffic_light_id is not None:
                         traffic_light = self.lanelet_network.find_traffic_light_by_id(traffic_light_id)
                         traffic_light_position_xy = [traffic_light.position[0], traffic_light.position[1]]
-                        traffic_light_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                            traffic_light.position[0], traffic_light.position[1])[0]
+                        try:
+                            traffic_light_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
+                                traffic_light.position[0], traffic_light.position[1])[0]
+                        except:
+                            print('PP Traffic Light out of projection domain. Use Stopping Line position instead')
+                            traffic_light_position_s = stop_position_s
                         if traffic_light.active:
                             self.traffic_lights += [{'id': traffic_light_id,
                                                      'type': 'TrafficLight',
@@ -306,7 +341,7 @@ class RoutePlan(object):
                     self.static_route_plan[i].start_s = 0
                 # cut overlapping goals
                 if self.static_route_plan[i].end_s > self.static_route_plan[i+1].start_s:
-                    if self.static_route_plan[i+1].goal_type[:6] == 'Prepare':
+                    if self.static_route_plan[i+1].goal_type[:7] == 'Prepare':
                         self.static_route_plan[i+1].start_s = self.static_route_plan[i].end_s
                     else:
                         self.static_route_plan[i].end_s = self.static_route_plan[i+1].start_s
@@ -351,14 +386,15 @@ class ReferencePath(object):
 
     def _create_base_ref_path(self, global_nav_route):
         # create lanelet list for straight base route
-        base_lanelet_ids = self._create_consecutive_lanelet_id_list(global_nav_route.list_ids_lanelets[0])
+        base_lanelet_ids = hf.create_consecutive_lanelet_id_list(self.lanelet_network,
+                                                                 global_nav_route.list_ids_lanelets[0])
         # create empty list_portions
         base_list_portions = []
         for i in base_lanelet_ids:
             base_list_portions += [(0, 1)]
         # create base reference path
         base_ref_path = hf.compute_straight_reference_path(self.lanelet_network, base_lanelet_ids)
-        self.list_ids_lanelets = base_lanelet_ids
+        self.list_ids_ref_path = base_lanelet_ids
         self.reference_path = base_ref_path
         # update curvilinear reference coordinate system
         self._update_cl_ref_coordinate_system()
@@ -366,30 +402,12 @@ class ReferencePath(object):
     def _update_cl_ref_coordinate_system(self):
         self.cl_ref_coordinate_system = CoordinateSystem(reference=self.reference_path)
 
-    def _create_consecutive_lanelet_id_list(self, start_lanelet_id):
-        consecutive_lanelet_ids = [start_lanelet_id]
-        # predecessors
-        end = False
-        while not end:
-            lanelet = self.lanelet_network.find_lanelet_by_id(consecutive_lanelet_ids[0])
-            if lanelet.predecessor:
-                consecutive_lanelet_ids = lanelet.predecessor + consecutive_lanelet_ids
-            else:
-                end = True
-        # successors
-        end = False
-        while not end:
-            lanelet = self.lanelet_network.find_lanelet_by_id(consecutive_lanelet_ids[-1])
-            if lanelet.successor:
-                consecutive_lanelet_ids += lanelet.successor
-            else:
-                end = True
-        return consecutive_lanelet_ids
-
-    def create_lane_change(self, ego_state, goal_lanelet_id, number_vertices_lane_change=6):
+    def create_lane_change(self, ego_state, current_lanelet_id, goal_lanelet_id, number_vertices_lane_change=6):
         old_path = self.reference_path[:]
         # create straight reference path on goal lanelet
-        new_path_ids = self._create_consecutive_lanelet_id_list(goal_lanelet_id)
+        new_path_ids = hf.create_consecutive_lanelet_id_list(self.lanelet_network, goal_lanelet_id)
+        old_ref_path_ids = self.list_ids_ref_path[:self.list_ids_ref_path.index(current_lanelet_id)+1]
+        self.list_ids_ref_path = old_ref_path_ids + new_path_ids
         new_path = hf.compute_straight_reference_path(self.lanelet_network, new_path_ids)
         # cut old and new path at current position
         cut_idx_old = ((np.abs(np.subtract(old_path, ego_state.position))).argmin(axis=0)).min()
@@ -404,7 +422,7 @@ class ReferencePath(object):
 
 class StaticGoal(object):
     def __init__(self, goal_type, start_s=None, start_xy=None, end_s=None, end_xy=None, stop_point_s=None,
-                 stop_point_xy=None):
+                 stop_point_xy=None, goal_object=None):
 
         self.goal_type = goal_type
         self.start_s = start_s
@@ -413,5 +431,4 @@ class StaticGoal(object):
         self.end_xy = end_xy
         self.stop_point_s = stop_point_s
         self.stop_point_xy = stop_point_xy
-
-        self.reference_path = None
+        self.goal_object = goal_object

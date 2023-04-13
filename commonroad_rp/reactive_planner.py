@@ -89,6 +89,8 @@ class ReactivePlanner(object):
 
         # Scenario
         self.scenario = scenario
+        self.predictions = None
+        self.behavior = None
 
         # initialize internal variables
         # coordinate system & collision checker
@@ -229,6 +231,12 @@ class ReactivePlanner(object):
         """Update the scenario to synchronize between agents"""
         self.scenario = scenario
         self.set_collision_checker(scenario)
+
+    def set_predictions(self, predictions: dict):
+        self.predictions = predictions
+
+    def set_behavior(self, behavior):
+        self.behavior = behavior
 
     def set_collision_checker(self, scenario: Scenario = None, collision_checker: pycrcc.CollisionChecker = None):
         """
@@ -430,6 +438,37 @@ class ReactivePlanner(object):
             print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
         return trajectory_bundle
 
+    def _create_stopping_trajectory(self, x_0, x_0_lon, x_0_lat, stop_point, cost_function):
+        print('<ReactivePlanner>: sampling stopping trajectory at stop line')
+        # reset cost statistic
+        self._min_cost = 10 ** 9
+        self._max_cost = 0
+
+        trajectories = list()
+
+        # Longitudinal sampling for all possible velocities
+        end_state_lon = np.array([x_0_lon[0] + stop_point[0], 0.0, 0.0])
+        trajectory_long = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.array(x_0_lon),
+                                            x_d=end_state_lon)
+
+        # Sample lateral end states (add x_0_lat to sampled states)
+        if trajectory_long.coeffs is not None:
+            end_state_lat = np.array([stop_point[1], 0.0, 0.0])
+            trajectory_lat = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.array(x_0_lat),
+                                               x_d=end_state_lat)
+            if trajectory_lat.coeffs is not None:
+                trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat,
+                                                     len(trajectories))
+                trajectories.append(trajectory_sample)
+
+        # perform pre-check and order trajectories according their cost
+        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
+                                             multiproc=self._multiproc, num_workers=self._num_workers)
+        self._total_count = len(trajectory_bundle._trajectory_bundle)
+        if self.debug_mode >= 1:
+            print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
+        return trajectory_bundle
+
     def _compute_initial_states(self, x_0: CartesianState) -> (np.ndarray, np.ndarray):
         """
         Computes the curvilinear initial states for the polynomial planner based on a Cartesian CommonRoad state
@@ -561,7 +600,7 @@ class ReactivePlanner(object):
 
         return cartTraj, cvlnTraj, lon_list, lat_list
 
-    def plan(self, x_0: CartesianState, predictions: dict, cl_states=None) -> tuple:
+    def plan(self, x_0: CartesianState, cl_states=None) -> tuple:
         """
         Plans an optimal trajectory
         :param x_0: Initial state as CR state
@@ -574,11 +613,11 @@ class ReactivePlanner(object):
 
         # Assign responsibility to predictions
         if self.responsibility:
-            predictions = assign_responsibility_by_action_space(
-                self.scenario, self.x_0, predictions
+            self.predictions = assign_responsibility_by_action_space(
+                self.scenario, self.x_0, self.predictions
             )
             # calculate reachable sets
-            self.reach_set.calc_reach_sets(self.x_0, list(predictions.keys()))
+            self.reach_set.calc_reach_sets(self.x_0, list(self.predictions.keys()))
 
         # check for low velocity mode
         if self.x_0.velocity < self._low_vel_mode_threshold:
@@ -607,20 +646,25 @@ class ReactivePlanner(object):
 
         # sample until trajectory has been found or sampling sets are empty
         while optimal_trajectory is None and i < self._sampling_max:
-            #if self.debug_mode >= 1:
-            #    print('<ReactivePlanner>: Starting at sampling density {} of {}'.format(i + 1, self._sampling_max))
 
             self.cost_function.update_state(scenario=self.scenario, rp=self,
-                                            predictions=predictions, reachset=reachable_set)
+                                            predictions=self.predictions, reachset=reachable_set)
 
             # sample trajectory bundle
-            bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
+            if self.behavior:
+                if self.behavior.flags["stopping_for_traffic_light"]:
+                    stop_point = [self.behavior.BM_state.VP_state.stop_distance, 0]
+                    bundle = self._create_stopping_trajectory(x_0, x_0_lon, x_0_lat, stop_point, self.cost_function)
+                else:
+                    bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
+            else:
+                bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
 
             # get optimal trajectory
             t0 = time.time()
             self.logger.trajectory_number = x_0.time_step
 
-            optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, predictions, i)
+            optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, self.predictions, i)
 
             if self.use_occ_model:
                 self.occlusion_module.occ_plot.plot_trajectories(optimal_trajectory, 'c')
@@ -632,9 +676,16 @@ class ReactivePlanner(object):
                 self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                                 infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
                                 cluster=cluster_)
-                self.logger.log_pred(predictions)
+                self.logger.log_pred(self.predictions)
                 if self.save_all_traj:
                     self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
+
+            if self.behavior:
+                if self.behavior.flags["waiting_for_green_light"]:
+                    optimal_trajectory = self._compute_standstill_trajectory(x_0, x_0_lon, x_0_lat)
+
+            # if self.debug_mode >= 1:
+            #    print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
@@ -653,7 +704,7 @@ class ReactivePlanner(object):
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                             infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
                             cluster=cluster_)
-            self.logger.log_pred(predictions)
+            self.logger.log_pred(self.predictions)
             if self.save_all_traj:
                 self.logger.log_all_trajectories(self.all_traj, x_0.time_step, cluster=cluster_)
 

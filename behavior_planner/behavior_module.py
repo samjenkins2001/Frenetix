@@ -1,11 +1,13 @@
 from commonroad.common.file_reader import CommonRoadFileReader
-from behavior_planner.configuration_builder import ConfigurationBuilder
+from behavior_planner.utils.configuration_builder import ConfigurationBuilder
 from commonroad_route_planner.route_planner import RoutePlanner
 
 import behavior_planner.utils.helper_functions as hf
-from behavior_planner.velocity_planner import VelocityPlanner
-from behavior_planner.path_planner import PathPlanner
-from behavior_planner.FSM_model import EgoFSM
+from behavior_planner.utils.velocity_planner import VelocityPlanner
+from behavior_planner.utils.path_planner import PathPlanner
+from behavior_planner.utils.FSM_model import EgoFSM
+
+from commonroad.scenario.traffic_sign import TrafficLightState
 
 
 class BehaviorModule(object):
@@ -16,7 +18,7 @@ class BehaviorModule(object):
     TODO: Include FSM
     """
 
-    def __init__(self, proj_path, init_sc_path, init_ego_state, vehicle_parameters):
+    def __init__(self, proj_path, init_sc_path, init_ego_state, dt, vehicle_parameters):
         """ Init Behavior Module.
 
         Args:
@@ -37,15 +39,21 @@ class BehaviorModule(object):
         self.PP_state = self.BM_state.PP_state  # path planner information
         self.FSM_state = self.BM_state.FSM_state  # FSM information
         self.BM_state.init_velocity = init_ego_state.velocity
+        self.BM_state.dt = dt
         self.BM_state.vehicle_params = vehicle_parameters
 
         self.BM_state.scenario, self.planning_problem_set = CommonRoadFileReader(init_sc_path).open()
+
+        # for traffic light testing
+        # (self.BM_state.scenario.lanelet_network.find_traffic_light_by_id(3835)).cycle[0].state = TrafficLightState('red')
+
         self.BM_state.planning_problem = list(self.planning_problem_set.planning_problem_dict.values())[0]
 
         self.BM_state.country = hf.find_country_traffic_sign_id(self.BM_state.scenario)
         self.BM_state.current_lanelet_id, self.BM_state.speed_limit, self.BM_state.street_setting = \
             hf.get_lanelet_information(
                 scenario=self.BM_state.scenario,
+                reference_path_ids=[],
                 ego_state=init_ego_state,
                 country=self.BM_state.country)
 
@@ -58,16 +66,20 @@ class BehaviorModule(object):
         self.path_planner = PathPlanner(BM_state=self.BM_state)
         self.path_planner.execute_route_planning()
 
-        # init velocity planner
-        self.velocity_planner = VelocityPlanner(BM_state=self.BM_state)
-
         # init ego FSM
         self.ego_FSM = EgoFSM(BM_state=self.BM_state)
         self.FSM_state = self.ego_FSM.FSM_state
 
+        # init velocity planner
+        self.velocity_planner = VelocityPlanner(BM_state=self.BM_state)
+
         # outputs
+        self.behavior_input = BehaviorInput(self.BM_state)
         self.reference_path = self.BM_state.PP_state.reference_path
         self.desired_velocity = None
+        self.flags = {"stopping_for_traffic_light": None,
+                      "waiting_for_green_light": None
+                      }
 
     def execute(self, predictions, ego_state, time_step):
         """ Execute behavior module.
@@ -75,17 +87,36 @@ class BehaviorModule(object):
         Args:
         predictions (dict): current predictions.
         ego_state (List): current state of ego vehicle.
+
+        return: behavior_input (BehaviorInput): Class holding all information for Reactive Planner
         """
+
+        # traffic light testing
+        # if time_step >= 50:
+        #    (self.BM_state.scenario.lanelet_network.find_traffic_light_by_id(3835)).cycle[0].state = \
+        #        TrafficLightState('green')
+        #    (self.BM_state.scenario.lanelet_network.find_traffic_light_by_id(3835)).cycle[1].state = \
+        #        TrafficLightState('green')
+        #    (self.BM_state.scenario.lanelet_network.find_traffic_light_by_id(3835)).cycle[2].state = \
+        #        TrafficLightState('green')
+        #    print("Testing:: Traffic Light now green")
 
         # inputs
         self.BM_state.predictions = predictions
         self.BM_state.ego_state = ego_state
         self.BM_state.time_step = time_step
 
-        self.BM_state.position_s = self.PP_state.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+        self.BM_state.ref_position_s = self.PP_state.cl_ref_coordinate_system.convert_to_curvilinear_coords(
                             ego_state.position[0], ego_state.position[1])[0]
+        self.BM_state.nav_position_s = self.PP_state.cl_nav_coordinate_system.convert_to_curvilinear_coords(
+                            ego_state.position[0], ego_state.position[1])[0]
+
         self.BM_state.future_factor = int(self.BM_state.ego_state.velocity // 4) + 1  # for lane change maneuvers
         self._collect_necessary_information()
+
+        # execute velocity planner
+        self.velocity_planner.execute()
+        self.desired_velocity = self.VP_state.desired_velocity
 
         # execute FSM
         self.ego_FSM.execute()
@@ -97,9 +128,14 @@ class BehaviorModule(object):
             self.path_planner.undo_lane_change()
         self.reference_path = self.PP_state.reference_path
 
-        # execute velocity planner
-        self.velocity_planner.execute()
-        self.desired_velocity = self.VP_state.desired_velocity
+        # update behavior flags
+        self.flags["stopping_for_traffic_light"] = self.FSM_state.slowing_car_for_traffic_light
+        self.flags["waiting_for_green_light"] = self.FSM_state.waiting_for_green_light
+
+        # update behavior input for reactive planner
+        self.behavior_input.reference_path = self.reference_path
+        self.behavior_input.desired_velocity = self.desired_velocity
+        self.behavior_input.flags = self.flags
 
         print("\nVP velocity mode: ", self.VP_state.velocity_mode)
         print("VP TTC velocity: ", self.VP_state.TTC)
@@ -112,6 +148,8 @@ class BehaviorModule(object):
         print("VP recommended velocity: ", self.VP_state.goal_velocity)
         print("BP recommended desired velocity: ", self.desired_velocity)
         print("current ego velocity: ", self.BM_state.ego_state.velocity, "\n")
+
+        return self.behavior_input
 
     def _retrieve_nav_route(self):
         global_nav_routes = self.navigation.plan_routes()
@@ -134,10 +172,21 @@ class BehaviorModule(object):
         self.BM_state.current_lanelet_id, self.BM_state.speed_limit, self.BM_state.street_setting_scenario = \
             hf.get_lanelet_information(
                 scenario=self.BM_state.scenario,
+                reference_path_ids=self.PP_state.reference_path_ids,
                 ego_state=self.BM_state.ego_state,
                 country=self.BM_state.country)
+
         self.BM_state.current_lanelet = \
             self.BM_state.scenario.lanelet_network.find_lanelet_by_id(self.BM_state.current_lanelet_id)
+
+
+class BehaviorInput(object):
+    """Class for collected Behavior Input for Reactive Planner"""
+    def __init__(self, BM_state):
+        self.desired_velocity = None
+        self.reference_path = None
+        self.flags = None
+        self.BM_state = BM_state
 
 
 class BehaviorModuleState(object):
@@ -155,6 +204,7 @@ class BehaviorModuleState(object):
         self.ego_state = None
         self.predictions = None
         self.time_step = None
+        self.dt = None
 
         # FSM and Velocity Planner information
         self.FSM_state = FSMState()
@@ -162,9 +212,11 @@ class BehaviorModuleState(object):
         self.PP_state = PathPlannerState()
 
         # Behavior Module information
-        self.position_s = None
+        self.ref_position_s = None
+        self.nav_position_s = None
         self.current_lanelet_id = None
         self.current_lanelet = None
+        self.current_static_goal = None
 
         # velocity
         self.init_velocity = None
@@ -235,6 +287,11 @@ class FSMState(object):
         # situation states
         self.situation_state_dynamic = None
 
+        # traffic light
+        self.traffic_light_state = None
+        self.slowing_car_for_traffic_light = None
+        self.waiting_for_green_light = None
+
 
 class VelocityPlannerState(object):
     """Velocity Planner State class holding all information for transfer"""
@@ -264,10 +321,17 @@ class VelocityPlannerState(object):
         self.lat_dyn_cond_factor = None  # factor to express lateral driving; ∈ [0,1]
         self.visual_cond_factor = None  # factor to express visual driving conditions; ∈ [0,1]
 
+        # traffic light
+        self.stop_distance= None
+        self.dist_to_tl = None
+        self.deceleration_tl = None
+
 
 class PathPlannerState(object):
     """Velocity Planner State class holding all information for transfer"""
     def __init__(self):
         self.static_route_plan = None
         self.reference_path = None
+        self.reference_path_ids = None
         self.cl_ref_coordinate_system = None
+        self.cl_nav_coordinate_system = None

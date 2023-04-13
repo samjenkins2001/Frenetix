@@ -56,6 +56,10 @@ def run_planner(config, log_path, mod_path):
         problem_init_state.acceleration = 0.
     x_0 = deepcopy(problem_init_state)
 
+    goal_area = hf.get_goal_area_shape_group(
+       planning_problem=planning_problem, scenario=scenario
+    )
+
     # **************************
     # Run Planning
     # **************************
@@ -66,6 +70,7 @@ def run_planner(config, log_path, mod_path):
     x_cl = None
     current_count = 0
     planning_times = list()
+    behavior = None
 
     # *************************************
     # Initialize Reactive Planner
@@ -86,34 +91,27 @@ def run_planner(config, log_path, mod_path):
     # Load Behavior Planner
     # *************************************
     use_behavior_planner = False
+    if hasattr(planning_problem.goal.state_list[0], 'velocity'):
+        desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[
+            0].velocity.end) / 2
+    else:
+        desired_velocity = x_0.velocity + 5
+
     if not use_behavior_planner:
-        if hasattr(planning_problem.goal.state_list[0], 'velocity'):
-            desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[
-                0].velocity.end) / 2
-        else:
-            desired_velocity = x_0.velocity + 5
         route_planner = RoutePlanner(scenario, planning_problem)
         ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
-        # ref_path = extrapolate_ref_path(ref_path)
-        planner.set_reference_path(ref_path)
     else:
         behavior_modul = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
                                         init_sc_path=config.general.path_scenario,
                                         init_ego_state=x_0,
+                                        dt=DT,
                                         vehicle_parameters=config.vehicle)  # testing
-        planner.set_reference_path(behavior_modul.reference_path)
         ref_path = behavior_modul.reference_path
-    goal_area = hf.get_goal_area_shape_group(
-       planning_problem=planning_problem, scenario=scenario
-    )
-    planner.set_goal_area(goal_area)
-    planner.set_planning_problem(planning_problem)
 
     # **************************
     # Set Cost Function
     # **************************
     cost_function = AdaptableCostFunction(rp=planner, configuration=config)
-    planner.set_cost_function(cost_function)
 
     # **************************
     # Load Prediction
@@ -125,9 +123,17 @@ def run_planner(config, log_path, mod_path):
     # **************************
     if config.occlusion.use_occlusion_module:
         occlusion_module = OcclusionModule(scenario, config, ref_path, log_path)
-        planner.set_occlusion_module(occ_module=occlusion_module)
     else:
         occlusion_module = None
+
+    # ***************************
+    # Set External Planner Setups
+    # ***************************
+    planner.set_goal_area(goal_area)
+    planner.set_planning_problem(planning_problem)
+    planner.set_reference_path(ref_path)
+    planner.set_cost_function(cost_function)
+    planner.set_occlusion_module(occ_module=occlusion_module)
 
     # **************************
     # Run Planner Cycle
@@ -152,15 +158,13 @@ def run_planner(config, log_path, mod_path):
         if not use_behavior_planner:
             # set desired velocity
             desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
-            planner.set_desired_velocity(desired_velocity, x_0.velocity)
         else:
             behavior_comp_time1 = time.time()
-            behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
-
-            # set desired behavior outputs
-            planner.set_desired_velocity(behavior_modul.desired_velocity, x_0.velocity)
-            planner.set_reference_path(behavior_modul.reference_path)
+            behavior = behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
             behavior_comp_time2 = time.time()
+            # set desired behavior outputs
+            desired_velocity = behavior_modul.desired_velocity
+            ref_path = behavior_modul.reference_path
             print("\n***Behavior Planning Time: \n", behavior_comp_time2 - behavior_comp_time1)
 
         # **************************
@@ -172,10 +176,18 @@ def run_planner(config, log_path, mod_path):
             occlusion_map = None
 
         # **************************
+        # Set Planner Subscriptions
+        # **************************
+        planner.set_reference_path(ref_path)
+        planner.set_desired_velocity(desired_velocity, x_0.velocity)
+        planner.set_predictions(predictions)
+        planner.set_behavior(behavior)
+
+        # **************************
         # Execute Planner
         # **************************
         comp_time_start = time.time()
-        optimal = planner.plan(x_0, predictions, x_cl)  # returns the planned (i.e., optimal) trajectory
+        optimal = planner.plan(x_0, x_cl)  # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
 
         # if the planner fails to find an optimal trajectory -> terminate

@@ -62,7 +62,8 @@ class LogicBehaviorStatic:
         self.transition = None
 
         for static_goal in self.static_route_plan:
-            if static_goal.start_s <= self.BM_state.position_s < static_goal.end_s:
+            if static_goal.start_s <= self.BM_state.nav_position_s < static_goal.end_s:
+                self.BM_state.current_static_goal = static_goal
                 if self.cur_state != static_goal.goal_type:
                     self.cur_state = static_goal.goal_type
                     self.transition = 'to' + static_goal.goal_type
@@ -92,14 +93,16 @@ class LogicHighwayDynamic:
         self.transition = None
 
         # no lane change
-        if self.FSM_state.no_auto_lane_change:
-            self.transition = 'toNoLaneChange'
-            self.cur_state = 'NoLaneChange'
-
-        if self.cur_state == 'NoLaneChange':
+        if self.cur_state != 'NoLaneChanges':
             if self.FSM_state.no_auto_lane_change:
-                self.transition = 'toDynamicDefault'
-                self.cur_state = 'DynamicDefault'
+                self.transition = 'toNoLaneChanges'
+                self.cur_state = 'NoLaneChanges'
+
+        if self.cur_state == 'NoLaneChanges':
+            if self.cur_state == 'NoLaneChange':
+                if self.FSM_state.no_auto_lane_change:
+                    self.transition = 'toDynamicDefault'
+                    self.cur_state = 'DynamicDefault'
 
         # initiate lane change preparations
         if self.cur_state == 'DynamicDefault' and self.BM_state.time_step > 0:
@@ -162,20 +165,24 @@ class LogicHighwayDynamic:
             self.cur_state = 'DynamicDefault'
             self.FSM_state.lane_change_target_lanelet_id = None
             self.FSM_state.lane_change_target_lanelet = None
+            self.FSM_state.lane_change_prep_right_abort = False
         if self.cur_state == 'PrepareLaneChangeLeft' and self.FSM_state.lane_change_prep_left_abort:
             self.transition = 'toDynamicDefault'
             self.cur_state = 'DynamicDefault'
             self.FSM_state.lane_change_target_lanelet_id = None
             self.FSM_state.lane_change_target_lanelet = None
+            self.FSM_state.lane_change_prep_left_abort = False
 
         # lane change aborted
         if self.cur_state == 'LaneChangeRight' and self.FSM_state.lane_change_right_abort:
             self.transition = 'toDynamicDefault'
             self.cur_state = 'DynamicDefault'
+            self.FSM_state.lane_change_right_abort = False
             self.FSM_state.undo_lane_change = True
         if self.cur_state == 'LaneChangeLeft' and self.FSM_state.lane_change_left_abort:
             self.transition = 'toDynamicDefault'
             self.cur_state = 'DynamicDefault'
+            self.FSM_state.lane_change_left_abort = False
             self.FSM_state.undo_lane_change = True
 
         return self.transition, self.cur_state
@@ -202,13 +209,15 @@ class LogicCountryDynamic:
         self.transition = None
 
         # no lane change
-        if self.FSM_state.no_auto_lane_change:
-            self.transition = 'toNoLaneChange'
-            self.cur_state = 'NoLaneChange'
+        if self.cur_state != 'NoLaneChanges':
+            if self.FSM_state.no_auto_lane_change:
+                self.transition = 'toNoLaneChanges'
+                self.cur_state = 'NoLaneChanges'
 
-        if not self.FSM_state.no_auto_lane_change:
-            self.transition = 'toDynamicDefault'
-            self.cur_state = 'DynamicDefault'
+        if self.cur_state == 'NoLaneChanges':
+            if not self.FSM_state.no_auto_lane_change:
+                self.transition = 'toDynamicDefault'
+                self.cur_state = 'DynamicDefault'
         # TODO: add overtaking
 
         return self.transition, self.cur_state
@@ -235,16 +244,18 @@ class LogicUrbanDynamic:
         self.transition = None
 
         # no lane change
-        if self.FSM_state.no_auto_lane_change:
-            self.transition = 'toNoLaneChange'
-            self.cur_state = 'NoLaneChange'
+        if self.cur_state != 'NoLaneChanges':
+            if self.FSM_state.no_auto_lane_change:
+                self.transition = 'toNoLaneChanges'
+                self.cur_state = 'NoLaneChanges'
 
-        if not self.FSM_state.no_auto_lane_change:
-            self.transition = 'toDynamicDefault'
-            self.cur_state = 'DynamicDefault'
+        if self.cur_state == 'NoLaneChanges':
+            if not self.FSM_state.no_auto_lane_change:
+                self.transition = 'toDynamicDefault'
+                self.cur_state = 'DynamicDefault'
 
         # initiate lane change preparations
-        if self.cur_state == 'DynamicDefault':
+        if self.cur_state == 'DynamicDefault' and not self.FSM_state.no_auto_lane_change:
             # lane change due to navigation
             if self.BM_state.nav_lane_changes_right > 0:
                 self.transition = 'toPrepareLaneChangeRight'
@@ -280,18 +291,26 @@ class LogicUrbanDynamic:
         if self.cur_state == 'PrepareLaneChangeRight' and self.FSM_state.lane_change_prep_right_abort:
             self.transition = 'toDynamicDefault'
             self.cur_state = 'DynamicDefault'
+            self.FSM_state.lane_change_target_lanelet_id = None
+            self.FSM_state.lane_change_target_lanelet = None
+            self.FSM_state.lane_change_prep_right_abort = False
         if self.cur_state == 'PrepareLaneChangeLeft' and self.FSM_state.lane_change_prep_left_abort:
             self.transition = 'toDynamicDefault'
             self.cur_state = 'DynamicDefault'
+            self.FSM_state.lane_change_target_lanelet_id = None
+            self.FSM_state.lane_change_target_lanelet = None
+            self.FSM_state.lane_change_prep_left_abort = False
 
         # lane change aborted
         if self.cur_state == 'LaneChangeRight' and self.FSM_state.lane_change_right_abort:
             self.transition = 'toDynamicDefault'
             self.cur_state = 'DynamicDefault'
+            self.FSM_state.lane_change_right_abort = False
             self.FSM_state.undo_lane_change = True
         if self.cur_state == 'LaneChangeLeft' and self.FSM_state.lane_change_left_abort:
             self.transition = 'toDynamicDefault'
             self.cur_state = 'DynamicDefault'
+            self.FSM_state.lane_change_left_abort = False
             self.FSM_state.undo_lane_change = True
 
         return self.transition, self.cur_state
@@ -361,9 +380,14 @@ class LogicLaneChangeLeft:
         self.cur_state = cur_state
         self.transition = None
 
+        # FSM_state.lane_change_left_abort
         if self.cur_state == 'InitiateLaneChange' and self.FSM_state.initiated_lane_change:
             self.FSM_state.initiated_lane_change = None
             self.FSM_state.do_lane_change = False
+
+        if self.cur_state == 'InitiateLaneChange' and self.FSM_state.situation_time_step_counter > 4:
+            self.FSM_state.lane_change_left_abort = True
+            print("FSM Dynamic Situation State: Aborting Lane Change")
 
         if self.FSM_state.detected_lanelets is not None:
             if len(self.FSM_state.detected_lanelets) > 1 \
@@ -374,14 +398,15 @@ class LogicLaneChangeLeft:
         if self.FSM_state.detected_lanelets is not None:
             if self.cur_state == 'EgoVehicleBetweenTwoLanes' and len(self.FSM_state.detected_lanelets) == 1 and \
                     self.BM_state.current_lanelet_id == self.FSM_state.lane_change_target_lanelet_id:
-                self.transition = 'toBehaviorStateComplete'
-                self.cur_state = 'BehaviorStateComplete'
+                self.transition = 'toLaneChangeComplete'
+                self.cur_state = 'LaneChangeComplete'
                 self.FSM_state.lane_change_left_done = True
                 # reset temporary variables
                 self.FSM_state.obstacles_on_target_lanelet = None
                 self.FSM_state.lane_change_target_lanelet_id = None
                 self.FSM_state.lane_change_target_lanelet = None
                 self.FSM_state.free_space_on_target_lanelet = None
+                self.FSM_state.initiated_lane_change = None
 
         return self.transition, self.cur_state
 
@@ -451,6 +476,10 @@ class LogicLaneChangeRight:
             self.FSM_state.initiated_lane_change = None
             self.FSM_state.do_lane_change = False
 
+        if self.cur_state == 'InitiateLaneChange' and self.FSM_state.situation_time_step_counter > 4:
+            self.FSM_state.lane_change_left_abort = True
+            print("FSM Dynamic Situation State: Aborting Lane Change")
+
         if self.FSM_state.detected_lanelets is not None:
             if len(self.FSM_state.detected_lanelets) > 1 \
                     and self.FSM_state.lane_change_target_lanelet_id in self.FSM_state.detected_lanelets:
@@ -460,14 +489,15 @@ class LogicLaneChangeRight:
         if self.FSM_state.detected_lanelets is not None:
             if self.cur_state == 'EgoVehicleBetweenTwoLanes' and len(self.FSM_state.detected_lanelets) == 1 and \
                     self.BM_state.current_lanelet_id == self.FSM_state.lane_change_target_lanelet_id:
-                self.transition = 'toBehaviorStateComplete'
-                self.cur_state = 'BehaviorStateComplete'
+                self.transition = 'toLaneChangeComplete'
+                self.cur_state = 'LaneChangeComplete'
                 self.FSM_state.lane_change_right_done = True
                 # reset temporary variables
                 self.FSM_state.obstacles_on_target_lanelet = None
                 self.FSM_state.lane_change_target_lanelet_id = None
                 self.FSM_state.lane_change_target_lanelet = None
                 self.FSM_state.free_space_on_target_lanelet = None
+                self.FSM_state.initiated_lane_change = None
 
         return self.transition, self.cur_state
 
@@ -597,6 +627,85 @@ class LogicRoadExit:
             if randint(0, 2):
                 self.transition = 'toBehaviorStateComplete'
                 self.cur_state = 'BehaviorStateComplete'
+
+        return self.transition, self.cur_state
+
+    def reset_state(self, state):
+        self.cur_state = state
+
+
+class LogicPrepareTrafficLight:
+    """logic module for state PrepareTrafficLight."""
+    def __init__(self, start_state, BM_state):
+        self.BM_state = BM_state
+        self.FSM_state = BM_state.FSM_state
+        self.VP_state = BM_state.VP_state
+        self.cur_state = start_state
+        self.transition = None
+
+    def execute(self, cur_state):
+        """call function to execute logic module for PrepareTrafficLight
+
+        Returns:
+             string: state to transition to or None if no change is required
+        """
+        self.cur_state = cur_state
+        self.transition = None
+
+        if self.cur_state == 'ObservingTrafficLight':
+            if self.FSM_state.traffic_light_state != 'green':
+                self.transition = 'toSlowingDown'
+                self.cur_state = 'SlowingDown'
+
+        elif self.cur_state == 'SlowingDown':
+            if self.FSM_state.traffic_light_state == 'green' or self.FSM_state.traffic_light_state == 'redYellow':
+                self.transition = 'toObservingTrafficLight'
+                self.cur_state = 'ObservingTrafficLight'
+
+        return self.transition, self.cur_state
+
+    def reset_state(self, state):
+        self.cur_state = state
+
+
+class LogicTrafficLight:
+    """logic module for state TrafficLight."""
+    def __init__(self, start_state, BM_state):
+        self.BM_state = BM_state
+        self.FSM_state = BM_state.FSM_state
+        self.VP_state = BM_state.VP_state
+        self.cur_state = start_state
+        self.transition = None
+
+    def execute(self, cur_state):
+        """call function to execute logic module for TrafficLight
+
+        Returns:
+             string: state to transition to or None if no change is required
+        """
+        self.cur_state = cur_state
+        self.transition = None
+
+        if self.cur_state == 'GreenLight':
+            if self.FSM_state.traffic_light_state != 'green':
+                self.transition = 'toStopping'
+                self.cur_state = 'Stopping'
+
+        elif self.cur_state == 'Stopping':
+            if self.FSM_state.traffic_light_state == 'green' or self.FSM_state.traffic_light_state == 'redYellow':
+                self.transition = 'toGreenLight'
+                self.cur_state = 'GreenLight'
+
+            if self.BM_state.ego_state.velocity <= 0.5:
+                self.transition = 'toWaitingForGreenLight'
+                self.cur_state = 'WaitingForGreenLight'
+                self.FSM_state.waiting_for_green_light = True
+
+        elif self.cur_state == 'WaitingForGreenLight':
+            if self.FSM_state.traffic_light_state == 'green' or self.FSM_state.traffic_light_state == 'redYellow':
+                self.transition = 'toContinueDriving'
+                self.cur_state = 'ContinueDriving'
+                self.FSM_state.waiting_for_green_light = False
 
         return self.transition, self.cur_state
 

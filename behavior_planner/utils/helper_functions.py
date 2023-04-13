@@ -1,5 +1,5 @@
 import numpy as np
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, Point
 
 # commonroad imports
 from commonroad.geometry.shape import Rectangle
@@ -93,7 +93,7 @@ def find_nearest_point_to_path(center_vertices: np.ndarray, pos: np.array):
     return center_vertices[index], index
 
 
-def get_lanelet_information(scenario, ego_state, country: SupportedTrafficSignCountry):
+def get_lanelet_information(scenario, reference_path_ids, ego_state, country: SupportedTrafficSignCountry):
     """Get the current lanelet id, the legal speed limit and the street setting from the CommonRoad scenario
 
     Args:
@@ -105,22 +105,22 @@ def get_lanelet_information(scenario, ego_state, country: SupportedTrafficSignCo
         int: current_lanelet_id, speed_limit
         str: street setting ('Highway', 'Country', 'Urban)
     """
-    street_setting = None
     traffic_signs = TrafficSigInterpreter(country=country, lanelet_network=scenario.lanelet_network)
 
     current_position = ego_state.position
     current_lanelets = scenario.lanelet_network.find_lanelet_by_position([current_position])[0]
 
+    # get legal speed limit
+    speed_limit = traffic_signs.speed_limit(lanelet_ids=frozenset(current_lanelets))
+
     if len(current_lanelets) == 1:
         current_lanelet = current_lanelets[0]
     elif len(current_lanelets) > 1:
-        current_lanelet = current_lanelets[0]
-        print("ego vehicle assigned to more than one lanelet at a time")  # TODO: what to do with multiple lanes
-    else:
-        current_lanelet = None
-
-    # get legal speed limit
-    speed_limit = traffic_signs.speed_limit(lanelet_ids=frozenset(current_lanelets))
+        for lanelet_id in current_lanelets:
+            if lanelet_id in reference_path_ids:
+                current_lanelet = lanelet_id
+            else:
+                current_lanelet = current_lanelets[0]
 
     # check for street setting
     lanelet_type = scenario.lanelet_network.find_lanelet_by_id(current_lanelet).lanelet_type
@@ -186,7 +186,7 @@ def find_country_traffic_sign_id(scenario):
 def get_closest_preceding_obstacle(predictions, lanelet_network, coordinate_system, lanelet_id, ego_position_s,
                                    ego_state):
     obstacles_on_lanelet = get_predicted_obstacles_on_lanelet(predictions, lanelet_network, lanelet_id,
-                                                              search_by_shape=True)
+                                                              search_by_shape=False)
     closest_obstacle = None
     closest_obstacle_pos_s = None
     for obstacle_id in obstacles_on_lanelet:
@@ -214,13 +214,8 @@ def get_closest_preceding_obstacle(predictions, lanelet_network, coordinate_syst
 
 
 def get_predicted_obstacles_on_lanelet(predictions, lanelet_network, lanelet_id, search_point=None,
-                                       search_distance=None, search_by_shape=False):
-    lanelet_ids = [lanelet_id]
-    lanelet = lanelet_network.find_lanelet_by_id(lanelet_id)
-    if lanelet.predecessor is not None:
-        lanelet_ids += lanelet.predecessor
-    if lanelet.successor is not None:
-        lanelet_ids += lanelet.successor
+                                       search_distance=None, search_by_shape=False):  # add config search by shape
+    lanelet_ids = create_consecutive_lanelet_id_list(lanelet_network, lanelet_id)
     obstacles_on_lanelet = dict()
     for obstacle_id in predictions:
         obstacle_position = predictions.get(obstacle_id).get('pos_list')[0]
@@ -245,6 +240,27 @@ def get_predicted_obstacles_on_lanelet(predictions, lanelet_network, lanelet_id,
                         obstacles_on_lanelet[obstacle_id] = predictions.get(obstacle_id)
 
     return obstacles_on_lanelet
+
+
+def create_consecutive_lanelet_id_list(lanelet_network, start_lanelet_id):
+    consecutive_lanelet_ids = [start_lanelet_id]
+    # predecessors
+    end = False
+    while not end:
+        lanelet = lanelet_network.find_lanelet_by_id(consecutive_lanelet_ids[0])
+        if lanelet.predecessor:
+            consecutive_lanelet_ids = lanelet.predecessor + consecutive_lanelet_ids
+        else:
+            end = True
+    # successors
+    end = False
+    while not end:
+        lanelet = lanelet_network.find_lanelet_by_id(consecutive_lanelet_ids[-1])
+        if lanelet.successor:
+            consecutive_lanelet_ids += lanelet.successor
+        else:
+            end = True
+    return consecutive_lanelet_ids
 
 
 def retrieve_glb_nav_path_lane_changes(route):

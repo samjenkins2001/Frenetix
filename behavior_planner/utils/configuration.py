@@ -22,3 +22,9 @@ class ModeConfiguration:
     """Class to store all prediction configurations"""
     def __init__(self, config: Union[ListConfig, DictConfig]):
         self.overtaking = config.overtaking
+
+
+class BehaviorConfiguration:
+    def __init__(self):
+        # VP
+        self.prec_vehicle_by_shape = False
