@@ -9,6 +9,9 @@ trajectory_eval: True
 
 # phantom pedestrians
 use_phantom_ped: True
+collision_check_mode: 'pycrcc' # shapely or pycrcc
+create_commonroad_obstacle: True # automatically enabled when using pycrcc
+visualize_collision: True # visualize collision
 
 # show/save occlusion debug plots
 show_occlusion_plot: True

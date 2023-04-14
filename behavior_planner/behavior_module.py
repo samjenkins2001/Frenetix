@@ -106,10 +106,7 @@ class BehaviorModule(object):
         self.BM_state.ego_state = ego_state
         self.BM_state.time_step = time_step
 
-        self.BM_state.ref_position_s = self.PP_state.cl_ref_coordinate_system.convert_to_curvilinear_coords(
-                            ego_state.position[0], ego_state.position[1])[0]
-        self.BM_state.nav_position_s = self.PP_state.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                            ego_state.position[0], ego_state.position[1])[0]
+        self._get_ego_position(ego_state)
 
         self.BM_state.future_factor = int(self.BM_state.ego_state.velocity // 4) + 1  # for lane change maneuvers
         self._collect_necessary_information()
@@ -167,6 +164,18 @@ class BehaviorModule(object):
                     self.BM_state.nav_lane_changes_left += 1
                 if lanelet.adj_right == self.BM_state.global_nav_route.list_ids_lanelets[idx+1]:
                     self.BM_state.nav_lane_changes_right += 1
+
+    def _get_ego_position(self, ego_state):
+        try:
+            self.BM_state.ref_position_s = self.PP_state.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+                ego_state.position[0], ego_state.position[1])[0]
+        except:
+            print("Ego position out of reference path coordinate system projection domain")
+        try:
+            self.BM_state.nav_position_s = self.PP_state.cl_nav_coordinate_system.convert_to_curvilinear_coords(
+                ego_state.position[0], ego_state.position[1])[0]
+        except:
+            print("Ego position out of navigation route coordinate system projection domain")
 
     def _collect_necessary_information(self):
         self.BM_state.current_lanelet_id, self.BM_state.speed_limit, self.BM_state.street_setting_scenario = \

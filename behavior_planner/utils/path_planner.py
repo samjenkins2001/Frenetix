@@ -131,7 +131,7 @@ class RoutePlan(object):
                     # all static goals with stop line
                     if static_goal.get('type') in ['StopSign', 'YieldSign', 'TrafficLight']:
                         distance = 20
-                        start_s = static_goal.get('stop_position_s') - distance
+                        start_s = max([0.001, static_goal.get('stop_position_s') - distance])
                         start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
                         end_s = static_goal.get('position_s')
                         end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
@@ -145,11 +145,12 @@ class RoutePlan(object):
                                           stop_point_xy=static_goal.get('stop_position_xy'),
                                           goal_object=traffic_sign_object)
                         prep_start_xy =\
-                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s - 10, 0).tolist()
+                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(
+                                max([0.001, start_s - 10]), 0).tolist()
                         prep_end_xy = \
                             self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=start_s - 10,
+                                          start_s=max([0.001, start_s - 10]),
                                           start_xy=prep_start_xy,
                                           end_s=start_s,
                                           end_xy=prep_end_xy,
@@ -160,7 +161,7 @@ class RoutePlan(object):
                     # all static goals with a lane change maneuver
                     elif static_goal.get('type') in ['LaneMerge', 'RoadExit']:
                         distance = 50
-                        start_s = static_goal.get('position_s') - distance
+                        start_s = max([0.001, static_goal.get('position_s') - distance])
                         start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
                         end_s = static_goal.get('position_s')
                         end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
@@ -170,11 +171,12 @@ class RoutePlan(object):
                                           end_s=end_s,
                                           end_xy=end_xy)
                         prep_start_xy = \
-                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s - 10, 0).tolist()
+                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(
+                                max([0.001, start_s - 10]), 0).tolist()
                         prep_end_xy = \
                             self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=start_s - 10,
+                                          start_s=max([0.001, start_s - 10]),
                                           start_xy=prep_start_xy,
                                           end_s=start_s,
                                           end_xy=prep_end_xy)
@@ -187,11 +189,11 @@ class RoutePlan(object):
                                           end_s=static_goal.get('end_s'),
                                           end_xy=static_goal.get('end_xy'))
                         prep_start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                            static_goal.get('start_s') - 10, 0).tolist()
+                            max([0.001, static_goal.get('start_s') - 10]), 0).tolist()
                         prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
                             static_goal.get('start_s'), 0).tolist()
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=static_goal.get('start_s') - 10,
+                                          start_s=max([0.001, static_goal.get('start_s') - 10]),
                                           start_xy=prep_start_xy,
                                           end_s=static_goal.get('start_s'),
                                           end_xy=prep_end_xy)
@@ -214,16 +216,34 @@ class RoutePlan(object):
             stop_position_x = (lanelet.stop_line.start[0] + lanelet.stop_line.end[0]) / 2
             stop_position_y = (lanelet.stop_line.start[1] + lanelet.stop_line.end[1]) / 2
             stop_position_xy = [stop_position_x, stop_position_y]
-            stop_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                stop_position_x, stop_position_y)[0]
+            try:
+                stop_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
+                    stop_position_x, stop_position_y)[0]
+            except:
+                print("PP stop line position of traffic sign or light is out of projection domain")
+                stop_position_s = None
+
             if lanelet.stop_line.traffic_sign_ref is not None:
                 for traffic_sign_id in lanelet.stop_line.traffic_sign_ref:
                     if traffic_sign_id is not None:
                         traffic_sign = self.lanelet_network.find_traffic_sign_by_id(traffic_sign_id)
                         traffic_sign_position_xy = [traffic_sign.position[0], traffic_sign.position[1]]
-                        traffic_sign_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                            traffic_sign_position_xy[0], traffic_sign_position_xy[1])[0]
+                        try:
+                            traffic_sign_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
+                                traffic_sign_position_xy[0], traffic_sign_position_xy[1])[0]
+                        except:
+                            print("PP position of traffic sign is out of projection domain")
+                            traffic_sign_position_s = None
                         for traffic_sign_element in traffic_sign.traffic_sign_elements:
+
+                            if stop_position_s is None and traffic_sign_position_s is not None:
+                                stop_position_s = traffic_sign_position_s
+                            elif stop_position_s is not None and traffic_sign_position_s is None:
+                                traffic_sign_position_s = stop_position_s
+                            elif stop_position_s is None and traffic_sign_position_s is None:
+                                print("PP traffic sign is out of projection domain")
+                                continue
+
                             if traffic_sign_element.traffic_sign_element_id.name == 'YIELD':
                                 self.yield_signs += [{'id': traffic_sign_id,
                                                       'type': 'YieldSign',
@@ -238,6 +258,7 @@ class RoutePlan(object):
                                                      'position_xy': traffic_sign_position_xy,
                                                      'stop_position_s': stop_position_s,
                                                      'stop_position_xy': stop_position_xy}]
+
             if lanelet.stop_line.traffic_light_ref is not None:
                 for traffic_light_id in lanelet.stop_line.traffic_light_ref:
                     if traffic_light_id is not None:
@@ -247,8 +268,17 @@ class RoutePlan(object):
                             traffic_light_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
                                 traffic_light.position[0], traffic_light.position[1])[0]
                         except:
-                            print('PP Traffic Light out of projection domain. Use Stopping Line position instead')
+                            print('PP traffic light position out of projection domain')
+                            traffic_light_position_s = None
+
+                        if stop_position_s is None and traffic_light_position_s is not None:
+                            stop_position_s = traffic_light_position_s
+                        elif stop_position_s is not None and traffic_light_position_s is None:
                             traffic_light_position_s = stop_position_s
+                        elif stop_position_s is None and traffic_light_position_s is None:
+                            print("PP traffic light is out of projection domain")
+                            continue
+
                         if traffic_light.active:
                             self.traffic_lights += [{'id': traffic_light_id,
                                                      'type': 'TrafficLight',
@@ -271,8 +301,13 @@ class RoutePlan(object):
                     orient1 = orient1 / np.linalg.norm(orient1)
                     orient2 = orient2 / np.linalg.norm(orient2)
                     if np.allclose(orient1, orient2, atol=0.1):  # similar orientation or merging lanes
-                        merging_point_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                            lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
+                        try:
+                            merging_point_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
+                                lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
+                        except:
+                            merging_point_s = None
+                            print("PP merging point is out of projection domain")
+                            continue
                         self.lane_merges += [{'type': 'LaneMerge',
                                               'position_xy': lanelet.center_vertices[0],
                                               'position_s': merging_point_s}]
@@ -288,11 +323,28 @@ class RoutePlan(object):
                             (lanelet_id in intersection_element.successors_straight):
                         lanelet = self.lanelet_network.find_lanelet_by_id(lanelet_id)
                         start_xy = lanelet.center_vertices[0].tolist()
-                        start_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                            lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
+                        try:
+                            start_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
+                                lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
+                        except:
+                            start_s = None
+                            print("PP start of intersection out of projection domain")
                         end_xy = lanelet.center_vertices[-1].tolist()
-                        end_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                            lanelet.center_vertices[-1][0], lanelet.center_vertices[-1][1])[0]
+                        try:
+                            end_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
+                                lanelet.center_vertices[-1][0], lanelet.center_vertices[-1][1])[0]
+                        except:
+                            end_s = None
+                            print("PP end of intersection out of projection domain")
+
+                        if start_s is None and end_s is not None:
+                            start_s = max([0.001, end_s - 15])
+                        elif start_s is not None and end_s is None:
+                            end_s = start_s + 15
+                        elif start_s is None and end_s is None:
+                            print("PP intersection is out of projection domain")
+                            continue
+
                         self.intersections += [{'id': intersection_element.incoming_id,
                                                 'type': 'Intersection',
                                                 'start_xy': start_xy,
@@ -414,8 +466,8 @@ class ReferencePath(object):
         self.list_ids_ref_path = old_ref_path_ids + new_path_ids
         new_path = hf.compute_straight_reference_path(self.lanelet_network, new_path_ids)
         # cut old and new path at current position
-        cut_idx_old = ((np.abs(np.subtract(old_path, ego_state.position))).argmin(axis=0)).min()
-        cut_idx_new = ((np.abs(np.subtract(new_path, ego_state.position))).argmin(axis=0)).min()
+        cut_idx_old = np.argmin([np.linalg.norm(x) for x in (np.subtract(old_path, ego_state.position))])
+        cut_idx_new = np.argmin([np.linalg.norm(x) for x in (np.subtract(new_path, ego_state.position))])
         old_path = old_path[:cut_idx_old + self.BM_state.future_factor, :]
         new_path = new_path[self.BM_state.future_factor + cut_idx_new + number_vertices_lane_change:, :]
         # create final reference path

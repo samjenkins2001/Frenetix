@@ -8,7 +8,8 @@ import numpy as np
 
 
 class OccPlot:
-    def __init__(self, config=None, log_path=None, scenario_id=None):
+    def __init__(self, config=None, log_path=None, scenario_id=None, occ_scenario=None):
+        self.occ_scenario = occ_scenario
         self.scenario_id = scenario_id
         self.log_path = log_path
         self.fast_plot = config.occlusion.use_fast_plot
@@ -44,8 +45,14 @@ class OccPlot:
             self.ax.axis('off')
         else:
 
-            self.ax.set_xlim([min(occlusion_map[:, 1] - self.plot_window), max(occlusion_map[:, 1] + self.plot_window)])
-            self.ax.set_ylim([min(occlusion_map[:, 2] - self.plot_window), max(occlusion_map[:, 2] + self.plot_window)])
+            if occlusion_map is not None:
+                self.ax.set_xlim([min(occlusion_map[:, 1] - self.plot_window),
+                                  max(occlusion_map[:, 1] + self.plot_window)])
+                self.ax.set_ylim([min(occlusion_map[:, 2] - self.plot_window),
+                                  max(occlusion_map[:, 2] + self.plot_window)])
+            else:
+                self.ax.set_xlim([ego_pos[0] - 30, ego_pos[0] + 30])
+                self.ax.set_ylim([ego_pos[1] - 30, ego_pos[1] + 30])
 
             if ref_path is not None:
                 self.ax.plot(ref_path[:, 0], ref_path[:, 1], c='y')
@@ -77,8 +84,6 @@ class OccPlot:
                     if obst.polygon is not None:
                         if obst.visible_at_timestep:
                             color = 'c'
-                            self.ax.plot(obst.relevant_corner_points[:, 0], obst.relevant_corner_points[:, 1],
-                                         marker='v', c='slategray')
                         else:
                             color = 'm'
                         x = obst.pos_point.x
@@ -99,7 +104,8 @@ class OccPlot:
             self._save_plot()
 
         if self.interactive_plot:
-            plt.show()
+            plt.show(block=False)
+            plt.pause(0.1)
 
     def _create_occ_figure(self):
         self.fig, self.ax = plt.subplots()
@@ -155,6 +161,18 @@ class OccPlot:
             #print('costs of {} found in trajectory {}' .format(costs[i], i))
         if self.save_plot:
             self._save_plot()
+
+    def plot_phantom_collision(self, collision):
+
+        if collision['ego_traj_polygons'] is None:
+            traj = collision['traj']
+            ego_traj_polygons = hf.compute_vehicle_polygons(traj.cartesian.x, traj.cartesian.y,
+                                                            traj.cartesian.theta,
+                                                            self.occ_scenario.ego_width,
+                                                            self.occ_scenario.ego_length)
+            collision['ego_traj_polygons'] = ego_traj_polygons
+
+        hf.draw_collision_trajectory(self.ax, collision)
 
 
 

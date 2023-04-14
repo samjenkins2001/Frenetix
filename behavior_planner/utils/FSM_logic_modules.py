@@ -105,21 +105,24 @@ class LogicHighwayDynamic:
                     self.cur_state = 'DynamicDefault'
 
         # initiate lane change preparations
-        if self.cur_state == 'DynamicDefault' and self.BM_state.time_step > 0:
+        if self.cur_state == 'DynamicDefault' and not self.FSM_state.no_auto_lane_change \
+                and self.BM_state.time_step > 0:
             # lane change due to navigation
             if self.BM_state.nav_lane_changes_right > 0:
                 if self.BM_state.current_lanelet.adj_right is not None:
                     if self.BM_state.current_lanelet.adj_right_same_direction:
-                        if self.BM_state.current_lanelet.line_marking_right_vertices != LineMarking('solid'):
+                        if self.BM_state.current_lanelet.line_marking_right_vertices != LineMarking('solid') and \
+                                self.BM_state.current_lanelet.line_marking_right_vertices != LineMarking('broad_solid'):
                             self.transition = 'toPrepareLaneChangeRight'
                             self.cur_state = 'PrepareLaneChangeRight'
             if self.BM_state.nav_lane_changes_left > 0:
                 if self.BM_state.current_lanelet.adj_left is not None:
                     if self.BM_state.current_lanelet.adj_left_same_direction:
-                        if self.BM_state.current_lanelet.line_marking_left_vertices != LineMarking('solid'):
+                        if self.BM_state.current_lanelet.line_marking_left_vertices != LineMarking('solid') and \
+                                self.BM_state.current_lanelet.line_marking_right_vertices != LineMarking('broad_solid'):
                             self.transition = 'toPrepareLaneChangeLeft'
                             self.cur_state = 'PrepareLaneChangeLeft'
-            # TODO: add lane change due to Lane Merge, Road Exit, slow preceding vehicle ....
+        # TODO: add lane change due to Lane Merge, Road Exit, slow preceding vehicle ....
 
         # abort lane change preparations
         if self.cur_state == 'PrepareLaneChangeRight' and self.BM_state.current_lanelet.adj_right is None:
@@ -255,14 +258,24 @@ class LogicUrbanDynamic:
                 self.cur_state = 'DynamicDefault'
 
         # initiate lane change preparations
-        if self.cur_state == 'DynamicDefault' and not self.FSM_state.no_auto_lane_change:
+        if self.cur_state == 'DynamicDefault' and not self.FSM_state.no_auto_lane_change \
+                and self.BM_state.time_step > 0:
             # lane change due to navigation
             if self.BM_state.nav_lane_changes_right > 0:
-                self.transition = 'toPrepareLaneChangeRight'
-                self.cur_state = 'PrepareLaneChangeRight'
+                if self.BM_state.current_lanelet.adj_right is not None:
+                    if self.BM_state.current_lanelet.adj_right_same_direction:
+                        if self.BM_state.current_lanelet.line_marking_right_vertices != LineMarking('broad_solid') and \
+                                self.BM_state.current_lanelet.line_marking_right_vertices != LineMarking('broad_solid'):
+                            self.transition = 'toPrepareLaneChangeRight'
+                            self.cur_state = 'PrepareLaneChangeRight'
             if self.BM_state.nav_lane_changes_left > 0:
-                self.transition = 'toPrepareLaneChangeLeft'
-                self.cur_state = 'PrepareLaneChangeLeft'
+                if self.BM_state.current_lanelet.adj_left is not None:
+                    if self.BM_state.current_lanelet.adj_left_same_direction:
+                        if self.BM_state.current_lanelet.line_marking_left_vertices != LineMarking('solid') and \
+                                self.BM_state.current_lanelet.line_marking_right_vertices != LineMarking('broad_solid'):
+                            self.transition = 'toPrepareLaneChangeLeft'
+                            self.cur_state = 'PrepareLaneChangeLeft'
+
             # TODO: add lane change due to Lane Merge, Road Exit, slow preceding vehicle ....
 
         # initiate lane change
@@ -270,10 +283,12 @@ class LogicUrbanDynamic:
             self.transition = 'toLaneChangeRight'
             self.cur_state = 'LaneChangeRight'
             self.FSM_state.do_lane_change = True
+            self.FSM_state.lane_change_right_ok = None
         if self.cur_state == 'PrepareLaneChangeLeft' and self.FSM_state.lane_change_left_ok:
             self.transition = 'toLaneChangeLeft'
             self.cur_state = 'LaneChangeLeft'
             self.FSM_state.do_lane_change = True
+            self.FSM_state.lane_change_left_ok = None
 
         # lane change completed
         if self.cur_state == 'LaneChangeRight' and self.FSM_state.lane_change_right_done:
@@ -281,11 +296,17 @@ class LogicUrbanDynamic:
             self.cur_state = 'DynamicDefault'
             if self.BM_state.nav_lane_changes_right > 0:
                 self.BM_state.nav_lane_changes_right -= 1
+            self.FSM_state.lane_change_right_done = None
+            self.FSM_state.lane_change_target_lanelet_id = None
+            self.FSM_state.lane_change_target_lanelet = None
         if self.cur_state == 'LaneChangeLeft' and self.FSM_state.lane_change_left_done:
             self.transition = 'toDynamicDefault'
             self.cur_state = 'DynamicDefault'
             if self.BM_state.nav_lane_changes_left > 0:
                 self.BM_state.nav_lane_changes_left -= 1
+            self.FSM_state.lane_change_left_done = None
+            self.FSM_state.lane_change_target_lanelet_id = None
+            self.FSM_state.lane_change_target_lanelet = None
 
         # lane change preparations aborted
         if self.cur_state == 'PrepareLaneChangeRight' and self.FSM_state.lane_change_prep_right_abort:

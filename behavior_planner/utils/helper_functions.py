@@ -192,8 +192,13 @@ def get_closest_preceding_obstacle(predictions, lanelet_network, coordinate_syst
     for obstacle_id in obstacles_on_lanelet:
         obstacle = obstacles_on_lanelet.get(obstacle_id)
         obstacle_position_xy = obstacle.get('pos_list')[0]
-        obstacle_position_s = coordinate_system.convert_to_curvilinear_coords(obstacle_position_xy[0],
-                                                                              obstacle_position_xy[1])[0]
+        try:
+            obstacle_position_s = coordinate_system.convert_to_curvilinear_coords(obstacle_position_xy[0],
+                                                                                  obstacle_position_xy[1])[0]
+        except:
+            print("VP object out of projection domain. Object position: ", obstacle_position_xy)
+            continue
+
         if obstacle_position_s > ego_position_s:
             if closest_obstacle is None:
                 closest_obstacle = obstacle

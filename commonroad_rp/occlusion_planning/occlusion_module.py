@@ -2,15 +2,24 @@
 import numpy as np
 from shapely.geometry import LineString
 from shapely.ops import unary_union
+from functools import reduce
+
+# commonroad inputs
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 from commonroad_rp.occlusion_planning.utils.visualization import OccPlot
 from commonroad_rp.occlusion_planning.visibility_module import VisibilityModule
 from commonroad_rp.occlusion_planning.visibility_estimator import OccVisibilityEstimator
 from commonroad_rp.occlusion_planning.trajectory_evaluator import OccTrajectoryEvaluator
-from functools import reduce
+from commonroad_rp.occlusion_planning.phantom_module import OccPhantomModule
 
-import matplotlib.pyplot as plt
-import matplotlib as mpl
+
+"""
+This module is the main module of the Occlusion calculation of the reactive planner. 
+All submodules are started and managed from here
+
+Author: Korbinian Moller, TUM
+Date: 14.04.2023
+"""
 
 
 class OcclusionModule:
@@ -24,7 +33,9 @@ class OcclusionModule:
         else:
             self.scope = config.occlusion.scope
 
-        self.occ_scenario = OccScenario(ref_path=ref_path,
+        self.occ_scenario = OccScenario(ego_width=config.vehicle.width,
+                                        ego_length=config.vehicle.length,
+                                        ref_path=ref_path,
                                         scenario_lanelet_network=scenario.lanelet_network,
                                         dt=config.planning.dt,
                                         sidewalk_buffer=2)  # if sidewalk buffer > 0 sidewalks will be considered
@@ -38,12 +49,16 @@ class OcclusionModule:
             self.occ_visible_area = OccArea(area_type="visible")
             self.occ_occluded_area = OccArea(area_type="occluded")
 
-            self.occlusion_map = OccMap(debug_mode=config.debug.debug_mode)
+            self.occ_map = OccMap(debug_mode=config.debug.debug_mode)
 
             if self.plot:
-                self.occ_plot = OccPlot(config=config, log_path=self.log_path, scenario_id=self.scenario_id)
+                self.occ_plot = OccPlot(config=config, log_path=self.log_path,
+                                        scenario_id=self.scenario_id, occ_scenario=self.occ_scenario)
 
-            self.occ_trajectory_evaluator = OccTrajectoryEvaluator(self.vis_module, self.occlusion_map, self.occ_plot)
+            self.occ_phantom_module = OccPhantomModule(config, self.occ_scenario, self.vis_module,
+                                                       self.occ_visible_area, self.occ_map, self.occ_plot)
+
+            self.occ_trajectory_evaluator = OccTrajectoryEvaluator(self.vis_module, self.occ_map, self.occ_plot)
 
             self.occ_visibility_estimator = OccVisibilityEstimator(self.occ_scenario, self.vis_module, self.occ_plot)
 
@@ -67,7 +82,7 @@ class OcclusionModule:
         self.occ_visible_area.set_area(visible_area)
         self.occ_occluded_area.set_area(occluded_area)
 
-        self.occlusion_map.step(self.occ_visible_area.points, self.occ_occluded_area.points)
+        self.occ_map.step(self.occ_visible_area.points, self.occ_occluded_area.points)
 
         if self.plot:
             self.occ_plot.step_plot(time_step=self.vis_module.time_step,
@@ -80,15 +95,16 @@ class OcclusionModule:
                                     obstacles=self.vis_module.obstacles,
                                     visible_area=self.occ_visible_area.poly,
                                     occluded_area=self.occ_occluded_area.poly,
-                                    occlusion_map=self.occlusion_map.map_detail,
+                                    # occlusion_map=self.occ_map.map_detail,
                                     # additional_plot=add_occ_plot,
-                                    error_flag=self.occlusion_map.error)
+                                    error_flag=self.occ_map.error)
 
-        return self.occlusion_map.map_detail
+        return self.occ_map.map_detail
 
 
 class OccScenario:
-    def __init__(self, ref_path=None, scenario_lanelet_network=None, dt=0.1, sidewalk_buffer=0):
+    def __init__(self, ego_width=1.8, ego_length=5, ref_path=None,
+                 scenario_lanelet_network=None, dt=0.1, sidewalk_buffer=0):
         # private attributes
         self._scenario_lanelet_network = scenario_lanelet_network
         self._lanelets_polygon_list = None
@@ -96,6 +112,8 @@ class OccScenario:
 
         # public attributes
         self.dt = dt
+        self.ego_width = ego_width
+        self.ego_length = ego_length
         self.ref_path = ref_path
         self.ref_path_ls = LineString(self.ref_path)
         # one polygon of the entire lanelet network
@@ -279,26 +297,3 @@ class OccMap:
         # if no occlusion map exists, the initial occlusion map is ready after this step
         self.map_detail = np.concatenate((np_visible, np_occluded), axis=0)
         self.map = self.map_detail[:, [1, 2, 3]]
-
-
-class OccPhantomModule:
-    def __init__(self, occ_scenario=None, vis_module=None, occ_map=None, occ_plot=None):
-        self.occ_scenario = occ_scenario
-        self.vis_module = vis_module
-        self.occ_map = occ_map
-        self.occ_plot = occ_plot
-        self.max_number_of_phantom_peds = 3
-
-    def create_phantom_peds(self):
-        pass
-
-    def _create_trajectory(self):
-        pass
-
-    def _find_spawn_points(self):
-        pass
-
-
-
-
-

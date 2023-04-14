@@ -157,6 +157,9 @@ class OcclusionModuleConfiguration:
         self.visibility_estimation = config.visibility_estimation
         self.trajectory_eval = config.trajectory_eval
         self.use_phantom_ped = config.use_phantom_ped
+        self.create_commonroad_obstacle = config.create_commonroad_obstacle
+        self.collision_check_mode = config.collision_check_mode
+        self.visualize_collision = config.visualize_collision
         self.show_occlusion_plot = config.show_occlusion_plot
         self.save_plot = config.save_plot
         self.interactive_plot = config.interactive_plot

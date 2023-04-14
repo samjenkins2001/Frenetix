@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point, Polygon, LineString
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.ops import nearest_points
+from risk_assessment.helpers.collision_helper_function import angle_range
 
 
 def calc_occluded_areas(ego_pos=None, visible_area=None, ref_path=None, lanelets=None, scope=50,

@@ -1108,6 +1108,7 @@ class ReactivePlanner(object):
             feasible_trajectories, infeasible_trajectories, infeasible_count_kinematics = self._check_kinematics(trajectory_bundle.trajectories)
 
         if self.use_occ_model and feasible_trajectories:
+            collisions = self.occlusion_module.occ_phantom_module.evaluate_trajectories(feasible_trajectories)
             self.occlusion_module.occ_visibility_estimator.evaluate_trajectories(feasible_trajectories, predictions)
             self.occlusion_module.occ_trajectory_evaluator.evaluate_trajectories(feasible_trajectories)
 

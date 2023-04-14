@@ -254,7 +254,7 @@ class Urban(State):
 
         # actions
         if self.cur_state_static != 'StaticDefault':
-            self.FSM_state.no_auto_lane_change = True
+            self.FSM_state.no_auto_lane_change = False #True
         else:
             self.FSM_state.no_auto_lane_change = False
 
@@ -447,8 +447,8 @@ class LaneChangeLeft(State):
         self.FSM_state._dynamic = self.cur_state
 
         # actions
-        vehicle_shape = Rectangle(length=self.BM_state.vehicle_params.length,
-                                  width=self.BM_state.vehicle_params.width,
+        vehicle_shape = Rectangle(length=self.BM_state.vehicle_params.length / 2,
+                                  width=self.BM_state.vehicle_params.width / 2,
                                   center=self.BM_state.ego_state.position,
                                   orientation=self.BM_state.ego_state.orientation)
         self.FSM_state.detected_lanelets = self.BM_state.scenario.lanelet_network.find_lanelet_by_shape(vehicle_shape)
@@ -531,8 +531,8 @@ class LaneChangeRight(State):
         self.FSM_state.situation_state_dynamic = self.cur_state
 
         # actions
-        vehicle_shape = Rectangle(length=self.BM_state.vehicle_params.length,
-                                  width=self.BM_state.vehicle_params.width,
+        vehicle_shape = Rectangle(length=self.BM_state.vehicle_params.length / 2,
+                                  width=self.BM_state.vehicle_params.width / 2,
                                   center=self.BM_state.ego_state.position,
                                   orientation=self.BM_state.ego_state.orientation)
         self.FSM_state.detected_lanelets = self.BM_state.scenario.lanelet_network.find_lanelet_by_shape(vehicle_shape)
@@ -1095,12 +1095,12 @@ class EgoVehicleBetweenTwoLanes(State):
 
 class LaneChangeComplete(State):
     def execute(self):
-        print("Situation State: Lane change complete")
+        print("FSM Situation State: Lane change complete")
 
 
 class BehaviorStateComplete(State):
     def execute(self):
-        print("Situation State: Behavior State complete")
+        print("FSM Situation State: Behavior State complete")
 
 
 class EstimateMergingLaneLengthAndEmergencyStopPoint(State):
