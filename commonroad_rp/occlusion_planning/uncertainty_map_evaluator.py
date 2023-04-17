@@ -4,7 +4,7 @@ import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 from scipy.spatial.distance import cdist
 
 
-class OccTrajectoryEvaluator:
+class OccUncertaintyMapEvaluator:
     def __init__(self, vis_module=None, occ_map=None, occ_plot=None):
         self.trajectories = None
         self.vis_module = vis_module

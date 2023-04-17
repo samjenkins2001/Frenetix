@@ -1,4 +1,12 @@
-# Standard imports
+"""
+This module is the main module of the Occlusion calculation of the reactive planner.
+All submodules are started and managed from here
+
+Author: Korbinian Moller, TUM
+Date: 15.04.2023
+"""
+
+# imports
 import numpy as np
 from shapely.geometry import LineString
 from shapely.ops import unary_union
@@ -9,21 +17,12 @@ import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 from commonroad_rp.occlusion_planning.utils.visualization import OccPlot
 from commonroad_rp.occlusion_planning.visibility_module import VisibilityModule
 from commonroad_rp.occlusion_planning.visibility_estimator import OccVisibilityEstimator
-from commonroad_rp.occlusion_planning.trajectory_evaluator import OccTrajectoryEvaluator
+from commonroad_rp.occlusion_planning.uncertainty_map_evaluator import OccUncertaintyMapEvaluator
 from commonroad_rp.occlusion_planning.phantom_module import OccPhantomModule
 
 
-"""
-This module is the main module of the Occlusion calculation of the reactive planner. 
-All submodules are started and managed from here
-
-Author: Korbinian Moller, TUM
-Date: 14.04.2023
-"""
-
-
 class OcclusionModule:
-    def __init__(self, scenario, config, ref_path, log_path):
+    def __init__(self, scenario, config, ref_path, log_path, planner):
         self.scenario_id = scenario.scenario_id
         self.log_path = log_path
         self.debug_mode = config.debug.debug_mode
@@ -55,10 +54,16 @@ class OcclusionModule:
                 self.occ_plot = OccPlot(config=config, log_path=self.log_path,
                                         scenario_id=self.scenario_id, occ_scenario=self.occ_scenario)
 
-            self.occ_phantom_module = OccPhantomModule(config, self.occ_scenario, self.vis_module,
-                                                       self.occ_visible_area, self.occ_map, self.occ_plot)
+            self.occ_phantom_module = OccPhantomModule(config=config,
+                                                       occ_scenario=self.occ_scenario,
+                                                       vis_module=self.vis_module,
+                                                       occ_visible_area=self.occ_visible_area,
+                                                       occ_plot=self.occ_plot,
+                                                       params_risk=planner.params_risk,
+                                                       params_harm=planner.params_harm)
 
-            self.occ_trajectory_evaluator = OccTrajectoryEvaluator(self.vis_module, self.occ_map, self.occ_plot)
+            self.occ_uncertainty_map_evaluator = OccUncertaintyMapEvaluator(self.vis_module, self.occ_map,
+                                                                            self.occ_plot)
 
             self.occ_visibility_estimator = OccVisibilityEstimator(self.occ_scenario, self.vis_module, self.occ_plot)
 

@@ -1,3 +1,10 @@
+"""
+This module is the main module of the Phantom obstacle generation of the reactive planner.
+
+Author: Korbinian Moller, TUM
+Date: 15.04.2023
+"""
+
 # imports
 import numpy as np
 from scipy.spatial import distance
@@ -8,28 +15,26 @@ from typing import Tuple
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 import commonroad_rp.occlusion_planning.utils.vis_helper_functions as vhf
 from commonroad_rp.occlusion_planning.occlusion_obstacles import OccPhantomObstacle
+from commonroad.scenario.obstacle import ObstacleType
 
-# risk assessment imports
+# risk assessment and harm imports
 from risk_assessment.helpers.collision_helper_function import create_tvobstacle
-
-"""
-This module is the main module of the Phantom obstacle generation of the reactive planner. 
-
-Author: Korbinian Moller, TUM
-Date: 14.04.2023
-"""
+from risk_assessment.harm_estimation import get_harm
+from risk_assessment.helpers.timers import ExecTimer
 
 
 class OccPhantomModule:
     def __init__(self, config=None, occ_scenario=None, vis_module=None,
-                 occ_visible_area=None, occ_map=None, occ_plot=None):
+                 occ_visible_area=None, occ_plot=None, params_risk=None, params_harm=None):
         self.config = config.occlusion
+        self.ego_vehicle_params = config.vehicle
         self.occ_scenario = occ_scenario
         self.vis_module = vis_module
         self.occ_visible_area = occ_visible_area
-        self.occ_map = occ_map
         self.occ_plot = occ_plot
-        self.max_number_of_phantom_peds = 1
+        self.params_risk = params_risk
+        self.params_harm = params_harm
+        self.max_number_of_phantom_peds = 2
         self.ped_width = 0.5
         self.ped_length = 0.3
         self.ped_velocity = 0.8
@@ -38,55 +43,59 @@ class OccPhantomModule:
         self.ego_pos_s = None
         self.max_s_trajectories = None
 
+        # create commonroad like predictions for harm estimation
+        self.cr_predictions = dict()
+
         # calculate the maximum distance from a vehicle corner point to the vehicle center point
         self.ego_diag = np.sqrt(
             np.power(self.occ_scenario.ego_length, 2) + np.power(self.occ_scenario.ego_width, 2))
+
+    ################################
+    # Main Function of phantom module
+    ################################
 
     def evaluate_trajectories(self, trajectories):
 
         # calculate spawn points and create phantom obstacles
         self._evaluation_preprocessing(trajectories)
-        collisions = []
+        harm = []
 
         # if no phantom obstacles exist
         if self.phantom_peds is None or len(self.phantom_peds) == 0:
             return
 
-        # iterate over trajectories
+        # create commonroad like predictions for harm estimation
+        self._combine_commonroad_predictions()
+
+        timer = ExecTimer(timing_enabled=False)
+
         for traj in trajectories:
-            # check if trajectory leads to a collision with phantom obstacle -> dict
+
+            # calculate harm using harm model
+            ego_harm_traj, obst_harm_traj = get_harm(scenario=self,
+                                                     traj=traj,
+                                                     predictions=self.cr_predictions,
+                                                     ego_vehicle_type=ObstacleType('car'),
+                                                     vehicle_params=self.ego_vehicle_params,
+                                                     modes=self.params_risk,
+                                                     coeffs=self.params_harm,
+                                                     timer=timer)
+
             collision = self._check_trajectory_collision(traj, mode=self.config.collision_check_mode)
 
-            if collision['collision']:
-                cts = collision['collision_timestep']
-                ped = collision['ped']
+            for key in collision:
+                if key in ego_harm_traj and key in obst_harm_traj:
+                    collision[key]['ego_harm_traj'] = ego_harm_traj[key]
+                    collision[key]['obst_harm_traj'] = obst_harm_traj[key]
 
-                # collision['scenario'] =
-                # collision['vehicle_params'] =
-                collision['ego_velocity'] = traj.cartesian.v[cts]
-                # collision['obstacle_id'] =
-                collision['obstacle_size'] = ped.width * ped.length
-                collision['obstacle_velocity'] = ped.v
-                # collision['modes'] =
-                # collision['coeffs'] =
-
-                # calculate angles that are needed for harm model
-                angles = ohf.calc_collision_angles(ped, traj, cts)
-
-                # add angles to collision dict
-                collision.update(angles)
-
-                # visualize collision of trajectory
-                if self.config.visualize_collision:
-                    self.occ_plot.plot_phantom_collision(collision)
-
-            collisions.append(collision)
+            # self.occ_plot.plot_phantom_collision(collision)
+            harm.append(collision)
 
         # plot phantom peds and their trajectories if plot is activated
         if self.occ_plot is not None:
             self._plot_phantom()
 
-        return collisions
+        return harm
 
     def _check_trajectory_collision(self, traj, mode='shapely') -> dict:
         """
@@ -107,11 +116,13 @@ class OccPhantomModule:
         ego_traj_polygons = None
 
         # init collision dict
-        collision_dict = {'collision': False, 'collision_timestep': None, 'ped_id': None, 'ped': None,
-                          'traj': traj, 'ego_traj_polygons': None}
+        collision_dict = dict()
 
         # iterate over phantom peds
         for ped in self.phantom_peds:
+
+            collision_dict[ped.obstacle_id] = {'collision': False, 'collision_timestep': None, 'ped_id': None,
+                                               'ped': None, 'traj': traj, 'ego_traj_polygons': None}
 
             # check for collision using pycrcc
             if mode == 'pycrcc':
@@ -129,10 +140,10 @@ class OccPhantomModule:
 
                     # if collision is true, update collision_dict and return
                     if collision_cr is True:
-                        collision_dict = {'collision': True, 'collision_timestep': i,
-                                          'ped_id': ped.obstacle_id, 'ped': ped, 'traj': traj,
-                                          'ego_traj_polygons': None}
-                        return collision_dict
+                        collision_dict[ped.obstacle_id] = {'collision': True, 'collision_timestep': i,
+                                                           'ped_id': ped.obstacle_id, 'ped': ped, 'traj': traj,
+                                                           'ego_traj_polygons': None}
+                        continue
 
             # check for collisions using shapely
             elif mode == 'shapely':
@@ -153,13 +164,17 @@ class OccPhantomModule:
                     for i, (ego_poly, ped_poly) in enumerate(zip(ego_traj_polygons['polygons'], ped_traj_polygons)):
 
                         if ego_poly.intersects(ped_poly):
-                            collision_dict = {'collision': True, 'collision_timestep': i,
-                                              'ped_id': ped.obstacle_id, 'ped': ped, 'traj': traj,
-                                              'ego_traj_polygons': ego_traj_polygons}
+                            collision_dict[ped.obstacle_id] = {'collision': True, 'collision_timestep': i,
+                                                               'ped_id': ped.obstacle_id, 'ped': ped, 'traj': traj,
+                                                               'ego_traj_polygons': ego_traj_polygons}
 
-                            return collision_dict
+                            continue
 
         return collision_dict
+
+    ################################
+    # create phantom obstacles
+    ################################
 
     def _evaluation_preprocessing(self, trajectories):
 
@@ -181,10 +196,10 @@ class OccPhantomModule:
         self._check_obstacles()
 
         # find spawn points (dict with xy and cl) and points on ref path for phantom pedestrians
-        spawn_points, points_on_ref_path = self._find_spawn_points()
+        spawn_points = self._find_spawn_points()
 
         # create phantom pedestrians
-        self._create_phantom_peds(spawn_points, points_on_ref_path)
+        self._create_phantom_peds(spawn_points)
 
         # calculate trajectories of phantom peds
         self._calc_trajectories()
@@ -198,14 +213,14 @@ class OccPhantomModule:
 
         self.occ_plot._save_plot()
 
-    def _create_phantom_peds(self, spawn_points, points_on_ref_path):
+    def _create_phantom_peds(self, spawn_points):
         # create empty list for phantom pedestrians
         phantom_peds = []
 
         # iterate over spawn points
         for i, spawn_point in enumerate(spawn_points):
             # create vector to calculate orientation
-            vector = points_on_ref_path[i] - spawn_points[i]['xy']
+            vector = spawn_point['rp_xy'] - spawn_point['xy']
 
             # calculate orientation with vector and reference vector [1, 0]
             orientation = vhf.angle_between(np.array([1, 0]), vector)
@@ -244,15 +259,14 @@ class OccPhantomModule:
             else:
                 obst.visible_in_driving_direction = False
 
+    ################################
+    # find spawn points
+    ################################
+
     def _find_spawn_points(self, shift_spawn_points=True):
 
         self.ego_pos_s = self.occ_scenario.ref_path_ls.project(Point(self.vis_module.ego_pos))
         spawn_points = []
-        spawn_points_shifted = []
-        points_on_ref_path = []
-
-        if self.vis_module.time_step == 15:
-            print('asd')
 
         # iterate over obstacles (sorted by distance to ego position)
         for obst in self.sorted_static_obstacles:
@@ -260,40 +274,25 @@ class OccPhantomModule:
             # if the obstacle is visible (and not behind the vehicle), find relevant corner points
             if obst.visible_in_driving_direction:
 
-                # init dict to store xy and cl coordinates
-                relevant_cp = dict()
-                spawn_point = dict()
-
                 # find relevant corner points (cp) for each obstacle and the corresponding vectors
                 # to ref path (needed later)
-                relevant_cp['xy'], point_on_rp = self._spawn_point_preprocessing(obst, offset=self.ped_width / 2 * 1.1)
+                relevant_cp = self._spawn_point_preprocessing(obst, offset=self.ped_width / 2 * 1.1)
 
                 # calc curvilinear coordinates for relevant_cp and remove points that are too far away
-                relevant_cp['cl'], relevant_cp['xy'], point_on_rp = \
-                    self._convert_to_cl_and_remove_far_points(relevant_cp['xy'], point_on_rp)
+                relevant_cp = self._convert_to_cl_and_remove_far_points(relevant_cp)
 
                 # check if more than one possible spawn point exists for each obstacle
-                if len(relevant_cp['xy']) > 1:
+                if len(relevant_cp) > 1:
 
                     # if more than one relevant corner point exists, find critical spawn point and vector_to_ref_path
-                    spawn_point['xy'], spawn_point['cl'], point_on_rp = \
-                        self._find_relevant_spawn_point(relevant_cp['cl'], relevant_cp['xy'], point_on_rp)
+                    spawn_point = self._find_relevant_spawn_point(relevant_cp)
 
                     # add spawn point to spawn_points array
                     spawn_points.append(spawn_point)
 
-                    # add vector_to_ref_path to array
-                    points_on_ref_path.append(point_on_rp)
-                elif len(relevant_cp['xy']) == 1:
+                elif len(relevant_cp) == 1:
                     # only one relevant corner exists -> add relevant corner to spawn_points array
-
-                    spawn_point['xy'] = np.array(relevant_cp['xy'][0])
-                    spawn_point['cl'] = np.array(relevant_cp['cl'][0])
-
-                    spawn_points.append(spawn_point)
-
-                    # add vector_to_ref_path to array
-                    points_on_ref_path.append(point_on_rp[0])
+                    spawn_points.append(relevant_cp[0])
 
                 else:
                     continue
@@ -307,70 +306,64 @@ class OccPhantomModule:
             # convert combined list to separate lists
             sorted_indices, sorted_spawn_points = zip(*sorted_spawn_points_with_index)
 
-            # reorder list of points_on_ref_path according to the spawn points
-            sorted_points_on_ref_path = [points_on_ref_path[i] for i in sorted_indices]
-
             # select relevant points
             spawn_points = sorted_spawn_points[:self.max_number_of_phantom_peds]
-            points_on_ref_path = sorted_points_on_ref_path[:self.max_number_of_phantom_peds]
 
         if shift_spawn_points and len(spawn_points) > 0:
             ref_path_ls = self.occ_scenario.ref_path_ls
-            for i, spawn_point in enumerate(spawn_points):
-                line = np.stack([spawn_points[0]['xy'], points_on_ref_path[i]])
+            for spawn_point in spawn_points:
+                # create line from spawn point to point on ref path to find intersection with visible area
+                line = np.stack([spawn_point['xy'], spawn_point['rp_xy']])
                 line_ls = LineString(line)
 
+                # find shifted spawn point as shapely point
                 spawn_point_shifted_point = self.vis_module.visible_area_timestep.exterior.intersection(line_ls)
 
-                if spawn_point_shifted_point.is_empty:
-                    # append dict to spawn_points_shifted
-                    spawn_points_shifted.append(spawn_point)
-                else:
-                    spawn_point_shifted = dict()
-                    spawn_point_shifted['xy'] = np.array(spawn_point_shifted_point.coords).flatten()
+                # if no shifted spawn point could be found, use spawn point at corner
+                if not spawn_point_shifted_point.is_empty:
+                    # calc curvilinear coordinates of shifted spawn point
                     s = ref_path_ls.project(spawn_point_shifted_point)
                     d = ref_path_ls.distance(spawn_point_shifted_point)
-                    spawn_point_shifted['cl'] = np.array([s, d])
 
-                    spawn_points_shifted.append(spawn_point_shifted)
+                    # overwrite values in spawn point
+                    spawn_point['xy'] = np.array(spawn_point_shifted_point.coords).flatten()
+                    spawn_point['cl'] = np.array([s, d])
 
-            spawn_points = spawn_points_shifted
+        return spawn_points
 
-        return spawn_points, points_on_ref_path
+    def _convert_to_cl_and_remove_far_points(self, relevant_cp):
 
-    def _convert_to_cl_and_remove_far_points(self, relevant_cp_xy, points_on_rp):
         # initialize variables
         ref_path_ls = self.occ_scenario.ref_path_ls
-        relevant_cp_cl = []
-        relevant_cp_xy_new = []
-        points_on_rp_new = []
+        relevant_cp_new = []
 
         # iterate through corner points and calculate curvilinear s and d coordinate for each corner
-        for i, corner in enumerate(relevant_cp_xy):
-            s = ref_path_ls.project(Point(corner))
-            d = ref_path_ls.distance(Point(corner))
+        for cp in relevant_cp:
+            s = ref_path_ls.project(Point(cp['xy']))
+            d = ref_path_ls.distance(Point(cp['xy']))
 
             # only add points that can be reached by a trajectory
-            if not s >= self.max_s_trajectories and not s < self.ego_pos_s:
-                relevant_cp_cl.append((s, d))
-                relevant_cp_xy_new.append(corner)
-                points_on_rp_new.append(points_on_rp[i])
+            if not s >= self.max_s_trajectories and not s < self.ego_pos_s or True:
+                relevant_cp_dict = {'xy': cp['xy'], 'cl': np.array([s, d]), 'rp_xy': cp['rp_xy']}
+                relevant_cp_new.append(relevant_cp_dict)
 
-        return relevant_cp_cl, relevant_cp_xy_new, points_on_rp_new
+        return relevant_cp_new
 
-    def _find_relevant_spawn_point(self, relevant_cp_cl, relevant_cp_xy, point_on_ref_path):
+    def _find_relevant_spawn_point(self, relevant_cp) -> dict:
         """
         This function uses the list of relevant corner points and finds the most critical spawn point for a phantom
         pedestrian. Only one spawn point will be determined for each obstacle.
         Args:
-            relevant_cp_cl: list of relevant corner points in curvilinear (s,d) coordinates
-            relevant_cp_xy: list of relevant corner points in world (x,y) coordinates
+            relevant_cp: list of dicts with relevant corner points {'xy' - corner points in xy coordinates,
+                                                                    'cl' - corner points in curvilinear coordinates,
+                                                                    'rp_xy' - point on ref path in xy coordinates}
 
-        Returns: numpy array of spawn point
+
+        Returns: dict of spawn point {xy, cl, rp_xy}
 
         """
         # convert list of curvilinear coordinates to numpy array [s,d]
-        relevant_cp_cl = np.array(relevant_cp_cl)
+        relevant_cp_cl = np.array([d['cl'] for d in relevant_cp])
 
         # threshold, that points are "close" (only s considered)
         threshold = 0.2
@@ -393,22 +386,17 @@ class OccPhantomModule:
             min_distance_index = similar_indices[min_d_index]
 
         # assign spawn point
-        spawn_point_xy = np.array(relevant_cp_xy[min_distance_index])
-        spawn_point_cl = np.array(relevant_cp_cl[min_distance_index])
+        spawn_point = relevant_cp[min_distance_index]
 
-        # select corresponding vector to ref path
-        point_on_rp_xy = point_on_ref_path[min_distance_index]
+        return spawn_point
 
-        return spawn_point_xy, spawn_point_cl, point_on_rp_xy
-
-    def _spawn_point_preprocessing(self, obst, offset=0.25) -> Tuple[list, list]:
+    def _spawn_point_preprocessing(self, obst, offset=0.25) -> list:
         """
         This function calculates relevant corner points and returns them as a list (for each obstacle)
         Args:
             obst: obstacle (one obstacle of type OcclusionObstacle)
 
-        Returns: - list of relevant corner points (potential spawn points for phantom pedestrians)
-                 - point on ref path (needed later)
+        Returns: - list of dicts with relevant corner points [xy, cl, rp](potential spawn points for phantom peds)
 
         """
         # load ref path linestring from occ scenario
@@ -416,11 +404,10 @@ class OccPhantomModule:
 
         # initialize list for relevant corner points
         relevant_corner_points = []
-        point_on_rp = []
 
         # if offset shall be used, calculate corner points from polygon, otherwise use corner points of obstacle
         if offset > 0:
-            corners = obst.polygon.buffer(offset, join_style=2).exterior.coords[:-1]
+            corners = np.array(obst.polygon.buffer(offset, join_style=2).exterior.coords[:-1])
         else:
             corners = obst.corner_points
 
@@ -458,7 +445,24 @@ class OccPhantomModule:
                 continue
 
             # if corner point is a potential spawn point for phantom peds, add to list
-            relevant_corner_points.append(corner)
-            point_on_rp.append(point_on_ref_path)
+            relevant_cp_dict = {'xy': corner, 'cl': None, 'rp_xy': point_on_ref_path}
+            relevant_corner_points.append(relevant_cp_dict)
 
-        return relevant_corner_points, point_on_rp
+        return relevant_corner_points
+
+    ################################
+    # Functions for harm model
+    ################################
+
+    def obstacle_by_id(self, obstacle_id):
+        for ped in self.phantom_peds:
+            if ped.obstacle_id == obstacle_id:
+                return ped.commonroad_dynamic_obstacle
+
+        return None
+
+    def _combine_commonroad_predictions(self):
+        for ped in self.phantom_peds:
+            self.cr_predictions[ped.obstacle_id] = ped.commonroad_predictions
+
+

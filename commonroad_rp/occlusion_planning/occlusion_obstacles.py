@@ -1,11 +1,21 @@
+"""
+This module contains obstacle types used in the occlusion planning
+
+Author: Korbinian Moller, TUM
+Date: 15.04.2023
+"""
+
+# imports
 import numpy as np
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 import commonroad_rp.occlusion_planning.utils.vis_helper_functions as vhf
 from shapely.geometry import Point, Polygon, LineString
+
+# commonroad imports
 from commonroad.geometry.shape import Rectangle
-from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType, PhantomObstacle
+from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.state import InitialState, CustomState
-from commonroad.prediction.prediction import TrajectoryPrediction, SetBasedPrediction
+from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.trajectory import Trajectory
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 
@@ -107,9 +117,20 @@ class OccPhantomObstacle(OccBasicObstacle):
         self.traj_polygons = None
         self.s = s
         self.diag = np.sqrt(np.power(length, 2) + np.power(width, 2))
+
+        # create commonroad like variables for further use (e.g. collision checking, harm estimation)
         self.commonroad_dynamic_obstacle = None
-        self.commonroad_phantom_obstacle = None
         self.cr_collision_object = None
+        self.commonroad_predictions = None
+
+    def _create_cr_predictions(self):
+        shape = {'length': self.shape.length,
+                 'width': self.shape.width}
+
+        self.commonroad_predictions = {'orientation_list': np.ones(len(self.trajectory)) * self.orientation,
+                                       'v_list': np.ones(len(self.trajectory)) * self.v,
+                                       'pos_list': self.trajectory,
+                                       'shape': shape}
 
     def _create_cr_collision_object(self):
         self.cr_collision_object = create_collision_object(self.commonroad_dynamic_obstacle)
@@ -139,19 +160,11 @@ class OccPhantomObstacle(OccBasicObstacle):
         trajectory_prediction = TrajectoryPrediction(trajectory=trajectory,
                                                      shape=self.shape)
 
-        occupancy_set = trajectory_prediction.occupancy_set
-
-        set_based_prediction = SetBasedPrediction(initial_time_step=0,
-                                                  occupancy_set=occupancy_set)
-
         self.commonroad_dynamic_obstacle = DynamicObstacle(obstacle_id=self.obstacle_id,
                                                            obstacle_type=ObstacleType('pedestrian'),
                                                            obstacle_shape=self.shape,
                                                            initial_state=initial_state,
                                                            prediction=trajectory_prediction)
-
-        self.commonroad_phantom_obstacle = PhantomObstacle(obstacle_id=self.obstacle_id,
-                                                           prediction=set_based_prediction)
 
     def set_velocity(self, v):
         self.v = v
@@ -197,6 +210,7 @@ class OccPhantomObstacle(OccBasicObstacle):
         if self.create_cr_obst:
             self._create_cr_obstacle()
             self._create_cr_collision_object()
+            self._create_cr_predictions()
 
     def calc_goal_position(self, sidewalk):
         # define length of linestring (only used to calculate final destination)

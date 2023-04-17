@@ -164,15 +164,17 @@ class OccPlot:
 
     def plot_phantom_collision(self, collision):
 
-        if collision['ego_traj_polygons'] is None:
-            traj = collision['traj']
-            ego_traj_polygons = hf.compute_vehicle_polygons(traj.cartesian.x, traj.cartesian.y,
-                                                            traj.cartesian.theta,
-                                                            self.occ_scenario.ego_width,
-                                                            self.occ_scenario.ego_length)
-            collision['ego_traj_polygons'] = ego_traj_polygons
+        for key in collision:
+            if collision[key]['collision']:
+                if collision[key]['ego_traj_polygons'] is None:
+                    traj = collision[key]['traj']
+                    ego_traj_polygons = hf.compute_vehicle_polygons(traj.cartesian.x, traj.cartesian.y,
+                                                                    traj.cartesian.theta,
+                                                                    self.occ_scenario.ego_width,
+                                                                    self.occ_scenario.ego_length)
+                    collision[key]['ego_traj_polygons'] = ego_traj_polygons
 
-        hf.draw_collision_trajectory(self.ax, collision)
+                hf.draw_collision_trajectory(self.ax, collision[key])
 
 
 

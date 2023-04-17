@@ -126,7 +126,7 @@ def run_planner(config, log_path, mod_path):
     # Initialize Occlusion Module
     # **************************
     if config.occlusion.use_occlusion_module:
-        occlusion_module = OcclusionModule(scenario, config, ref_path, log_path)
+        occlusion_module = OcclusionModule(scenario, config, ref_path, log_path, planner)
 
     # ***************************
     # Set External Planner Setups
