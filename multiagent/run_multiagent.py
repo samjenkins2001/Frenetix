@@ -1,4 +1,8 @@
 import time
+import warnings
+from math import ceil
+from multiprocessing import Queue
+from queue import Empty
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
@@ -17,6 +21,7 @@ from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 
 from multiagent.agent import Agent
+from multiagent.agent_batch import AgentBatch
 from multiagent.multiagent_helpers import visualize_multiagent_at_timestep
 from multiagent.multiagent_logging import *
 
@@ -110,21 +115,39 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     #############################
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
 
-    #########################
-    #   Initialize Agents   #
-    #########################
+    ################################
+    #   Initialize Agent Batches   #
+    ################################
 
-    agent_list = []
-    for id in agent_id_list:
-        agent_list.append(Agent(id, planning_problem_set.find_planning_problem_by_id(id),
-                                scenario, config, os.path.join(log_path, f"{id}"), mod_path))
+    # List of tuples containing all batches and their associated fields:
+    # [(AgentBatch,out_queue,in_queue,[ID])
+    # batch_list[i][0]: Agent Batch object
+    # batch_list[i][1]: Queue for sending data to the batch
+    # batch_list[i][2]: Queue for receiving data from the batch
+    # batch_list[i][3]: Agent IDs managed by the batch
+    batch_list = []
 
-    # List of all not yet started agents
-    pending_agent_list = list(filter(lambda a: a.current_timestep > 0, agent_list))
-    # List of all active agents
-    running_agent_list = list(filter(lambda a: a.current_timestep == 0, agent_list))
-    # IDs of agents that will change during the next simulation step
-    outdated_agent_id_list = [agent.id for agent in running_agent_list]
+    num_batches = 1
+    if config.multiagent.multiprocessing:
+        # We need at least one agent per batch, and one process for the main simulation
+        num_batches = config.multiagent.num_procs-1
+        if num_batches > len(agent_id_list):
+            num_batches = len(agent_id_list)
+    batch_size = ceil(len(agent_id_list) / num_batches)
+
+    for i in range(num_batches):
+        inqueue = Queue()
+        outqueue = Queue()
+
+        batch_list.append((AgentBatch(agent_id_list[i * batch_size:(i + 1) * batch_size],
+                                      planning_problem_set, scenario,
+                                      config, log_path, mod_path,
+                                      outqueue, inqueue),
+                           outqueue,
+                           inqueue,
+                           agent_id_list[i * batch_size:(i + 1) * batch_size]))
+
+        batch_list[-1][0].start()
 
     ########################
     #      Run Planning    #
@@ -137,6 +160,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
     running = True
     while running:
+        print(f"[Simulation] Simulating timestep {current_timestep}")
         # clear dummy obstacles
         dummy_obstacle_list = list()
         terminated_agent_list = list()
@@ -147,7 +171,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
                 # Calculate predictions for all obstacles using WaleNet.
                 # The state is only used for accessing the current timestep.
                 predictions = ph.main_prediction(predictor, scenario, [obs.obstacle_id for obs in scenario.obstacles],
-                                                 running_agent_list[0].x_0, scenario.dt,
+                                                 CustomState(time_step=current_timestep), scenario.dt,
                                                  [float(config.planning.planning_horizon)])
             elif config.prediction.mode == "lanebased":
                 print("Lane-based predictions are not supported for multiagent simulations.")
@@ -160,67 +184,61 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         # START TIMER
         step_time_start = time.time()
 
-        # Step simulation
-        # TODO parallelize
-        for agent in running_agent_list:
+        ########################
+        #    Step Simulation   #
+        ########################
 
-            print(f"[Simulation] Stepping Agent {agent.id}")
+        # Send predictions
+        for batch in batch_list:
+            batch[1].put(predictions)
 
-            # Simulate.
-            status, dummy_obstacle = agent.step_agent(predictions)
+        # Receive results
+        for batch in batch_list:
+            try:
+                dummy_obstacle_list.extend(batch[2].get(block=True, timeout=10))
+                agent_state_dict.update(batch[2].get(block=True, timeout=10))
+            except Empty:
+                print("Timeout while waiting for step results! Exiting")
+                return
 
-            agent_state_dict[agent.id] = status
+        # Remove completed workers
+        for batch in batch_list:
+            if len(list(filter(lambda i: agent_state_dict[i] < 1, batch[3]))) == 0:
+                print(f"[Simulation] Terminating batch {batch[3]}...")
+                batch[1].put("END", block=True)
+                batch[0].join()
+                batch[1].close()
+                batch[2].close()
 
-            msg = ""
-            if status > 0:
-                if status == 1:
-                    msg = "Completed."
-                elif status == 2:
-                    msg = "Failed to find valid trajectory."
-                elif status == 3:
-                    msg = "Collision detected."
-
-                print(f"[Simulation] Agent {agent.id} terminated: {msg}")
-                # Terminate all agents simultaneously
-                terminated_agent_list.append(agent)
-            else:
-                # save dummy obstacle
-                dummy_obstacle_list.append(dummy_obstacle)
+                batch_list.remove(batch)
 
         # STOP TIMER
         step_time_end = time.time()
 
-        # Terminate agents
-        for agent in terminated_agent_list:
-            running_agent_list.remove(agent)
-            # Remove prediction for plotting
-            del predictions[agent.id]
-
-        # start pending agents
-        for agent in pending_agent_list:
-            if agent.current_timestep == current_timestep+1:
-                running_agent_list.append(agent)
-                outdated_agent_id_list.append(agent.id)
-                dummy_obstacle_list.append(agent.ego_obstacle_list[-1])
-
-                pending_agent_list.remove(agent)
+        # Update outdated agent lists
+        outdated_agent_list = list(filter(lambda id: agent_state_dict[id] > -1, agent_id_list))
 
         # START TIMER
         sync_time_start = time.time()
 
-        # Synchronize agents
-        for agent in running_agent_list:
-            agent.update_scenario(outdated_agent_id_list, dummy_obstacle_list)
+        # Send dummy obstacles
+        for batch in batch_list:
+            batch[1].put(dummy_obstacle_list, block=True)
+            batch[1].put(outdated_agent_list, block=True)
 
         # Update own scenario for predictions and plotting
-        for id in outdated_agent_id_list:
+        for id in filter(lambda i: agent_state_dict[i] >= 0, agent_state_dict.keys()):
             # manage agents that are not yet active
-            if scenario.obstacle_by_id(id) is not None:
-                scenario.remove_obstacle(scenario.obstacle_by_id(id))
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*not contained in the scenario")
+                if scenario.obstacle_by_id(id) is not None:
+                    scenario.remove_obstacle(scenario.obstacle_by_id(id))
 
         # STOP TIMER
         sync_time_end = time.time()
 
+        # TODO Global plotting and logging
+        """
         # Plot current frame
         if (config.debug.show_plots or config.debug.save_plots) and len(running_agent_list) > 0:
             visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in running_agent_list],
@@ -230,7 +248,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
                                              predictions=predictions,
                                              plot_window=config.debug.plot_window_dyn)
 
-        scenario.add_objects(dummy_obstacle_list)
+
 
         # remove terminated agents from outdated agents list
         for agent in terminated_agent_list:
@@ -239,13 +257,20 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         append_log(log_path, current_timestep, current_timestep * scenario.dt,
                    step_time_end-step_time_start, sync_time_end-sync_time_start,
                    agent_id_list, [agent_state_dict[id] for id in agent_id_list])
+        """
+
+        scenario.add_objects(dummy_obstacle_list)
 
         current_timestep += 1
-        running = len(running_agent_list) > 0
+        running = len(batch_list) > 0
 
-    # TODO Evaluation
     print("[Simulation] Simulation completed.")
+    print("Terminating workers...")
 
-    # make gif
-    if config.debug.gif:
-        make_gif(config, scenario, range(0, current_timestep-1), log_path, duration=0.1)
+    # Workers should already have terminated, otherwise wait for timeouts
+    for batch in batch_list:
+        batch[0].join()
+
+    # TODO make gif
+    #if config.debug.gif:
+    #    make_gif(config, scenario, range(0, current_timestep-1), log_path, duration=0.1)
