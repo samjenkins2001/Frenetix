@@ -28,6 +28,8 @@ from commonroad_rp.utility.evaluation import create_planning_problem_solution, r
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import helper_functions as hf
+from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
+from commonroad.geometry.shape import Rectangle
 
 from commonroad_rp.utility.general import load_scenario_and_planning_problem
 
@@ -60,12 +62,18 @@ def run_planner(config, log_path, mod_path):
        planning_problem=planning_problem, scenario=scenario
     )
 
+    # *************************************
+    # Initialize Reactive Planner
+    # *************************************
+    planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
+
     # **************************
     # Run Variables
     # **************************
     record_state_list = list()
     record_input_list = list()
-    ego_vehicle = list()
+    shape = Rectangle(planner.vehicle_params.length, planner.vehicle_params.width)
+    ego_vehicle = [DynamicObstacle(42, ObstacleType.CAR, shape, x_0, None)]
     x_cl = None
     current_count = 0
     planning_times = list()
@@ -77,12 +85,9 @@ def run_planner(config, log_path, mod_path):
     occlusion_map = None
     occlusion_module = None
 
-    # *************************************
-    # Initialize Reactive Planner
-    # *************************************
-    planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
-
-    # convert initial state from planning problem to reactive planner (Cartesian) state type
+    # **************************
+    # Convert Initial State
+    # **************************
     x_0 = planner.process_initial_state_from_pp(x0_pp=x_0)
     record_state_list.append(x_0)
 
@@ -179,12 +184,15 @@ def run_planner(config, log_path, mod_path):
         planner.set_desired_velocity(desired_velocity, x_0.velocity)
         planner.set_predictions(predictions)
         planner.set_behavior(behavior)
+        planner.set_x_0(x_0)
+        planner.set_x_cl(x_cl)
+        planner.set_ego_vehicle_state(ego_vehicle[-1])
 
         # **************************
         # Execute Planner
         # **************************
         comp_time_start = time.time()
-        optimal = planner.plan(x_0, x_cl)  # returns the planned (i.e., optimal) trajectory
+        optimal = planner.plan()  # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
 
         # if the planner fails to find an optimal trajectory -> terminate
