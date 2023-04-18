@@ -3,7 +3,6 @@ import sys
 from commonroad_rp.run_planner import run_planner
 from commonroad_rp.configuration_builder import ConfigurationBuilder
 
-
 if sys.platform == "darwin":
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
