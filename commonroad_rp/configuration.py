@@ -33,6 +33,8 @@ class MultiagentConfiguration:
         self.show_individual_plots = config.show_individual_plots
         self.save_individual_plots= config.save_individual_plots
         self.save_individual_gifs = config.save_individual_gifs
+        self.multiprocessing = config.multiprocessing
+        self.num_procs = config.num_procs
 
 class PlanningConfiguration:
     """Class to store all planning configurations"""

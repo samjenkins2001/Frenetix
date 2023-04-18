@@ -1,7 +1,10 @@
 # List of vehicle IDs to use as agents
-agent_ids: [5]
+agent_ids: [1, 2, 4, 5, 7]
 
 # List of vehicle IDs for which to create individual plots
 show_individual_plots: []
 save_individual_plots: []
 save_individual_gifs: []
+
+multiprocessing: True
+num_procs: 4

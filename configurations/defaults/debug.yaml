@@ -3,10 +3,10 @@ save_all_traj: False
 save_unweighted_costs: False
 log_risk: True
 show_plots: False
-save_plots: True
+save_plots: False
 evaluation: True
 collision_report: True
-gif: True
+gif: False
 # plot vehicle position with x_y distance in meters. 0=Standard Plot
 plot_window_dyn: 30
 # draw obstacles with vehicle icons
@@ -18,6 +18,6 @@ kinematic_debug: True
 # set debug level: #0: print no debug info,  #1: print basic debug info,   #2: print all debug info
 debug_mode: 0
 # use multiprocessing True/False
-multiproc: True
+multiproc: False
 # number of workers for multiprocessing
 num_workers: 6
