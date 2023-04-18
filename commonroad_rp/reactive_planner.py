@@ -9,7 +9,6 @@ __status__ = "Beta"
 # python packages
 import math
 import time
-import sys
 import numpy as np
 from typing import List
 from dataclasses import dataclass
@@ -190,10 +189,6 @@ class ReactivePlanner(object):
 
         # set collision checker
         self.set_collision_checker(self.scenario)
-
-        # check if planner is running on Mac --> multiproc start method has to be changed
-        if sys.platform == "darwin":
-            multiprocessing.set_start_method('fork', force=True)
 
     @property
     def goal_checker(self):
@@ -668,9 +663,6 @@ class ReactivePlanner(object):
             self.logger.trajectory_number = x_0.time_step
 
             optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, self.predictions, i)
-
-            if self.use_occ_model:
-                self.occlusion_module.occ_plot.plot_trajectories(optimal_trajectory, 'c')
 
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
