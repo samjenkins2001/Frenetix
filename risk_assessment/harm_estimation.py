@@ -73,13 +73,14 @@ def harm_model(
     obs_angle: float,
     modes,
     coeffs,
+    ego_vehicle_obstacle_type=None
 ):
     """
     Get the harm for two possible collision partners.
 
     Args:
         scenario (Scenario): Considered scenario.
-        ego_vehicle_id (Int): ID of ego vehicle.
+        ego_vehicle_sc (Int): ego_vehicle.
         vehicle_params (Dict): Parameters of ego vehicle (1, 2 or 3).
         ego_velocity (Float): Velocity of ego vehicle [m/s].
         ego_yaw (Float): Yaw of ego vehicle [rad].
@@ -93,6 +94,9 @@ def harm_model(
         obs_angle (float): Angle of impact area for the obstacle.
         modes (Dict): Risk modes. Read from risk.json.
         coeffs (Dict): Risk parameters. Read from risk_parameters.json
+        ego_vehicle_obstacle_type: if no commonroad object of ego vehicle is available, directly pass the cr obstacle
+                                   type to the function
+
 
     Returns:
         float: Harm for the ego vehicle.
@@ -106,8 +110,12 @@ def harm_model(
     ego_vehicle = HarmParameters()
     obstacle = HarmParameters()
 
-    # assign parameters to dictionary
-    ego_vehicle.type = ego_vehicle_sc.obstacle_type
+    # assign parameters to object
+    if ego_vehicle_obstacle_type is not None:
+        ego_vehicle.type = ego_vehicle_obstacle_type
+    else:
+        ego_vehicle.type = ego_vehicle_sc.obstacle_type
+
     obstacle.type = scenario.obstacle_by_id(obstacle_id).obstacle_type
     ego_vehicle.protection = obstacle_protection[ego_vehicle.type]
     obstacle.protection = obstacle_protection[obstacle.type]
@@ -199,14 +207,14 @@ def harm_model(
     return ego_vehicle.harm, obstacle.harm, ego_vehicle, obstacle
 
 
-def get_harm(scenario, traj, predictions, ego_id, vehicle_params, modes, coeffs, timer):
+def get_harm(scenario, traj, predictions, ego_vehicle_type, vehicle_params, modes, coeffs, timer):
     """Get harm.
 
     Args:
         scenario (_type_): _description_
         traj (_type_): _description_
         predictions (_type_): _description_
-        ego_id (_type_): _description_
+        ego_vehicle (_type_): _description_
         vehicle_params (_type_): _description_
         modes (_type_): _description_
         coeffs (_type_): _description_
@@ -268,7 +276,7 @@ def get_harm(scenario, traj, predictions, ego_id, vehicle_params, modes, coeffs,
             ):
 
                 pdof, ego_angle, obs_angle = calc_crash_angle(
-                    traj=traj,
+                    traj=traj.cartesian,
                     predictions=predictions,
                     scenario=scenario,
                     obstacle_id=obstacle_id,
@@ -285,7 +293,7 @@ def get_harm(scenario, traj, predictions, ego_id, vehicle_params, modes, coeffs,
                     # get the harm ego harm and the harm of the collision opponent
                     ego_harm, obst_harm, ego_harm_data, obst_harm_data = harm_model(
                         scenario=scenario,
-                        ego_vehicle_id=ego_id,
+                        ego_vehicle_sc=None,
                         vehicle_params=vehicle_params,
                         ego_velocity=traj.cartesian.v[i],
                         ego_yaw=traj.cartesian.theta[i],
@@ -298,6 +306,7 @@ def get_harm(scenario, traj, predictions, ego_id, vehicle_params, modes, coeffs,
                         obs_angle=obs_angle,
                         modes=modes,
                         coeffs=coeffs,
+                        ego_vehicle_obstacle_type=ego_vehicle_type
                     )
 
                     # store information to calculate harm and harm value in list
@@ -327,7 +336,7 @@ def get_harm(scenario, traj, predictions, ego_id, vehicle_params, modes, coeffs,
                 ego_delta_v = obstacle_mass / (vehicle_params.mass + obstacle_mass) * delta_v_array
                 obstacle_delta_v = vehicle_params.mass / (vehicle_params.mass + obstacle_mass) * delta_v_array
 
-                # calculate harm besed on selected model
+                # calculate harm based on selected model
                 ego_harm_obst = ego_harm_fun(velocity=ego_delta_v, angle=ego_angle_array, coeff=coeffs)
                 obst_harm_obst = obstacle_harm_fun(velocity=obstacle_delta_v, angle=obs_angle_array, coeff=coeffs)
         # store harm list for the obstacles in dictionary for current frenét

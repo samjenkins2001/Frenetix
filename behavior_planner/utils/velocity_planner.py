@@ -25,8 +25,12 @@ class VelocityPlanner(object):
         self.PP_state = BM_state.PP_state
         self.FSM_state = BM_state.FSM_state
 
+        # submodules
         self.driving_dynamics = DrivingDynamicsConditions()
         self.visibility = VisibilityConditions()
+
+        # actions
+        self._set_default_speed_limit()
 
     def execute(self):
         """ Execute velocity planner each time step"""
@@ -36,7 +40,7 @@ class VelocityPlanner(object):
                                               lanelet_network=self.BM_state.scenario.lanelet_network,
                                               coordinate_system=self.PP_state.cl_ref_coordinate_system,
                                               lanelet_id=self.BM_state.current_lanelet_id,
-                                              ego_position_s=self.BM_state.position_s,
+                                              ego_position_s=self.BM_state.ref_position_s,
                                               ego_state=self.BM_state.ego_state)
 
         # calculate driving conditions factor
@@ -75,14 +79,20 @@ class VelocityPlanner(object):
                     print("BP no strong vehicle acceleration while lane change maneuvers, recommended velocity is: ",
                           self.VP_state.desired_velocity, "\n")
 
-            if self.VP_state.desired_velocity > self.BM_state.ego_state.velocity * 1.33:
-                print("BP planner velocity too high, recommended velocity is: ",
-                      self.BM_state.ego_state.velocity * 1.33, "\n")
-                self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 1.33
-            elif self.VP_state.desired_velocity < self.BM_state.ego_state.velocity * 0.67:
-                print("BP planner velocity too low, recommended velocity is: ",
-                      self.BM_state.ego_state.velocity * 0.67, "\n")
-                self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 0.67
+            # stopping for traffic light
+            # if self.FSM_state.slowing_car_for_traffic_light:
+            #     self.VP_state.desired_velocity = 0
+
+            # prevent large velocity jumps
+            if self.BM_state.ego_state.velocity > 8.333:
+                if self.VP_state.desired_velocity > self.BM_state.ego_state.velocity * 1.33:
+                    print("BP planner velocity too high, recommended velocity is: ",
+                          self.BM_state.ego_state.velocity * 1.33, "\n")
+                    self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 1.33
+                elif self.VP_state.desired_velocity < self.BM_state.ego_state.velocity * 0.67:
+                    print("BP planner velocity too low, recommended velocity is: ",
+                          self.BM_state.ego_state.velocity * 0.67, "\n")
+                    self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 0.67
 
     def _get_goal_velocity(self):
         """Compare TTC and MAX velocities and set the final goal velocity"""
@@ -118,9 +128,9 @@ class VelocityPlanner(object):
         #             - (v_lead*delta) + (0.5*abs(a_max_lead)*(delta**2)) + (v_ego*delta))
 
         d_safe_2 = ((v_lead**2) / (-2*a_max_lead)) - ((v_ego**2) / (-2*a_max_ego)) + v_ego*delta
-
         if d_safe_2 > 0:
-            self.VP_state.safety_dist = d_safe_2 + self.BM_state.vehicle_params.length * 1.5
+            self.VP_state.safety_dist = d_safe_2 + self.BM_state.vehicle_params.length / 2 + \
+                                        self.VP_state.closest_preceding_vehicle.get('shape').get('length') / 2
         else:
             self.VP_state.safety_dist = self.BM_state.vehicle_params.length * 1.5
 
@@ -148,6 +158,8 @@ class VelocityPlanner(object):
             self.VP_state.speed_limit_default = 100 / 3.6
         elif self.FSM_state.street_setting == 'Urban':
             self.VP_state.speed_limit_default = 50 / 3.6
+        else:
+            self.VP_state.speed_limit_default = 30 / 3.6
 
     def _calc_max(self):
         """Calculate Max velocity (MAX)"""

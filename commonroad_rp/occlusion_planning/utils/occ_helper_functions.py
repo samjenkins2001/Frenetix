@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point, Polygon, LineString
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.ops import nearest_points
+from risk_assessment.helpers.collision_helper_function import angle_range
 
 
 def calc_occluded_areas(ego_pos=None, visible_area=None, ref_path=None, lanelets=None, scope=50,
@@ -219,19 +220,23 @@ def plot_polygons(ax, polys, color='b', zorder=1, opacity=1):
     if ax is None:
         fig, ax = plt.subplots()
 
+    ret_obj = None
+
     try:
         if type(polys) == list:
             for pol in polys:
                 if pol.geom_type == 'Polygon':
-                    ax.plot(pol.exterior.xy[0], pol.exterior.xy[1], color, zorder=zorder, alpha=opacity)
+                    ret_obj, = ax.plot(pol.exterior.xy[0], pol.exterior.xy[1], color, zorder=zorder, alpha=opacity)
 
         elif polys.geom_type == 'Polygon':
-            ax.plot(polys.exterior.xy[0], polys.exterior.xy[1], color, zorder=zorder, alpha=opacity)
+            ret_obj, = ax.plot(polys.exterior.xy[0], polys.exterior.xy[1], color, zorder=zorder, alpha=opacity)
 
         elif polys.geom_type == 'MultiPolygon' or polys.geom_type == 'GeometryCollection':
             for pol in polys.geoms:
                 if pol.geom_type == 'Polygon':
-                    ax.plot(pol.exterior.xy[0], pol.exterior.xy[1], color, zorder=zorder, alpha=opacity)
+                    ret_obj, = ax.plot(pol.exterior.xy[0], pol.exterior.xy[1], color, zorder=zorder, alpha=opacity)
+
+        return ret_obj
     except:
         print('Could not plot the Polygon')
 
@@ -250,15 +255,17 @@ def fill_polygons(ax, polys, color='b', zorder=1, opacity=1):
         if type(polys) == list:
             for pol in polys:
                 if pol.geom_type == 'Polygon':
-                    ax.fill(pol.exterior.xy[0], pol.exterior.xy[1], color, zorder=zorder, alpha=opacity)
+                    ret_obj = ax.fill(pol.exterior.xy[0], pol.exterior.xy[1], color, zorder=zorder, alpha=opacity)
 
         elif polys.geom_type == 'Polygon':
-            ax.fill(polys.exterior.xy[0], polys.exterior.xy[1], color, zorder=zorder, alpha=opacity)
+            ret_obj = ax.fill(polys.exterior.xy[0], polys.exterior.xy[1], color, zorder=zorder, alpha=opacity)
 
         elif polys.geom_type == 'MultiPolygon' or polys.geom_type == 'GeometryCollection':
             for pol in polys.geoms:
                 if pol.geom_type == 'Polygon':
-                    ax.fill(pol.exterior.xy[0], pol.exterior.xy[1], color, zorder=zorder, alpha=opacity)
+                    ret_obj = ax.fill(pol.exterior.xy[0], pol.exterior.xy[1], color, zorder=zorder, alpha=opacity)
+
+        return ret_obj
     except:
         print('Could not plot the Polygon')
 
@@ -302,3 +309,146 @@ def normalize_costs_iqr(costs, max_costs=100):
     norm_costs *= max_costs
 
     return norm_costs
+
+
+def find_max_s_in_trajectories(trajectories):
+    max_s = max([s for traj in trajectories for s in traj.curvilinear.s])
+    return max_s
+
+
+def compute_vehicle_polygons(x_traj, y_traj, orientations, width, length) -> dict:
+    """
+    Computes the polygon of a vehicle at each time step, given its trajectory and orientation.
+
+    Args:
+    - x_traj: numpy array, x-coordinates of the vehicle's trajectory
+    - y_traj: numpy array, y-coordinates of the vehicle's trajectory
+    - orientations: numpy array, orientation of the vehicle at each time step (in radians)
+    - width: float, width of the vehicle
+    - length: float, length of the vehicle
+
+    Returns:
+    - polygons: list of shapely Polygon objects, the polygon of the vehicle at each time step
+    """
+
+    # Define the vertices of the vehicle's polygon
+    vertices = np.array([[-length / 2, -width / 2],
+                         [length / 2, -width / 2],
+                         [length / 2, width / 2],
+                         [-length / 2, width / 2]])
+
+    # Initialize the list of polygons
+    polygons = []
+
+    # Iterate over the trajectory
+    for i in range(len(x_traj)):
+        # Compute the rotation matrix
+        rot_matrix = np.array([[np.cos(orientations[i]), -np.sin(orientations[i])],
+                               [np.sin(orientations[i]), np.cos(orientations[i])]])
+
+        # Rotate the vertices
+        rotated_vertices = np.dot(vertices, rot_matrix.T)
+
+        # Translate the vertices
+        translated_vertices = rotated_vertices + np.array([x_traj[i], y_traj[i]])
+
+        # Create the polygon and add it to the list
+        poly = Polygon(translated_vertices)
+        polygons.append(poly)
+
+    single_polygon = convert_list_to_multipolygon(polygons)
+
+    polygon_return = {'polygons': polygons, 'convex_hull': single_polygon.buffer(0)}
+
+    return polygon_return
+
+
+def calc_collision_angles(ped, traj, cts) -> dict:
+    # calculation based on DOI:10.13140/RG.2.2.26349.31206 [1]
+
+    # obstacle positions at collision and before
+    obs_pos_last = ped.trajectory[cts - 1]
+    obs_pos_coll = ped.trajectory[cts]
+
+    # ego positions at collision and before
+    ego_pos_last = np.array([traj.cartesian.x[cts - 1], traj.cartesian.y[cts - 1]])
+    ego_pos_coll = np.array([traj.cartesian.x[cts], traj.cartesian.y[cts]])
+
+    # calc vector of obstacle at collision-position and position at timestep before collision
+    obs_pos_delta = obs_pos_coll - obs_pos_last
+
+    # calc vector of ego at collision-position and position at timestep before collision
+    ego_pos_delta = ego_pos_coll - ego_pos_last
+
+    # calc obstacle yaw angle in [rad]
+    obs_yaw = np.arctan2(obs_pos_delta[1], obs_pos_delta[0])
+
+    # calc ego yaw angle in [rad]
+    ego_yaw = np.arctan2(ego_pos_delta[1], ego_pos_delta[0])
+
+    # calc pdof (principal direction of force) in [rad] - eqn. 3.33 in [1]
+    pdof = angle_range(obs_yaw - ego_yaw + np.pi)
+
+    # calc relative angle between collision partners before collision (cts-1) - theta in eqn. 3.34 in [1]
+    rel_angle = np.arctan2(obs_pos_last[1] - ego_pos_last[1], obs_pos_last[0] - ego_pos_last[0])
+
+    # calc ego impact angle and obstacle impact angle - delta in eqn. 3.34 and eqn. 3.35 in [1]
+    ego_angle = angle_range(rel_angle - ego_yaw)
+    obs_angle = angle_range(np.pi + rel_angle - obs_yaw)
+
+    # store variables into dict
+    return_dict = {'obstacle_yaw': obs_yaw,
+                   'ego_yaw': ego_yaw,
+                   'pdof': pdof,
+                   'ego_angle': ego_angle,
+                   'obs_angle': obs_angle}
+
+    return return_dict
+
+
+def draw_collision_trajectory(ax, collision_dict):
+    # plot polygons along trajectory
+    ego_traj_polygons = collision_dict['ego_traj_polygons']['polygons']
+    ped_traj_polygons = collision_dict['ped'].traj_polygons['polygons']
+    cts = collision_dict['collision_timestep']
+
+    for i, (ego_poly, ped_poly) in enumerate(zip(ego_traj_polygons, ped_traj_polygons)):
+
+        if i < cts:
+            # plot polygons
+            plot_ego = plot_polygons(ax, ego_poly, color='b')
+            plot_ped = plot_polygons(ax, ped_poly, color='orange')
+            plt.show(block=False)
+            plt.pause(0.05)
+
+            # remove polygons
+            plot_ego.remove()
+            plot_ped.remove()
+            plt.draw()
+        else:
+            # draw collision
+            fill_ego = fill_polygons(ax, ego_poly, 'r')
+            fill_ped = fill_polygons(ax, ped_poly, 'orange')
+            plt.show(block=False)
+            plt.pause(0.5)
+            fill_ego[0].remove()
+            fill_ped[0].remove()
+            plt.draw()
+            return
+
+
+def merge_dicts(list_of_dicts):
+
+    result_dict = dict()
+
+    for d in list_of_dicts:
+        for key, value in d.items():
+            if key in result_dict:
+                # if key is already known, update dict
+                result_dict[key].update(value)
+            else:
+                # if key is not known add value and key to result
+                result_dict[key] = value
+
+    return result_dict
+

@@ -16,6 +16,7 @@ class VisibilityModule:
         self.time_step = None
         self.visible_area_timestep = None
         self.visible_objects_timestep = None
+        self.obstacles_polygon = None
 
     def update_obstacles_at_time_step(self, time_step):
         for obst in self.obstacles:
@@ -45,11 +46,16 @@ class VisibilityModule:
         if self.occlusions:
 
             # update visible_area due to obstacle occlusion
-            visible_area = vhf.calc_visible_area_from_obstacle_occlusions(visible_area, self.ego_pos,
-                                                                          self.obstacles, self.sensor_radius)
+            visible_area, obst_polygon = vhf.calc_visible_area_from_obstacle_occlusions(visible_area, self.ego_pos,
+                                                                                        self.obstacles,
+                                                                                        self.sensor_radius,
+                                                                                        return_shapely_obstacles=True)
+
+            # assign multipolygon of all obstacles to variable (needed for phantom pedestrian calculation)
+            self.obstacles_polygon = obst_polygon
 
         # get visible obstacles and add to list
-        visible_area_check = visible_area.buffer(0.01)
+        visible_area_check = visible_area.buffer(0.01, join_style=2)
         for obst in self.obstacles:
             if obst.pos is not None:
                 if obst.polygon.intersects(visible_area_check):

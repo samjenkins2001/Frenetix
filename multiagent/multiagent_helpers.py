@@ -8,7 +8,7 @@ import numpy as np
 
 from commonroad_prediction.prediction_module import PredictionModule
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-from commonroad.scenario.state import CustomState
+from commonroad.scenario.state import CustomState, State
 from commonroad.planning.planning_problem import PlanningProblem
 
 import commonroad_dc.pycrcc as pycrcc
@@ -16,7 +16,6 @@ from commonroad.scenario.scenario import Scenario
 from commonroad.visualization.draw_params import MPDrawParams, DynamicObstacleParams
 from commonroad.visualization.mp_renderer import MPRenderer
 
-from behavior_planner.FSM_model import State
 from commonroad_rp.configuration import Configuration
 from commonroad_rp.reactive_planner import ReactivePlanner
 from commonroad_rp.trajectories import TrajectorySample

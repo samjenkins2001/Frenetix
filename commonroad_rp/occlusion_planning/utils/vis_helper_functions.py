@@ -50,10 +50,12 @@ def calc_visible_area_from_lanelet_geometry(lanelet_polygon, ego_pos, sensor_rad
     return visible_area
 
 
-def calc_visible_area_from_obstacle_occlusions(visible_area, ego_pos, obstacles, sensor_radius):
+def calc_visible_area_from_obstacle_occlusions(visible_area, ego_pos, obstacles, sensor_radius,
+                                               return_shapely_obstacles=False):
     """
     Calculate occlusions from obstacles and subtract them from visible_area
     Args:
+        return_shapely_obstacles: specify whether to return a multipolygon of the obstacles or not
         visible_area: visible area
         ego_pos: ego position
         obstacles: list of obstacles of type OcclusionObstacle or EstimationObstacle
@@ -61,7 +63,10 @@ def calc_visible_area_from_obstacle_occlusions(visible_area, ego_pos, obstacles,
 
     Returns:
     updated visible area
+    optional - multipolygon of obstacles
     """
+
+    obstacles_polygon = Polygon([])
 
     # Calculate occlusions from obstacles and subtract them from visible_area
     for obst in obstacles:
@@ -74,18 +79,17 @@ def calc_visible_area_from_obstacle_occlusions(visible_area, ego_pos, obstacles,
                 # calculate occlusion polygon that is caused by the obstacle
                 occlusion, c1, c2 = get_polygon_from_obstacle_occlusion(ego_pos, obst.corner_points,
                                                                         sensor_radius=sensor_radius)
-                # Save relevant corner points in OcclusionObstacle
-                try:
-                    obst.set_relevant_corner_points(c1, c2)
-                except:
-                    pass
 
                 # Subtract obstacle shape from visible area
-                visible_area = visible_area.difference(obst.polygon.buffer(0.01))
+                visible_area = visible_area.difference(obst.polygon.buffer(0.005, join_style=2))
+                obstacles_polygon = obstacles_polygon.union(obst.polygon)
 
                 # Subtract occlusion caused by obstacle (everything behind obstacle) from visible area
                 if occlusion.is_valid:
                     visible_area = visible_area.difference(occlusion)
+
+    if return_shapely_obstacles:
+        return visible_area, obstacles_polygon
 
     return visible_area
 
@@ -157,7 +161,7 @@ def _identify_projection_points(corner_points, ego_pos):
             ray1 = edge_point1 - ego_pos
             ray2 = edge_point2 - ego_pos
 
-            angle = _angle_between(ray1, ray2)
+            angle = angle_between(ray1, ray2)
 
             if angle > max_angle:
                 max_angle = angle
@@ -190,7 +194,7 @@ def _unit_vector(vector):
     return vector / np.linalg.norm(vector)
 
 
-def _angle_between(v1, v2):
+def angle_between(v1, v2):
     """Returns the angle in radians between vectors 'v1' and 'v2':"""
     v1_u = _unit_vector(v1)
     v2_u = _unit_vector(v2)

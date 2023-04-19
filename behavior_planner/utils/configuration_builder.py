@@ -3,7 +3,7 @@ import glob
 from typing import Union
 
 from omegaconf import OmegaConf, ListConfig, DictConfig
-from behavior_planner.configuration import Configuration
+from behavior_planner.utils.configuration import Configuration
 
 
 class ConfigurationBuilder:
@@ -24,7 +24,7 @@ class ConfigurationBuilder:
 
         """
         if path_root is None:
-            path_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../"))
+            path_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../"))
 
         if cls.path_root is None:
             cls.set_paths(path_root=path_root, dir_config=dir_config)

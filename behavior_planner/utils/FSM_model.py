@@ -1,4 +1,4 @@
-import behavior_planner.FSM_logic_modules as Logic
+import behavior_planner.utils.FSM_logic_modules as Logic
 from commonroad.geometry.shape import Rectangle
 import behavior_planner.utils.helper_functions as hf
 import time
@@ -98,17 +98,21 @@ class Country(State):
         self.FSM_country_static = SimpleFSM(
             possible_states={
                 'StaticDefault': StaticDefault(),
+                'PrepareIntersection': PrepareIntersection(),
                 'PrepareTurnLeft': PrepareTurnLeft(),
                 'PrepareTurnRight': PrepareTurnRight(),
-                'PrepareTrafficLight': PrepareTrafficLight(),
+                'PrepareTrafficLight': PrepareTrafficLight(BM_state=BM_state),
+                'Intersection': Intersection(),
                 'TurnLeft': TurnLeft(),
                 'TurnRight': TurnRight(),
-                'TrafficLight': TrafficLight()},
+                'TrafficLight': TrafficLight(BM_state=BM_state)},
             possible_transitions={
                 'toStaticDefault': Transition('StaticDefault'),
+                'toPrepareIntersection': Transition('PrepareIntersection'),
                 'toPrepareTurnLeft': Transition('PrepareTurnLeft'),
                 'toPrepareTurnRight': Transition('PrepareTurnRight'),
                 'toPrepareTrafficLight': Transition('PrepareTrafficLight'),
+                'toIntersection': Transition('Intersection'),
                 'toTurnLeft': Transition('TurnLeft'),
                 'toTurnRight': Transition('TurnRight'),
                 'toTrafficLight': Transition('TrafficLight')},
@@ -173,27 +177,31 @@ class Urban(State):
         self.FSM_urban_static = SimpleFSM(
             possible_states={
                 'StaticDefault': StaticDefault(),
+                'PrepareIntersection': PrepareIntersection(),
                 'PrepareTurnLeft': PrepareTurnLeft(),
                 'PrepareTurnRight': PrepareTurnRight(),
-                'PrepareTrafficLight': PrepareTrafficLight(),
+                'PrepareTrafficLight': PrepareTrafficLight(BM_state=BM_state),
                 'PrepareCrosswalk': PrepareCrosswalk(),
                 'PrepareStopSign': PrepareStopSign(),
                 'PrepareYieldSign': PrepareYieldSign(),
+                'Intersection': Intersection(),
                 'TurnLeft': TurnLeft(),
                 'TurnRight': TurnRight(),
-                'TrafficLight': TrafficLight(),
+                'TrafficLight': TrafficLight(BM_state=BM_state),
                 'Crosswalk': Crosswalk(),
                 'StopSign': StopSign(),
                 'YieldSign': YieldSign()},
 
             possible_transitions={
                 'toStaticDefault': Transition('StaticDefault'),
+                'toPrepareIntersection': Transition('PrepareIntersection'),
                 'toPrepareTurnLeft': Transition('PrepareTurnLeft'),
                 'toPrepareTurnRight': Transition('PrepareTurnRight'),
                 'toPrepareTrafficLight': Transition('PrepareTrafficLight'),
                 'toPrepareCrosswalk': Transition('PrepareCrosswalk'),
                 'toPrepareStopSign': Transition('PrepareStopSign'),
                 'toPrepareYieldSign': Transition('PrepareYieldSign'),
+                'toIntersection': Transition('Intersection'),
                 'toTurnLeft': Transition('TurnLeft'),
                 'toTurnRight': Transition('TurnRight'),
                 'toTrafficLight': Transition('TrafficLight'),
@@ -246,7 +254,7 @@ class Urban(State):
 
         # actions
         if self.cur_state_static != 'StaticDefault':
-            self.FSM_state.no_auto_lane_change = True
+            self.FSM_state.no_auto_lane_change = False #True
         else:
             self.FSM_state.no_auto_lane_change = False
 
@@ -356,7 +364,7 @@ class StaticDefault(State):
 class NoLaneChanges(State):
 
     def execute(self):
-        print("FSM Dynamic Behavior State: No LaneChanges")
+        print("FSM Dynamic Behavior State: NoLaneChanges")
 
     def reset_state(self):
         return 0
@@ -420,14 +428,15 @@ class LaneChangeLeft(State):
             possible_states={
                 'InitiateLaneChange': InitiateLaneChange(),
                 'EgoVehicleBetweenTwoLanes': EgoVehicleBetweenTwoLanes(),
-                'BehaviorStateComplete': BehaviorStateComplete()},
+                'LaneChangeComplete': LaneChangeComplete()},
             possible_transitions={
                 'toInitiateLaneChange': Transition('InitiateLaneChange'),
                 'toEgoVehicleBetweenTwoLanes': Transition('EgoVehicleBetweenTwoLanes'),
-                'toBehaviorStateComplete': Transition('BehaviorStateComplete')},
+                'toLaneChangeComplete': Transition('LaneChangeComplete')},
             default_state='InitiateLaneChange')
         self.logic = Logic.LogicLaneChangeLeft(start_state='InitiateLaneChange', BM_state=BM_state)
         self.cur_state = 'InitiateLaneChange'
+        self.FSM_state.situation_time_step_counter = 0
 
     def execute(self):
         print("FSM Dynamic Behavior State: Changing Lane to the Left")
@@ -438,12 +447,13 @@ class LaneChangeLeft(State):
         self.FSM_state._dynamic = self.cur_state
 
         # actions
-        vehicle_shape = Rectangle(length=self.BM_state.vehicle_params.length,
-                                  width=self.BM_state.vehicle_params.width,
+        vehicle_shape = Rectangle(length=self.BM_state.vehicle_params.length / 2,
+                                  width=self.BM_state.vehicle_params.width / 2,
                                   center=self.BM_state.ego_state.position,
                                   orientation=self.BM_state.ego_state.orientation)
         self.FSM_state.detected_lanelets = self.BM_state.scenario.lanelet_network.find_lanelet_by_shape(vehicle_shape)
         self.FSM_lane_change_left.execute()
+        self.FSM_state.situation_time_step_counter += 1
 
     def reset_state(self):
         self.cur_state = 'InitiateLaneChange'
@@ -451,6 +461,7 @@ class LaneChangeLeft(State):
         self.FSM_lane_change_left.cur_state = self.FSM_lane_change_left.states['InitiateLaneChange']
         self.FSM_state.situation_state_dynamic = 'InitiateLaneChange'
         self.FSM_state.detected_lanelets = None
+        self.FSM_state.situation_time_step_counter = 0
 
 
 class PrepareLaneChangeRight(State):
@@ -501,14 +512,15 @@ class LaneChangeRight(State):
             possible_states={
                 'InitiateLaneChange': InitiateLaneChange(),
                 'EgoVehicleBetweenTwoLanes': EgoVehicleBetweenTwoLanes(),
-                'BehaviorStateComplete': BehaviorStateComplete()},
+                'LaneChangeComplete': LaneChangeComplete()},
             possible_transitions={
                 'toInitiateLaneChange': Transition('InitiateLaneChange'),
                 'toEgoVehicleBetweenTwoLanes': Transition('EgoVehicleBetweenTwoLanes'),
-                'toBehaviorStateComplete': Transition('BehaviorStateComplete')},
+                'toLaneChangeComplete': Transition('LaneChangeComplete')},
             default_state='InitiateLaneChange')
         self.logic = Logic.LogicLaneChangeRight(start_state='InitiateLaneChange', BM_state=BM_state)
         self.cur_state = 'InitiateLaneChange'
+        self.FSM_state.situation_time_step_counter = 0
 
     def execute(self):
         print("FSM Dynamic Behavior State: Changing Lane to the Right")
@@ -519,12 +531,13 @@ class LaneChangeRight(State):
         self.FSM_state.situation_state_dynamic = self.cur_state
 
         # actions
-        vehicle_shape = Rectangle(length=self.BM_state.vehicle_params.length,
-                                  width=self.BM_state.vehicle_params.width,
+        vehicle_shape = Rectangle(length=self.BM_state.vehicle_params.length / 2,
+                                  width=self.BM_state.vehicle_params.width / 2,
                                   center=self.BM_state.ego_state.position,
                                   orientation=self.BM_state.ego_state.orientation)
         self.FSM_state.detected_lanelets = self.BM_state.scenario.lanelet_network.find_lanelet_by_shape(vehicle_shape)
         self.FSM_lane_change_right.execute()
+        self.FSM_state.situation_time_step_counter += 1
 
     def reset_state(self):
         self.cur_state = 'InitiateLaneChange'
@@ -532,6 +545,7 @@ class LaneChangeRight(State):
         self.FSM_lane_change_right.cur_state = self.FSM_lane_change_right.states['InitiateLaneChange']
         self.FSM_state.situation_state_dynamic = 'InitiateLaneChange'
         self.FSM_state.detected_lanelets = None
+        self.FSM_state.situation_time_step_counter = 0
 
 
 class PrepareLaneMerge(State):
@@ -678,74 +692,207 @@ class RoadExit(State):
         self.FSM_state.situation_state_static = 'InitiateRoadExit'
 
 
+class PrepareIntersection(State):
+    def execute(self):
+        print("FSM Behavior State: Preparing for Intersection")
+
+    def reset_state(self):
+        return 0
+
+
+class Intersection(State):
+    def execute(self):
+        print("FSM Behavior State: Intersection")
+
+    def reset_state(self):
+        return 0
+
+
 class PrepareTurnLeft(State):
     def execute(self):
         print("FSM Behavior State: Preparing for Left Turn")
+
+    def reset_state(self):
+        return 0
 
 
 class TurnLeft(State):
     def execute(self):
         print("FSM Behavior State: Turning Left")
 
+    def reset_state(self):
+        return 0
+
 
 class PrepareTurnRight(State):
     def execute(self):
         print("FSM Behavior State: Preparing for Right Turn")
+
+    def reset_state(self):
+        return 0
 
 
 class TurnRight(State):
     def execute(self):
         print("FSM Behavior State: Turning Right")
 
+    def reset_state(self):
+        return 0
+
 
 class PrepareOvertake(State):
     def execute(self):
         print("FSM Behavior State: Preparing for Overtake")
+
+    def reset_state(self):
+        return 0
 
 
 class Overtake(State):
     def execute(self):
         print("FSM Behavior State: Overtaking")
 
+    def reset_state(self):
+        return 0
+
 
 class PrepareTrafficLight(State):
+
+    def __init__(self, BM_state):
+        self.BM_state = BM_state
+        self.FSM_state = BM_state.FSM_state
+        self.FSM_prepare_traffic_light = SimpleFSM(
+            possible_states={
+                'ObservingTrafficLight': ObservingTrafficLight(BM_state),
+                'SlowingDown': SlowingDown(BM_state)},
+            possible_transitions={
+                'toObservingTrafficLight': Transition('ObservingTrafficLight'),
+                'toSlowingDown': Transition('SlowingDown')},
+            default_state='ObservingTrafficLight')
+        self.logic = Logic.LogicPrepareTrafficLight(start_state='ObservingTrafficLight', BM_state=BM_state)
+        self.cur_state = 'ObservingTrafficLight'
+
     def execute(self):
         print("FSM Behavior State: Preparing for Traffic Light")
 
+        self.FSM_state.traffic_light_state = self.BM_state.current_static_goal.goal_object.get_state_at_time_step(
+            time_step=self.BM_state.time_step).value
+
+        # FSM
+        transition, self.cur_state = self.logic.execute(self.cur_state)
+        if transition is not None:
+            self.FSM_prepare_traffic_light.transition(transition)
+        self.FSM_state.situation_state_static = self.cur_state
+
+        # actions
+        self.FSM_prepare_traffic_light.execute()
+
+        print("FSM Behavior State: Traffic Light is: ", self.FSM_state.traffic_light_state)
+
+    def reset_state(self):
+        self.cur_state = 'ObservingTrafficLight'
+        self.logic.reset_state(state='ObservingTrafficLight')
+        self.FSM_prepare_traffic_light.cur_state = self.FSM_prepare_traffic_light.states[
+            'ObservingTrafficLight']
+        self.FSM_state.situation_state_static = 'ObservingTrafficLight'
+
 
 class TrafficLight(State):
+    """'GreenLight, Stopping, WaitingForGreenLight, ContinueDriving'"""
+
+    def __init__(self, BM_state):
+        self.BM_state = BM_state
+        self.FSM_state = BM_state.FSM_state
+
+        if self.FSM_state.traffic_light_state == 'green':
+            self.init_state = 'GreenLight'
+        else:
+            self.init_state = 'Stopping'
+
+        self.FSM_traffic_light = SimpleFSM(
+            possible_states={
+                'GreenLight': GreenLight(BM_state=BM_state),
+                'Stopping': Stopping(BM_state=BM_state),
+                'WaitingForGreenLight': WaitingForGreenLight(BM_state=BM_state),
+                'ContinueDriving': ContinueDriving(BM_state=BM_state)},
+            possible_transitions={
+                'toGreenLight': Transition('GreenLight'),
+                'toStopping': Transition('Stopping'),
+                'toWaitingForGreenLight': Transition('WaitingForGreenLight'),
+                'toContinueDriving': Transition('ContinueDriving')},
+            default_state=self.init_state)
+        self.logic = Logic.LogicTrafficLight(start_state=self.init_state, BM_state=BM_state)
+        self.cur_state = self.init_state
+
     def execute(self):
-        print("FSM Behavior State: Waiting for Traffic Light")
+        print("FSM Behavior State: Traffic Light")
+
+        self.FSM_state.traffic_light_state = self.BM_state.current_static_goal.goal_object.get_state_at_time_step(
+            time_step=self.BM_state.time_step).value
+
+        # FSM
+        transition, self.cur_state = self.logic.execute(self.cur_state)
+        if transition is not None:
+            self.FSM_traffic_light.transition(transition)
+        self.FSM_state.situation_state_static = self.cur_state
+
+        # actions
+        self.FSM_traffic_light.execute()
+        print("FSM Behavior State: Traffic Light is: ", self.FSM_state.traffic_light_state)
+
+    def reset_state(self):
+        self.cur_state = self.init_state
+        self.logic.reset_state(state=self.init_state)
+        self.FSM_traffic_light.cur_state = self.FSM_traffic_light.states[self.init_state]
+        self.FSM_state.situation_state_static = self.init_state
 
 
 class PrepareCrosswalk(State):
     def execute(self):
         print("FSM Behavior State: Preparing for Crosswalk")
 
+    def reset_state(self):
+        return 0
+
 
 class Crosswalk(State):
     def execute(self):
-        print("FSM Behavior State: Waiting at Crosswalk")
+        print("FSM Behavior State: Crosswalk")
+
+    def reset_state(self):
+        return 0
 
 
 class PrepareStopSign(State):
     def execute(self):
         print("FSM Behavior State: Preparing for Stop Sign")
 
+    def reset_state(self):
+        return 0
+
 
 class StopSign(State):
     def execute(self):
-        print("FSM Behavior State: Waiting at Stop Sign")
+        print("FSM Behavior State: Stop Sign")
+
+    def reset_state(self):
+        return 0
 
 
 class PrepareYieldSign(State):
     def execute(self):
         print("FSM Behavior State: Preparing for Yield Sign")
 
+    def reset_state(self):
+        return 0
+
 
 class YieldSign(State):
     def execute(self):
-        print("FSM Behavior State: Waiting at Yield Sign")
+        print("FSM Behavior State: Yield Sign")
+
+    def reset_state(self):
+        return 0
 
 
 '''Situation States'''
@@ -816,9 +963,9 @@ class IdentifyFreeSpaceOnTargetLaneForLaneChange(State):
                         calc example for velocity dependent safety distance
                         minimum distance of velocity * 2 in meters => e.g. 100 km/h = 27.8 m/s => 55.6 m distance
                         '''
-                        if obstacle_pos_s + ego_position_offset <= self.BM_state.position_s + ego_position_offset:
+                        if obstacle_pos_s + ego_position_offset <= self.BM_state.ref_position_s + ego_position_offset:
                             # if not obstacle is further behind than half the velocity distance.
-                            if not (obstacle_pos_s < (self.BM_state.position_s + ego_position_offset -
+                            if not (obstacle_pos_s < (self.BM_state.ref_position_s + ego_position_offset -
                                                       self.BM_state.vehicle_params.length / 2 -
                                                       self.BM_state.ego_state.velocity / 2 * risk_factor)):
                                 free_space_on_target_lanelet = False
@@ -829,7 +976,7 @@ class IdentifyFreeSpaceOnTargetLaneForLaneChange(State):
                         # obstacle in front of ego vehicle
                         else:
                             # if not obstacle is further away than half the velocity distance.
-                            if not (obstacle_pos_s > (self.BM_state.position_s + ego_position_offset +
+                            if not (obstacle_pos_s > (self.BM_state.ref_position_s + ego_position_offset +
                                                       self.BM_state.vehicle_params.length +
                                                       self.BM_state.ego_state.velocity / 2 * risk_factor)):
                                 free_space_on_target_lanelet = False
@@ -893,9 +1040,9 @@ class IdentifyFreeSpaceOnTargetLaneForLaneMerge(State):
                         calc example for velocity dependent safety distance
                         minimum distance of velocity * 2 in meters => e.g. 100 km/h = 27.8 m/s => 55.6 m distance
                         '''
-                        if obstacle_pos_s + ego_position_offset <= self.BM_state.position_s + ego_position_offset:
+                        if obstacle_pos_s + ego_position_offset <= self.BM_state.ref_position_s + ego_position_offset:
                             # if not obstacle is further behind than half the velocity distance.
-                            if not (obstacle_pos_s < (self.BM_state.position_s + ego_position_offset -
+                            if not (obstacle_pos_s < (self.BM_state.ref_position_s + ego_position_offset -
                                                       self.BM_state.vehicle_params.length / 2 -
                                                       self.BM_state.ego_state.velocity / 2 * risk_factor)):
                                 free_space_on_target_lanelet = False
@@ -906,7 +1053,7 @@ class IdentifyFreeSpaceOnTargetLaneForLaneMerge(State):
                         # obstacle in front of ego vehicle
                         else:
                             # if not obstacle is further away than half the velocity distance.
-                            if not (obstacle_pos_s > (self.BM_state.position_s + ego_position_offset +
+                            if not (obstacle_pos_s > (self.BM_state.ref_position_s + ego_position_offset +
                                                       self.BM_state.vehicle_params.length +
                                                       self.BM_state.ego_state.velocity / 2 * risk_factor)):
                                 free_space_on_target_lanelet = False
@@ -946,9 +1093,14 @@ class EgoVehicleBetweenTwoLanes(State):
         print("FSM Situation State: Vehicle crossing lanes")
 
 
+class LaneChangeComplete(State):
+    def execute(self):
+        print("FSM Situation State: Lane change complete")
+
+
 class BehaviorStateComplete(State):
     def execute(self):
-        print("Situation State: Lane change complete")
+        print("FSM Situation State: Behavior State complete")
 
 
 class EstimateMergingLaneLengthAndEmergencyStopPoint(State):
@@ -964,6 +1116,95 @@ class InitiateLaneMerge(State):
 class InitiateRoadExit(State):
     def execute(self):
         print("FSM Situation State: Preparations Done")
+
+
+class ObservingTrafficLight(State):
+    def __init__(self, BM_state):
+        self.BM_state = BM_state
+        self.FSM_state = BM_state.FSM_state
+
+    def execute(self):
+        print("FSM Situation State: Observing Traffic Light")
+
+
+class SlowingDown(State):
+    def __init__(self, BM_state):
+        self.BM_state = BM_state
+        self.VP_state = BM_state.VP_state
+        self.FSM_state = BM_state.FSM_state
+
+    def execute(self):
+        print("FSM Situation State: Slowing Down Car")
+        self.FSM_state.slowing_car_for_traffic_light = True
+        self.VP_state.dist_to_tl = self.BM_state.current_static_goal.stop_point_s - self.BM_state.nav_position_s - \
+                                   self.BM_state.vehicle_params.length
+        self.VP_state.stop_distance = self.VP_state.dist_to_tl
+
+        # check for other stopping cars in front of vehicle
+        if self.VP_state.dist_preceding_veh is not None:
+            if self.VP_state.dist_preceding_veh - self.BM_state.vehicle_params.length - \
+                    self.VP_state.closest_preceding_vehicle.get('shape').get('length') \
+                    <= self.VP_state.dist_to_tl:
+                self.VP_state.stop_distance = self.VP_state.dist_preceding_veh - \
+                                              self.BM_state.vehicle_params.length - \
+                                              self.VP_state.closest_preceding_vehicle.get('shape').get('length')
+
+        print("FSM distance to stopping line is: ", self.VP_state.dist_to_tl)
+
+
+class GreenLight(State):
+    def __init__(self, BM_state):
+        self.BM_state = BM_state
+        self.FSM_state = BM_state.FSM_state
+
+    def execute(self):
+        print("FSM Situation State: Green Light")
+        self.FSM_state.slowing_car_for_traffic_light = False
+
+
+class Stopping(State):
+    def __init__(self, BM_state):
+        self.BM_state = BM_state
+        self.VP_state = BM_state.VP_state
+        self.FSM_state = BM_state.FSM_state
+
+    def execute(self):
+        print("FSM Situation State: Stopping the Car")
+        self.FSM_state.slowing_car_for_traffic_light = True
+        self.VP_state.dist_to_tl = self.BM_state.current_static_goal.stop_point_s - self.BM_state.nav_position_s - \
+                                   self.BM_state.vehicle_params.length
+        self.VP_state.stop_distance = self.VP_state.dist_to_tl
+
+        # check for other stopping cars in front of vehicle
+        if self.VP_state.dist_preceding_veh is not None:
+            if self.VP_state.dist_preceding_veh - self.BM_state.vehicle_params.length - \
+                    self.VP_state.closest_preceding_vehicle.get('shape').get('length') \
+                    <= self.VP_state.dist_to_tl:
+                self.VP_state.stop_distance = self.VP_state.dist_preceding_veh - \
+                                              self.BM_state.vehicle_params.length - \
+                                              self.VP_state.closest_preceding_vehicle.get('shape').get('length')
+
+        print("FSM distance to stopping line is: ", self.VP_state.dist_to_tl)
+
+
+class WaitingForGreenLight(State):
+    def __init__(self, BM_state):
+        self.BM_state = BM_state
+        self.FSM_state = BM_state.FSM_state
+
+    def execute(self):
+        print("FSM Situation State: Waiting for Green Light")
+
+
+class ContinueDriving(State):
+    def __init__(self, BM_state):
+        self.BM_state = BM_state
+        self.FSM_state = BM_state.FSM_state
+
+    def execute(self):
+        print("FSM Situation State: Continue driving")
+        self.FSM_state.slowing_car_for_traffic_light = False
+        self.FSM_state.waiting_for_green_light = False
 
 
 '''Transition State'''
