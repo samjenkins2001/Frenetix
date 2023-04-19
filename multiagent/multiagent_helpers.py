@@ -6,18 +6,20 @@ from matplotlib import pyplot as plt
 import imageio.v3 as iio
 import numpy as np
 
-from commonroad.planning.planning_problem import PlanningProblem
+from commonroad_prediction.prediction_module import PredictionModule
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
+from commonroad.scenario.state import CustomState, State
+from commonroad.planning.planning_problem import PlanningProblem
 
 import commonroad_dc.pycrcc as pycrcc
 from commonroad.scenario.scenario import Scenario
 from commonroad.visualization.draw_params import MPDrawParams, DynamicObstacleParams
 from commonroad.visualization.mp_renderer import MPRenderer
 
-from behavior_planner.FSM_model import State
 from commonroad_rp.configuration import Configuration
 from commonroad_rp.reactive_planner import ReactivePlanner
 from commonroad_rp.trajectories import TrajectorySample
+from commonroad_rp import prediction_helpers as ph
 
 from commonroad_rp.utility.visualization import draw_uncertain_predictions_lb, draw_uncertain_predictions_wale
 
@@ -31,6 +33,33 @@ darkcolors = ["#9c0d00", "#8f9c00", "#5b9c00", "#279c00", "#009c0d",
 lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
                "#69ffa3", "#69ffd5", "#69f8ff", "#69c6ff", "#6993ff",
                "#7069ff", "#a369ff", "#d569ff", "#ff69f8", "#ff69c5"]
+
+
+def get_predictions(config: Configuration, predictor: PredictionModule,
+                    scenario: Scenario, current_timestep: int):
+    """Calculate the predictions for all obstacles in the scenario.
+    :param config: The configuration.
+    :param predictor: The prediction module object to use.
+    :param scenario: The scenario for which to calculate the predictions.
+    :param current_timestep: The timestep after which to start predicting.
+    """
+
+    if config.prediction.mode:
+        if config.prediction.mode == "walenet":
+            # Calculate predictions for all obstacles using WaleNet.
+            # The state is only used for accessing the current timestep.
+            predictions = ph.main_prediction(predictor, scenario, [obs.obstacle_id for obs in scenario.obstacles],
+                                             CustomState(time_step=current_timestep), scenario.dt,
+                                             [float(config.planning.planning_horizon)])
+        elif config.prediction.mode == "lanebased":
+            print("Lane-based predictions are not supported for multiagent simulations.")
+            predictions = None
+        else:
+            predictions = None
+    else:
+        predictions = None
+
+    return predictions
 
 
 def check_collision(planner: ReactivePlanner, ego_vehicle: DynamicObstacle, timestep: int):

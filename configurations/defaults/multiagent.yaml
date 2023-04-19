@@ -5,3 +5,6 @@ agent_ids: [1,2,4,5,7]
 show_individual_plots: []
 save_individual_plots: []
 save_individual_gifs: []
+
+multiprocessing: True
+num_procs: 4
