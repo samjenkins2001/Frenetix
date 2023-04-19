@@ -192,6 +192,8 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
 
         predictions = get_predictions(config, predictor, scenario, current_timestep)
 
+
+        print(f"[Simulation] Running batches: {len(batch_list)}")
         # Send predictions
         for batch in batch_list:
             batch[1].put(predictions)
@@ -206,6 +208,7 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
                 return
 
         # Remove completed workers
+        terminated_batch_list = []
         for batch in batch_list:
             if len(list(filter(lambda i: agent_state_dict[i] < 1, batch[3]))) == 0:
                 print(f"[Simulation] Terminating batch {batch[3]}...")
@@ -214,7 +217,10 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
                 batch[1].close()
                 batch[2].close()
 
-                batch_list.remove(batch)
+                terminated_batch_list.append(batch)
+
+        for batch in terminated_batch_list:
+            batch_list.remove(batch)
 
         # STOP TIMER
         step_time_end = time.time()
