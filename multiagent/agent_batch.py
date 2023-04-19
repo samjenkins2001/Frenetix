@@ -69,9 +69,6 @@ class AgentBatch (Process):
         self.dummy_obstacle_list = []
         terminated_agent_list = []
 
-        # START TIMER
-        step_time_start = time.time()
-
         # Step simulation
         for agent in self.running_agent_list:
             print(f"[Batch {self.agent_id_list}] Stepping Agent {agent.id}")
@@ -96,9 +93,6 @@ class AgentBatch (Process):
             else:
                 # save dummy obstacle
                 self.dummy_obstacle_list.append(dummy_obstacle)
-
-        # STOP TIMER
-        step_time_end = time.time()
 
         # Terminate agents
         for agent in terminated_agent_list:
@@ -165,7 +159,7 @@ class AgentBatch (Process):
 
             self.current_timestep += 1
 
-    def run_sequential(self, config, predictor, scenario):
+    def run_sequential(self, log_path, config, predictor, scenario):
         """Main function of the agent batch.
         Receives predictions from the main simulation, updates the agents,
         runs a planner step, and sends back the dummy obstacles.
@@ -173,11 +167,19 @@ class AgentBatch (Process):
         Version without agent-level multiprocessing.
         """
 
+        init_log(log_path)
+
         while True:
             # Calculate the next predictions
             predictions = get_predictions(config, predictor, scenario, self.current_timestep)
 
+            # START TIMER
+            step_time_start = time.time()
+
             self.step_simulation(predictions)
+
+            # STOP TIMER
+            step_time_end = time.time()
 
             # Check for active or pending agents
             if self.complete():
@@ -206,5 +208,9 @@ class AgentBatch (Process):
 
             # STOP TIMER
             sync_time_end = time.time()
+
+            append_log(log_path, self.current_timestep, self.current_timestep * scenario.dt,
+                       step_time_end - step_time_start, sync_time_end - sync_time_start,
+                       self.agent_id_list, [self.agent_state_dict[id] for id in self.agent_id_list])
 
             self.current_timestep += 1

@@ -119,7 +119,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
                                  config, log_path, mod_path,
                                  None, None)
 
-        agent_batch.run_sequential(config, predictor, scenario)
+        agent_batch.run_sequential(log_path, config, predictor, scenario)
 
     else:
 
