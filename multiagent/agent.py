@@ -243,8 +243,12 @@ class Agent:
             print("\n***Behavior Planning Time: \n", behavior_comp_time2 - behavior_comp_time1)
 
             """----------------------------------------Testing:---------------------------------------------"""
+
         # plan trajectory
-        optimal = self.planner.plan(self.x_0, predictions, self.x_cl)  # returns the planned (i.e., optimal) trajectory
+        self.planner.set_x_0(self.x_0)
+        self.planner.set_predictions(predictions)
+        self.planner.set_x_cl(self.x_cl)
+        optimal = self.planner.plan()  # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
         # END TIMER
 
