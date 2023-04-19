@@ -58,6 +58,8 @@ class AgentBatch (Process):
         self.dummy_obstacle_list = []
         # Exit codes of the agent steps
         self.agent_state_dict = dict()
+        for id in self.agent_id_list:
+            self.agent_state_dict[id] = -1
 
         self.current_timestep = 0
 
@@ -66,11 +68,6 @@ class AgentBatch (Process):
         # clear dummy obstacles
         self.dummy_obstacle_list = []
         terminated_agent_list = []
-
-        # Return values of the last agent step
-        self.agent_state_dict = dict()
-        for id in self.agent_id_list:
-            self.agent_state_dict[id] = -1
 
         # START TIMER
         step_time_start = time.time()
