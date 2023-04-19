@@ -20,7 +20,6 @@ from commonroad.planning.goal import GoalRegion
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 
-from multiagent.agent import Agent
 from multiagent.agent_batch import AgentBatch
 from multiagent.multiagent_helpers import get_predictions, visualize_multiagent_at_timestep
 from multiagent.multiagent_logging import *
@@ -131,12 +130,15 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         # batch_list[i][3]: Agent IDs managed by the batch
         batch_list = []
 
-        num_batches = 1
-        if config.multiagent.multiprocessing:
-            # We need at least one agent per batch, and one process for the main simulation
-            num_batches = config.multiagent.num_procs-1
-            if num_batches > len(agent_id_list):
-                num_batches = len(agent_id_list)
+        # We need at least one agent per batch, and one process for the main simulation
+        num_batches = config.multiagent.num_procs-1
+        if num_batches > len(agent_id_list):
+            num_batches = len(agent_id_list)
+        elif num_batches < 1:
+            print("Parallel execution requires one process for simulation management.")
+            print("Please unset multiprocessing or use > 2 processes.")
+            return
+
         batch_size = ceil(len(agent_id_list) / num_batches)
 
         for i in range(num_batches):
@@ -157,10 +159,10 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         #     Run Planning       #
         ##########################
 
-        run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_list)
+        run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_list, planning_problem_set)
 
 
-def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_list):
+def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_list, planning_problem_set):
     """Control a simulation running in multiple processes.
 
     Computes the predictions, manages the agent patches and the communication.
@@ -171,17 +173,21 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
 
     current_timestep = 0
 
+    # Dummy obstacles representing the agents
+    dummy_obstacle_list = []
+
     # Return values of the last agent step
     agent_state_dict = dict()
     for id in agent_id_list:
         agent_state_dict[id] = -1
 
+    # Data from the planners for plotting
+    traj_set_list = []
+    ref_path_list = []
+
     running = True
     while running:
         print(f"[Simulation] Simulating timestep {current_timestep}")
-        # clear dummy obstacles
-        dummy_obstacle_list = list()
-        terminated_agent_list = list()
 
         # START TIMER
         step_time_start = time.time()
@@ -198,11 +204,23 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
         for batch in batch_list:
             batch[1].put(predictions)
 
+        # Plot previous timestep while batches are busy
+        if current_timestep > 0 and (config.debug.show_plots or config.debug.save_plots) \
+                and len(batch_list) > 0:
+            visualize_multiagent_at_timestep(scenario, planning_problem_set,
+                                             dummy_obstacle_list, current_timestep-1, config, log_path,
+                                             traj_set_list=traj_set_list,
+                                             ref_path_list=ref_path_list,
+                                             predictions=predictions,
+                                             plot_window=config.debug.plot_window_dyn)
+
         # Receive results
+        # clear dummy obstacles
+        dummy_obstacle_list = []
         for batch in batch_list:
             try:
-                dummy_obstacle_list.extend(batch[2].get(block=True, timeout=10))
-                agent_state_dict.update(batch[2].get(block=True, timeout=10))
+                dummy_obstacle_list.extend(batch[2].get(block=True, timeout=20))
+                agent_state_dict.update(batch[2].get(block=True, timeout=20))
             except Empty:
                 print("Timeout while waiting for step results! Exiting")
                 return
@@ -247,15 +265,19 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
         # STOP TIMER
         sync_time_end = time.time()
 
-        # TODO Global plotting
-        # Plot current frame
-        # if (config.debug.show_plots or config.debug.save_plots) and len(running_agent_list) > 0:
-        #     visualize_multiagent_at_timestep(scenario, [a.planning_problem for a in running_agent_list],
-        #                                      dummy_obstacle_list, current_timestep, config, log_path,
-        #                                      traj_set_list=[a.planner.all_traj for a in running_agent_list],
-        #                                      ref_path_list=[a.planner.reference_path for a in running_agent_list],
-        #                                      predictions=predictions,
-        #                                      plot_window=config.debug.plot_window_dyn)
+        # Receive plotting data
+        if (config.debug.show_plots or config.debug.save_plots) and len(batch_list) > 0:
+            traj_set_list = []
+            ref_path_list = []
+            for batch in batch_list:
+                try:
+                    plotting_values = batch[2].get(block=True, timeout=20)
+                    traj_set_list.extend(plotting_values[0])
+                    ref_path_list.extend(plotting_values[1])
+                except Empty:
+                    print("Timeout waiting for plotting data! Exiting")
+                    return
+
 
         append_log(log_path, current_timestep, current_timestep * scenario.dt,
                    step_time_end-step_time_start, sync_time_end-sync_time_start,
@@ -273,6 +295,5 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
     for batch in batch_list:
         batch[0].join()
 
-    # TODO make gif
-    #if config.debug.gif:
-    #    make_gif(config, scenario, range(0, current_timestep-1), log_path, duration=0.1)
+    if config.debug.gif:
+        make_gif(config, scenario, range(0, current_timestep-1), log_path, duration=0.1)

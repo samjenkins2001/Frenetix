@@ -9,7 +9,7 @@ import numpy as np
 from commonroad_prediction.prediction_module import PredictionModule
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.state import CustomState, State
-from commonroad.planning.planning_problem import PlanningProblem
+from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 
 import commonroad_dc.pycrcc as pycrcc
 from commonroad.scenario.scenario import Scenario
@@ -125,7 +125,7 @@ def check_collision(planner: ReactivePlanner, ego_vehicle: DynamicObstacle, time
         return True
 
 
-def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_list: List[PlanningProblem],
+def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: PlanningProblemSet,
                                      agent_list: List[DynamicObstacle], timestep: int,
                                      config: Configuration, log_path: str,
                                      traj_set_list: List[List[TrajectorySample]] = None,
@@ -139,7 +139,7 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_list: 
     Replaces visualize_visualize_planner_at_timestep from visualization.py
 
     :param scenario: CommonRoad scenario object containing no dummy obstacles
-    :param planning_problem_list: Planning problems of all agents
+    :param planning_problem_set: Planning problems of all agents
     :param agent_list: Dummy obstacles for all agents. Assumed to include the recorded path in the trajectory
     :param timestep: Time step of the scenario to plot
     :param config: Configuration object for plot/save settings
@@ -210,7 +210,7 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_list: 
         ego_params.vehicle_shape.occupancy.shape.opacity = 1
 
         # Visualize planning problem and agent
-        planning_problem_list[i].draw(rnd)
+        planning_problem_set.find_planning_problem_by_id(agent_list[i].obstacle_id).draw(rnd)
         agent_list[i].draw(rnd, draw_params=ego_params)
 
     rnd.render()

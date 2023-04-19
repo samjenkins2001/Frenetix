@@ -8,7 +8,7 @@ from commonroad_rp.configuration import Configuration
 from commonroad.planning.planning_problem import PlanningProblemSet
 
 from multiagent.agent import Agent
-from multiagent.multiagent_helpers import get_predictions, visualize_multiagent_at_timestep
+from multiagent.multiagent_helpers import get_predictions, visualize_multiagent_at_timestep, make_gif
 from multiagent.multiagent_logging import *
 
 
@@ -38,12 +38,15 @@ class AgentBatch (Process):
         """
         super().__init__()
 
+        self.config = config
+
         # Initialize queues
         self.in_queue = in_queue
         self.out_queue = out_queue
 
         # Initialize agents
         self.agent_id_list = agent_id_list
+        self.planning_problem_set = planning_problem_set
         self.agent_list = []
         for id in agent_id_list:
             self.agent_list.append(Agent(id, planning_problem_set.find_planning_problem_by_id(id),
@@ -118,7 +121,7 @@ class AgentBatch (Process):
         while True:
             # Receive the next predictions
             try:
-                predictions = self.in_queue.get(block=True, timeout=10)
+                predictions = self.in_queue.get(block=True, timeout=20)
             except Empty:
                 print("Timeout waiting for new predictions! Exiting.")
                 return
@@ -134,15 +137,15 @@ class AgentBatch (Process):
                 # Wait for termination signal from main simulation
                 print(f"[Batch {self.agent_id_list}] Completed! Exiting")
                 try:
-                    self.in_queue.get(block=True, timeout=10)
+                    self.in_queue.get(block=True, timeout=20)
                 except Empty:
                     print(f"[Batch {self.agent_id_list}] Timeout waiting for termination signal.")
                 return
 
             # receive dummy obstacles and outdated agent list
             try:
-                self.dummy_obstacle_list = self.in_queue.get(block=True, timeout=10)
-                outdated_agent_id_list = self.in_queue.get(block=True, timeout=10)
+                self.dummy_obstacle_list = self.in_queue.get(block=True, timeout=20)
+                outdated_agent_id_list = self.in_queue.get(block=True, timeout=20)
             except Empty:
                 print("Timeout waiting for agent updates! Exiting")
                 return
@@ -157,9 +160,14 @@ class AgentBatch (Process):
             # STOP TIMER
             sync_time_end = time.time()
 
+            # Send data for global plotting
+            if self.config.debug.show_plots or self.config.debug.save_plots:
+                self.out_queue.put(([a.planner.all_traj for a in self.running_agent_list],
+                                    [a.planner.reference_path for a in self.running_agent_list]))
+
             self.current_timestep += 1
 
-    def run_sequential(self, log_path, config, predictor, scenario):
+    def run_sequential(self, log_path, predictor, scenario):
         """Main function of the agent batch.
         Receives predictions from the main simulation, updates the agents,
         runs a planner step, and sends back the dummy obstacles.
@@ -171,7 +179,7 @@ class AgentBatch (Process):
 
         while True:
             # Calculate the next predictions
-            predictions = get_predictions(config, predictor, scenario, self.current_timestep)
+            predictions = get_predictions(self.config, predictor, scenario, self.current_timestep)
 
             # START TIMER
             step_time_start = time.time()
@@ -184,6 +192,10 @@ class AgentBatch (Process):
             # Check for active or pending agents
             if self.complete():
                 print(f"[Batch] Completed! Exiting")
+
+                if self.config.debug.gif:
+                    make_gif(scenario, range(0, self.current_timestep-1), log_path, duration=0.1)
+
                 return
 
             # Update outdated agent lists
@@ -199,6 +211,15 @@ class AgentBatch (Process):
                     warnings.filterwarnings("ignore", message=".*not contained in the scenario")
                     if scenario.obstacle_by_id(id) is not None:
                         scenario.remove_obstacle(scenario.obstacle_by_id(id))
+
+            # Plot current frame
+            if (self.config.debug.show_plots or self.config.debug.save_plots) and len(self.running_agent_list) > 0:
+                visualize_multiagent_at_timestep(scenario, self.planning_problem_set,
+                                                 self.dummy_obstacle_list, self.current_timestep, self.config, log_path,
+                                                 traj_set_list=[a.planner.all_traj for a in self.running_agent_list],
+                                                 ref_path_list=[a.planner.reference_path for a in self.running_agent_list],
+                                                 predictions=predictions,
+                                                 plot_window=self.config.debug.plot_window_dyn)
 
             scenario.add_objects(self.dummy_obstacle_list)
 
