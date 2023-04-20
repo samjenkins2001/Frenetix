@@ -342,8 +342,7 @@ def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None,
                    ego_pos=ego_state.position,
                    time_step=ego_state.time_step,
                    sensor_radius=config.prediction.sensor_radius,
-                    ego_state=ego_state,
-                    ego_id=ego_id,
+                   ego_id=ego_id,
                 )
             return visible_obstacles, visible_area
         except:

@@ -285,40 +285,150 @@ class QuinticTrajectory(PolynomialTrajectory):
         Computes the coefficients of the quintic polynomial trajectory
         :return: The coefficients
         """
-        p_init, p_init_d, p_init_dd = self.x_0
-        p_final, p_final_d, p_final_dd = self.x_d
-        return QuinticTrajectory._calc_coeffs_static(p_init, p_init_d, p_init_dd, p_final, p_final_d, p_final_dd,
+        xs, vxs, axs = self.x_0
+        xe, vxe, axe = self.x_d
+        return QuinticTrajectory._calc_coeffs_static(xs, vxs, axs, xe, vxe, axe,
                                                      self.delta_tau)
 
     @lru_cache(3024)
     @classmethod
-    def _calc_coeffs_static(cls, p_init, p_init_d, p_init_dd, p_final, p_final_d, p_final_dd, delta_tau) -> np.ndarray:
+    def _calc_coeffs_static(cls, xs, vxs, axs, xe, vxe, axe, T) -> np.ndarray:
         """
-        Computes the coefficients of the quintic polynomial trajectory
-        :return: The coefficients
+        Initialize a quintic polynomial.
+
+        Args:
+            xs (float): Value at the start.
+            vxs (float): Value of the first derivation at the start.
+            axs (float): Value of the second derivation at the start.
+            xe (float): Value at the end.
+            vxe (float): Value of the first derivation at the end.
+            axe (float): Value of the second derivation at the end.
+            T (float): End time.
         """
+        # calc coefficient of quintic polynomial
+        cls.xs = xs
+        cls.vxs = vxs
+        cls.axs = axs
+        cls.xe = xe
+        cls.vxe = vxe
+        cls.axe = axe
 
-        t2 = np.power(delta_tau, 2)
-        t3 = t2 * delta_tau
-        t4 = t2 * t2
-        t5 = t4 * delta_tau
+        cls.a0 = xs
+        cls.a1 = vxs
+        cls.a2 = axs / 2.0
 
-        a = np.array([[t3, t4, t5],
-                      [3. * t2, 4. * t3, 5. * t4],
-                      [6. * delta_tau, 12. * t2, 20. * t3]])
+        A = np.array(
+            [
+                [T ** 3, T ** 4, T ** 5],
+                [3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
+                [6 * T, 12 * T ** 2, 20 * T ** 3],
+            ]
+        )
 
-        b = np.array([p_final - (p_init + p_init_d * delta_tau + .5 * p_init_dd * t2),
-                      p_final_d - (p_init_d + p_init_dd * delta_tau),
-                      p_final_dd - p_init_dd])
+        b = np.array([xe - xs - vxs * T - .5 * axs ** 2,
+                      vxe - vxs - axs * T,
+                      axe - axs])
 
         # try to solve linear optimization problem
         try:
-            x = np.linalg.solve(a, b)
+            x = np.linalg.solve(A, b)
         except Exception as e:
             print(e)
             return np.empty(0)
 
-        return np.array([p_init, p_init_d, .5 * p_init_dd, x[0], x[1], x[2]])
+        cls.a3 = x[0]
+        cls.a4 = x[1]
+        cls.a5 = x[2]
+
+        return np.array([xs, vxs, .5 * axs, x[0], x[1], x[2]])
+
+    def calc_point(self, t):
+        """
+        Calculate position at time t.
+
+        Args:
+            t (float): Time in s.
+
+        Returns:
+            float: Position at time t.
+        """
+        xt = (
+            self.a0
+            + self.a1 * t
+            + self.a2 * np.power(t, 2)
+            + self.a3 * np.power(t, 3)
+            + self.a4 * np.power(t, 4)
+            + self.a5 * np.power(t, 5)
+        )
+
+        return xt
+
+    def calc_first_derivative(self, t):
+        """
+        Calculate first derivative at time t.
+
+        Args:
+            t (float): Time in s.
+
+        Returns:
+            float: First derivative at time t.
+        """
+        # xt = (
+        #     self.a1
+        #     + 2 * self.a2 * t
+        #     + 3 * self.a3 * t ** 2
+        #     + 4 * self.a4 * t ** 3
+        #     + 5 * self.a5 * t ** 4
+        # )
+        xt = (
+            self.a1
+            + 2 * self.a2 * t
+            + 3 * self.a3 * np.power(t, 2)
+            + 4 * self.a4 * np.power(t, 3)
+            + 5 * self.a5 * np.power(t, 4)
+        )
+
+        return xt
+
+    def calc_second_derivative(self, t):
+        """
+        Calculate second derivative at time t.
+
+        Args:
+            t (float): Time in s.
+
+        Returns:
+            float: Second derivative at time t.
+        """
+        # xt = (
+        #     2 * self.a2
+        #     + 6 * self.a3 * t
+        #     + 12 * self.a4 * t ** 2
+        #     + 20 * self.a5 * t ** 3
+        # )
+        xt = (
+            2 * self.a2
+            + 6 * self.a3 * t
+            + 12 * self.a4 * np.power(t, 2)
+            + 20 * self.a5 * np.power(t, 3)
+        )
+
+        return xt
+
+    def calc_third_derivative(self, t):
+        """
+        Calculate third derivative at time t.
+
+        Args:
+            t (float): Time in s.
+
+        Returns:
+            float: Third derivative at time t.
+        """
+        # xt = 6 * self.a3 + 24 * self.a4 * t + 60 * self.a5 * t ** 2
+        xt = 6 * self.a3 + 24 * self.a4 * t + 60 * self.a5 * np.power(t, 2)
+
+        return xt
 
 
 class QuarticTrajectory(PolynomialTrajectory):
@@ -335,28 +445,106 @@ class QuarticTrajectory(PolynomialTrajectory):
         Computes the coefficients of the quartic polynomial trajectory
         :return: The coefficients
         """
-        p_init, p_init_d, p_init_dd = self.x_0
-        return QuarticTrajectory._calc_coeffs_static_(p_init, p_init_d, p_init_dd,
+        xs, vxs, axs = self.x_0
+        return QuarticTrajectory._calc_coeffs_static_(xs, vxs, axs,
                                                       self.delta_tau, self._desired_velocity)
 
     @lru_cache(3024)
     @classmethod
-    def _calc_coeffs_static_(cls, p_init, p_init_d, p_init_dd, delta_tau, _desired_velocity):
-        t2 = np.power(delta_tau, 2)
-        t3 = t2 * delta_tau
+    def _calc_coeffs_static_(cls, xs, vxs, axs, T, _desired_velocity):
+        """
+        Initialize a quartic polynomial.
 
-        a = np.array([[3. * t2, 4. * t3],
-                      [6. * delta_tau, 12. * t2]])
+        Args:
+            xs (float): Start value.
+            vxs (float): Value of the first derivation at the start.
+            axs (float): Value of the second derivation at the start.
+            vxe (float): Value of the first derivation at the end.
+            axe (float): Value of the second derivation at the end
+            T (float): End time.
+        """
+        # calc coefficient of quintic polynomial
+        cls.xs = xs
+        cls.vxs = vxs
+        cls.axs = axs
+        cls.a0 = xs
+        cls.a1 = vxs
+        cls.a2 = axs / 2.0
 
-        b = np.array([_desired_velocity - p_init_d - p_init_dd * delta_tau,
-                      - p_init_dd])
+        A = np.array([[3 * T ** 2, 4 * T ** 3], [6 * T, 12 * T ** 2]])
+
+        b = np.array([_desired_velocity - vxs - axs * T, - axs])
 
         # try to solve linear optimization problem
         try:
-            x = np.linalg.solve(a, b)
+            x = np.linalg.solve(A, b)
         except Exception as e:
             print(e)
             return np.empty(0)
 
-        return np.array([p_init, p_init_d, .5 * p_init_dd, x[0], x[1], 0.])
+        cls.a3 = x[0]
+        cls.a4 = x[1]
 
+        return np.array([xs, vxs, .5 * axs, x[0], x[1], 0.])
+
+    def calc_point(self, t):
+        """
+        Calculate position at time t.
+
+        Args:
+            t (float): Time in s.
+
+        Returns:
+            float: Position at time t.
+        """
+        xt = (
+            self.a0
+            + self.a1 * t
+            + self.a2 * t ** 2
+            + self.a3 * t ** 3
+            + self.a4 * t ** 4
+        )
+
+        return xt
+
+    def calc_first_derivative(self, t):
+        """
+        Calculate first derivative at time t.
+
+        Args:
+            t (float): Time in s.
+
+        Returns:
+            float: First derivative at time t.
+        """
+        xt = self.a1 + 2 * self.a2 * t + 3 * self.a3 * t ** 2 + 4 * self.a4 * t ** 3
+
+        return xt
+
+    def calc_second_derivative(self, t):
+        """
+        Calculate second derivative at time t.
+
+        Args:
+            t (float): Time in s.
+
+        Returns:
+            float: Second derivative at time t.
+        """
+        xt = 2 * self.a2 + 6 * self.a3 * t + 12 * self.a4 * t ** 2
+
+        return xt
+
+    def calc_third_derivative(self, t):
+        """
+        Calculate third derivative at time t.
+
+        Args:
+            t (float): Time in s.
+
+        Returns:
+            float: Third derivative at time t.
+        """
+        xt = 6 * self.a3 + 24 * self.a4 * t
+
+        return xt
