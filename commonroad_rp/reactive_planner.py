@@ -1031,9 +1031,6 @@ class ReactivePlanner(object):
                                                                ss=s_velocity, sss=s_acceleration,
                                                                dd=d_velocity, ddd=d_acceleration,
                                                                current_time_step=traj_len)
-                    # Add Occupancy of Trejectory to do Collision Checks later
-                    cart_traj = self._compute_cart_traj(trajectory)
-                    trajectory.occupancy = self.shift_and_convert_trajectory_to_object(cart_traj)
 
                     trajectory._actual_traj_length = traj_len
                     # check if trajectories planning horizon is shorter than expected and extend if necessary
@@ -1145,7 +1142,9 @@ class ReactivePlanner(object):
 
         # go through sorted list of trajectories and check for collisions
         for trajectory in trajectory_bundle.get_sorted_list():
-
+            # Add Occupancy of Trejectory to do Collision Checks later
+            cart_traj = self._compute_cart_traj(trajectory)
+            trajectory.occupancy = self.shift_and_convert_trajectory_to_object(cart_traj)
             # get collision_object
             coll_obj = self._create_coll_object(trajectory.occupancy, self.vehicle_params, self.x_0)
 
