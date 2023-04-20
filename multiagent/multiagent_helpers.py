@@ -71,6 +71,7 @@ def check_collision(planner: ReactivePlanner, ego_vehicle: DynamicObstacle, time
 
     :param planner: The planner used by the agent.
     :param ego_vehicle: The ego obstacle.
+    :param timestep: Timestep to check for a collision at.
     """
 
     ego = pycrcc.TimeVariantCollisionObject((timestep+1) * planner._factor)

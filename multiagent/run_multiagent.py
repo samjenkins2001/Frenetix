@@ -3,9 +3,11 @@ import warnings
 from math import ceil
 from multiprocessing import Queue
 from queue import Empty
+from typing import Tuple
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
+from commonroad_prediction.prediction_module import PredictionModule
 
 # reactive planner
 from commonroad_rp.utility.visualization import make_gif
@@ -28,9 +30,9 @@ import commonroad_rp.prediction_helpers as ph
 
 
 def run_multiagent(config: Configuration, log_path: str, mod_path: str):
-    """ Adapted from commonroad_rp/run_planner.py
+    """ Based on commonroad_rp/run_planner.py
     Set up the configuration and the simulation.
-    Creates and manages the agents.
+    Creates and manages the agents batches and their communication.
 
     :param config: The configuration
     :param log_path: The path used for simulation-level logging,
@@ -53,11 +55,11 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     # Planning problems for all agents.
     planning_problem_set = PlanningProblemSet()
     # Dummy obstacles for all agents.
-    initial_obstacle_list = list()
+    initial_obstacle_list = []
 
-    ###################################
-    #   Initialize PlanningProblems   #
-    ###################################
+    ########################################################
+    #   Initialize PlanningProblems of additional Agents   #
+    ########################################################
 
     for id in agent_id_list:
         obstacle = scenario.obstacle_by_id(id)
@@ -107,6 +109,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     #############################
     #   Initialize Prediction   #
     #############################
+
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
 
     ################################
@@ -118,17 +121,17 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
                                  config, log_path, mod_path,
                                  None, None)
 
-        agent_batch.run_sequential(log_path, config, predictor, scenario)
+        agent_batch.run_sequential(log_path, predictor, scenario)
 
     else:
 
-        # List of tuples containing all batches and their associated fields:
-        # [(AgentBatch,out_queue,in_queue,[ID])
-        # batch_list[i][0]: Agent Batch object
-        # batch_list[i][1]: Queue for sending data to the batch
-        # batch_list[i][2]: Queue for receiving data from the batch
-        # batch_list[i][3]: Agent IDs managed by the batch
         batch_list = []
+        """List of tuples containing all batches and their associated fields:
+        batch_list[i][0]: Agent Batch object
+        batch_list[i][1]: Queue for sending data to the batch
+        batch_list[i][2]: Queue for receiving data from the batch
+        batch_list[i][3]: Agent IDs managed by the batch
+        """
 
         # We need at least one agent per batch, and one process for the main simulation
         num_batches = config.multiagent.num_procs-1
@@ -162,10 +165,21 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
         run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_list, planning_problem_set)
 
 
-def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_list, planning_problem_set):
+def run_simulation(log_path: str, config: Configuration,
+                   predictor: PredictionModule, scenario: Scenario,
+                   batch_list: List[Tuple[AgentBatch, Queue, Queue, List[int]]],
+                   agent_id_list: List[int], planning_problem_set: PlanningProblemSet):
     """Control a simulation running in multiple processes.
 
     Computes the predictions, manages the agent patches and the communication.
+
+    :param log_path: Base path for writing the log files to.
+    :param config: The configuration.
+    :param predictor: Prediction module object used to compute the predictions.
+    :param scenario: The scenario to simulate.
+    :param batch_list: List of agent batches and associated information, see agent_batch.
+    :param agent_id_list: List of IDs of all agents in the simulation.
+    :param planning_problem_set: Planning problems of all agents in the simulation.
     """
 
     # Step simulation as long as some agents have not completed
@@ -198,7 +212,6 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
 
         predictions = get_predictions(config, predictor, scenario, current_timestep)
 
-
         print(f"[Simulation] Running batches: {len(batch_list)}")
         # Send predictions
         for batch in batch_list:
@@ -222,7 +235,7 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
                 dummy_obstacle_list.extend(batch[2].get(block=True, timeout=20))
                 agent_state_dict.update(batch[2].get(block=True, timeout=20))
             except Empty:
-                print("Timeout while waiting for step results! Exiting")
+                print("[Simulation] Timeout while waiting for step results! Exiting")
                 return
 
         # Remove completed workers
@@ -262,6 +275,8 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
                 if scenario.obstacle_by_id(id) is not None:
                     scenario.remove_obstacle(scenario.obstacle_by_id(id))
 
+        scenario.add_objects(dummy_obstacle_list)
+
         # STOP TIMER
         sync_time_end = time.time()
 
@@ -275,21 +290,19 @@ def run_simulation(log_path, config, predictor, scenario, batch_list, agent_id_l
                     traj_set_list.extend(plotting_values[0])
                     ref_path_list.extend(plotting_values[1])
                 except Empty:
-                    print("Timeout waiting for plotting data! Exiting")
+                    print("[Simulation] Timeout waiting for plotting data! Exiting")
                     return
 
-
+        # Write global log
         append_log(log_path, current_timestep, current_timestep * scenario.dt,
                    step_time_end-step_time_start, sync_time_end-sync_time_start,
                    agent_id_list, [agent_state_dict[id] for id in agent_id_list])
-
-        scenario.add_objects(dummy_obstacle_list)
 
         current_timestep += 1
         running = len(batch_list) > 0
 
     print("[Simulation] Simulation completed.")
-    print("Terminating workers...")
+    print("[Simulation] Terminating workers...")
 
     # Workers should already have terminated, otherwise wait for timeouts
     for batch in batch_list:

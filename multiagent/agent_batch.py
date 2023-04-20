@@ -2,6 +2,9 @@ import time
 import warnings
 from multiprocessing import Process, Queue
 from queue import Empty
+from typing import Union, Optional
+
+from commonroad_prediction.prediction_module import PredictionModule
 
 from commonroad_rp.configuration import Configuration
 
@@ -16,7 +19,7 @@ class AgentBatch (Process):
 
     def __init__(self, agent_id_list: List[int], planning_problem_set: PlanningProblemSet,
                  scenario: Scenario, config: Configuration, log_path: str, mod_path: str,
-                 in_queue: Queue, out_queue: Queue):
+                 in_queue: Optional[Queue], out_queue: Optional[Queue]):
         """Batch of agents.
 
         If multiprocessing is enabled, all batches are processed in parallel,
@@ -33,14 +36,18 @@ class AgentBatch (Process):
         :param log_path: Base path of the log files.
         :param mod_path: Path of the working directory of the planners
                          (containing planner configuration)
-        :param in_queue: Queue the batch receives data from.
-        :param out_queue: Queue the batch sends data to.
+        :param in_queue: Queue the batch receives data from (None for serial execution).
+        :param out_queue: Queue the batch sends data to (None for serial execution).
         """
         super().__init__()
 
         self.config = config
 
         # Initialize queues
+        if config.multiagent.multiprocessing and \
+            (in_queue is None or out_queue is None):
+            print(f"[Batch {agent_id_list}] Communication queues may not be None for parallel execution! Exiting")
+            return
         self.in_queue = in_queue
         self.out_queue = out_queue
 
@@ -67,6 +74,13 @@ class AgentBatch (Process):
         self.current_timestep = 0
 
     def step_simulation(self, predictions: dict):
+        """Simulate the next timestep.
+
+        Calls the step function of the agents and
+        manages starting and terminating agents.
+
+        :param predictions: Predictions for all agents in the simulation.
+        """
 
         # clear dummy obstacles
         self.dummy_obstacle_list = []
@@ -90,7 +104,7 @@ class AgentBatch (Process):
                 elif status == 3:
                     msg = "Collision detected."
 
-                print(f"[Simulation] Agent {agent.id} terminated: {msg}")
+                print(f"[Batch {self.agent_id_list}] Agent {agent.id} terminated: {msg}")
                 # Terminate all agents simultaneously
                 terminated_agent_list.append(agent)
             else:
@@ -110,6 +124,7 @@ class AgentBatch (Process):
                 self.pending_agent_list.remove(agent)
 
     def complete(self):
+        """Check for completion of all agents in this batch."""
         return len(list(filter(lambda v: v < 1, self.agent_state_dict.values()))) == 0
 
     def run(self):
@@ -123,7 +138,7 @@ class AgentBatch (Process):
             try:
                 predictions = self.in_queue.get(block=True, timeout=20)
             except Empty:
-                print("Timeout waiting for new predictions! Exiting.")
+                print(f"[Batch {self.agent_id_list}] Timeout waiting for new predictions! Exiting.")
                 return
 
             self.step_simulation(predictions)
@@ -147,18 +162,12 @@ class AgentBatch (Process):
                 self.dummy_obstacle_list = self.in_queue.get(block=True, timeout=20)
                 outdated_agent_id_list = self.in_queue.get(block=True, timeout=20)
             except Empty:
-                print("Timeout waiting for agent updates! Exiting")
+                print("[Batch {self.agent_id_list}] Timeout waiting for agent updates! Exiting")
                 return
-
-            # START TIMER
-            sync_time_start = time.time()
 
             # Synchronize agents
             for agent in self.running_agent_list:
                 agent.update_scenario(outdated_agent_id_list, self.dummy_obstacle_list)
-
-            # STOP TIMER
-            sync_time_end = time.time()
 
             # Send data for global plotting
             if self.config.debug.show_plots or self.config.debug.save_plots:
@@ -167,12 +176,17 @@ class AgentBatch (Process):
 
             self.current_timestep += 1
 
-    def run_sequential(self, log_path, predictor, scenario):
+    def run_sequential(self, log_path: str, predictor: PredictionModule, scenario: Scenario):
         """Main function of the agent batch.
         Receives predictions from the main simulation, updates the agents,
         runs a planner step, and sends back the dummy obstacles.
 
         Version without agent-level multiprocessing.
+
+        :param log_path: Base path for writing the log files to.
+        :param predictor: Prediction module object used to compute predictions
+        :param scenario: The scenario to simulate, containing dummy obstacles
+                         for all running agents.
         """
 
         init_log(log_path)
@@ -191,7 +205,7 @@ class AgentBatch (Process):
 
             # Check for active or pending agents
             if self.complete():
-                print(f"[Batch] Completed! Exiting")
+                print(f"[Batch {self.agent_id_list}] Completed! Exiting")
 
                 if self.config.debug.gif:
                     make_gif(scenario, range(0, self.current_timestep-1), log_path, duration=0.1)
