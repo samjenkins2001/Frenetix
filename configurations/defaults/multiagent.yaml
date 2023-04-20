@@ -1,5 +1,8 @@
 # List of vehicle IDs to use as agents
-agent_ids: [1,2,4,5,7]
+use_specific_agents: False
+agent_ids: [610, 2, 4, 5, 7]
+number_of_agents: 5
+select_randomly_agents: True
 
 # List of vehicle IDs for which to create individual plots
 show_individual_plots: []
