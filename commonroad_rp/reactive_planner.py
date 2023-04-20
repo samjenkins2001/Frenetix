@@ -1,5 +1,4 @@
 __author__ = "Rainer Trauth, Gerald Würsching, Christian Pek"
-__copyright__ = "TUM Cyber-Physical Systems Group"
 __credits__ = ["BMW Group CAR@TUM, interACT"]
 __version__ = "0.5"
 __maintainer__ = "Rainer Trauth"
@@ -35,7 +34,7 @@ from commonroad_rp.parameter import DefGymSampling, TimeSampling, VelocitySampli
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
-from commonroad_rp.configuration import Configuration, VehicleConfiguration
+from commonroad_rp.configuration import Configuration
 from commonroad_rp.utility import reachable_set
 
 from commonroad_rp.utility.goalcheck import GoalReachedChecker
@@ -261,20 +260,7 @@ class ReactivePlanner(object):
             assert scenario is not None, '<set collision checker>: Please provide a CommonRoad scenario OR a ' \
                                          'CollisionChecker object to the planner.'
             cc_scenario = create_collision_checker_scenario(scenario)
-            # cc_scenario = pycrcc.CollisionChecker()
-            # for co in scenario.static_obstacles:
-            #     obs = create_collision_object(co)
-            #     cc_scenario.add_collision_object(obs)
-            # for co in scenario.dynamic_obstacles:
-            #     tvo = create_collision_object(co)
-            #     if self._continuous_cc:
-            #         tvo, err = trajectory_preprocess_obb_sum(tvo)
-            #         if err == -1:
-            #             raise Exception("Invalid input for trajectory_preprocess_obb_sum: dynamic "
-            #                             "obstacle elements overlap")
-            #     cc_scenario.add_collision_object(tvo)
             _, road_boundary_sg_obb = create_road_boundary_obstacle(scenario)
-            # shape_group_cc = create_collision_object_shape_group(road_boundary_sg_obb)
             cc_scenario.add_collision_object(road_boundary_sg_obb)
             self._cc: pycrcc.CollisionChecker = cc_scenario
         else:

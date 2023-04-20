@@ -2,8 +2,9 @@ import time
 import warnings
 from multiprocessing import Process, Queue
 from queue import Empty
-from typing import Union, Optional
+from typing import Optional
 
+from commonroad.scenario.scenario import Scenario
 from commonroad_prediction.prediction_module import PredictionModule
 
 from commonroad_rp.configuration import Configuration

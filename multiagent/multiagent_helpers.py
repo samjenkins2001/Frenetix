@@ -14,7 +14,6 @@ from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.state import CustomState, State
 from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 
-import commonroad_dc.pycrcc as pycrcc
 from commonroad.scenario.scenario import Scenario
 from commonroad.visualization.draw_params import MPDrawParams, DynamicObstacleParams
 from commonroad.visualization.mp_renderer import MPRenderer
@@ -35,6 +34,16 @@ darkcolors = ["#9c0d00", "#8f9c00", "#5b9c00", "#279c00", "#009c0d",
 lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
                "#69ffa3", "#69ffd5", "#69f8ff", "#69c6ff", "#6993ff",
                "#7069ff", "#a369ff", "#d569ff", "#ff69f8", "#ff69c5"]
+
+
+def get_all_obstacle_ids(scenario: Scenario) -> list:
+    """Return all obstacle IDs that exist in a Commonroad Scenario
+    :param scenario: The scenario of Commonroad we use
+    """
+    obs_list = list()
+    for obs in scenario.obstacles:
+        obs_list.append(obs.obstacle_id)
+    return obs_list
 
 
 def get_predictions(config: Configuration, predictor: PredictionModule,

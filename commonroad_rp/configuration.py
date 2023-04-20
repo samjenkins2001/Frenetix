@@ -37,7 +37,10 @@ class BehaviorPlannerConfiguration:
 class MultiagentConfiguration:
     """Class to store additional configurations for multiagent simulations"""
     def __init__(self, config: Union[ListConfig, DictConfig]):
+        self.use_specific_agents = config.use_specific_agents
         self.agent_ids = config.agent_ids
+        self.number_of_agents = config.number_of_agents
+        self.select_agents_randomly = config.select_agents_randomly
         self.show_individual_plots = config.show_individual_plots
         self.save_individual_plots = config.save_individual_plots
         self.save_individual_gifs = config.save_individual_gifs

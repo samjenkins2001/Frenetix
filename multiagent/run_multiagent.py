@@ -4,6 +4,7 @@ from math import ceil
 from multiprocessing import Queue
 from queue import Empty
 from typing import Tuple
+import random
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
@@ -24,7 +25,7 @@ from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 
 from multiagent.agent_batch import AgentBatch
-from multiagent.multiagent_helpers import get_predictions, visualize_multiagent_at_timestep
+import multiagent.multiagent_helpers as mh
 from multiagent.multiagent_logging import *
 
 import commonroad_rp.prediction_helpers as ph
@@ -49,10 +50,26 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     # Open the commonroad scenario and the planning problems of the
     # original ego vehicles.
     scenario, ego_planning_problem, original_planning_problem_set = load_scenario_and_planning_problem(config)
+    all_obs_ids = mh.get_all_obstacle_ids(scenario)
 
-    # IDs of all dynamic obstacles that should be used as agents.
-    # Add the dynamicObstacles to be simulated to the list.
-    agent_id_list = config.multiagent.agent_ids
+    #########################################
+    #    Select Obstacle IDs to Simulate    #
+    #########################################
+    if config.multiagent.use_specific_agents:
+        agent_id_list = config.multiagent.agent_ids
+        for agent_ids_check in agent_id_list:
+            if agent_ids_check not in all_obs_ids:
+                raise ValueError("Selected Obstacle IDs not existent in Scenario!\n"
+                                 "Check selected 'agent_ids' in config!")
+    else:
+        agent_id_list = all_obs_ids
+
+    if config.multiagent.number_of_agents < len(agent_id_list):
+        if config.multiagent.select_agents_randomly:
+            agent_id_list = random.sample(agent_id_list, config.multiagent.number_of_agents)
+        else:
+            agent_id_list = agent_id_list[:config.multiagent.number_of_agents]
+
     # Planning problems for all agents.
     planning_problem_set = PlanningProblemSet()
     # Dummy obstacles for all agents.
@@ -211,7 +228,7 @@ def run_simulation(log_path: str, config: Configuration,
         #    Step Simulation   #
         ########################
 
-        predictions = get_predictions(config, predictor, scenario, current_timestep)
+        predictions = mh.get_predictions(config, predictor, scenario, current_timestep)
 
         print(f"[Simulation] Running batches: {len(batch_list)}")
         # Send predictions
@@ -221,12 +238,12 @@ def run_simulation(log_path: str, config: Configuration,
         # Plot previous timestep while batches are busy
         if current_timestep > 0 and (config.debug.show_plots or config.debug.save_plots) \
                 and len(batch_list) > 0:
-            visualize_multiagent_at_timestep(scenario, planning_problem_set,
-                                             dummy_obstacle_list, current_timestep-1, config, log_path,
-                                             traj_set_list=traj_set_list,
-                                             ref_path_list=ref_path_list,
-                                             predictions=predictions,
-                                             plot_window=config.debug.plot_window_dyn)
+            mh.visualize_multiagent_at_timestep(scenario, planning_problem_set,
+                                                dummy_obstacle_list, current_timestep-1, config, log_path,
+                                                traj_set_list=traj_set_list,
+                                                ref_path_list=ref_path_list,
+                                                predictions=predictions,
+                                                plot_window=config.debug.plot_window_dyn)
 
         # Receive results
         # clear dummy obstacles
