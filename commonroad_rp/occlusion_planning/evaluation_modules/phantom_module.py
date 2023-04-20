@@ -2,25 +2,25 @@
 This module is the main module of the Phantom obstacle generation of the reactive planner.
 
 Author: Korbinian Moller, TUM
-Date: 15.04.2023
+Date: 19.04.2023
 """
 
 # imports
 import numpy as np
 from scipy.spatial import distance
 from shapely.geometry import Point, LineString
-from typing import Tuple
 
 # commonroad imports
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 import commonroad_rp.occlusion_planning.utils.vis_helper_functions as vhf
-from commonroad_rp.occlusion_planning.occlusion_obstacles import OccPhantomObstacle
+from commonroad_rp.occlusion_planning.basic_modules.occlusion_obstacles import OccPhantomObstacle
 from commonroad.scenario.obstacle import ObstacleType
 
 # risk assessment and harm imports
-from risk_assessment.helpers.collision_helper_function import create_tvobstacle
 from risk_assessment.harm_estimation import get_harm
 from risk_assessment.helpers.timers import ExecTimer
+from risk_assessment.helpers.collision_helper_function import create_tvobstacle
+from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectories_collision_dynamic_obstacles
 
 
 class OccPhantomModule:
@@ -34,16 +34,16 @@ class OccPhantomModule:
         self.occ_plot = occ_plot
         self.params_risk = params_risk
         self.params_harm = params_harm
-        self.max_number_of_phantom_peds = 2
+        self.max_number_of_phantom_peds = 1
         self.ped_width = 0.5
         self.ped_length = 0.3
-        self.ped_velocity = 0.8
+        self.ped_velocity = 1.11
         self.sorted_static_obstacles = None
         self.phantom_peds = None
         self.ego_pos_s = None
         self.max_s_trajectories = None
 
-        # create commonroad like predictions for harm estimation
+        # variable to store commonroad like predictions
         self.cr_predictions = dict()
 
         # calculate the maximum distance from a vehicle corner point to the vehicle center point
@@ -69,6 +69,10 @@ class OccPhantomModule:
 
         timer = ExecTimer(timing_enabled=False)
 
+        # plot phantom peds and their trajectories if plot is activated
+        if self.occ_plot is not None:
+            self.occ_plot.plot_phantom_ped_trajectory(self.phantom_peds)
+
         for traj in trajectories:
 
             # calculate harm using harm model
@@ -81,96 +85,17 @@ class OccPhantomModule:
                                                      coeffs=self.params_harm,
                                                      timer=timer)
 
-            collision = self._check_trajectory_collision(traj, mode=self.config.collision_check_mode)
+            print(obst_harm_traj[1])
+            # visualize harm probability
+            if self.occ_plot is not None:
+                self.occ_plot.plot_trajectory_harm_color(traj, max(obst_harm_traj[1]), min_harm=0, max_harm=0.8)
 
-            for key in collision:
-                if key in ego_harm_traj and key in obst_harm_traj:
-                    collision[key]['ego_harm_traj'] = ego_harm_traj[key]
-                    collision[key]['obst_harm_traj'] = obst_harm_traj[key]
-
-            # self.occ_plot.plot_phantom_collision(collision)
-            harm.append(collision)
-
-        # plot phantom peds and their trajectories if plot is activated
-        if self.occ_plot is not None:
-            self._plot_phantom()
+            # visualize collision if enabled
+            if self.config.visualize_collision and self.occ_plot is not None:
+                collision = self._check_trajectory_collision(traj, mode='shapely')
+                self.occ_plot.plot_phantom_collision(collision)
 
         return harm
-
-    def _check_trajectory_collision(self, traj, mode='shapely') -> dict:
-        """
-        Checks whether a trajectory leads to a collision with a phantom pedestrian in the scenario.
-        Args:
-            traj: commonroad trajectory sample
-            mode: mode whether to use shapely or Commonroad pycrcc
-
-        Returns:
-            dict with collision information
-        """
-        # check if mode is valid
-        valid_modes = ['shapely', 'pycrcc']
-        if mode not in valid_modes:
-            raise ValueError(f"Invalid mode: {mode}. Valid modes are: {', '.join(valid_modes)}")
-
-        # init ego trajectory polygons
-        ego_traj_polygons = None
-
-        # init collision dict
-        collision_dict = dict()
-
-        # iterate over phantom peds
-        for ped in self.phantom_peds:
-
-            collision_dict[ped.obstacle_id] = {'collision': False, 'collision_timestep': None, 'ped_id': None,
-                                               'ped': None, 'traj': traj, 'ego_traj_polygons': None}
-
-            # check for collision using pycrcc
-            if mode == 'pycrcc':
-                for i in range(len(traj.cartesian.x)):
-
-                    # create time variant obstacle for ego
-                    ego_tvo = create_tvobstacle(traj_list=[[traj.cartesian.x[i], traj.cartesian.y[i],
-                                                            traj.cartesian.theta[i]]],
-                                                box_length=self.occ_scenario.ego_length / 2,
-                                                box_width=self.occ_scenario.ego_width / 2,
-                                                start_time_step=i)
-
-                    # check for collision at timestep i
-                    collision_cr = ego_tvo.collide(ped.cr_collision_object)
-
-                    # if collision is true, update collision_dict and return
-                    if collision_cr is True:
-                        collision_dict[ped.obstacle_id] = {'collision': True, 'collision_timestep': i,
-                                                           'ped_id': ped.obstacle_id, 'ped': ped, 'traj': traj,
-                                                           'ego_traj_polygons': None}
-                        continue
-
-            # check for collisions using shapely
-            elif mode == 'shapely':
-                # check if collision is possible (s coordinates match) and perform detailed collision check
-                if np.any((traj.curvilinear.s + self.ego_diag / 2) >= (ped.s - ped.diag / 2)):
-
-                    # if trajectory has not been converted to polygon list, create polygon list
-                    if ego_traj_polygons is None:
-                        ego_traj_polygons = ohf.compute_vehicle_polygons(traj.cartesian.x, traj.cartesian.y,
-                                                                         traj.cartesian.theta,
-                                                                         self.occ_scenario.ego_width,
-                                                                         self.occ_scenario.ego_length)
-
-                    # store polygon list in local variable and shorten it
-                    ped_traj_polygons = ped.traj_polygons['polygons'][:len(ego_traj_polygons['polygons'])]
-
-                    # iterate through polygons and check for collision
-                    for i, (ego_poly, ped_poly) in enumerate(zip(ego_traj_polygons['polygons'], ped_traj_polygons)):
-
-                        if ego_poly.intersects(ped_poly):
-                            collision_dict[ped.obstacle_id] = {'collision': True, 'collision_timestep': i,
-                                                               'ped_id': ped.obstacle_id, 'ped': ped, 'traj': traj,
-                                                               'ego_traj_polygons': ego_traj_polygons}
-
-                            continue
-
-        return collision_dict
 
     ################################
     # create phantom obstacles
@@ -204,15 +129,6 @@ class OccPhantomModule:
         # calculate trajectories of phantom peds
         self._calc_trajectories()
 
-    def _plot_phantom(self):
-        ax = self.occ_plot.ax
-        for ped in self.phantom_peds:
-            ohf.fill_polygons(ax, ped.polygon, 'gold', zorder=10)
-            ax.plot(ped.trajectory[:, 0], ped.trajectory[:, 1], 'b')
-            ax.plot(ped.goal_position[0], ped.goal_position[1], 'bo')
-
-        self.occ_plot._save_plot()
-
     def _create_phantom_peds(self, spawn_points):
         # create empty list for phantom pedestrians
         phantom_peds = []
@@ -226,14 +142,11 @@ class OccPhantomModule:
             orientation = vhf.angle_between(np.array([1, 0]), vector)
 
             # find needed parameters for phantom ped
-            create_cr_obst = False
+            create_cr_obst = True
             calc_ped_traj_polygons = False
 
-            if self.config.visualize_collision or self.config.collision_check_mode == 'shapely':
+            if self.config.visualize_collision:
                 calc_ped_traj_polygons = True
-
-            if self.config.create_commonroad_obstacle or self.config.collision_check_mode == 'pycrcc':
-                create_cr_obst = True
 
             # create phantom pedestrian and add to list
             phantom_peds.append(OccPhantomObstacle(i + 1, spawn_point['xy'], orientation, self.ped_length,
@@ -301,7 +214,7 @@ class OccPhantomModule:
         if len(spawn_points) > self.max_number_of_phantom_peds:
             # sort spawn points according to their distance to the ego position
             sorted_spawn_points_with_index = sorted(enumerate(spawn_points), key=lambda sp:
-                                                    distance.euclidean(sp[1]['xy'], self.vis_module.ego_pos))
+            distance.euclidean(sp[1]['xy'], self.vis_module.ego_pos))
 
             # convert combined list to separate lists
             sorted_indices, sorted_spawn_points = zip(*sorted_spawn_points_with_index)
@@ -317,7 +230,8 @@ class OccPhantomModule:
                 line_ls = LineString(line)
 
                 # find shifted spawn point as shapely point
-                spawn_point_shifted_point = self.vis_module.visible_area_timestep.exterior.intersection(line_ls)
+                spawn_point_shifted_point = self.vis_module.visible_area_timestep.buffer(self.ped_length/2 * 1.2). \
+                    exterior.intersection(line_ls)
 
                 # if no shifted spawn point could be found, use spawn point at corner
                 if not spawn_point_shifted_point.is_empty:
@@ -343,7 +257,7 @@ class OccPhantomModule:
             d = ref_path_ls.distance(Point(cp['xy']))
 
             # only add points that can be reached by a trajectory
-            if not s >= self.max_s_trajectories and not s < self.ego_pos_s or True:
+            if not s >= self.max_s_trajectories and not s < self.ego_pos_s:
                 relevant_cp_dict = {'xy': cp['xy'], 'cl': np.array([s, d]), 'rp_xy': cp['rp_xy']}
                 relevant_cp_new.append(relevant_cp_dict)
 
@@ -461,8 +375,100 @@ class OccPhantomModule:
 
         return None
 
+    def time_variant_collision_object_by_id(self, obstacle_id):
+        for ped in self.phantom_peds:
+            if ped.obstacle_id == obstacle_id:
+                return ped.cr_tv_collision_object
+
+        return None
+
     def _combine_commonroad_predictions(self):
+        # clear prediction dict
+        self.cr_predictions = {}
+
+        # add ped predictions to dict
         for ped in self.phantom_peds:
             self.cr_predictions[ped.obstacle_id] = ped.commonroad_predictions
 
+    ################################
+    # helper functions
+    ################################
 
+    def _check_trajectory_collision(self, traj, mode='shapely') -> dict or None:
+        """
+        Checks whether a trajectory leads to a collision with a phantom pedestrian in the scenario.
+        Args:
+            traj: commonroad trajectory sample
+            mode: mode whether to use shapely or Commonroad pycrcc
+
+        Returns:
+            dict with collision information
+        """
+        # check if mode is valid
+        valid_modes = ['shapely', 'pycrcc', 'None']
+        if mode not in valid_modes:
+            raise ValueError(f"Invalid mode: {mode}. Valid modes are: {', '.join(valid_modes)}")
+
+        # init ego trajectory polygons
+        ego_traj_polygons = None
+
+        # init collision dict
+        collision_dict = dict()
+
+        # iterate over phantom peds
+        for ped in self.phantom_peds:
+
+            collision_dict[ped.obstacle_id] = {'collision': False, 'collision_timestep': None, 'ped_id': None,
+                                               'ped': None, 'traj': traj, 'ego_traj_polygons': None}
+
+            # check for collision using pycrcc
+            if mode == 'pycrcc':
+
+                # create time variant collision object
+                ego_tvo = create_tvobstacle(traj_list=np.array([traj.cartesian.x,
+                                                                traj.cartesian.y,
+                                                                traj.cartesian.theta]).transpose().tolist(),
+                                            box_length=self.occ_scenario.ego_length / 2,
+                                            box_width=self.occ_scenario.ego_width / 2,
+                                            start_time_step=0)
+
+                # check trajectory for collision with phantom ped (returns timestep of collision or -1)
+                coll_check_cr = trajectories_collision_dynamic_obstacles([ego_tvo], [ped.cr_tv_collision_object])[0]
+
+                # if collision is true, update collision_dict and return
+                if coll_check_cr != -1:
+                    collision_dict[ped.obstacle_id] = {'collision': True, 'collision_timestep': coll_check_cr,
+                                                       'ped_id': ped.obstacle_id, 'ped': ped, 'traj': traj,
+                                                       'ego_traj_polygons': None}
+
+            # check for collisions using shapely
+            elif mode == 'shapely':
+                # check if collision is possible (s coordinates match) and perform detailed collision check
+                if np.any((traj.curvilinear.s + self.ego_diag / 2) >= (ped.s - ped.diag / 2)):
+
+                    # if trajectory has not been converted to polygon list, create polygon list
+                    if ego_traj_polygons is None:
+                        ego_traj_polygons = ohf.compute_vehicle_polygons(traj.cartesian.x, traj.cartesian.y,
+                                                                         traj.cartesian.theta,
+                                                                         self.occ_scenario.ego_width,
+                                                                         self.occ_scenario.ego_length)
+
+                    # store polygon list in local variable and shorten it
+                    ped_traj_polygons = ped.traj_polygons['polygons'][:len(ego_traj_polygons['polygons'])]
+
+                    # iterate through polygons and check for collision
+                    for i, (ego_poly, ped_poly) in enumerate(zip(ego_traj_polygons['polygons'], ped_traj_polygons)):
+
+                        if ego_poly.intersects(ped_poly):
+                            # if collision is detected return collision
+                            collision_dict[ped.obstacle_id] = {'collision': True, 'collision_timestep': i,
+                                                               'ped_id': ped.obstacle_id, 'ped': ped, 'traj': traj,
+                                                               'ego_traj_polygons': ego_traj_polygons}
+
+                            # exit for loop
+                            break
+
+            else:
+                return
+
+        return collision_dict

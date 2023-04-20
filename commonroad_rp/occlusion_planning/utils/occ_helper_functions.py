@@ -416,8 +416,8 @@ def draw_collision_trajectory(ax, collision_dict):
 
         if i < cts:
             # plot polygons
-            plot_ego = plot_polygons(ax, ego_poly, color='b')
-            plot_ped = plot_polygons(ax, ped_poly, color='orange')
+            plot_ego = plot_polygons(ax, ego_poly, color='b', zorder=100)
+            plot_ped = plot_polygons(ax, ped_poly, color='orange', zorder=100)
             plt.show(block=False)
             plt.pause(0.05)
 
@@ -427,8 +427,8 @@ def draw_collision_trajectory(ax, collision_dict):
             plt.draw()
         else:
             # draw collision
-            fill_ego = fill_polygons(ax, ego_poly, 'r')
-            fill_ped = fill_polygons(ax, ped_poly, 'orange')
+            fill_ego = fill_polygons(ax, ego_poly, 'r', zorder=100)
+            fill_ped = fill_polygons(ax, ped_poly, 'orange', zorder=100)
             plt.show(block=False)
             plt.pause(0.5)
             fill_ego[0].remove()

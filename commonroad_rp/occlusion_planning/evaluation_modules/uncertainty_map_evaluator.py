@@ -36,8 +36,7 @@ class OccUncertaintyMapEvaluator:
 
         # plot trajectories with color coded costs
         if self.occ_plot is not None:
-            self.occ_plot.plot_trajectories_cost_color(trajectories, self.costs,
-                                                       self.traj_length_m, self.traj_speeds_occ)
+            self.occ_plot.plot_trajectories_cost_color(trajectories, self.costs)
 
     def _evaluate(self, trajectories, min_dist=0.25, max_dist=3.0, dist_mode=1, w_distance=1, w_velocity=1):
 

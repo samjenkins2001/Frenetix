@@ -2,7 +2,7 @@
 import numpy as np
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 import commonroad_rp.occlusion_planning.utils.vis_helper_functions as vhf
-from commonroad_rp.occlusion_planning.occlusion_obstacles import EstimationObstacle
+from commonroad_rp.occlusion_planning.basic_modules.occlusion_obstacles import EstimationObstacle
 from shapely.geometry import Point
 
 

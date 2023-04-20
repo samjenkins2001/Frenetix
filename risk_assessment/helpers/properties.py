@@ -1,15 +1,10 @@
 """Functions to get vehicle properties or geometrical parameters."""
 
 from commonroad.scenario.obstacle import ObstacleType
+from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectories_collision_dynamic_obstacles
 import numpy as np
-from risk_assessment.helpers.collision_helper_function import (
-    angle_range,
-    create_tvobstacle,
-)
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import (
-    create_collision_object,
-)
-
+from risk_assessment.helpers.collision_helper_function import angle_range, create_tvobstacle
+from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 
 def get_obstacle_mass(obstacle_type, size):
     """
@@ -91,38 +86,28 @@ def calc_crash_angle(traj, predictions, scenario, obstacle_id, modes, vehicle_pa
             considered vehicle.
 
     Returns:
-        float: Principle degree of force.
+        float: Principle direction of force.
         float: Crash angle for the ego vehicle [rad].
         float: Crash angle for the obstacle [rad].
     """
-    crash_time = None
 
     # get collision time
-    for i in range(len(traj.t)):
-        # create collision object and check for collision
-        current_state_collision_object = create_tvobstacle(
-            traj_list=[
-                [
-                    traj.x[i],
-                    traj.y[i],
-                    traj.yaw[i],
-                ]
-            ],
-            box_length=vehicle_params.l / 2,
-            box_width=vehicle_params.w / 2,
-            start_time_step=i,
-        )
+    # create collision object of ego
+    ego_tvo = create_tvobstacle(traj_list=np.array([traj.x, traj.y, traj.theta]).transpose().tolist(),
+                                box_length=vehicle_params.length / 2,
+                                box_width=vehicle_params.width / 2,
+                                start_time_step=0)
 
-        co = create_collision_object(scenario.obstacle_by_id(obstacle_id=obstacle_id))
+    # load tvo for obstacle
+    obst_tvo = scenario.time_variant_collision_object_by_id(obstacle_id=obstacle_id)
 
-        if current_state_collision_object.collide(co):
-            crash_time = i
-            break
+    # check for collision (returns timestep or -1 if no collision happened, returns list, but only one traj is checked)
+    crash_time = trajectories_collision_dynamic_obstacles([ego_tvo], [obst_tvo])[0]
 
     # get state at crash time
-    if crash_time is not None:
+    if crash_time != -1:
         pdof = (
-            traj.yaw[crash_time]
+            traj.theta[crash_time]
             - predictions[obstacle_id]["orientation_list"][crash_time]
             + 180
         )
@@ -131,7 +116,7 @@ def calc_crash_angle(traj, predictions, scenario, obstacle_id, modes, vehicle_pa
             predictions[obstacle_id]["pos_list"][crash_time][1] - traj.y[crash_time],
         ]
         rel_angle = np.arctan2(pos_diff[1], pos_diff[0])
-        ego_angle = rel_angle - traj.yaw[crash_time]
+        ego_angle = rel_angle - traj.theta[crash_time]
         obs_angle = (
             np.pi + rel_angle - predictions[obstacle_id]["orientation_list"][crash_time]
         )
@@ -169,7 +154,7 @@ def estimate_crash_angle(traj, predictions, obstacle_id, modes):
     """
     # extract relevant variables from predictions
     pred_path = predictions[obstacle_id]['pos_list'][0]
-    pred_length = len(traj.t)
+    pred_length = len(traj.x)
     pred_v = predictions[obstacle_id]['v_list'][0]
     pred_yaw = predictions[obstacle_id]['orientation_list'][0]
 
@@ -218,7 +203,7 @@ def estimate_crash_angle(traj, predictions, obstacle_id, modes):
         left_side = -1
 
     # ego vehicle and obstacle heading in same direction
-    if -np.pi / 2 < traj.yaw[0] - pred_yaw < np.pi / 2:
+    if -np.pi / 2 < traj.theta[0] - pred_yaw < np.pi / 2:
         same_direction = True
     else:
         same_direction = False
@@ -316,8 +301,8 @@ def estimate_crash_angle(traj, predictions, obstacle_id, modes):
     rel_angle2 = np.arctan2(pos_diff[1], pos_diff[0])
 
     # get absolute crash angle
-    pdof = pred_yaw - traj.yaw[crash_time] + rel_angle + np.pi
-    ego_angle = rel_angle2 - traj.yaw[crash_time]
+    pdof = pred_yaw - traj.theta[crash_time] + rel_angle + np.pi
+    ego_angle = rel_angle2 - traj.theta[crash_time]
     obs_angle = (
         np.pi + rel_angle2 - predictions[obstacle_id]["orientation_list"][crash_time]
     )
@@ -348,7 +333,7 @@ def calc_crash_angle_simple(traj, predictions, obstacle_id, time_step):
     """
     pdof = (
         predictions[obstacle_id]["orientation_list"][time_step]
-        - traj.yaw[time_step]
+        - traj.theta[time_step]
         + np.pi
     )
     pos_diff = [
@@ -356,7 +341,7 @@ def calc_crash_angle_simple(traj, predictions, obstacle_id, time_step):
         predictions[obstacle_id]["pos_list"][time_step][1] - traj.y[time_step],
     ]
     rel_angle = np.arctan2(pos_diff[1], pos_diff[0])
-    ego_angle = rel_angle - traj.yaw[time_step]
+    ego_angle = rel_angle - traj.theta[time_step]
     obs_angle = (
         np.pi + rel_angle - predictions[obstacle_id]["orientation_list"][time_step]
     )

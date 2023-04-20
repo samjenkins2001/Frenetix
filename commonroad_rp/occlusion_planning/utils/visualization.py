@@ -5,6 +5,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.text import Annotation
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as hf
 import numpy as np
+from commonroad.visualization.icons import get_obstacle_icon_patch
+from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 
 
 class OccPlot:
@@ -75,6 +77,17 @@ class OccPlot:
 
             if ego_pos is not None:
                 self.ax.plot(ego_pos[0], ego_pos[1], 'o', markersize=10)
+                ego_patch = get_obstacle_icon_patch(obstacle_type=ObstacleType('car'),
+                                                    pos_x=ego_pos[0],
+                                                    pos_y=ego_pos[1],
+                                                    orientation=0,
+                                                    vehicle_length=5,
+                                                    vehicle_width=2,
+                                                    vehicle_color='blue',
+                                                    edgecolor='black',
+                                                    zorder=10)
+
+                self._add_patch(ego_patch)
 
             if visible_area_vm is not None:
                 hf.plot_polygons(self.ax, visible_area_vm, 'g', zorder=2)
@@ -144,9 +157,12 @@ class OccPlot:
                     y = np.sum(y) / 2
                     self.ax.annotate(str(dist) + "-" + str(dist_weight), xy=(x, y), xytext=(x + 0.2, y + 0.2), zorder=100)
 
-    def plot_trajectories_cost_color(self, trajectories, costs, length=None, mean_v_occ=None):
-        min_costs = min(costs)
-        max_costs = max(costs)
+    def plot_trajectories_cost_color(self, trajectories, costs, min_costs=None, max_costs=None):
+        if min_costs is None:
+            min_costs = min(costs)
+        if max_costs is None:
+            max_costs = max(costs)
+
         for i, traj in enumerate(trajectories):
             if costs[i] == min_costs:
                 self.plot_trajectories(traj, color='c')
@@ -162,6 +178,18 @@ class OccPlot:
         if self.save_plot:
             self._save_plot()
 
+    def plot_trajectory_harm_color(self, traj, harm, min_harm=0, max_harm=1):
+        if harm == min_harm:
+            self.plot_trajectories(traj, color='c')
+        elif harm <= 0.25 * max_harm:
+            self.plot_trajectories(traj, color='g')
+        elif 0.25 * max_harm < harm <= 0.5 * max_harm:
+            self.plot_trajectories(traj, color='y')
+        elif 0.5 * max_harm < harm <= 0.75 * max_harm:
+            self.plot_trajectories(traj, color='orange')
+        else:
+            self.plot_trajectories(traj, color='r')
+
     def plot_phantom_collision(self, collision):
 
         for key in collision:
@@ -175,6 +203,20 @@ class OccPlot:
                     collision[key]['ego_traj_polygons'] = ego_traj_polygons
 
                 hf.draw_collision_trajectory(self.ax, collision[key])
+
+    def plot_phantom_ped_trajectory(self, peds):
+        # plot phantom ped trajectories
+        for ped in peds:
+            hf.fill_polygons(self.ax, ped.polygon, 'gold', zorder=10)
+            self.ax.plot(ped.trajectory[:, 0], ped.trajectory[:, 1], 'b')
+            self.ax.plot(ped.goal_position[0], ped.goal_position[1], 'bo')
+
+        if self.save_plot:
+            self._save_plot()
+
+    def _add_patch(self, patch):
+        for p in patch:
+            self.ax.add_patch(p)
 
 
 

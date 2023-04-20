@@ -7,7 +7,6 @@ Date: 15.04.2023
 """
 
 # imports
-import numpy as np
 from shapely.geometry import LineString
 from shapely.ops import unary_union
 from functools import reduce
@@ -15,11 +14,11 @@ from functools import reduce
 # commonroad inputs
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 from commonroad_rp.occlusion_planning.utils.visualization import OccPlot
-from commonroad_rp.occlusion_planning.visibility_module import VisibilityModule
-from commonroad_rp.occlusion_planning.uncertainty_map import OccUncertaintyMap
-from commonroad_rp.occlusion_planning.visibility_estimator import OccVisibilityEstimator
-from commonroad_rp.occlusion_planning.uncertainty_map_evaluator import OccUncertaintyMapEvaluator
-from commonroad_rp.occlusion_planning.phantom_module import OccPhantomModule
+from commonroad_rp.occlusion_planning.basic_modules.visibility_module import VisibilityModule
+from commonroad_rp.occlusion_planning.basic_modules.uncertainty_map import OccUncertaintyMap
+from commonroad_rp.occlusion_planning.evaluation_modules.visibility_estimator import OccVisibilityEstimator
+from commonroad_rp.occlusion_planning.evaluation_modules.uncertainty_map_evaluator import OccUncertaintyMapEvaluator
+from commonroad_rp.occlusion_planning.evaluation_modules.phantom_module import OccPhantomModule
 
 
 class OcclusionModule:
