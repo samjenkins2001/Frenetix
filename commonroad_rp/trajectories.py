@@ -360,15 +360,15 @@ class TrajectorySample(Sample):
         self._cost = 0
         self._cost_list = list()
         self._cost_function = None
-        self._cartesian: CartesianSample = None
-        self._curvilinear: CurviLinearSample = None
-        self._occupancy: DynamicObstacle = None
+        self._cartesian: CartesianSample
+        self._curvilinear: CurviLinearSample
+        self._occupancy: DynamicObstacle
         self._ext_cartesian = None
         self._ext_curvilinear = None
         self.valid = None
         self._ego_risk = None
         self._obst_risk = None
-        self._boundary_harm = None
+        self.boundary_harm = None
         self._coll_detected = None
         self._actual_traj_length = None
 
@@ -500,7 +500,7 @@ class TrajectoryBundle:
         self._is_sorted_all = False
         self._multiproc = multiproc
         self._num_workers = num_workers
-        self._cluster = None
+        self.cluster = None
 
     @property
     def trajectories(self) -> List[TrajectorySample]:
@@ -570,10 +570,10 @@ class TrajectoryBundle:
                             flattened_pred_cost = np.concatenate(list_predictions).flat
                             cluster = self._cost_function.cluster_prediction.evaluate(self._trajectory_bundle, flattened_pred_cost)
                             cluster_name = self._cost_function.get_cluster_name_by_index(cluster)
-                            self._cluster = int(cluster_name[-1])  # currently limited to 10 clusters
+                            self.cluster = int(cluster_name[-1])  # currently limited to 10 clusters
                         else:
                             cluster_name = "cluster0"
-                            self._cluster = int(0)
+                            self.cluster = int(0)
 
                         # calculate costs based on cluster
                         list_processes = []

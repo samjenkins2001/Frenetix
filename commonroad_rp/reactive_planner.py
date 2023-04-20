@@ -697,20 +697,9 @@ class ReactivePlanner(object):
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
 
-            if optimal_trajectory is not None:
-                self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                                infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
-                                cluster=cluster_)
-                self.logger.log_pred(self.predictions)
-                if self.save_all_traj:
-                    self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
-
             if self.behavior:
                 if self.behavior.flags["waiting_for_green_light"]:
                     optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
-
-            # if self.debug_mode >= 1:
-            #    print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
@@ -726,25 +715,25 @@ class ReactivePlanner(object):
             t0 = time.time()
             self.logger.trajectory_number = self.x_0.time_step
             optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
-            self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
-                            cluster=cluster_)
-            self.logger.log_pred(self.predictions)
-            if self.save_all_traj:
-                self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
 
-        # check if feasible trajectory exists -> emergency mode
-        if optimal_trajectory is None and self.x_0.time_step > 0:
-            if self.debug_mode >= 1:
-                print('<ReactivePlanner>: Could not find any trajectory out of {} trajectories'.format(
-                    sum([self._get_no_of_samples(i) for i in range(self._sampling_max)])))
-            self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-                            cluster=cluster_)
-        elif optimal_trajectory is not None and self.x_0.time_step > 0:
+        # **************************
+        # Logging
+        # **************************
+        self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
+                        infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
+                        cluster=cluster_)
+        self.logger.log_pred(self.predictions)
+        if self.save_all_traj:
+            self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
+
+        # **************************
+        # Check Cost Status
+        # **************************
+        if optimal_trajectory is not None and self.x_0.time_step > 0:
             if self.debug_mode >= 1:
                 self._optimal_cost = optimal_trajectory.cost
-                print('Found optimal trajectory with {}% of maximum seen costs'.format(int((self._optimal_cost/self.max_seen_costs)*100)))
+                print('Found optimal trajectory with {}% of maximum seen costs'
+                      .format(int((self._optimal_cost/self.max_seen_costs)*100)))
 
         if optimal_trajectory is not None and self.debug_mode >= 1:
             if self.max_seen_costs < self._optimal_cost:
@@ -1196,22 +1185,22 @@ class ReactivePlanner(object):
                 boundary_harm = 0
 
             # Save Status of Trajectory to sort for alternative
-            trajectory._boundary_harm = boundary_harm
+            trajectory.boundary_harm = boundary_harm
             trajectory._coll_detected = collision_detected
 
             if not collision_detected and boundary_harm == 0:
-                return trajectory, trajectory_bundle._cluster
+                return trajectory, trajectory_bundle.cluster
 
         if samp_lvl >= self._sampling_max - 1:
-            sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj._boundary_harm, reverse=False)
-            if any(bundle._boundary_harm == 0 for bundle in sort_harm):
-                return sort_harm[0], trajectory_bundle._cluster
+            sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj.boundary_harm, reverse=False)
+            if any(bundle.boundary_harm == 0 for bundle in sort_harm):
+                return sort_harm[0], trajectory_bundle.cluster
             elif trajectory_bundle.get_sorted_list():
-                return trajectory_bundle.get_sorted_list()[0], trajectory_bundle._cluster
+                return trajectory_bundle.get_sorted_list()[0], trajectory_bundle.cluster
             else:
-                return None, trajectory_bundle._cluster
+                return None, trajectory_bundle.cluster
         else:
-            return None, trajectory_bundle._cluster
+            return None, trajectory_bundle.cluster
 
     def shift_and_convert_trajectory_to_object(self, trajectory: Trajectory, obstacle_id: int = 42):
         """
