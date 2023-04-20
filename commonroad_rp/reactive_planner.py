@@ -76,76 +76,86 @@ class ReactivePlanner(object):
         self.horizon = config.planning.planning_horizon
         self.dT = config.planning.dt
         self.N = config.planning.time_steps_computation
-        self._factor = config.planning.factor
         self._check_valid_settings()
-
-        # get vehicle parameters from config file
-        # self.vehicle_params: VehicleConfiguration = config.vehicle
         self.vehicle_params = config.vehicle
+        self._low_vel_mode_threshold = config.planning.low_vel_mode_threshold
+
+        # Multiprocessing & Settings
+        self._multiproc = config.debug.multiproc
+        self._num_workers = config.debug.num_workers
 
         # Initial State
         self.x_0 = None
         self.x_cl = None
         self.current_ego_vehicle = None
+        self._LOW_VEL_MODE = False
 
         # Scenario
         self.scenario = scenario
+        self.planning_problem = planning_problem
         self.predictions = None
         self.behavior = None
         self.set_new_ref_path = None
-
-        # initialize internal variables
-        # coordinate system & collision checker
+        self.cost_function = None
         self._co = None
         self._cc = None
-        # statistics
-        self._total_count = 0
-        self._infeasible_count_collision = 0
-        self._infeasible_count_kinematics = np.zeros(10)
-        self._optimal_cost = 0
-        self._continuous_cc = config.planning.continuous_cc
-        self._collision_check_in_cl = config.planning.collision_check_in_cl
-        # desired speed, d and t
+        self.goal_status = False
+        self.full_goal_status = None
+        self.goal_area = None
+        self.occlusion_module = None
+        self.goal_message = "Planner is in time step 0!"
+
         self._desired_speed = None
         self._desired_d = 0.
-        self._desired_t = self.horizon
         self.max_seen_costs = 1
-        # Default sampling TODO: Improve initialization of Sampling Set
-        self._sampling_min = config.sampling.sampling_min
-        self._sampling_max = config.sampling.sampling_max
-        fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
-        self._sampling_d = fs_sampling.d_samples
-        self._sampling_t = fs_sampling.t_samples
-        self._sampling_v = fs_sampling.v_samples
 
-        # threshold for low velocity mode
-        self._low_vel_mode_threshold = config.planning.low_vel_mode_threshold
-        self._LOW_VEL_MODE = False
-        # multiprocessing
-        self._multiproc = config.debug.multiproc
-        self._num_workers = config.debug.num_workers
-        # visualize trajectory set
-        self._draw_traj_set = config.debug.draw_traj_set
-        self._kinematic_debug = config.debug.kinematic_debug
-        # Debug mode
-        self.debug_mode = config.debug.debug_mode
-        self.log_risk = config.debug.log_risk
-        self.save_all_traj = config.debug.save_all_traj
-        self.all_traj = None
-        self.use_occ_model = config.occlusion.use_occlusion_module
-
-        # self.save_unweighted_costs = config.debug.save_unweighted_costs
-
+        # **************************
+        # Extensions Initialization
+        # **************************
         if config.prediction.mode:
             self.use_prediction = True
         else:
             self.use_prediction = False
 
-        # Logger
-        self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj)
-        self.opt_trajectory_number = 0
+        self.set_collision_checker(self.scenario)
+        self._goal_checker = GoalReachedChecker(planning_problem)
 
-        # load harm parameters
+        # **************************
+        # Statistics Initialization
+        # **************************
+        self._total_count = 0
+        self._infeasible_count_collision = 0
+        self._infeasible_count_kinematics = np.zeros(10)
+        self._optimal_cost = 0
+
+        # **************************
+        # Sampling Initialization
+        # **************************
+        # Set Sampling Parameters#
+        self._sampling_min = config.sampling.sampling_min
+        self._sampling_max = config.sampling.sampling_max
+        self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
+        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
+        fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
+        self._sampling_d = fs_sampling.d_samples
+        self._sampling_t = fs_sampling.t_samples
+        self._sampling_v = fs_sampling.v_samples
+
+        # *****************************
+        # Debug & Logger Initialization
+        # *****************************
+        self.debug_mode = config.debug.debug_mode
+        self.log_risk = config.debug.log_risk
+        self.save_all_traj = config.debug.save_all_traj
+        self.all_traj = None
+        self.use_occ_model = config.occlusion.use_occlusion_module
+        self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj)
+        self._draw_traj_set = config.debug.draw_traj_set
+        self._kinematic_debug = config.debug.kinematic_debug
+
+        # **************************
+        # Risk & Harm Initialization
+        # **************************
         self.params_harm = load_harm_parameter_json(work_dir)
         self.params_risk = load_risk_json(work_dir)
 
@@ -177,20 +187,6 @@ class ReactivePlanner(object):
         else:
             self.responsibility = False
             self.reach_set = None
-
-        self.cost_function = None
-
-        self._goal_checker = GoalReachedChecker(planning_problem)
-        self.goal_status = False
-        self.full_goal_status = None
-        self.goal_message = "Planner is in time step 0!"
-
-        # Set Sampling Parameters#
-        self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
-
-        # set collision checker
-        self.set_collision_checker(self.scenario)
 
     @property
     def goal_checker(self):
@@ -562,7 +558,7 @@ class ReactivePlanner(object):
         for i in range(len(trajectory.cartesian.x)):
             # create Cartesian state
             cart_states = dict()
-            cart_states['time_step'] = self.x_0.time_step+self._factor*i
+            cart_states['time_step'] = self.x_0.time_step+i
             cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
             cart_states['orientation'] = trajectory.cartesian.theta[i]
             cart_states['velocity'] = trajectory.cartesian.v[i]
@@ -579,7 +575,7 @@ class ReactivePlanner(object):
             # create curvilinear state
             # TODO: This is not correct
             cl_states = dict()
-            cl_states['time_step'] = self.x_0.time_step+self._factor*i
+            cl_states['time_step'] = self.x_0.time_step+i
             cl_states['position'] = np.array([trajectory.curvilinear.s[i], trajectory.curvilinear.d[i]])
             cl_states['velocity'] = trajectory.cartesian.v[i]
             cl_states['acceleration'] = trajectory.cartesian.a[i]
@@ -610,7 +606,7 @@ class ReactivePlanner(object):
         for i in range(len(trajectory.cartesian.x)):
             # create Cartesian state
             cart_states = dict()
-            cart_states['time_step'] = self.x_0.time_step+self._factor*i
+            cart_states['time_step'] = self.x_0.time_step+i
             cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
             cart_states['orientation'] = trajectory.cartesian.theta[i]
             cart_states['velocity'] = trajectory.cartesian.v[i]
@@ -1255,10 +1251,10 @@ class ReactivePlanner(object):
 
     def check_collision(self, ego_vehicle):
 
-        ego = pycrcc.TimeVariantCollisionObject((self.x_0.time_step - 1) * self._factor)
+        ego = pycrcc.TimeVariantCollisionObject((self.x_0.time_step - 1))
         ego.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
-                                            ego_vehicle.initial_state.orientation,
-                                            ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
+                                           ego_vehicle.initial_state.orientation,
+                                           ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
 
         if not self.collision_checker.collide(ego):
             return False

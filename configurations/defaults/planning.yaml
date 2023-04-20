@@ -6,14 +6,6 @@ time_steps_computation: 20
 planning_horizon: 2.0
 # replanning frequency (in time steps)
 replanning_frequency: 1
-# planner mode TODO: modes not implemented yet
-mode: !!null
-# continuous collision checking
-continuous_cc: False
-# collision check in curvilinear coordinates
-collision_check_in_cl: False
-# time scaling factor for collision checking if planner time step and scenario time step deviate
-factor: 1
 # velocity threshold (in m/s) for switching to low velocity mode
 low_vel_mode_threshold: 2
 # determines if the cost function determines the weights by cluster (True) or always the first (False)
