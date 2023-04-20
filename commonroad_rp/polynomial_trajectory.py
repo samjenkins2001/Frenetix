@@ -319,13 +319,13 @@ class QuinticTrajectory(PolynomialTrajectory):
 
         A = np.array(
             [
-                [T ** 3, T ** 4, T ** 5],
-                [3 * T ** 2, 4 * T ** 3, 5 * T ** 4],
-                [6 * T, 12 * T ** 2, 20 * T ** 3],
+                [T ** 3., T ** 4, T ** 5],
+                [3. * T ** 2, 4. * T ** 3, 5. * T ** 4],
+                [6. * T, 12. * T ** 2, 20. * T ** 3],
             ]
         )
 
-        b = np.array([xe - xs - vxs * T - .5 * axs ** 2,
+        b = np.array([xe - xs - vxs * T - .5 * axs * T ** 2,
                       vxe - vxs - axs * T,
                       axe - axs])
 
