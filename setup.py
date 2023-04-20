@@ -1,46 +1,48 @@
-from setuptools import setup, find_packages
-from os import path
+# Standard imports
+import subprocess
 
-this_directory = path.abspath(path.dirname(__file__))
-
-with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
-    readme = f.read()
-
-with open(path.join(this_directory, 'requirements.txt'), encoding='utf-8') as f:
-    required = f.read().splitlines()
+# Third party imports
+import setuptools
 
 
-setup(
+def git(*args):
+    return subprocess.check_output(["git"] + list(args))
+
+
+# get latest tag
+latest = git("describe", "--tags").decode().strip()
+latest = latest.split("-")[0]
+
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+with open("requirements.txt") as f:
+    requirements = f.read().splitlines()
+
+# Remove extra index urls
+requirements = [
+    requirement
+    for requirement in requirements
+    if "--extra-index-url" not in requirement
+]
+
+setuptools.setup(
     name="commonroad-reactive-planner",
-    version="2023.1",
+    version=latest,
     description="Reactive Planner: Sampling-based Frenet Planner",
-    long_description_content_type='text/markdown',
-    long_description=readme,
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url="https://gitlab.lrz.de/av2.0/commonroad/commonroad-reactive-planner",
-    author='Cyber-Physical Systems Group, Technical University of Munich',
-    author_email='commonroad@lists.lrz.de',
-    license='GNU General Public License v3.0',
-    packages=find_packages(exclude=['doc', 'unit_tests']),
-    zip_safe=False,
+    author='Institute of Automotive Technology, Technical University of Munich',
+    packages=setuptools.find_packages(),
+    install_requires=requirements,
     include_package_data=True,
-    python_requires='>=3.10',
-    install_requires=[
-        'commonroad_vehicle_models>=3.0.2',
-        'matplotlib>=3.7.1',
-        'networkx>=2.6',
-        'numpy>=1.24.2',
-        'methodtools',
-        'omegaconf>=2.1.1',
-        'pytest>=6.2.5',
-        'shapely>=2.0.1',
-        'scipy>=1.7.0',
-        'commonroad-io==2023.1',
-        'commonroad-drivability-checker==2022.2.1',
-        ],
     classifiers=[
         "Programming Language :: Python :: 3.10",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS",
-    ]
+    ],
+    python_requires=">=3.8",
 )
+
+# EOF

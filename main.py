@@ -1,6 +1,7 @@
 import os
 import sys
 from commonroad_rp.run_planner import run_planner
+from multiagent.run_multiagent import run_multiagent
 from commonroad_rp.configuration_builder import ConfigurationBuilder
 
 if sys.platform == "darwin":
@@ -22,4 +23,9 @@ if __name__ == '__main__':
     config = ConfigurationBuilder.build_configuration(scenario_path+".xml")
     log_path = "./logs/"+scenario_path.split("/")[-1]
 
-    run_planner(config, log_path, mod_path)
+    start_multiagent = False
+    
+    if not start_multiagent:
+        run_planner(config, log_path, mod_path)
+    else:
+        run_multiagent(config, log_path, mod_path)
