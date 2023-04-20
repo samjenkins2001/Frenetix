@@ -368,33 +368,9 @@ class ReactivePlanner(object):
     def _create_coll_object(self, trajectory, vehicle_params, ego_state):
         """Create a collision_object of the trajectory for collision checking with road
         boundary and with other vehicles."""
-        # traj_list = [[ft.cartesian.x[i], ft.cartesian.y[i], ft.cartesian.theta[i]] for i in range(len(ft.cartesian.x))]
-
-        # go along state list
-        cart_list = list()
-        for i in range(len(trajectory.cartesian.x)):
-            # create Cartesian state
-            cart_states = dict()
-            cart_states['time_step'] = self.x_0.time_step+self._factor*i
-            cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
-            cart_states['orientation'] = trajectory.cartesian.theta[i]
-            cart_states['velocity'] = trajectory.cartesian.v[i]
-            cart_states['acceleration'] = trajectory.cartesian.a[i]
-            if i > 0:
-                cart_states['yaw_rate'] = (trajectory.cartesian.theta[i] - trajectory.cartesian.theta[i-1]) / self.dT
-            else:
-                cart_states['yaw_rate'] = self.x_0.yaw_rate
-            # TODO Check why computation with yaw rate was faulty ??
-            cart_states['steering_angle'] = np.arctan2(self.vehicle_params.wheelbase *
-                                                       trajectory.cartesian.kappa[i], 1.0)
-            cart_list.append(CartesianState(**cart_states))
-
-        # make Cartesian and Curvilinear Trajectory
-        cartTraj = Trajectory(self.x_0.time_step, cart_list)
-        coll_traj = self.shift_and_convert_trajectory_to_object(cartTraj)
 
         collision_object_raw = hf.create_tvobstacle_trajectory(
-            traj_list=coll_traj,
+            traj_list=trajectory,
             box_length=vehicle_params.length / 2,
             box_width=vehicle_params.width / 2,
             start_time_step=ego_state.time_step,
@@ -621,6 +597,37 @@ class ReactivePlanner(object):
         cvlnTraj = Trajectory(self.x_0.time_step, cl_list)
 
         return cartTraj, cvlnTraj, lon_list, lat_list
+
+    def _compute_cart_traj(self, trajectory: TrajectorySample) -> Trajectory:
+        """
+        Computes the output required for visualizing in CommonRoad framework
+        :param trajectory: the optimal trajectory
+        :return: (CartesianTrajectory, FrenetTrajectory, lon sample, lat sample)
+        """
+        # go along state list
+        cart_list = list()
+
+        for i in range(len(trajectory.cartesian.x)):
+            # create Cartesian state
+            cart_states = dict()
+            cart_states['time_step'] = self.x_0.time_step+self._factor*i
+            cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
+            cart_states['orientation'] = trajectory.cartesian.theta[i]
+            cart_states['velocity'] = trajectory.cartesian.v[i]
+            cart_states['acceleration'] = trajectory.cartesian.a[i]
+            if i > 0:
+                cart_states['yaw_rate'] = (trajectory.cartesian.theta[i] - trajectory.cartesian.theta[i-1]) / self.dT
+            else:
+                cart_states['yaw_rate'] = self.x_0.yaw_rate
+            # TODO Check why computation with yaw rate was faulty ??
+            cart_states['steering_angle'] = np.arctan2(self.vehicle_params.wheelbase *
+                                                       trajectory.cartesian.kappa[i], 1.0)
+            cart_list.append(CartesianState(**cart_states))
+
+        # make Cartesian and Curvilinear Trajectory
+        cartTraj = Trajectory(self.x_0.time_step, cart_list)
+
+        return cartTraj
 
     def plan(self) -> tuple:
         """
@@ -1035,10 +1042,13 @@ class ReactivePlanner(object):
                                                            kappa_dot=np.append([0], np.diff(kappa_gl)),
                                                            current_time_step=traj_len)
                     # store Curvilinear trajectory
-                    trajectory.curvilinear = CurviLinearSample(s, d, theta_gl,
+                    trajectory.curvilinear = CurviLinearSample(s, d, theta_cl,
                                                                ss=s_velocity, sss=s_acceleration,
                                                                dd=d_velocity, ddd=d_acceleration,
                                                                current_time_step=traj_len)
+                    # Add Occupancy of Trejectory to do Collision Checks later
+                    cart_traj = self._compute_cart_traj(trajectory)
+                    trajectory.occupancy = self.shift_and_convert_trajectory_to_object(cart_traj)
 
                     trajectory._actual_traj_length = traj_len
                     # check if trajectories planning horizon is shorter than expected and extend if necessary
@@ -1152,7 +1162,7 @@ class ReactivePlanner(object):
         for trajectory in trajectory_bundle.get_sorted_list():
 
             # get collision_object
-            coll_obj = self._create_coll_object(trajectory, self.vehicle_params, self.x_0)
+            coll_obj = self._create_coll_object(trajectory.occupancy, self.vehicle_params, self.x_0)
 
             if self.use_prediction:
                 collision_detected = collision_checker_prediction(

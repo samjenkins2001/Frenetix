@@ -13,6 +13,7 @@ import math
 import multiprocessing
 from itertools import repeat
 from multiprocessing.context import Process
+from commonroad.scenario.obstacle import DynamicObstacle
 from commonroad_rp.polynomial_trajectory import PolynomialTrajectory
 
 
@@ -361,6 +362,7 @@ class TrajectorySample(Sample):
         self._cost_function = None
         self._cartesian: CartesianSample = None
         self._curvilinear: CurviLinearSample = None
+        self._occupancy: DynamicObstacle = None
         self._ext_cartesian = None
         self._ext_curvilinear = None
         self.valid = None
