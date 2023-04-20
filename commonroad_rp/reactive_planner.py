@@ -81,7 +81,8 @@ class ReactivePlanner(object):
         self._check_valid_settings()
 
         # get vehicle parameters from config file
-        self.vehicle_params: VehicleConfiguration = config.vehicle
+        # self.vehicle_params: VehicleConfiguration = config.vehicle
+        self.vehicle_params = config.vehicle
 
         # Initial State
         self.x_0 = None
