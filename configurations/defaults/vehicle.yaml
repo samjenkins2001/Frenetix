@@ -6,6 +6,11 @@ cr_vehicle_id: 2
 length: !!null
 width: !!null
 wheelbase: !!null
+
+# distance front/rear axle to vehicle center
+wb_front_axle: !!null
+wb_rear_axle: !!null
+
 # acceleration
 a_max: !!null
 v_max: !!null

@@ -21,7 +21,7 @@ from commonroad.scenario.state import InputState
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner
+from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
@@ -87,7 +87,7 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Convert Initial State
     # **************************
-    x_0 = planner.process_initial_state_from_pp(x0_pp=x_0)
+    x_0 = ReactivePlannerState.create_from_initial_state(x_0, config.vehicle.wheelbase, config.vehicle.wb_rear_axle)
     record_state_list.append(x_0)
 
     # add initial inputs to recorded input list
@@ -225,7 +225,7 @@ def run_planner(config, log_path, mod_path):
         x_cl = (optimal[2][1], optimal[3][1])
 
         # create CommonRoad Obstacle for the ego Vehicle
-        ego_vehicle.append(planner.shift_and_convert_trajectory_to_object(optimal[0]))
+        ego_vehicle.append(planner.convert_state_list_to_commonroad_object(optimal[0].state_list))
 
         print(f"current time step: {current_count}")
 

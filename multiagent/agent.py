@@ -17,7 +17,7 @@ from commonroad.planning.planning_problem import PlanningProblem, PlanningProble
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner, CartesianState
+from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import helper_functions as hf
 from commonroad_rp.utility.evaluation import create_full_solution_trajectory, create_planning_problem_solution, \
@@ -103,7 +103,7 @@ class Agent:
         # In case of late startup, fill history with empty states
         for i in range(self.current_timestep):
             self.record_state_list.append(
-                CartesianState(time_step=i,
+                ReactivePlannerState(time_step=i,
                                position=np.array([float("NaN"), float("NaN")]),
                                steering_angle=0, velocity=0, orientation=0,
                                acceleration=0, yaw_rate=0)
