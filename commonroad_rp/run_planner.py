@@ -107,14 +107,14 @@ def run_planner(config, log_path, mod_path):
 
     if not config.behavior.use_behavior_planner:
         route_planner = RoutePlanner(scenario, planning_problem)
-        ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
+        reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
     else:
         behavior_modul = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
                                         init_sc_path=config.general.path_scenario,
                                         init_ego_state=x_0,
                                         dt=DT,
                                         vehicle_parameters=config.vehicle)  # testing
-        ref_path = behavior_modul.reference_path
+        reference_path = behavior_modul.reference_path
 
     # **************************
     # Set Cost Function
@@ -130,16 +130,13 @@ def run_planner(config, log_path, mod_path):
     # Initialize Occlusion Module
     # **************************
     if config.occlusion.use_occlusion_module:
-        occlusion_module = OcclusionModule(scenario, config, ref_path, log_path, planner)
+        occlusion_module = OcclusionModule(scenario, config, reference_path, log_path, planner)
 
     # ***************************
     # Set External Planner Setups
     # ***************************
-    planner.set_goal_area(goal_area)
-    planner.set_planning_problem(planning_problem)
-    planner.set_reference_path(ref_path)
-    planner.set_cost_function(cost_function)
-    planner.set_occlusion_module(occlusion_module)
+    planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
+                             cost_function=cost_function, reference_path=reference_path)
 
     # **************************
     # Run Planner Cycle
@@ -167,7 +164,7 @@ def run_planner(config, log_path, mod_path):
             behavior_comp_time2 = time.time()
             # set desired behavior outputs
             desired_velocity = behavior_modul.desired_velocity
-            ref_path = behavior_modul.reference_path
+            reference_path = behavior_modul.reference_path
             print("\n***Behavior Planning Time: \n", behavior_comp_time2 - behavior_comp_time1)
 
         # **************************
@@ -179,13 +176,8 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Set Planner Subscriptions
         # **************************
-        planner.set_reference_path(ref_path)
-        planner.set_desired_velocity(desired_velocity, x_0.velocity)
-        planner.set_predictions(predictions)
-        planner.set_behavior(behavior)
-        planner.set_x_0(x_0)
-        planner.set_x_cl(x_cl)
-        planner.set_ego_vehicle_state(ego_vehicle[-1])
+        planner.update_externals(x_0=x_0, x_cl=x_cl, current_ego_vehicle=ego_vehicle[-1], reference_path=reference_path,
+                            desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
 
         # **************************
         # Execute Planner
@@ -234,7 +226,7 @@ def run_planner(config, log_path, mod_path):
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
             visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle[-1],
-                                          traj_set=planner.all_traj, ref_path=ref_path, timestep=current_count,
+                                          traj_set=planner.all_traj, ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
                                           cluster=cost_function.cluster_prediction.cluster_assignments[-1]

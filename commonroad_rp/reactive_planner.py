@@ -9,7 +9,7 @@ __status__ = "Beta"
 import math
 import time
 import numpy as np
-from typing import List
+from typing import List, Optional, Tuple
 from dataclasses import dataclass
 import multiprocessing
 from multiprocessing.context import Process
@@ -137,8 +137,9 @@ class ReactivePlanner(object):
         self._num_workers = config.debug.num_workers
 
         # Initial State
-        self.x_0 = None
-        self.x_cl = None
+        self.x_0: Optional[ReactivePlannerState] = None
+        self.x_cl: Optional[Tuple[List, List]] = None
+
         self.current_ego_vehicle = None
         self._LOW_VEL_MODE = False
 
@@ -149,8 +150,8 @@ class ReactivePlanner(object):
         self.behavior = None
         self.set_new_ref_path = None
         self.cost_function = None
-        self._co = None
-        self._cc = None
+        self._co: Optional[CoordinateSystem] = None
+        self._cc: Optional[pycrcc.CollisionChecker] = None
         self.goal_status = False
         self.full_goal_status = None
         self.goal_area = None
@@ -272,6 +273,35 @@ class ReactivePlanner(object):
     def infeasible_count_kinematics(self):
         """Number of kinematically infeasible trajectories"""
         return self._infeasible_count_kinematics
+
+    def update_externals(self, x_0: ReactivePlannerState=None, x_cl: Optional[Tuple[List, List]]=None,
+                         current_ego_vehicle=None, scenario: Scenario=None, goal_area=None, planning_problem=None,
+                         cost_function=None, reference_path: np.ndarray=None, occlusion_module=None,
+                         desired_velocity: float = None, predictions=None, behavior=None):
+        if x_0 is not None:
+            self.x_0 = x_0
+        if x_cl is not None:
+            self.x_cl = x_cl
+        if current_ego_vehicle is not None:
+            self.current_ego_vehicle = current_ego_vehicle
+        if scenario is not None:
+            self.set_scenario(scenario)
+        if goal_area is not None:
+            self.set_goal_area(goal_area)
+        if planning_problem is not None:
+            self.set_planning_problem(planning_problem)
+        if cost_function is not None:
+            self.set_cost_function(cost_function)
+        if occlusion_module is not None:
+            self.set_occlusion_module(occlusion_module)
+        if reference_path is not None:
+            self.set_reference_path(reference_path)
+        if desired_velocity is not None:
+            self.set_desired_velocity(desired_velocity, x_0.velocity)
+        if predictions is not None:
+            self.predictions = predictions
+        if behavior is not None:
+            self.behavior = behavior
 
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""
