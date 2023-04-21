@@ -1128,12 +1128,14 @@ class ReactivePlanner(object):
 
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj:
-            [feasible_trajectories[i].set_valid_status(True) for i in range(len(feasible_trajectories))]
-            [infeasible_trajectories[i].set_valid_status(False) for i in range(len(infeasible_trajectories))]
+            for traj in feasible_trajectories:
+                setattr(traj, 'valid', True)
+            for traj in infeasible_trajectories:
+                setattr(traj, 'valid', False)
             trajectory_bundle.trajectories = feasible_trajectories + infeasible_trajectories
             trajectory_bundle.sort()
             self.all_traj = trajectory_bundle.trajectories
-            trajectory_bundle.trajectories = [x for x in trajectory_bundle.trajectories if x.valid is True]
+            trajectory_bundle.trajectories = list(filter(lambda x: x.valid is True, trajectory_bundle.trajectories))
         else:
             # set feasible trajectories in bundle
             trajectory_bundle.trajectories = feasible_trajectories
