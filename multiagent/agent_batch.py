@@ -171,8 +171,8 @@ class AgentBatch (Process):
 
             # Send data for global plotting
             if self.config.debug.show_plots or self.config.debug.save_plots:
-                self.out_queue.put(([a.planner.all_traj for a in self.running_agent_list],
-                                    [a.planner.reference_path for a in self.running_agent_list]))
+                self.out_queue.put(([a.planner.get_all_traj() for a in self.running_agent_list],
+                                    [a.planner.get_ref_path() for a in self.running_agent_list]))
 
             self.current_timestep += 1
 
@@ -230,8 +230,8 @@ class AgentBatch (Process):
             if (self.config.debug.show_plots or self.config.debug.save_plots) and len(self.running_agent_list) > 0:
                 visualize_multiagent_at_timestep(scenario, self.planning_problem_set,
                                                  self.dummy_obstacle_list, self.current_timestep, self.config, log_path,
-                                                 traj_set_list=[a.planner.all_traj for a in self.running_agent_list],
-                                                 ref_path_list=[a.planner.reference_path for a in self.running_agent_list],
+                                                 traj_set_list=[a.planner.get_all_traj() for a in self.running_agent_list],
+                                                 ref_path_list=[a.planner.get_ref_path() for a in self.running_agent_list],
                                                  predictions=predictions,
                                                  plot_window=self.config.debug.plot_window_dyn)
 

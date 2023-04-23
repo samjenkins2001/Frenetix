@@ -7,6 +7,7 @@ from typing import Tuple
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
+from commonroad.scenario.scenario import Scenario
 from commonroad_prediction.prediction_module import PredictionModule
 
 # reactive planner
@@ -17,7 +18,7 @@ from commonroad_rp.configuration import Configuration
 
 from commonroad.scenario.obstacle import StaticObstacle, ObstacleType
 from commonroad.geometry.shape import Rectangle, Circle
-from commonroad.planning.planning_problem import PlanningProblemSet
+from commonroad.planning.planning_problem import PlanningProblemSet, PlanningProblem
 from commonroad.planning.goal import GoalRegion
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
@@ -125,7 +126,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
     else:
 
-        batch_list = []
+        batch_list: List[Tuple[AgentBatch, Queue, Queue, List[int]]] = []
         """List of tuples containing all batches and their associated fields:
         batch_list[i][0]: Agent Batch object
         batch_list[i][1]: Queue for sending data to the batch
