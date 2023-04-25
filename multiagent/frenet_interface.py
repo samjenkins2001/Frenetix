@@ -372,11 +372,9 @@ class FrenetPlannerInterface(PlannerInterface):
         shifted_state_list = []
         for x in new_trajectory.state_list:
             shifted_state_list.append(
-                x.translate_rotate(
-                    np.array([-self.config.vehicle.rear_ax_distance * np.cos(x.orientation),
-                              -self.config.vehicle.rear_ax_distance * np.sin(x.orientation)]),
-                    0.0
-                )
+                x.translate_rotate(np.array([self.config.vehicle.rear_ax_distance * np.cos(x.orientation),
+                                             self.config.vehicle.rear_ax_distance * np.sin(x.orientation)]),
+                                   0.0)
             )
 
         shifted_trajectory = Trajectory(shifted_state_list[0].time_step,
@@ -386,7 +384,8 @@ class FrenetPlannerInterface(PlannerInterface):
     def evaluate(self, recorded_state_list, recorded_input_list):
 
         # create full solution trajectory
-        ego_solution_trajectory = create_full_solution_trajectory(self.config, recorded_state_list)
+        ego_solution_trajectory =  Trajectory(initial_time_step=recorded_state_list[0].time_step,
+                                              state_list=recorded_state_list)
 
         # plot full ego vehicle trajectory
         plot_final_trajectory(self.scenario, self.planning_problem, ego_solution_trajectory.state_list,
@@ -422,6 +421,7 @@ class FrenetPlannerInterface(PlannerInterface):
         except MissingSolutionException:
             print("Infeasible: Missing solution")
         except:
+            traceback.print_exc()
             print("Could not reconstruct states")
 
         plot_inputs(self.config, recorded_input_list, self.log_path, reconstructed_inputs, plot_bounds=True)
