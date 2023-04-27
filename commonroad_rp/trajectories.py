@@ -370,7 +370,7 @@ class TrajectorySample(Sample):
         self._obst_risk = None
         self.boundary_harm = None
         self._coll_detected = None
-        self._actual_traj_length = None
+        self.actual_traj_length = None
 
         self._unique_id = unique_id
 

@@ -163,8 +163,8 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     if traj_set is not None:
         for i in range(0, len(traj_set), step):
             color = 'blue'
-            plt.plot(traj_set[i].cartesian.x[:traj_set[i]._actual_traj_length],
-                     traj_set[i].cartesian.y[:traj_set[i]._actual_traj_length],
+            plt.plot(traj_set[i].cartesian.x[:traj_set[i].actual_traj_length],
+                     traj_set[i].cartesian.y[:traj_set[i].actual_traj_length],
                      color=color, zorder=20, linewidth=0.2, alpha=1.0)
 
     # visualize predictions

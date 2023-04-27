@@ -1114,7 +1114,7 @@ class ReactivePlanner(object):
                                                                dd=d_velocity, ddd=d_acceleration,
                                                                current_time_step=traj_len)
 
-                    trajectory._actual_traj_length = traj_len
+                    trajectory.actual_traj_length = traj_len
                     # check if trajectories planning horizon is shorter than expected and extend if necessary
                     # shrt = trajectory.cartesian.current_time_step
                     if self.N + 1 > trajectory.cartesian.current_time_step:
