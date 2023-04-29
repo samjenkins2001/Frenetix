@@ -52,11 +52,12 @@ class PlannerInterface(ABC):
         """
         return None
 
-    def evaluate(self, recorded_state_list: List[State], recorded_input_list: List[InputState]):
+    def evaluate(self, id: int, recorded_state_list: List[State], recorded_input_list: List[InputState]):
         """Evaluate the planned trajectory.
 
         If evaluation os not required, leave as is.
 
+        :param id: ID of the evaluated agent.
         :param recorded_state_list: List of all states in the final trajectory.
         :param recorded_input_list: List of all inputs to the planner.
         """

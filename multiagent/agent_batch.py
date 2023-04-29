@@ -117,12 +117,15 @@ class AgentBatch (Process):
             self.running_agent_list.remove(agent)
 
         # start pending agents
+        started_agent_list = []
         for agent in self.pending_agent_list:
             if agent.current_timestep == self.current_timestep + 1:
                 self.running_agent_list.append(agent)
                 self.dummy_obstacle_list.append(agent.ego_obstacle_list[-1])
 
-                self.pending_agent_list.remove(agent)
+                started_agent_list.append(agent)
+        for agent in started_agent_list:
+            self.pending_agent_list.remove(agent)
 
     def complete(self):
         """Check for completion of all agents in this batch."""
@@ -163,7 +166,7 @@ class AgentBatch (Process):
                 self.dummy_obstacle_list = self.in_queue.get(block=True, timeout=20)
                 outdated_agent_id_list = self.in_queue.get(block=True, timeout=20)
             except Empty:
-                print("[Batch {self.agent_id_list}] Timeout waiting for agent updates! Exiting")
+                print(f"[Batch {self.agent_id_list}] Timeout waiting for agent updates! Exiting")
                 return
 
             # Synchronize agents
@@ -172,8 +175,10 @@ class AgentBatch (Process):
 
             # Send data for global plotting
             if self.config.debug.show_plots or self.config.debug.save_plots:
-                self.out_queue.put(([a.planner.get_all_traj() for a in self.running_agent_list],
-                                    [a.planner.get_ref_path() for a in self.running_agent_list]))
+                self.out_queue.put(([a.planner.get_all_traj() for a in self.running_agent_list
+                                     if a.planning_problem.initial_state.time_step <= self.current_timestep],
+                                    [a.planner.get_ref_path() for a in self.running_agent_list
+                                     if a.planning_problem.initial_state.time_step <= self.current_timestep]))
 
             self.current_timestep += 1
 

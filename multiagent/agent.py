@@ -235,4 +235,4 @@ class Agent:
         # Evaluate results
         # **************************
         if self.config.debug.evaluation:
-            self.planner.evaluate(self.record_state_list, self.record_input_list)
+            self.planner.evaluate(self.id, self.record_state_list, self.record_input_list)

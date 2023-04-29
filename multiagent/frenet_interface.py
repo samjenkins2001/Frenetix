@@ -381,11 +381,12 @@ class FrenetPlannerInterface(PlannerInterface):
                                         shifted_state_list)
         return 0, shifted_trajectory
 
-    def evaluate(self, recorded_state_list, recorded_input_list):
+    def evaluate(self, id, recorded_state_list, recorded_input_list):
 
         # create full solution trajectory
-        ego_solution_trajectory =  Trajectory(initial_time_step=recorded_state_list[0].time_step,
-                                              state_list=recorded_state_list)
+        initial_timestep = self.planning_problem.initial_state.time_step
+        ego_solution_trajectory = Trajectory(initial_time_step=initial_timestep,
+                                             state_list=recorded_state_list[initial_timestep:])
 
         # plot full ego vehicle trajectory
         plot_final_trajectory(self.scenario, self.planning_problem, ego_solution_trajectory.state_list,
@@ -412,17 +413,18 @@ class FrenetPlannerInterface(PlannerInterface):
             plot_states(self.config, ego_solution_trajectory.state_list, self.log_path, reconstructed_states,
                         plot_bounds=False)
             # CR validity check
-            print("Feasibility Check Result: ")
-            print(valid_solution(self.scenario, PlanningProblemSet([self.planning_problem]), solution)[0])
+            print(f"[Agent {id}] Feasibility Check Result: ")
+            if valid_solution(self.scenario, PlanningProblemSet([self.planning_problem]), solution)[0]:
+                print(f"[Agent {id}] Valid")
         except CollisionException:
-            print("Infeasible: Collision")
+            print(f"[Agent {id}] Infeasible: Collision")
         except GoalNotReachedException:
-            print("Infeasible: Goal not reached")
+            print(f"[Agent {id}] Infeasible: Goal not reached")
         except MissingSolutionException:
-            print("Infeasible: Missing solution")
+            print(f"[Agent {id}] Infeasible: Missing solution")
         except:
             traceback.print_exc()
-            print("Could not reconstruct states")
+            print(f"[Agent {id}] Could not reconstruct states")
 
         plot_inputs(self.config, recorded_input_list, self.log_path, reconstructed_inputs, plot_bounds=True)
 

@@ -1,6 +1,6 @@
 import time
 import warnings
-from math import ceil
+from math import ceil, isnan
 from multiprocessing import Queue
 from queue import Empty
 from typing import Tuple
@@ -230,16 +230,18 @@ def run_simulation(log_path: str, config: Configuration,
 
         predictions = mh.get_predictions(config, predictor, scenario, current_timestep)
 
-        print(f"[Simulation] Running batches: {len(batch_list)}")
         # Send predictions
         for batch in batch_list:
             batch[1].put(predictions)
 
         # Plot previous timestep while batches are busy
+        # Remove agents that did not exist in the last timestep
         if current_timestep > 0 and (config.debug.show_plots or config.debug.save_plots) \
                 and len(batch_list) > 0:
             mh.visualize_multiagent_at_timestep(scenario, planning_problem_set,
-                                                dummy_obstacle_list, current_timestep-1, config, log_path,
+                                                list(filter(lambda o: not isnan(o.state_at_time(current_timestep-1).position[0]),
+                                                            dummy_obstacle_list)),
+                                                current_timestep-1, config, log_path,
                                                 traj_set_list=traj_set_list,
                                                 ref_path_list=ref_path_list,
                                                 predictions=predictions,
