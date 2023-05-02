@@ -34,5 +34,5 @@ def append_log(log_path: str, time_step: int, domain_time: float, total_planning
     entry += str(agent_ids) + ";"
     entry += str(agent_states) + ";"
 
-    with open(os.path.join(log_path, "logs.csv"), "a") as log_file:
+    with open(os.path.join(log_path, "execution_logs.csv"), "a") as log_file:
         log_file.write(entry)
