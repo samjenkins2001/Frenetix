@@ -26,6 +26,7 @@ from risk_assessment.helpers.collision_helper_function import create_tvobstacle
 class OcclusionObstacle:
     def __init__(self, obst):
         self.obstacle_id = obst.obstacle_id
+        self.obstacle_type = obst.obstacle_type
         self.obstacle_role = obst.obstacle_role.name
         self.obstacle_shape = obst.obstacle_shape
         self.visible_at_timestep = False

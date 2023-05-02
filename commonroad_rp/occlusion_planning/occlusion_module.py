@@ -3,13 +3,15 @@ This module is the main module of the Occlusion calculation of the reactive plan
 All submodules are started and managed from here
 
 Author: Korbinian Moller, TUM
-Date: 15.04.2023
+Date: 27.04.2023
 """
 
 # imports
+import numpy as np
 from shapely.geometry import LineString
 from shapely.ops import unary_union
 from functools import reduce
+from omegaconf import OmegaConf
 
 # commonroad inputs
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
@@ -24,6 +26,8 @@ from commonroad_rp.occlusion_planning.evaluation_modules.phantom_module import O
 class OcclusionModule:
     def __init__(self, scenario, config, ref_path, log_path, planner):
         self.scenario_id = scenario.scenario_id
+        self.occ_config = config.occlusion
+        self.cost_config = OmegaConf.to_object(config.cost.params)
         self.log_path = log_path
         self.debug_mode = config.debug.debug_mode
         self.plot = config.occlusion.show_occlusion_plot
@@ -71,7 +75,8 @@ class OcclusionModule:
                                                    occ_visible_area=self.occ_visible_area,
                                                    occ_plot=self.occ_plot,
                                                    params_risk=planner.params_risk,
-                                                   params_harm=planner.params_harm)
+                                                   params_harm=planner.params_harm,
+                                                   debug_mode=self.debug_mode)
 
         # initialize the uncertainty map evaluator which evaluates trajectories in the uncertainty map
         self.occ_uncertainty_map_evaluator = OccUncertaintyMapEvaluator(self.vis_module, self.occ_uncertainty_map,
@@ -102,7 +107,7 @@ class OcclusionModule:
 
         if self.plot:
             self.occ_plot.step_plot(time_step=self.vis_module.time_step,
-                                    ego_pos=self.vis_module.ego_pos,
+                                    ego_state=self.vis_module.ego_state,
                                     ref_path=self.occ_scenario.ref_path,
                                     lanelet_polygon=self.occ_scenario.lanelets_single,
                                     sidewalk_polygon=self.occ_scenario.sidewalk_combined,
@@ -111,9 +116,65 @@ class OcclusionModule:
                                     obstacles=self.vis_module.obstacles,
                                     visible_area=self.occ_visible_area.poly,
                                     occluded_area=self.occ_occluded_area.poly,
-                                    # occlusion_map=self.occ_uncertainty_map.map_detail,
-                                    # additional_plot=add_occ_plot,
-                                    error_flag=self.occ_uncertainty_map.error)
+                                    # additional_plot=add_occ_plot
+                                    )
+
+    def calc_costs(self, trajectories=None, predictions=None, scenario="cluster0", plot=True):
+        # quit if error
+        if trajectories is None or len(trajectories) == 0:
+            return
+
+        # evaluate phantom module if activated
+        if self.occ_config.use_phantom_module:
+            trajectories, phantom_costs = self.occ_phantom_module.evaluate_trajectories(trajectories, max_harm=0.5,
+                                                                                        plot=True)
+        else:
+            phantom_costs = np.zeros(len(trajectories))
+
+        # evaluate uncertainty map if activated
+        if self.occ_config.use_uncertainty_map_evaluator:
+            uncertainty_costs = self.occ_uncertainty_map_evaluator.evaluate_trajectories(trajectories,
+                                                                                         plot_uncertainty_map=True,
+                                                                                         plot=False)
+        else:
+            uncertainty_costs = np.zeros(len(trajectories))
+
+        # evaluate visibility estimator if activated
+        if self.occ_config.use_visibility_estimator and predictions is not None:
+            vis_est_costs = self.occ_visibility_estimator.evaluate_trajectories(trajectories, predictions)
+        else:
+            vis_est_costs = np.zeros(len(trajectories))
+
+        # store costs in numpy array for multiplication with weights
+        cost_list = np.array([phantom_costs, uncertainty_costs, vis_est_costs]).T
+
+        # load weights from config and store in numpy array for multiplication
+        weights = np.array([self.cost_config[scenario]["Occ_PM"],
+                            self.cost_config[scenario]["Occ_UM"],
+                            self.cost_config[scenario]["Occ_VE"]])
+
+        # calc weighted cost list
+        cost_list_weighted = cost_list * weights.reshape(1, -1)
+
+        # calc sum
+        total_cost = np.sum(cost_list_weighted, axis=1)
+
+        # plot costs if plot is activated
+        if self.occ_plot is not None and plot:
+            self.occ_plot.plot_trajectories_cost_color(trajectories, total_cost)
+
+        # calc new costs (traj cost + occlusion cost)
+        for i, traj in enumerate(trajectories):
+            traj_cost = traj.cost + total_cost[i]
+            traj_cost_list = traj.cost_list
+
+            # update trajectory costs
+            traj.set_costs(traj_cost, np.append(traj_cost_list, cost_list_weighted[i]))
+
+        # sort trajectories according to costs
+        trajectories.sort(key=lambda x: x.cost)
+
+        return trajectories
 
 
 class OccScenario:

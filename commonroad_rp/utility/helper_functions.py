@@ -10,6 +10,7 @@ import numpy as np
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import (
     create_collision_object,
 )
+from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
 from commonroad_dc.pycrcc import ShapeGroup
 import commonroad_dc.pycrcc as pycrcc
 
@@ -105,6 +106,30 @@ def calc_remaining_time_steps(
         return min_remaining_time, max_remaining_time
     else:
         return False
+
+
+def create_coll_object(trajectory, vehicle_params, ego_state):
+    """Create a collision_object of the trajectory for collision checking with road boundary and with other vehicles."""
+
+    if ego_state is None:
+        time_step = 0
+    else:
+        time_step = ego_state.time_step
+
+    collision_object_raw = create_tvobstacle_trajectory(
+        traj_list=trajectory,
+        box_length=vehicle_params.length / 2,
+        box_width=vehicle_params.width / 2,
+        start_time_step=time_step,
+    )
+    # if the preprocessing fails, use the raw trajectory
+    collision_object, err = trajectory_preprocess_obb_sum(
+        collision_object_raw
+    )
+    if err:
+        collision_object = collision_object_raw
+
+    return collision_object
 
 
 def create_tvobstacle_trajectory(

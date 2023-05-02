@@ -28,9 +28,9 @@ class OccPlot:
             mpl.use(self.plot_backend)
             plt.ion()
 
-    def step_plot(self, time_step=0, ego_pos=None, ref_path=None, lanelet_polygon=None, visible_area_vm=None,
-                  obstacles=None, visible_area=None, occluded_area=None, occlusion_map=None, additional_plot=None,
-                  error_flag=False, sidewalk_polygon=None, lanelet_polygon_along_path=None):
+    def step_plot(self, time_step=0, ego_state=None, ref_path=None, lanelet_polygon=None, visible_area_vm=None,
+                  obstacles=None, visible_area=None, occluded_area=None, additional_plot=None,
+                  sidewalk_polygon=None, lanelet_polygon_along_path=None):
 
         self.time_step = time_step
 
@@ -41,46 +41,43 @@ class OccPlot:
 
         self.ax.set_title('Occlusion Map Plot of Timestep {}' .format(time_step))
 
-        if error_flag:
-            self.ax.text(0, 0, "Could not create plot, because occlusion map could not be initialized!",
-                         ha='center', va='center', fontsize=12, color='red')
-            self.ax.axis('off')
-        else:
+        self.ax.set_xlim([ego_state.position[0] - 30, ego_state.position[0] + 30])
+        self.ax.set_ylim([ego_state.position[1] - 30, ego_state.position[1] + 30])
 
-            if occlusion_map is not None:
-                self.ax.set_xlim([min(occlusion_map[:, 1] - self.plot_window),
-                                  max(occlusion_map[:, 1] + self.plot_window)])
-                self.ax.set_ylim([min(occlusion_map[:, 2] - self.plot_window),
-                                  max(occlusion_map[:, 2] + self.plot_window)])
-            else:
-                self.ax.set_xlim([ego_pos[0] - 30, ego_pos[0] + 30])
-                self.ax.set_ylim([ego_pos[1] - 30, ego_pos[1] + 30])
+        ##################
+        # Plot Scenario
+        ##################
 
-            if ref_path is not None:
-                self.ax.plot(ref_path[:, 0], ref_path[:, 1], c='y')
+        if ref_path is not None:
+            self.ax.plot(ref_path[:, 0], ref_path[:, 1], c='y')
 
-            if lanelet_polygon is not None:
-                hf.fill_polygons(self.ax, lanelet_polygon, opacity=0.5, color='gray')
-                hf.plot_polygons(self.ax, lanelet_polygon, opacity=0.5, color='k')
+        if lanelet_polygon is not None:
+            hf.fill_polygons(self.ax, lanelet_polygon, opacity=0.5, color='gray')
+            hf.plot_polygons(self.ax, lanelet_polygon, opacity=0.5, color='k')
 
-            if sidewalk_polygon is not None:
-                hf.plot_polygons(self.ax, sidewalk_polygon, opacity=0.5, color='black')
+        if sidewalk_polygon is not None:
+            hf.plot_polygons(self.ax, sidewalk_polygon, opacity=0.5, color='black')
 
-            if lanelet_polygon_along_path is not None:
-                hf.fill_polygons(self.ax, lanelet_polygon_along_path, opacity=0.5, color='dimgrey')
+        if lanelet_polygon_along_path is not None:
+            hf.fill_polygons(self.ax, lanelet_polygon_along_path, opacity=0.5, color='dimgrey')
 
+        try:
+            hf.plot_polygons(self.ax, additional_plot[0], 'c')
+            hf.plot_polygons(self.ax, additional_plot[1], 'r')
+        except:
+            pass
+
+        ##################
+        # Plot Ego Vehicle
+        ##################
+
+        # plot ego vehicle
+        if ego_state is not None:
             try:
-                hf.plot_polygons(self.ax, additional_plot[0], 'c')
-                hf.plot_polygons(self.ax, additional_plot[1], 'r')
-            except:
-                pass
-
-            if ego_pos is not None:
-                self.ax.plot(ego_pos[0], ego_pos[1], 'o', markersize=10)
                 ego_patch = get_obstacle_icon_patch(obstacle_type=ObstacleType('car'),
-                                                    pos_x=ego_pos[0],
-                                                    pos_y=ego_pos[1],
-                                                    orientation=0,
+                                                    pos_x=ego_state.position[0],
+                                                    pos_y=ego_state.position[1],
+                                                    orientation=ego_state.orientation,
                                                     vehicle_length=5,
                                                     vehicle_width=2,
                                                     vehicle_color='blue',
@@ -88,30 +85,71 @@ class OccPlot:
                                                     zorder=10)
 
                 self._add_patch(ego_patch)
+            except:
+                self.ax.plot(ego_state.position[0], ego_state.position[1], 'o', markersize=10)
 
-            if visible_area_vm is not None:
-                hf.plot_polygons(self.ax, visible_area_vm, 'g', zorder=2)
+        ##################
+        # Plot visible area from visibility module
+        ##################
 
-            if obstacles is not None:
-                for obst in obstacles:
-                    if obst.polygon is not None:
-                        if obst.visible_at_timestep:
-                            color = 'c'
-                        else:
-                            color = 'm'
-                        x = obst.pos_point.x
-                        y = obst.pos_point.y
-                        self.ax.annotate(obst.obstacle_id, xy=(x, y), xytext=(x + 0.2, y + 0.2), zorder=100)
-                        hf.fill_polygons(self.ax, obst.polygon, color, zorder=1)
+        if visible_area_vm is not None:
+            hf.plot_polygons(self.ax, visible_area_vm, 'g', zorder=2)
 
-            if self.fast_plot:
-                if visible_area is not None:
-                    hf.fill_polygons(self.ax, visible_area, 'g')
-                if occluded_area is not None:
-                    hf.fill_polygons(self.ax, occluded_area, 'r')
-            else:
-                if occlusion_map is not None:
-                    hf.plot_occ_map(self.ax, occlusion_map, self.occ_cmap)
+        ##################
+        # Plot Obstacles
+        ##################
+
+        if obstacles is not None:
+            for obst in obstacles:
+
+                if obst.pos is None:
+                    continue
+
+                # define color
+                if obst.visible_at_timestep:
+                    color = 'c'
+                else:
+                    color = "orange"
+
+                # create and plot patch
+                try:
+                    if obst.obstacle_role == "DYNAMIC":
+                        pos_x = obst.pos[time_step][0]
+                        pos_y = obst.pos[time_step][1]
+                        orientation = obst.orientation[time_step]
+                    else:
+                        pos_x = obst.pos[0]
+                        pos_y = obst.pos[1]
+                        orientation = obst.orientation
+
+                    if obst.obstacle_type.name == "UNKNOWN":
+                        obst_type = ObstacleType('car')
+                    else:
+                        obst_type = obst.obstacle_type
+
+                    obst_patch = get_obstacle_icon_patch(obstacle_type=obst_type,
+                                                         pos_x=pos_x,
+                                                         pos_y=pos_y,
+                                                         orientation=orientation,
+                                                         vehicle_length=obst.obstacle_shape.length,
+                                                         vehicle_width=obst.obstacle_shape.width,
+                                                         vehicle_color=color,
+                                                         edgecolor='black',
+                                                         zorder=10)
+                    self._add_patch(obst_patch)
+
+                # plot polygon
+                except:
+                    hf.fill_polygons(self.ax, obst.polygon, color, zorder=1)
+
+                # plot obstacle id
+                x = obst.pos_point.x
+                y = obst.pos_point.y
+                self.ax.annotate(obst.obstacle_id, xy=(x, y), xytext=(x, y), zorder=100, color='white')
+
+        ##################
+        # Save Plot
+        ##################
 
         if self.save_plot:
             self._save_plot()
@@ -174,21 +212,22 @@ class OccPlot:
                 self.plot_trajectories(traj, color='orange')
             else:
                 self.plot_trajectories(traj, color='r')
-            #print('costs of {} found in trajectory {}' .format(costs[i], i))
+            # print('costs of {} found in trajectory {}' .format(costs[i], i))
         if self.save_plot:
             self._save_plot()
 
-    def plot_trajectory_harm_color(self, traj, harm, min_harm=0, max_harm=1):
-        if harm == min_harm:
-            self.plot_trajectories(traj, color='c')
-        elif harm <= 0.25 * max_harm:
-            self.plot_trajectories(traj, color='g')
-        elif 0.25 * max_harm < harm <= 0.5 * max_harm:
-            self.plot_trajectories(traj, color='y')
-        elif 0.5 * max_harm < harm <= 0.75 * max_harm:
-            self.plot_trajectories(traj, color='orange')
-        else:
-            self.plot_trajectories(traj, color='r')
+    def plot_trajectory_harm_color(self, trajectories, harm_list, min_harm=0, max_harm=1):
+        for traj, harm in zip(trajectories, harm_list):
+            if harm == min_harm:
+                self.plot_trajectories(traj, color='c')
+            elif harm <= 0.25 * max_harm:
+                self.plot_trajectories(traj, color='g')
+            elif 0.25 * max_harm < harm <= 0.5 * max_harm:
+                self.plot_trajectories(traj, color='y')
+            elif 0.5 * max_harm < harm <= 0.75 * max_harm:
+                self.plot_trajectories(traj, color='orange')
+            else:
+                self.plot_trajectories(traj, color='r')
 
     def plot_phantom_collision(self, collision):
 
@@ -217,6 +256,10 @@ class OccPlot:
     def _add_patch(self, patch):
         for p in patch:
             self.ax.add_patch(p)
+
+    def plot_uncertainty_map(self, occlusion_map):
+        if occlusion_map is not None:
+            hf.plot_occ_map(self.ax, occlusion_map, self.occ_cmap)
 
 
 

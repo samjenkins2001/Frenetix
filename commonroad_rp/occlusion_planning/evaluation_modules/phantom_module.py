@@ -25,8 +25,9 @@ from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajec
 
 class OccPhantomModule:
     def __init__(self, config=None, occ_scenario=None, vis_module=None,
-                 occ_visible_area=None, occ_plot=None, params_risk=None, params_harm=None):
+                 occ_visible_area=None, occ_plot=None, params_risk=None, params_harm=None, debug_mode=0):
         self.config = config.occlusion
+        self.debug_mode = debug_mode
         self.ego_vehicle_params = config.vehicle
         self.occ_scenario = occ_scenario
         self.vis_module = vis_module
@@ -42,6 +43,8 @@ class OccPhantomModule:
         self.phantom_peds = None
         self.ego_pos_s = None
         self.max_s_trajectories = None
+        self.costs = None
+        self.max_costs = 10
 
         # variable to store commonroad like predictions
         self.cr_predictions = dict()
@@ -54,25 +57,50 @@ class OccPhantomModule:
     # Main Function of phantom module
     ################################
 
-    def evaluate_trajectories(self, trajectories):
+    def evaluate_trajectories(self, trajectories, max_harm=0.5, plot=False):
 
         # calculate spawn points and create phantom obstacles
         self._evaluation_preprocessing(trajectories)
-        harm = []
 
         # if no phantom obstacles exist
         if self.phantom_peds is None or len(self.phantom_peds) == 0:
-            return
+            return trajectories, np.zeros(len(trajectories))
+
+        # calc harm for each trajectory
+        traj_valid, harm_valid, traj_invalid, harm_invalid = self._calc_harm(trajectories, max_harm, plot)
+
+        # debug message
+        if self.debug_mode > 0:
+            print('<ReactivePlanner>: Rejected {} infeasible trajectories due to phantom pedestrian harm'
+                  .format(len(traj_invalid)))
+
+        # convert harm value to costs
+        self.costs = ohf.normalize_costs_z(harm_valid, self.max_costs)
+
+        # visualize harm probability
+        if plot and self.occ_plot is not None:
+            self.occ_plot.plot_trajectory_harm_color(traj_valid, harm_valid, min_harm=0, max_harm=0.8)
+
+        # plot phantom peds and their trajectories if plot is activated
+        if plot and self.occ_plot is not None:
+            self.occ_plot.plot_phantom_ped_trajectory(self.phantom_peds)
+
+        return traj_valid, self.costs
+
+    def _calc_harm(self, trajectories, max_harm, plot):
+        # inti temp variables (ok=ok, nok = not ok)
+        harm_ok = []
+        harm_nok = []
+        traj_ok = []
+        traj_nok = []
 
         # create commonroad like predictions for harm estimation
         self._combine_commonroad_predictions()
 
+        # create timer
         timer = ExecTimer(timing_enabled=False)
 
-        # plot phantom peds and their trajectories if plot is activated
-        if self.occ_plot is not None:
-            self.occ_plot.plot_phantom_ped_trajectory(self.phantom_peds)
-
+        # iterate over trajectories and calc harm
         for traj in trajectories:
 
             # calculate harm using harm model
@@ -85,17 +113,21 @@ class OccPhantomModule:
                                                      coeffs=self.params_harm,
                                                      timer=timer)
 
-            print(obst_harm_traj[1])
-            # visualize harm probability
-            if self.occ_plot is not None:
-                self.occ_plot.plot_trajectory_harm_color(traj, max(obst_harm_traj[1]), min_harm=0, max_harm=0.8)
+            # find maximum harm of trajectory
+            traj_harm = max(max(h) for h in obst_harm_traj.values())
+            if traj_harm > max_harm:
+                traj_nok.append(traj)
+                harm_nok.append(traj_harm)
+            else:
+                traj_ok.append(traj)
+                harm_ok.append(traj_harm)
 
             # visualize collision if enabled
             if self.config.visualize_collision and self.occ_plot is not None:
                 collision = self._check_trajectory_collision(traj, mode='shapely')
                 self.occ_plot.plot_phantom_collision(collision)
 
-        return harm
+        return traj_ok, harm_ok, traj_nok, harm_nok
 
     ################################
     # create phantom obstacles

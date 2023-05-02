@@ -1,6 +1,7 @@
 """Functions to get vehicle properties or geometrical parameters."""
 
 from commonroad.scenario.obstacle import ObstacleType
+from commonroad_rp.utility.helper_functions import create_coll_object
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectories_collision_dynamic_obstacles
 import numpy as np
 from risk_assessment.helpers.collision_helper_function import angle_range, create_tvobstacle
@@ -93,6 +94,9 @@ def calc_crash_angle(traj, predictions, scenario, obstacle_id, modes, vehicle_pa
 
     # get collision time
     # create collision object of ego
+    # ego_tvo = create_coll_object(traj.occupancy, vehicle_params, None)
+
+
     ego_tvo = create_tvobstacle(traj_list=np.array([traj.x, traj.y, traj.theta]).transpose().tolist(),
                                 box_length=vehicle_params.length / 2,
                                 box_width=vehicle_params.width / 2,

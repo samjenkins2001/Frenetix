@@ -18,25 +18,31 @@ class OccUncertaintyMapEvaluator:
         self.costs = None
         self.traj_length_m = None
         self.traj_speeds_occ = None
+        self.max_cost = 10
 
-    def evaluate_trajectories(self, trajectories):
+    def evaluate_trajectories(self, trajectories, plot_uncertainty_map=False, plot=False):
         # step uncertainty map
         self.occlusion_map.step()
 
         # store trajectories
         self.trajectories = trajectories
 
-        # store costs and further information
+        # store costs and additional information
         self.costs, self.traj_length_m, self.traj_speeds_occ = self._evaluate(trajectories,
                                                                               min_dist=self.min_dist,
                                                                               max_dist=self.max_dist,
                                                                               dist_mode=self.dist_mode,
                                                                               w_distance=self.w_distance,
                                                                               w_velocity=self.w_velocity)
+        # plot uncertainty map if activated
+        if plot_uncertainty_map and self.occ_plot is not None:
+            self.occ_plot.plot_uncertainty_map(self.occlusion_map.map_detail)
 
         # plot trajectories with color coded costs
-        if self.occ_plot is not None:
+        if plot and self.occ_plot is not None:
             self.occ_plot.plot_trajectories_cost_color(trajectories, self.costs)
+
+        return np.zeros(len(trajectories)) if self.costs is None else self.costs
 
     def _evaluate(self, trajectories, min_dist=0.25, max_dist=3.0, dist_mode=1, w_distance=1, w_velocity=1):
 
@@ -101,10 +107,10 @@ class OccUncertaintyMapEvaluator:
 
         # return if all costs are 0
         if max(costs) == 0:
-            return None, None, None
+            return costs, None, None
 
         # normalize costs from 0 to max_costs using z transformation
-        costs_norm_z = ohf.normalize_costs_z(costs, max_costs=100)
+        costs_norm_z = ohf.normalize_costs_z(costs, max_costs=self.max_cost)
 
         # debug plot costs
         # self.occ_plot.debug_trajectory_point_distances(occ_uncertainty_map, traj, traj_coords, distance, distance_weights)
