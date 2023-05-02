@@ -214,7 +214,7 @@ def get_harm(scenario, traj, predictions, ego_vehicle_type, vehicle_params, mode
         scenario (_type_): _description_
         traj (_type_): _description_
         predictions (_type_): _description_
-        ego_vehicle (_type_): _description_
+        ego_vehicle_type (_type_): _description_
         vehicle_params (_type_): _description_
         modes (_type_): _description_
         coeffs (_type_): _description_

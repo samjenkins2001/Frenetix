@@ -1136,7 +1136,7 @@ class SlowingDown(State):
     def execute(self):
         print("FSM Situation State: Slowing Down Car")
         self.FSM_state.slowing_car_for_traffic_light = True
-        self.VP_state.dist_to_tl = self.BM_state.current_static_goal.stop_point_s - self.BM_state.nav_position_s - \
+        self.VP_state.dist_to_tlna = self.BM_state.current_static_goal.stop_point_s - self.BM_state.nav_position_s - \
                                    self.BM_state.vehicle_params.length
         self.VP_state.stop_distance = self.VP_state.dist_to_tl
 

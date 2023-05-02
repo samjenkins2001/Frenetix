@@ -79,6 +79,18 @@ class CoordinateSystem:
             _, idx = np.unique(reference, axis=0, return_index=True)
             reference = reference[np.sort(idx)]
 
+            smoothing_scipy_splines = True
+            if smoothing_scipy_splines:
+                # print("Smoothing via spline interpolation...")
+                tck, u = splprep(reference.T, u=None, k=3, s=0.0)
+                u_new = np.linspace(u.min(), u.max(), 200)
+                x_new, y_new = splev(u_new, tck, der=0)
+                ref_path = np.array([x_new, y_new]).transpose()
+                reference = resample_polyline(ref_path, 1)
+            # remove duplicated vertices in reference path
+            _, idx = np.unique(reference, axis=0, return_index=True)
+            reference = reference[np.sort(idx)]
+
             self.reference = reference
         else:
             assert ccosy is not None, '<CoordinateSystem>: Please provide a reference path OR a ' \
@@ -91,11 +103,17 @@ class CoordinateSystem:
         self._ref_curv = compute_curvature_from_polyline(self.reference)
         self._ref_theta = np.unwrap(compute_orientation_from_polyline(self.reference))
         self._ref_curv_d = np.gradient(self._ref_curv, self._ref_pos)
+        self._ref_curv_dd = np.gradient(self._ref_curv_d, self._ref_pos)
 
     @property
     def reference(self) -> np.ndarray:
         """returns reference path used by CCosy due to slight modifications within the CCosy module"""
         return self._reference
+
+    @property
+    def ref_cruv_dd(self) -> np.ndarray:
+        """change of curvature rate along reference path"""
+        return self._ref_curv_dd
 
     @reference.setter
     def reference(self, reference):

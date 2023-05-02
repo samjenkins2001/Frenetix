@@ -94,6 +94,7 @@ class DataLoggingCosts:
             "feasible;"
             "horizon;"
             "dt;"
+            "actual_traj_length;"
             "x_positions_m;"
             "y_positions_m;"
             "theta_orientations_rad;"
@@ -308,7 +309,7 @@ class DataLoggingCosts:
 
         cartesian = trajectory._cartesian
         cost_list = trajectory._cost_list
-
+        new_line += ";" + str(trajectory.actual_traj_length)
         # log position
         new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
         new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)

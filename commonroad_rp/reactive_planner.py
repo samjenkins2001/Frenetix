@@ -9,7 +9,7 @@ __status__ = "Beta"
 import math
 import time
 import numpy as np
-from typing import List
+from typing import List, Optional, Tuple
 from dataclasses import dataclass
 import multiprocessing
 from multiprocessing.context import Process
@@ -52,14 +52,66 @@ from commonroad_rp.utility.load_json import (
 
 
 @dataclass(eq=False)
-class CartesianState(KSState):
+class ReactivePlannerState(KSState):
     """
-    State class used for output trajectory of reactive-planner: Extends KS State attributes by acceleration and
-    yaw rate
+    State class used for output trajectory of reactive planner with the following additions to KSState:
+    * Position is here defined w.r.t. rear-axle position (in KSState: position is defined w.r.t. vehicle center)
+    * Extends KSState attributes by acceleration and yaw rate
     """
+    def __repr__(self):
+        return f"(time_step={self.time_step}, position={self.position},steering_angle={self.steering_angle}, " \
+               f"velocity={self.velocity}, orientation={self.orientation}, acceleration={self.acceleration}, " \
+               f"yaw_rate = {self.yaw_rate})"
 
     acceleration: FloatExactOrInterval = None
     yaw_rate: FloatExactOrInterval = None
+
+    def shift_positions_to_center(self, wb_rear_axle: float):
+        """
+        Shifts position from rear-axle to vehicle center
+        :param wb_rear_axle: distance between rear-axle and vehicle center
+        """
+        # shift positions from rear axle to center
+        orientation = self.orientation
+        state_shifted = self.translate_rotate(np.array([wb_rear_axle * np.cos(orientation),
+                                                        wb_rear_axle * np.sin(orientation)]), 0.0)
+        return state_shifted
+
+    @classmethod
+    def create_from_initial_state(cls, initial_state: InitialState, wheelbase: float, wb_rear_axle: float):
+        """
+        Converts InitialState object to ReactivePlannerState object by:
+        * adding initial acceleration (if not existing)
+        * adding initial steering angle
+        * removing initial slip angle
+        * shifting position from center to rear axle
+        :param initial_state: InitialState object
+        :param wheelbase: wheelbase of the vehicle
+        :param wb_rear_axle: distance between rear-axle and vehicle center
+        """
+        assert type(initial_state) == InitialState, "<ReactivePlannerState.create_from_initial_state()>: Input must be" \
+                                                    "of type InitialState"
+        # add acceleration (if not existing)
+        if not hasattr(initial_state, 'acceleration'):
+            initial_state.acceleration = 0.
+
+        # remove slip angle
+        if hasattr(initial_state, "slip_angle"):
+            delattr(initial_state, "slip_angle")
+
+        # shift initial position from center to rear axle
+        orientation = initial_state.orientation
+        initial_state_shifted = initial_state.translate_rotate(np.array([-wb_rear_axle * np.cos(orientation),
+                                                                         -wb_rear_axle * np.sin(orientation)]), 0.0)
+
+        # convert to ReactivePlannerState
+        x0_planner = ReactivePlannerState()
+        x0_planner = initial_state_shifted.convert_state_to_state(x0_planner)
+
+        # add steering angle
+        x0_planner.steering_angle = np.arctan2(wheelbase * x0_planner.yaw_rate, x0_planner.velocity)
+
+        return x0_planner
 
 
 class ReactivePlanner(object):
@@ -76,75 +128,87 @@ class ReactivePlanner(object):
         self.horizon = config.planning.planning_horizon
         self.dT = config.planning.dt
         self.N = config.planning.time_steps_computation
-        self._factor = config.planning.factor
         self._check_valid_settings()
+        self.vehicle_params = config.vehicle
+        self._low_vel_mode_threshold = config.planning.low_vel_mode_threshold
 
-        # get vehicle parameters from config file
-        self.vehicle_params: VehicleConfiguration = config.vehicle
+        # Multiprocessing & Settings
+        self._multiproc = config.debug.multiproc
+        self._num_workers = config.debug.num_workers
 
         # Initial State
-        self.x_0 = None
-        self.x_cl = None
+        self.x_0: Optional[ReactivePlannerState] = None
+        self.x_cl: Optional[Tuple[List, List]] = None
+
         self.current_ego_vehicle = None
+        self._LOW_VEL_MODE = False
 
         # Scenario
         self.scenario = scenario
+        self.planning_problem = planning_problem
         self.predictions = None
         self.behavior = None
         self.set_new_ref_path = None
+        self.cost_function = None
+        self._co: Optional[CoordinateSystem] = None
+        self._cc: Optional[pycrcc.CollisionChecker] = None
+        self.goal_status = False
+        self.full_goal_status = None
+        self.goal_area = None
+        self.occlusion_module = None
+        self.goal_message = "Planner is in time step 0!"
 
-        # initialize internal variables
-        # coordinate system & collision checker
-        self._co = None
-        self._cc = None
-        # statistics
-        self._total_count = 0
-        self._infeasible_count_collision = 0
-        self._infeasible_count_kinematics = np.zeros(10)
-        self._optimal_cost = 0
-        self._continuous_cc = config.planning.continuous_cc
-        self._collision_check_in_cl = config.planning.collision_check_in_cl
-        # desired speed, d and t
         self._desired_speed = None
         self._desired_d = 0.
-        self._desired_t = self.horizon
         self.max_seen_costs = 1
-        # Default sampling TODO: Improve initialization of Sampling Set
-        self._sampling_min = config.sampling.sampling_min
-        self._sampling_max = config.sampling.sampling_max
-        fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
-        self._sampling_d = fs_sampling.d_samples
-        self._sampling_t = fs_sampling.t_samples
-        self._sampling_v = fs_sampling.v_samples
 
-        # threshold for low velocity mode
-        self._low_vel_mode_threshold = config.planning.low_vel_mode_threshold
-        self._LOW_VEL_MODE = False
-        # multiprocessing
-        self._multiproc = config.debug.multiproc
-        self._num_workers = config.debug.num_workers
-        # visualize trajectory set
-        self._draw_traj_set = config.debug.draw_traj_set
-        self._kinematic_debug = config.debug.kinematic_debug
-        # Debug mode
-        self.debug_mode = config.debug.debug_mode
-        self.log_risk = config.debug.log_risk
-        self.save_all_traj = config.debug.save_all_traj
-        self.all_traj = None
-        self.use_occ_model = config.occlusion.use_occlusion_module
-
-        # self.save_unweighted_costs = config.debug.save_unweighted_costs
-
+        # **************************
+        # Extensions Initialization
+        # **************************
         if config.prediction.mode:
             self.use_prediction = True
         else:
             self.use_prediction = False
 
-        # Logger
-        self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj)
-        self.opt_trajectory_number = 0
+        self.set_collision_checker(self.scenario)
+        self._goal_checker = GoalReachedChecker(planning_problem)
 
-        # load harm parameters
+        # **************************
+        # Statistics Initialization
+        # **************************
+        self._total_count = 0
+        self._infeasible_count_collision = 0
+        self._infeasible_count_kinematics = np.zeros(10)
+        self._optimal_cost = 0
+
+        # **************************
+        # Sampling Initialization
+        # **************************
+        # Set Sampling Parameters#
+        self._sampling_min = config.sampling.sampling_min
+        self._sampling_max = config.sampling.sampling_max
+        self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
+        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
+        fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
+        self._sampling_d = fs_sampling.d_samples
+        self._sampling_t = fs_sampling.t_samples
+        self._sampling_v = fs_sampling.v_samples
+
+        # *****************************
+        # Debug & Logger Initialization
+        # *****************************
+        self.debug_mode = config.debug.debug_mode
+        self.log_risk = config.debug.log_risk
+        self.save_all_traj = config.debug.save_all_traj
+        self.all_traj = None
+        self.use_occ_model = config.occlusion.use_occlusion_module
+        self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj)
+        self._draw_traj_set = config.debug.draw_traj_set
+        self._kinematic_debug = config.debug.kinematic_debug
+
+        # **************************
+        # Risk & Harm Initialization
+        # **************************
         self.params_harm = load_harm_parameter_json(work_dir)
         self.params_risk = load_risk_json(work_dir)
 
@@ -176,20 +240,6 @@ class ReactivePlanner(object):
         else:
             self.responsibility = False
             self.reach_set = None
-
-        self.cost_function = None
-
-        self._goal_checker = GoalReachedChecker(planning_problem)
-        self.goal_status = False
-        self.full_goal_status = None
-        self.goal_message = "Planner is in time step 0!"
-
-        # Set Sampling Parameters#
-        self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
-
-        # set collision checker
-        self.set_collision_checker(self.scenario)
 
     @property
     def goal_checker(self):
@@ -224,6 +274,35 @@ class ReactivePlanner(object):
         """Number of kinematically infeasible trajectories"""
         return self._infeasible_count_kinematics
 
+    def update_externals(self, x_0: ReactivePlannerState=None, x_cl: Optional[Tuple[List, List]]=None,
+                         current_ego_vehicle=None, scenario: Scenario=None, goal_area=None, planning_problem=None,
+                         cost_function=None, reference_path: np.ndarray=None, occlusion_module=None,
+                         desired_velocity: float = None, predictions=None, behavior=None):
+        if x_0 is not None:
+            self.x_0 = x_0
+        if x_cl is not None:
+            self.x_cl = x_cl
+        if current_ego_vehicle is not None:
+            self.current_ego_vehicle = current_ego_vehicle
+        if scenario is not None:
+            self.set_scenario(scenario)
+        if goal_area is not None:
+            self.set_goal_area(goal_area)
+        if planning_problem is not None:
+            self.set_planning_problem(planning_problem)
+        if cost_function is not None:
+            self.set_cost_function(cost_function)
+        if occlusion_module is not None:
+            self.set_occlusion_module(occlusion_module)
+        if reference_path is not None:
+            self.set_reference_path(reference_path)
+        if desired_velocity is not None:
+            self.set_desired_velocity(desired_velocity, x_0.velocity)
+        if predictions is not None:
+            self.predictions = predictions
+        if behavior is not None:
+            self.behavior = behavior
+
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""
         self.scenario = scenario
@@ -232,7 +311,7 @@ class ReactivePlanner(object):
     def set_predictions(self, predictions: dict):
         self.predictions = predictions
 
-    def set_x_0(self, x_0: CartesianState):
+    def set_x_0(self, x_0: ReactivePlannerState):
         # set Cartesian initial state
         self.x_0 = x_0
 
@@ -367,33 +446,9 @@ class ReactivePlanner(object):
     def _create_coll_object(self, trajectory, vehicle_params, ego_state):
         """Create a collision_object of the trajectory for collision checking with road
         boundary and with other vehicles."""
-        # traj_list = [[ft.cartesian.x[i], ft.cartesian.y[i], ft.cartesian.theta[i]] for i in range(len(ft.cartesian.x))]
-
-        # go along state list
-        cart_list = list()
-        for i in range(len(trajectory.cartesian.x)):
-            # create Cartesian state
-            cart_states = dict()
-            cart_states['time_step'] = self.x_0.time_step+self._factor*i
-            cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
-            cart_states['orientation'] = trajectory.cartesian.theta[i]
-            cart_states['velocity'] = trajectory.cartesian.v[i]
-            cart_states['acceleration'] = trajectory.cartesian.a[i]
-            if i > 0:
-                cart_states['yaw_rate'] = (trajectory.cartesian.theta[i] - trajectory.cartesian.theta[i-1]) / self.dT
-            else:
-                cart_states['yaw_rate'] = self.x_0.yaw_rate
-            # TODO Check why computation with yaw rate was faulty ??
-            cart_states['steering_angle'] = np.arctan2(self.vehicle_params.wheelbase *
-                                                       trajectory.cartesian.kappa[i], 1.0)
-            cart_list.append(CartesianState(**cart_states))
-
-        # make Cartesian and Curvilinear Trajectory
-        cartTraj = Trajectory(self.x_0.time_step, cart_list)
-        coll_traj = self.shift_and_convert_trajectory_to_object(cartTraj)
 
         collision_object_raw = hf.create_tvobstacle_trajectory(
-            traj_list=coll_traj,
+            traj_list=trajectory,
             box_length=vehicle_params.length / 2,
             box_width=vehicle_params.width / 2,
             start_time_step=ego_state.time_step,
@@ -490,7 +545,7 @@ class ReactivePlanner(object):
             print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
         return trajectory_bundle
 
-    def _compute_initial_states(self, x_0: CartesianState) -> (np.ndarray, np.ndarray):
+    def _compute_initial_states(self, x_0: ReactivePlannerState) -> (np.ndarray, np.ndarray):
         """
         Computes the curvilinear initial states for the polynomial planner based on a Cartesian CommonRoad state
         :param x_0: The CommonRoad state object representing the initial state of the vehicle
@@ -585,7 +640,7 @@ class ReactivePlanner(object):
         for i in range(len(trajectory.cartesian.x)):
             # create Cartesian state
             cart_states = dict()
-            cart_states['time_step'] = self.x_0.time_step+self._factor*i
+            cart_states['time_step'] = self.x_0.time_step+i
             cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
             cart_states['orientation'] = trajectory.cartesian.theta[i]
             cart_states['velocity'] = trajectory.cartesian.v[i]
@@ -597,12 +652,12 @@ class ReactivePlanner(object):
             # TODO Check why computation with yaw rate was faulty ??
             cart_states['steering_angle'] = np.arctan2(self.vehicle_params.wheelbase *
                                                        trajectory.cartesian.kappa[i], 1.0)
-            cart_list.append(CartesianState(**cart_states))
+            cart_list.append(ReactivePlannerState(**cart_states))
 
             # create curvilinear state
             # TODO: This is not correct
             cl_states = dict()
-            cl_states['time_step'] = self.x_0.time_step+self._factor*i
+            cl_states['time_step'] = self.x_0.time_step+i
             cl_states['position'] = np.array([trajectory.curvilinear.s[i], trajectory.curvilinear.d[i]])
             cl_states['velocity'] = trajectory.cartesian.v[i]
             cl_states['acceleration'] = trajectory.cartesian.a[i]
@@ -620,6 +675,37 @@ class ReactivePlanner(object):
         cvlnTraj = Trajectory(self.x_0.time_step, cl_list)
 
         return cartTraj, cvlnTraj, lon_list, lat_list
+
+    def _compute_cart_traj(self, trajectory: TrajectorySample) -> Trajectory:
+        """
+        Computes the output required for visualizing in CommonRoad framework
+        :param trajectory: the optimal trajectory
+        :return: (CartesianTrajectory, FrenetTrajectory, lon sample, lat sample)
+        """
+        # go along state list
+        cart_list = list()
+
+        for i in range(len(trajectory.cartesian.x)):
+            # create Cartesian state
+            cart_states = dict()
+            cart_states['time_step'] = self.x_0.time_step+i
+            cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
+            cart_states['orientation'] = trajectory.cartesian.theta[i]
+            cart_states['velocity'] = trajectory.cartesian.v[i]
+            cart_states['acceleration'] = trajectory.cartesian.a[i]
+            if i > 0:
+                cart_states['yaw_rate'] = (trajectory.cartesian.theta[i] - trajectory.cartesian.theta[i-1]) / self.dT
+            else:
+                cart_states['yaw_rate'] = self.x_0.yaw_rate
+            # TODO Check why computation with yaw rate was faulty ??
+            cart_states['steering_angle'] = np.arctan2(self.vehicle_params.wheelbase *
+                                                       trajectory.cartesian.kappa[i], 1.0)
+            cart_list.append(ReactivePlannerState(**cart_states))
+
+        # make Cartesian and Curvilinear Trajectory
+        cartTraj = Trajectory(self.x_0.time_step, cart_list)
+
+        return cartTraj
 
     def plan(self) -> tuple:
         """
@@ -689,20 +775,9 @@ class ReactivePlanner(object):
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
 
-            if optimal_trajectory is not None:
-                self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                                infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
-                                cluster=cluster_)
-                self.logger.log_pred(self.predictions)
-                if self.save_all_traj:
-                    self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
-
             if self.behavior:
                 if self.behavior.flags["waiting_for_green_light"]:
                     optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
-
-            # if self.debug_mode >= 1:
-            #    print('<ReactivePlanner>: Checked trajectories in {} seconds'.format(time.time() - t0))
 
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
@@ -718,25 +793,25 @@ class ReactivePlanner(object):
             t0 = time.time()
             self.logger.trajectory_number = self.x_0.time_step
             optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
-            self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time()-t0,
-                            cluster=cluster_)
-            self.logger.log_pred(self.predictions)
-            if self.save_all_traj:
-                self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
 
-        # check if feasible trajectory exists -> emergency mode
-        if optimal_trajectory is None and self.x_0.time_step > 0:
-            if self.debug_mode >= 1:
-                print('<ReactivePlanner>: Could not find any trajectory out of {} trajectories'.format(
-                    sum([self._get_no_of_samples(i) for i in range(self._sampling_max)])))
-            self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-                            cluster=cluster_)
-        elif optimal_trajectory is not None and self.x_0.time_step > 0:
+        # **************************
+        # Logging
+        # **************************
+        self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
+                        infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
+                        cluster=cluster_)
+        self.logger.log_pred(self.predictions)
+        if self.save_all_traj:
+            self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
+
+        # **************************
+        # Check Cost Status
+        # **************************
+        if optimal_trajectory is not None and self.x_0.time_step > 0:
             if self.debug_mode >= 1:
                 self._optimal_cost = optimal_trajectory.cost
-                print('Found optimal trajectory with {}% of maximum seen costs'.format(int((self._optimal_cost/self.max_seen_costs)*100)))
+                print('Found optimal trajectory with {}% of maximum seen costs'
+                      .format(int((self._optimal_cost/self.max_seen_costs)*100)))
 
         if optimal_trajectory is not None and self.debug_mode >= 1:
             if self.max_seen_costs < self._optimal_cost:
@@ -1034,12 +1109,12 @@ class ReactivePlanner(object):
                                                            kappa_dot=np.append([0], np.diff(kappa_gl)),
                                                            current_time_step=traj_len)
                     # store Curvilinear trajectory
-                    trajectory.curvilinear = CurviLinearSample(s, d, theta_gl,
+                    trajectory.curvilinear = CurviLinearSample(s, d, theta_cl,
                                                                ss=s_velocity, sss=s_acceleration,
                                                                dd=d_velocity, ddd=d_acceleration,
                                                                current_time_step=traj_len)
 
-                    trajectory._actual_traj_length = traj_len
+                    trajectory.actual_traj_length = traj_len
                     # check if trajectories planning horizon is shorter than expected and extend if necessary
                     # shrt = trajectory.cartesian.current_time_step
                     if self.N + 1 > trajectory.cartesian.current_time_step:
@@ -1135,12 +1210,14 @@ class ReactivePlanner(object):
 
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj:
-            [feasible_trajectories[i].set_valid_status(True) for i in range(len(feasible_trajectories))]
-            [infeasible_trajectories[i].set_valid_status(False) for i in range(len(infeasible_trajectories))]
+            for traj in feasible_trajectories:
+                setattr(traj, 'valid', True)
+            for traj in infeasible_trajectories:
+                setattr(traj, 'valid', False)
             trajectory_bundle.trajectories = feasible_trajectories + infeasible_trajectories
             trajectory_bundle.sort()
             self.all_traj = trajectory_bundle.trajectories
-            trajectory_bundle.trajectories = [x for x in trajectory_bundle.trajectories if x.valid is True]
+            trajectory_bundle.trajectories = list(filter(lambda x: x.valid is True, trajectory_bundle.trajectories))
         else:
             # set feasible trajectories in bundle
             trajectory_bundle.trajectories = feasible_trajectories
@@ -1149,9 +1226,11 @@ class ReactivePlanner(object):
 
         # go through sorted list of trajectories and check for collisions
         for trajectory in trajectory_bundle.get_sorted_list():
-
+            # Add Occupancy of Trejectory to do Collision Checks later
+            cart_traj = self._compute_cart_traj(trajectory)
+            trajectory.occupancy = self.convert_state_list_to_commonroad_object(cart_traj.state_list)
             # get collision_object
-            coll_obj = self._create_coll_object(trajectory, self.vehicle_params, self.x_0)
+            coll_obj = self._create_coll_object(trajectory.occupancy, self.vehicle_params, self.x_0)
 
             if self.use_prediction:
                 collision_detected = collision_checker_prediction(
@@ -1185,42 +1264,41 @@ class ReactivePlanner(object):
                 boundary_harm = 0
 
             # Save Status of Trajectory to sort for alternative
-            trajectory._boundary_harm = boundary_harm
+            trajectory.boundary_harm = boundary_harm
             trajectory._coll_detected = collision_detected
 
             if not collision_detected and boundary_harm == 0:
-                return trajectory, trajectory_bundle._cluster
+                return trajectory, trajectory_bundle.cluster
 
         if samp_lvl >= self._sampling_max - 1:
-            sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj._boundary_harm, reverse=False)
-            if any(bundle._boundary_harm == 0 for bundle in sort_harm):
-                return sort_harm[0], trajectory_bundle._cluster
+            sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj.boundary_harm, reverse=False)
+            if any(bundle.boundary_harm == 0 for bundle in sort_harm):
+                return sort_harm[0], trajectory_bundle.cluster
             elif trajectory_bundle.get_sorted_list():
-                return trajectory_bundle.get_sorted_list()[0], trajectory_bundle._cluster
+                return trajectory_bundle.get_sorted_list()[0], trajectory_bundle.cluster
             else:
-                return None, trajectory_bundle._cluster
+                return None, trajectory_bundle.cluster
         else:
-            return None, trajectory_bundle._cluster
+            return None, trajectory_bundle.cluster
 
-    def shift_and_convert_trajectory_to_object(self, trajectory: Trajectory, obstacle_id: int = 42):
+    def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState], obstacle_id: int = 42):
         """
         Converts a CR trajectory to a CR dynamic obstacle with given dimensions
-        :param trajectory: The trajectory of the vehicle
-        :param obstacle_id: The id assigned to the DynamicObstacle. Default: 42
-        :return: CR dynamic obstacles representing the ego vehicle
+        :param state_list: trajectory state list of reactive planner
+        :param obstacle_id: [optional] ID of ego vehicle dynamic obstacle
+        :return: CR dynamic obstacle representing the ego vehicle
         """
         # shift trajectory positions to center
         new_state_list = list()
-        for state in trajectory.state_list:
-            new_state_list.append(state.translate_rotate(np.array([self.vehicle_params.rear_ax_distance * np.cos(state.orientation),
-                                                                   self.vehicle_params.rear_ax_distance * np.sin(state.orientation)]), 0.0))
+        for state in state_list:
+            new_state_list.append(state.shift_positions_to_center(self.vehicle_params.wb_rear_axle))
 
-        new_trajectory = Trajectory(initial_time_step=new_state_list[0].time_step, state_list=new_state_list)
+        trajectory = Trajectory(initial_time_step=new_state_list[0].time_step, state_list=new_state_list)
         # get shape of vehicle
         shape = Rectangle(self.vehicle_params.length, self.vehicle_params.width)
         # get trajectory prediction
-        prediction = TrajectoryPrediction(new_trajectory, shape)
-        return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, new_trajectory.state_list[0], prediction)
+        prediction = TrajectoryPrediction(trajectory, shape)
+        return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, trajectory.state_list[0], prediction)
 
     @staticmethod
     def shift_orientation(trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
@@ -1231,23 +1309,6 @@ class ReactivePlanner(object):
                 state.orientation -= 2 * np.pi
         return trajectory
 
-    def process_initial_state_from_pp(self, x0_pp: InitialState):
-        """
-        Function converts the initial state from the CommonRoad planning problem to the reactive planner state:
-        - initial positions (x, y) from planning problem are shifted from vehicle center to rear axle
-        - initial steering angle is computed from initial yaw rate and velocity
-        """
-        # shift initial position to rear axle
-        x0_shifted = x0_pp.translate_rotate(np.array([-self.vehicle_params.rear_ax_distance * np.cos(x0_pp.orientation),
-                                                      -self.vehicle_params.rear_ax_distance * np.sin(x0_pp.orientation)])
-                                            , 0.0)
-
-        # create initial state for planner and compute initial steering angle
-        x0_planner = CartesianState()
-        x0_planner = x0_shifted.convert_state_to_state(x0_planner)
-        x0_planner.steering_angle = np.arctan2(self.vehicle_params.wheelbase * x0_planner.yaw_rate, x0_planner.velocity)
-        return x0_planner
-
     def check_goal_reached(self):
         # Get the ego vehicle
         self.goal_checker.register_current_state(self.x_0)
@@ -1255,10 +1316,10 @@ class ReactivePlanner(object):
 
     def check_collision(self, ego_vehicle):
 
-        ego = pycrcc.TimeVariantCollisionObject((self.x_0.time_step - 1) * self._factor)
+        ego = pycrcc.TimeVariantCollisionObject((self.x_0.time_step - 1))
         ego.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
-                                            ego_vehicle.initial_state.orientation,
-                                            ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
+                                           ego_vehicle.initial_state.orientation,
+                                           ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
 
         if not self.collision_checker.collide(ego):
             return False

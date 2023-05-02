@@ -98,10 +98,11 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     # create renderer object (if no existing renderer is passed)
     if rnd is None:
         if plot_window > 0:
-            rnd = MPRenderer(plot_limits=[-plot_window + ego.initial_state.position[0],
-                                          plot_window + ego.initial_state.position[0],
-                                          -plot_window + ego.initial_state.position[1],
-                                          plot_window + ego.initial_state.position[1]], figsize=(10, 10))
+            rnd = MPRenderer(plot_limits=[-plot_window + ego.prediction.trajectory.state_list[0].position[0],
+                                          plot_window + ego.prediction.trajectory.state_list[0].position[0],
+                                          -plot_window + ego.prediction.trajectory.state_list[0].position[1],
+                                          plot_window + ego.prediction.trajectory.state_list[0].position[1]],
+                                          figsize=(10, 10))
         else:
             rnd = MPRenderer(figsize=(20, 10))
 
@@ -134,9 +135,9 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     rnd.render()
 
     # visualize optimal trajectory
-    pos = np.asarray([state.position for state in ego.prediction.trajectory.state_list])
-    rnd.ax.plot(pos[:, 0], pos[:, 1], color='k', marker='x', markersize=1.5, zorder=21, linewidth=2,
-                 label='optimal trajectory')
+    rnd.ax.plot(traj_set[0].cartesian.x[:traj_set[0].actual_traj_length],
+                traj_set[0].cartesian.y[:traj_set[0].actual_traj_length],
+                color='k', marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
 
     # draw visible sensor area
     if visible_area is not None:
@@ -157,14 +158,13 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         handles, labels = scatter.legend_elements(prop="colors", alpha=0.6)
         rnd.ax.legend(handles, labels, loc="upper right", title="Occlusion")
 
-
     # visualize sampled trajectory bundle
     step = 1  # draw every trajectory (step=2 would draw every second trajectory)
     if traj_set is not None:
         for i in range(0, len(traj_set), step):
             color = 'blue'
-            plt.plot(traj_set[i].cartesian.x[:traj_set[i]._actual_traj_length],
-                     traj_set[i].cartesian.y[:traj_set[i]._actual_traj_length],
+            plt.plot(traj_set[i].cartesian.x[:traj_set[i].actual_traj_length],
+                     traj_set[i].cartesian.y[:traj_set[i].actual_traj_length],
                      color=color, zorder=20, linewidth=0.2, alpha=1.0)
 
     # visualize predictions

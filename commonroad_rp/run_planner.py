@@ -1,6 +1,5 @@
 __author__ = "Rainer Trauth, Gerald Würsching"
-__copyright__ = "TUM Cyber-Physical Systems Group"
-__version__ = "0.5"
+__version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
@@ -22,7 +21,7 @@ from commonroad.scenario.state import InputState
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner
+from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
@@ -88,7 +87,7 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Convert Initial State
     # **************************
-    x_0 = planner.process_initial_state_from_pp(x0_pp=x_0)
+    x_0 = ReactivePlannerState.create_from_initial_state(x_0, config.vehicle.wheelbase, config.vehicle.wb_rear_axle)
     record_state_list.append(x_0)
 
     # add initial inputs to recorded input list
@@ -108,14 +107,14 @@ def run_planner(config, log_path, mod_path):
 
     if not config.behavior.use_behavior_planner:
         route_planner = RoutePlanner(scenario, planning_problem)
-        ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
+        reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
     else:
         behavior_modul = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
-                                        init_sc_path=config.general.path_scenario,
+                                        init_sc_path=config.general.name_scenario,
                                         init_ego_state=x_0,
                                         dt=DT,
                                         vehicle_parameters=config.vehicle)  # testing
-        ref_path = behavior_modul.reference_path
+        reference_path = behavior_modul.reference_path
 
     # **************************
     # Set Cost Function
@@ -131,16 +130,13 @@ def run_planner(config, log_path, mod_path):
     # Initialize Occlusion Module
     # **************************
     if config.occlusion.use_occlusion_module:
-        occlusion_module = OcclusionModule(scenario, config, ref_path, log_path, planner)
+        occlusion_module = OcclusionModule(scenario, config, reference_path, log_path, planner)
 
     # ***************************
     # Set External Planner Setups
     # ***************************
-    planner.set_goal_area(goal_area)
-    planner.set_planning_problem(planning_problem)
-    planner.set_reference_path(ref_path)
-    planner.set_cost_function(cost_function)
-    planner.set_occlusion_module(occlusion_module)
+    planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
+                             cost_function=cost_function, reference_path=reference_path)
 
     # **************************
     # Run Planner Cycle
@@ -168,7 +164,7 @@ def run_planner(config, log_path, mod_path):
             behavior_comp_time2 = time.time()
             # set desired behavior outputs
             desired_velocity = behavior_modul.desired_velocity
-            ref_path = behavior_modul.reference_path
+            reference_path = behavior_modul.reference_path
             print("\n***Behavior Planning Time: \n", behavior_comp_time2 - behavior_comp_time1)
 
         # **************************
@@ -180,13 +176,8 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Set Planner Subscriptions
         # **************************
-        planner.set_reference_path(ref_path)
-        planner.set_desired_velocity(desired_velocity, x_0.velocity)
-        planner.set_predictions(predictions)
-        planner.set_behavior(behavior)
-        planner.set_x_0(x_0)
-        planner.set_x_cl(x_cl)
-        planner.set_ego_vehicle_state(ego_vehicle[-1])
+        planner.update_externals(x_0=x_0, x_cl=x_cl, current_ego_vehicle=ego_vehicle[-1], reference_path=reference_path,
+                            desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
 
         # **************************
         # Execute Planner
@@ -226,7 +217,7 @@ def run_planner(config, log_path, mod_path):
         x_cl = (optimal[2][1], optimal[3][1])
 
         # create CommonRoad Obstacle for the ego Vehicle
-        ego_vehicle.append(planner.shift_and_convert_trajectory_to_object(optimal[0]))
+        ego_vehicle.append(planner.convert_state_list_to_commonroad_object(optimal[0].state_list))
 
         print(f"current time step: {current_count}")
 
@@ -235,7 +226,7 @@ def run_planner(config, log_path, mod_path):
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
             visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle[-1],
-                                          traj_set=planner.all_traj, ref_path=ref_path, timestep=current_count,
+                                          traj_set=planner.all_traj, ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
                                           cluster=cost_function.cluster_prediction.cluster_assignments[-1]

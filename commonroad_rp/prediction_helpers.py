@@ -338,11 +338,11 @@ def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None,
                 visible_obstacles, visible_area = occlusion_module.vis_module.get_visible_area_and_objects(ego_state=ego_state)
             else:
                 visible_obstacles, visible_area = get_visible_objects(
-                    scenario=scenario,
-                    time_step=ego_state.time_step,
-                    ego_pos=ego_state.position,
-                    ego_id=ego_id,
-                    sensor_radius=config.prediction.sensor_radius
+                   scenario=scenario,
+                   ego_pos=ego_state.position,
+                   time_step=ego_state.time_step,
+                   sensor_radius=config.prediction.sensor_radius,
+                   ego_id=ego_id,
                 )
             return visible_obstacles, visible_area
         except:

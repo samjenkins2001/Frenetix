@@ -22,10 +22,10 @@ from commonroad_dc.feasibility.feasibility_checker import VehicleDynamics, \
     state_transition_feasibility, position_orientation_objective, position_orientation_feasibility_criteria, _angle_diff
 
 from commonroad_rp.configuration import Configuration
-from commonroad_rp.reactive_planner import CartesianState
+from commonroad_rp.reactive_planner import ReactivePlannerState
 
 
-def create_full_solution_trajectory(config: Configuration, state_list: List[CartesianState]) -> Trajectory:
+def create_full_solution_trajectory(config: Configuration, state_list: List[ReactivePlannerState]) -> Trajectory:
     """
     Create CR solution trajectory from recorded state list of the reactive planner
     Positions are shifted from rear axis to vehicle center due to CR position convention
@@ -33,8 +33,8 @@ def create_full_solution_trajectory(config: Configuration, state_list: List[Cart
     new_state_list = list()
     for state in state_list:
         new_state_list.append(
-            state.translate_rotate(np.array([config.vehicle.rear_ax_distance * np.cos(state.orientation),
-                                             config.vehicle.rear_ax_distance * np.sin(state.orientation)]), 0.0))
+            state.translate_rotate(np.array([config.vehicle.wb_rear_axle * np.cos(state.orientation),
+                                             config.vehicle.wb_rear_axle * np.sin(state.orientation)]), 0.0))
     return Trajectory(initial_time_step=new_state_list[0].time_step, state_list=new_state_list)
 
 
@@ -54,7 +54,7 @@ def create_planning_problem_solution(config: Configuration, solution_trajectory:
     return solution
 
 
-def reconstruct_states(config: Configuration, states: List[Union[CartesianState, TraceState]], inputs: List[InputState]):
+def reconstruct_states(config: Configuration, states: List[Union[ReactivePlannerState, TraceState]], inputs: List[InputState]):
     """reconstructs states from a given list of inputs by forward simulation"""
     vehicle_dynamics = VehicleDynamics.from_model(VehicleModel.KS, VehicleType(config.vehicle.cr_vehicle_id))
 
@@ -89,7 +89,7 @@ def reconstruct_inputs(config: Configuration, pps: PlanningProblemSolution):
     return feasible_state_list, reconstructed_inputs
 
 
-def check_acceleration(config: Configuration, state_list:  List[Union[CartesianState, TraceState]], plot=False):
+def check_acceleration(config: Configuration, state_list:  List[Union[ReactivePlannerState, TraceState]], plot=False):
     """Checks whether the computed acceleration the trajectory matches the velocity difference (dv/dt), i.e., assuming
     piecewise constant acceleration input"""
     # computed acceleration of trajectory
@@ -119,7 +119,7 @@ def check_acceleration(config: Configuration, state_list:  List[Union[CartesianS
         # plt.show()
 
 
-def plot_states(config: Configuration, state_list: List[Union[CartesianState, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
+def plot_states(config: Configuration, state_list: List[Union[ReactivePlannerState, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
     """
     Plots states of trajectory from a given state_list
     state_list must contain the following states: steering_angle, velocity, orientation and yaw_rate

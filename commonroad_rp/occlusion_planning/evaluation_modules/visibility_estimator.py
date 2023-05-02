@@ -2,7 +2,7 @@
 import numpy as np
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 import commonroad_rp.occlusion_planning.utils.vis_helper_functions as vhf
-from commonroad_rp.occlusion_planning.occlusion_obstacles import EstimationObstacle
+from commonroad_rp.occlusion_planning.basic_modules.occlusion_obstacles import EstimationObstacle
 from shapely.geometry import Point
 
 
@@ -14,9 +14,10 @@ class OccVisibilityEstimator:
         self.forecast_distance_s = None
         self.cost_factor = 100
         self.costs = None
+        self.max_costs = 10
 
     def evaluate_trajectories(self, trajectories, predictions, forecast_timestep=10,
-                              forecast_distance_d=0.5, forecast_sample_d=6, consideration_radius=30):
+                              forecast_distance_d=0.5, forecast_sample_d=6, consideration_radius=30, plot=False):
 
         # set self.costs to None
         self.costs = None
@@ -47,9 +48,12 @@ class OccVisibilityEstimator:
             cost = self.cost_factor * occ_ratio
             costs.append(cost)
 
-        self.costs = ohf.normalize_costs_z(costs, 50)
+        self.costs = ohf.normalize_costs_z(costs, self.max_costs)
 
-        self.occ_plot.plot_trajectories_cost_color(trajectories, self.costs)
+        if plot and self.occ_plot is not None:
+            self.occ_plot.plot_trajectories_cost_color(trajectories, self.costs)
+
+        return self.costs
 
     def estimate(self, predictions, forecast_timestep=10, forecast_distance_d=1.5, forecast_sample_d=2,
                  consideration_radius=None) -> np.array:
@@ -89,7 +93,8 @@ class OccVisibilityEstimator:
             point.evaluate(reference_area, self.vis_module.sensor_radius, estimation_obstacles,
                            self.occ_scenario, ax=self.occ_plot.ax)
 
-            self.occ_plot.ax.plot(point.pos[0], point.pos[1], 'bo')
+            # plot estimation points
+            # self.occ_plot.ax.plot(point.pos[0], point.pos[1], 'bo')
 
             # store v_ratios
             if point.v_ratio is not None:

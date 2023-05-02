@@ -11,7 +11,7 @@ params:
     V: 0.1
     VC: 0.1
     DR: 1
-    DO: 20
+    DO: 0
 
     P: 500
     R: 0

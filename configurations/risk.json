@@ -8,6 +8,7 @@
   "trajectory_risk": "max",
   "max_acceptable_risk": 1,
   "multiple_cost_functions": false,
+  "lateral_acceleration": 0.5,
 
   "scale_factor_time": 0.9,
   "crash_angle_accuracy": 10,

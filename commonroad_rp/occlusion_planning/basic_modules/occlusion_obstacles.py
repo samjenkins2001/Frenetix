@@ -19,10 +19,14 @@ from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.trajectory import Trajectory
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 
+# helper for tv collision object creation
+from risk_assessment.helpers.collision_helper_function import create_tvobstacle
+
 
 class OcclusionObstacle:
     def __init__(self, obst):
         self.obstacle_id = obst.obstacle_id
+        self.obstacle_type = obst.obstacle_type
         self.obstacle_role = obst.obstacle_role.name
         self.obstacle_shape = obst.obstacle_shape
         self.visible_at_timestep = False
@@ -121,9 +125,12 @@ class OccPhantomObstacle(OccBasicObstacle):
         # create commonroad like variables for further use (e.g. collision checking, harm estimation)
         self.commonroad_dynamic_obstacle = None
         self.cr_collision_object = None
+        self.cr_tv_collision_object = None
         self.commonroad_predictions = None
+        self.cr_tv_obstacle = None
 
     def _create_cr_predictions(self):
+        # create dict like a commonroad prediction (e.g. walenet) -> needed in harm estimation
         shape = {'length': self.shape.length,
                  'width': self.shape.width}
 
@@ -133,10 +140,23 @@ class OccPhantomObstacle(OccBasicObstacle):
                                        'shape': shape}
 
     def _create_cr_collision_object(self):
+        # function is currently not active
+        # can be used by collision = tvo.collide(cr_collision_object)
         self.cr_collision_object = create_collision_object(self.commonroad_dynamic_obstacle)
 
-    def _create_cr_obstacle(self):
+    def _create_cr_tv_collision_object(self):
+        # create pycrcc time variant collision object for dynamic collision checking
+        self.cr_tv_collision_object = create_tvobstacle(traj_list=np.array([self.trajectory[:, 0],
+                                                                            self.trajectory[:, 1],
+                                                                            self.orientations]).transpose().tolist(),
+                                                        box_length=self.shape.length / 2,
+                                                        box_width=self.shape.width / 2,
+                                                        start_time_step=0)
 
+    def _create_cr_obstacle(self):
+        # create commonroad dynamic obstacle for harm estimation (also for further usage if needed)
+
+        # create initial state
         initial_state = InitialState(time_step=0,
                                      position=self.pos,
                                      orientation=self.orientation,
@@ -145,8 +165,8 @@ class OccPhantomObstacle(OccBasicObstacle):
                                      yaw_rate=0.0,
                                      slip_angle=0.0)
 
+        # initialize state list and append custom states
         state_list = []
-
         for i in range(0, len(self.trajectory)):
             custom_state = CustomState(orientation=self.orientation,
                                        velocity=self.v,
@@ -155,11 +175,14 @@ class OccPhantomObstacle(OccBasicObstacle):
 
             state_list.append(custom_state)
 
+        # create trajectory from state list
         trajectory = Trajectory(initial_time_step=0, state_list=state_list)
 
+        # create trajectory prediction from trajectory
         trajectory_prediction = TrajectoryPrediction(trajectory=trajectory,
                                                      shape=self.shape)
 
+        # combine all information to commonroad dynamic obstacle
         self.commonroad_dynamic_obstacle = DynamicObstacle(obstacle_id=self.obstacle_id,
                                                            obstacle_type=ObstacleType('pedestrian'),
                                                            obstacle_shape=self.shape,
@@ -204,13 +227,16 @@ class OccPhantomObstacle(OccBasicObstacle):
 
         self.trajectory = trajectory
 
+        # calc ped orientation array
+        self.orientations = np.ones(len(self.trajectory)) * self.orientation
+
         if self.calc_ped_traj_polygons:
             self.calc_traj_polygons()
 
         if self.create_cr_obst:
             self._create_cr_obstacle()
-            self._create_cr_collision_object()
             self._create_cr_predictions()
+            self._create_cr_tv_collision_object()
 
     def calc_goal_position(self, sidewalk):
         # define length of linestring (only used to calculate final destination)
@@ -248,13 +274,10 @@ class OccPhantomObstacle(OccBasicObstacle):
         self.trajectory_length = np.linalg.norm(self.goal_position - self.pos)
 
     def calc_traj_polygons(self):
-        # create ped orientation array in order to use compute_vehicle_polygons function
-        ped_orientation_np = np.ones(len(self.trajectory)) * self.orientation
-        self.orientations = ped_orientation_np
 
         # calculate pedestrian trajectory polygons for each timestep
         self.traj_polygons = ohf.compute_vehicle_polygons(self.trajectory[:, 0], self.trajectory[:, 1],
-                                                          ped_orientation_np, self.width, self.length)
+                                                          self.orientations, self.width, self.length)
 
 
 

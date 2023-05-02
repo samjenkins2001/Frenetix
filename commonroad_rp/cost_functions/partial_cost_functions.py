@@ -98,15 +98,14 @@ def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
         float: Average distance from the trajectory to the center line of a lane.
     """
     dist = 0.0
-    for i in range(len(trajectory.cartesian.x)):
+    for i, (x, y) in enumerate(zip(trajectory.cartesian.x, trajectory.cartesian.y)):
         # find the lanelet of every position
-        pos = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
-        lanelet_ids = scenario.lanelet_network.find_lanelet_by_position([np.array(pos)])
+        lanelet_ids = scenario.lanelet_network.find_lanelet_by_position([np.array([x, y])])
         if len(lanelet_ids[0]) > 0:
             lanelet_id = lanelet_ids[0][0]
             lanelet_obj = scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
             # find the distance of the current position to the center line of the lanelet
-            dist += dist + dist_to_nearest_point(lanelet_obj.center_vertices, pos)
+            dist += dist_to_nearest_point(lanelet_obj.center_vertices, [x, y])
         # theirs should always be a lanelet for the current position
         # otherwise the trajectory should not be valid and no costs are calculated
         else:
@@ -120,8 +119,10 @@ def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample
     """
     Calculates the Velocity Offset cost.
     """
-    cost = np.sum(np.abs(trajectory.cartesian.v[int(len(trajectory.cartesian.v) / 2):-1] - desired_speed))
-    cost += np.abs(((trajectory.cartesian.v[-1] - desired_speed) ** 2))
+    vel = trajectory.cartesian.v
+    half_idx = int(len(vel) / 2)
+    cost = np.sum(np.abs(vel[half_idx:-1] - desired_speed))
+    cost += np.abs(((vel[-1] - desired_speed) ** 2))
 
     return float(cost)
 
@@ -159,9 +160,10 @@ def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.Traje
         float: Average distance of the trajectory to the given path.
     """
     # Costs of gerneral deviation from ref path && Additional costs for deviation at final planning point from ref path
-    cost = np.mean(np.abs(trajectory.curvilinear.d)) + np.mean(np.abs(trajectory.curvilinear.d[-1])) * 2
+    d = trajectory.curvilinear.d
+    cost = (np.sum(np.abs(d)) + np.abs(d[-1]) * 5) / len(d + 4)
 
-    return cost
+    return float(cost)
 
 
 def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
@@ -170,13 +172,15 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
     Calculates the Distance to Obstacle cost.
     """
     cost = 0.0
+    traj_coords = np.transpose([trajectory.cartesian.x, trajectory.cartesian.y])
     for obstacle in scenario.obstacles:
         state = obstacle.state_at_time(planner.x_0.time_step)
         if state is not None:
-            cost += np.sum(np.reciprocal(cdist(np.transpose(np.array([trajectory.cartesian.x, trajectory.cartesian.y])),
-                    np.reshape(np.array([state.position[0], state.position[1]]), (1, 2)), metric='euclidean') ** 2))
+            obs_pos = np.reshape([state.position[0], state.position[1]], (1, 2))
+            dists = cdist(traj_coords, obs_pos, metric='euclidean')
+            cost += np.sum(np.reciprocal(dists ** 2))
 
-    return cost
+    return float(cost)
 
 
 def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
@@ -262,11 +266,7 @@ def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
         return 0.0
 
     # get the distances to the previous found goal positions
-    distances = []
-    for goal_center in goal_centers:
-        distances.append(distance(goal_center, planner.x_0.position))
-
-    # calculate the average distance to the goal positions
+    distances = np.sqrt(np.sum((np.array(goal_centers) - planner.x_0.position) ** 2, axis=1))
     avg_dist = np.mean(distances)
 
     # get the remaining time
@@ -287,7 +287,7 @@ def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
     else:
         cost = 30.0 - np.mean(trajectory.cartesian.v)
 
-    return cost
+    return float(cost)
 
 
 def reached_target_position(pos: np.array, goal_area) -> bool:
