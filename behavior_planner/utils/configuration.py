@@ -27,4 +27,6 @@ class ModeConfiguration:
 class BehaviorConfiguration:
     def __init__(self):
         # VP
-        self.prec_vehicle_by_shape = False
+        self.preceding_vehicle_by_shape = False
+        # FSM
+        self.ignore_broad_line_marking = True

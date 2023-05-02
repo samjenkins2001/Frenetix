@@ -331,9 +331,8 @@ class VelocityPlannerState(object):
         self.visual_cond_factor = None  # factor to express visual driving conditions; ∈ [0,1]
 
         # traffic light
-        self.stop_distance= None
+        self.stop_distance = None
         self.dist_to_tl = None
-        self.deceleration_tl = None
 
 
 class PathPlannerState(object):

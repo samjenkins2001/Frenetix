@@ -110,7 +110,7 @@ def run_planner(config, log_path, mod_path):
         reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
     else:
         behavior_modul = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
-                                        init_sc_path=config.general.path_scenario,
+                                        init_sc_path=config.general.name_scenario,
                                         init_ego_state=x_0,
                                         dt=DT,
                                         vehicle_parameters=config.vehicle)  # testing

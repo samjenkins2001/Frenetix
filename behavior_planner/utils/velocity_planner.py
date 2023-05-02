@@ -140,10 +140,10 @@ class VelocityPlanner(object):
         if self.VP_state.dist_preceding_veh is not None:
             if self.VP_state.vel_preceding_veh is not None:
                 self._calc_safety_distance()
-                self.VP_state.ttc_conditioned = self.VP_state.ttc_norm * self.VP_state.condition_factor
                 self.VP_state.ttc_relative = ((self.VP_state.dist_preceding_veh - self.VP_state.safety_dist)
-                                              / self.VP_state.ttc_conditioned)
-                self.VP_state.TTC = self.VP_state.vel_preceding_veh + self.VP_state.ttc_relative
+                                              / self.VP_state.ttc_norm)
+                self.VP_state.TTC_unconditioned = self.VP_state.vel_preceding_veh + self.VP_state.ttc_relative
+                self.VP_state.TTC = self.VP_state.TTC_unconditioned * self.VP_state.condition_factor
             else:
                 self.VP_state.TTC = None
         else:
