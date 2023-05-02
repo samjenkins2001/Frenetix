@@ -1,6 +1,6 @@
 import time
 import warnings
-from math import ceil
+from math import ceil, isnan
 from multiprocessing import Queue
 from queue import Empty
 from typing import Tuple
@@ -8,6 +8,7 @@ import random
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
+from commonroad.scenario.scenario import Scenario
 from commonroad_prediction.prediction_module import PredictionModule
 
 # reactive planner
@@ -18,7 +19,7 @@ from commonroad_rp.configuration import Configuration
 
 from commonroad.scenario.obstacle import StaticObstacle, ObstacleType
 from commonroad.geometry.shape import Rectangle, Circle
-from commonroad.planning.planning_problem import PlanningProblemSet
+from commonroad.planning.planning_problem import PlanningProblemSet, PlanningProblem
 from commonroad.planning.goal import GoalRegion
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
@@ -52,19 +53,19 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
     all_obs_ids = mh.get_all_obstacle_ids(scenario)
 
     #########################################
-    #   Select Obstacle IDs to Simulate     #
+    #    Select Obstacle IDs to Simulate    #
     #########################################
     if config.multiagent.use_specific_agents:
         agent_id_list = config.multiagent.agent_ids
         for agent_ids_check in agent_id_list:
             if agent_ids_check not in all_obs_ids:
                 raise ValueError("Selected Obstacle IDs not existent in Scenario!\n"
-                                 "Check Selected 'agent_ids' in config!")
+                                 "Check selected 'agent_ids' in config!")
     else:
         agent_id_list = all_obs_ids
 
     if config.multiagent.number_of_agents < len(agent_id_list):
-        if config.multiagent.select_randomly_agents:
+        if config.multiagent.select_agents_randomly:
             agent_id_list = random.sample(agent_id_list, config.multiagent.number_of_agents)
         else:
             agent_id_list = agent_id_list[:config.multiagent.number_of_agents]
@@ -142,7 +143,7 @@ def run_multiagent(config: Configuration, log_path: str, mod_path: str):
 
     else:
 
-        batch_list = []
+        batch_list: List[Tuple[AgentBatch, Queue, Queue, List[int]]] = []
         """List of tuples containing all batches and their associated fields:
         batch_list[i][0]: Agent Batch object
         batch_list[i][1]: Queue for sending data to the batch
@@ -229,20 +230,22 @@ def run_simulation(log_path: str, config: Configuration,
 
         predictions = mh.get_predictions(config, predictor, scenario, current_timestep)
 
-        print(f"[Simulation] Running batches: {len(batch_list)}")
         # Send predictions
         for batch in batch_list:
             batch[1].put(predictions)
 
         # Plot previous timestep while batches are busy
+        # Remove agents that did not exist in the last timestep
         if current_timestep > 0 and (config.debug.show_plots or config.debug.save_plots) \
                 and len(batch_list) > 0:
             mh.visualize_multiagent_at_timestep(scenario, planning_problem_set,
-                                             dummy_obstacle_list, current_timestep-1, config, log_path,
-                                             traj_set_list=traj_set_list,
-                                             ref_path_list=ref_path_list,
-                                             predictions=predictions,
-                                             plot_window=config.debug.plot_window_dyn)
+                                                list(filter(lambda o: not isnan(o.state_at_time(current_timestep-1).position[0]),
+                                                            dummy_obstacle_list)),
+                                                current_timestep-1, config, log_path,
+                                                traj_set_list=traj_set_list,
+                                                ref_path_list=ref_path_list,
+                                                predictions=predictions,
+                                                plot_window=config.debug.plot_window_dyn)
 
         # Receive results
         # clear dummy obstacles
