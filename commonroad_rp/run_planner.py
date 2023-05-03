@@ -117,11 +117,6 @@ def run_planner(config, log_path, mod_path):
         reference_path = behavior_modul.reference_path
 
     # **************************
-    # Set Cost Function
-    # **************************
-    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
-
-    # **************************
     # Load Prediction
     # **************************
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
@@ -136,7 +131,13 @@ def run_planner(config, log_path, mod_path):
     # Set External Planner Setups
     # ***************************
     planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
-                             cost_function=cost_function, reference_path=reference_path)
+                             reference_path=reference_path)
+
+    # **************************
+    # Set Cost Function
+    # **************************
+    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
+    planner.update_externals(cost_function=cost_function)
 
     # **************************
     # Run Planner Cycle
