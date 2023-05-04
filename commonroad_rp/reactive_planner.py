@@ -1108,6 +1108,7 @@ class ReactivePlanner(object):
                     trajectory.cartesian = CartesianSample(x, y, theta_gl, v, a, kappa_gl,
                                                            kappa_dot=np.append([0], np.diff(kappa_gl)),
                                                            current_time_step=traj_len)
+
                     # store Curvilinear trajectory
                     trajectory.curvilinear = CurviLinearSample(s, d, theta_cl,
                                                                ss=s_velocity, sss=s_acceleration,
@@ -1223,6 +1224,13 @@ class ReactivePlanner(object):
             trajectory_bundle.trajectories = feasible_trajectories
             # sort trajectories according to their costs
             trajectory_bundle.sort()
+
+        # calc occlusion costs for trajectories and sort them again
+        if self.use_occ_model:
+            # sort trajectory bundle according to their costs
+            trajectory_bundle_sorted_list = trajectory_bundle.get_sorted_list()
+            trajectory_bundle_sorted_list = self.occlusion_module.calc_costs(trajectories=trajectory_bundle_sorted_list,
+                                                                             predictions=predictions)
 
         # go through sorted list of trajectories and check for collisions
         for trajectory in trajectory_bundle.get_sorted_list():
