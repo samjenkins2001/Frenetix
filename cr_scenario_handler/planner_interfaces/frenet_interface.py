@@ -16,9 +16,9 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 from commonroad_dc.feasibility.solution_checker import valid_solution, CollisionException, GoalNotReachedException, \
     MissingSolutionException
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
-from commonroad_rp.reactive_planner import ReactivePlanner
+from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
-from commonroad_rp.utility.evaluation import create_full_solution_trajectory, create_planning_problem_solution, \
+from cr_scenario_handler.utils.evaluation import create_full_solution_trajectory, create_planning_problem_solution, \
     reconstruct_inputs, reconstruct_states, check_acceleration, plot_states, plot_inputs
 from commonroad_rp.utility.visualization import plot_final_trajectory
 
@@ -26,8 +26,8 @@ from commonroad_route_planner.route_planner import RoutePlanner
 
 from behavior_planner.behavior_module import BehaviorModule
 
-from multiagent.multiagent_helpers import collision_vis
-from multiagent.planner_interface import PlannerInterface
+from cr_scenario_handler.utils.multiagent_helpers import collision_vis
+from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 
 from risk_assessment.harm_estimation import harm_model
 from risk_assessment.helpers.collision_helper_function import angle_range
@@ -47,7 +47,7 @@ class FrenetPlannerInterface(PlannerInterface):
         self.planner = ReactivePlanner(config, scenario, planning_problem,
                                        log_path, mod_path)
 
-        self.x_0 = self.planner.process_initial_state_from_pp(x0_pp=deepcopy(planning_problem.initial_state))
+        self.x_0 = ReactivePlannerState.create_from_initial_state(deepcopy(planning_problem.initial_state), config.vehicle.wheelbase, config.vehicle.wb_rear_axle)
         self.x_cl = None
 
         self.planner.set_x_0(self.x_0)
@@ -253,7 +253,7 @@ class FrenetPlannerInterface(PlannerInterface):
 
         ego_vehicle = ego_vehicle_list[-1]
 
-        ego = pycrcc.TimeVariantCollisionObject((timestep + 1) * self.planner._factor)
+        ego = pycrcc.TimeVariantCollisionObject((timestep + 1))
         ego.append_obstacle(
             pycrcc.RectOBB(0.5 * self.planner.vehicle_params.length, 0.5 * self.planner.vehicle_params.width,
                            ego_vehicle.state_at_time(timestep).orientation,
@@ -372,8 +372,8 @@ class FrenetPlannerInterface(PlannerInterface):
         shifted_state_list = []
         for x in new_trajectory.state_list:
             shifted_state_list.append(
-                x.translate_rotate(np.array([self.config.vehicle.rear_ax_distance * np.cos(x.orientation),
-                                             self.config.vehicle.rear_ax_distance * np.sin(x.orientation)]),
+                x.translate_rotate(np.array([self.config.vehicle.wb_rear_axle * np.cos(x.orientation),
+                                             self.config.vehicle.wb_rear_axle * np.sin(x.orientation)]),
                                    0.0)
             )
 

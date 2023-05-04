@@ -10,11 +10,11 @@ import utils.visualization_helpers as vh
 
 from PIL import Image
 
-mod_path = os.path.dirname(os.path.dirname(
+mod_path = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)
-))
+)))
 
-with open(os.path.join(mod_path, 'analyzer', 'config.yaml')) as stream:
+with open(os.path.join(mod_path, 'tools', 'analyzer', 'config.yaml')) as stream:
     config = yaml.safe_load(stream)    
 
 cut = config["cut"]  

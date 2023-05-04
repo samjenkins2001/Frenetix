@@ -14,7 +14,7 @@ from commonroad_prediction.prediction_module import PredictionModule
 # reactive planner
 from commonroad_rp.utility.visualization import make_gif
 
-from commonroad_rp.utility.general import load_scenario_and_planning_problem
+from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
 from commonroad_rp.configuration import Configuration
 
 from commonroad.scenario.obstacle import StaticObstacle, ObstacleType
@@ -24,14 +24,14 @@ from commonroad.planning.goal import GoalRegion
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 
-from multiagent.agent_batch import AgentBatch
-import multiagent.multiagent_helpers as mh
-from multiagent.multiagent_logging import *
+from cr_scenario_handler.agents.agent_batch import AgentBatch
+import cr_scenario_handler.utils.multiagent_helpers as mh
+from cr_scenario_handler.utils.multiagent_logging import *
 
 import commonroad_rp.prediction_helpers as ph
 
 
-def run_multiagent(config: Configuration, log_path: str, mod_path: str):
+def ScenarioHandler(config: Configuration, log_path: str, mod_path: str):
     """ Based on commonroad_rp/run_planner.py
     Set up the configuration and the simulation.
     Creates and manages the agents batches and their communication.

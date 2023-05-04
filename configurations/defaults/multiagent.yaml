@@ -1,8 +1,13 @@
-# List of vehicle IDs to use as agents
+# If True, the vehicles specified in agent_ids are made agents,
+# otherwise, number_of_agents vehicles are randomly chosen.
 use_specific_agents: False
-agent_ids: [610, 2, 4, 5, 7]
+# List of vehicle IDs to use as agents additionally to the original PlanningProblem
+agent_ids: [1, 2, 4, 5, 7]
+# Number of agents to create additionally to the original PlanningProblem
 number_of_agents: 5
-select_randomly_agents: True
+# If not use_specific_agents, indicates whether the agents are selected randomly
+# or by their order in the scenario
+select_agents_randomly: True
 
 # List of vehicle IDs for which to create individual plots
 show_individual_plots: []
@@ -10,4 +15,4 @@ save_individual_plots: []
 save_individual_gifs: []
 
 multiprocessing: True
-num_procs: 4
+num_procs: 6

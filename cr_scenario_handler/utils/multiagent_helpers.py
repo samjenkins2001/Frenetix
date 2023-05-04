@@ -194,16 +194,17 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
     for i in range(len(agent_list)):
 
         # visualize optimal trajectory
-        pos = np.asarray([state.position for state in agent_list[i].prediction.trajectory.state_list[timestep:]])
-        rnd.ax.plot(pos[:, 0], pos[:, 1], color=darkcolors[agent_list[i].obstacle_id % len(darkcolors)],
+        rnd.ax.plot(traj_set_list[i][0].cartesian.x[:traj_set_list[i][0].actual_traj_length],
+                    traj_set_list[i][0].cartesian.y[:traj_set_list[i][0].actual_traj_length],
+                    color=darkcolors[agent_list[i].obstacle_id % len(darkcolors)],
                     marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
 
         # visualize sampled trajectory bundle
         step = 1  # draw every trajectory (step=2 would draw every second trajectory)
         if traj_set_list is not None:
             for j in range(0, len(traj_set_list[i]), step):
-                plt.plot(traj_set_list[i][j].cartesian.x[:traj_set_list[i][j]._actual_traj_length],
-                         traj_set_list[i][j].cartesian.y[:traj_set_list[i][j]._actual_traj_length],
+                plt.plot(traj_set_list[i][j].cartesian.x[:traj_set_list[i][j].actual_traj_length],
+                         traj_set_list[i][j].cartesian.y[:traj_set_list[i][j].actual_traj_length],
                          color=lightcolors[agent_list[i].obstacle_id % len(lightcolors)], zorder=20,
                          linewidth=0.2, alpha=1.0)
 
