@@ -189,10 +189,10 @@ class ReactivePlanner(object):
         self._sampling_max = config.sampling.sampling_max
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
         self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
-        fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
-        self._sampling_d = fs_sampling.d_samples
-        self._sampling_t = fs_sampling.t_samples
-        self._sampling_v = fs_sampling.v_samples
+        # fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
+        # self._sampling_d = fs_sampling.d_samples
+        # self._sampling_t = fs_sampling.t_samples
+        # self._sampling_v = fs_sampling.v_samples
 
         # *****************************
         # Debug & Logger Initialization

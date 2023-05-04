@@ -10,5 +10,5 @@ d_min: -3
 d_max: 3
 
 # sampling density minimum and maximum
-sampling_min: 1
-sampling_max: 2
+sampling_min: 2
+sampling_max: 3
