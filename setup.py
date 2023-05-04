@@ -10,8 +10,12 @@ def git(*args):
 
 
 # get latest tag
-latest = git("describe", "--tags").decode().strip()
-latest = latest.split("-")[0]
+try:
+    latest = git("describe", "--tags").decode().strip()
+    latest = latest.split("-")[0]
+except subprocess.CalledProcessError:
+    latest = "2023.1"
+
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
