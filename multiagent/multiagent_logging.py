@@ -9,7 +9,7 @@ def init_log(log_path: str):
 
     os.makedirs(log_path, exist_ok=True)
 
-    with open(os.path.join(log_path, "logs.csv"), "w+") as log_file:
+    with open(os.path.join(log_path, "execution_logs.csv"), "w+") as log_file:
         log_file.write("time_step;domain_time;total_planning_time;total_synchronization_time;agent_ids;agent_states;")
 
 
@@ -34,5 +34,5 @@ def append_log(log_path: str, time_step: int, domain_time: float, total_planning
     entry += str(agent_ids) + ";"
     entry += str(agent_states) + ";"
 
-    with open(os.path.join(log_path, "logs.csv"), "a") as log_file:
+    with open(os.path.join(log_path, "execution_logs.csv"), "a") as log_file:
         log_file.write(entry)
