@@ -11,9 +11,9 @@ from commonroad_rp.configuration import Configuration
 
 from commonroad.planning.planning_problem import PlanningProblemSet
 
-from multiagent.agent import Agent
-from multiagent.multiagent_helpers import get_predictions, visualize_multiagent_at_timestep, make_gif
-from multiagent.multiagent_logging import *
+from cr_scenario_handler.agents.agent import Agent
+from cr_scenario_handler.utils.multiagent_helpers import get_predictions, visualize_multiagent_at_timestep, make_gif
+from cr_scenario_handler.utils.multiagent_logging import *
 
 
 class AgentBatch (Process):

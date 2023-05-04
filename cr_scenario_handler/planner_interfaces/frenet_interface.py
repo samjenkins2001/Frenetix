@@ -18,7 +18,7 @@ from commonroad_dc.feasibility.solution_checker import valid_solution, Collision
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
-from commonroad_rp.utility.evaluation import create_full_solution_trajectory, create_planning_problem_solution, \
+from cr_scenario_handler.utils.evaluation import create_full_solution_trajectory, create_planning_problem_solution, \
     reconstruct_inputs, reconstruct_states, check_acceleration, plot_states, plot_inputs
 from commonroad_rp.utility.visualization import plot_final_trajectory
 
@@ -26,8 +26,8 @@ from commonroad_route_planner.route_planner import RoutePlanner
 
 from behavior_planner.behavior_module import BehaviorModule
 
-from multiagent.multiagent_helpers import collision_vis
-from multiagent.planner_interface import PlannerInterface
+from cr_scenario_handler.utils.multiagent_helpers import collision_vis
+from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 
 from risk_assessment.harm_estimation import harm_model
 from risk_assessment.helpers.collision_helper_function import angle_range

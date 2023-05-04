@@ -37,7 +37,7 @@ from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, inte
 from commonroad_rp.configuration import Configuration
 from commonroad_rp.utility import reachable_set
 
-from commonroad_rp.utility.goalcheck import GoalReachedChecker
+from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
 from commonroad_rp.prediction_helpers import collision_checker_prediction
