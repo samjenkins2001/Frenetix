@@ -799,7 +799,7 @@ class ReactivePlanner(object):
         # **************************
         self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                         infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-                        cluster=cluster_)
+                        cluster=cluster_, ego_vehicle=self.current_ego_vehicle)
         self.logger.log_pred(self.predictions)
         if self.save_all_traj:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)

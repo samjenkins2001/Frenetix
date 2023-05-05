@@ -58,6 +58,8 @@ class DataLoggingCosts:
         self.header = (
             "trajectory_number;"
             "calculation_time_s;"
+            "x_position_vehicle_m;"
+            "y_position_vehicle_m;"
             "optimal_trajectory;"
             "infeasible_kinematics_sum;"
             "inf_kin_acceleration;"
@@ -170,7 +172,7 @@ class DataLoggingCosts:
     #             )
 
     def log(self, trajectory, infeasible_kinematics, infeasible_collision: int, planning_time: float, cluster: int,
-            collision: bool = False):
+            collision: bool = False, ego_vehicle=None):
 
         new_line = "\n" + str(self.trajectory_number)
 
@@ -182,6 +184,10 @@ class DataLoggingCosts:
 
             # log time
             new_line += ";" + json.dumps(str(planning_time), default=default)
+
+            # Vehicle Occupancy Position
+            new_line += ";" + json.dumps(str(ego_vehicle.initial_state.position[0]), default=default)
+            new_line += ";" + json.dumps(str(ego_vehicle.initial_state.position[1]), default=default)
 
             # optimaltrajectory available
             new_line += ";True"
