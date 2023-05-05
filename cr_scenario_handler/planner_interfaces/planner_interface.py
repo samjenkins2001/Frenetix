@@ -4,7 +4,6 @@ from typing import List
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.scenario.obstacle import DynamicObstacle
 from commonroad.scenario.scenario import Scenario
-from commonroad.scenario.state import State, InputState
 
 
 class PlannerInterface(ABC):
@@ -51,17 +50,6 @@ class PlannerInterface(ABC):
         If plotting of reference paths is not required, leave as is.
         """
         return None
-
-    def evaluate(self, id: int, recorded_state_list: List[State], recorded_input_list: List[InputState]):
-        """Evaluate the planned trajectory.
-
-        If evaluation os not required, leave as is.
-
-        :param id: ID of the evaluated agent.
-        :param recorded_state_list: List of all states in the final trajectory.
-        :param recorded_input_list: List of all inputs to the planner.
-        """
-        pass
 
     @abstractmethod
     def update_planner(self, scenario: Scenario, predictions: dict):

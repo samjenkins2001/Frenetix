@@ -7,22 +7,27 @@ __status__ = "Beta"
 
 
 import os
+import traceback
 from typing import List, Union
 from matplotlib import pyplot as plt
 import numpy as np
 
 from commonroad.scenario.trajectory import Trajectory
 from commonroad.scenario.state import InputState, TraceState
-from commonroad.planning.planning_problem import PlanningProblem
+from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 from commonroad.scenario.scenario import Scenario
 from commonroad.common.solution import Solution, PlanningProblemSolution, VehicleModel, \
-    VehicleType, CostFunction
+    VehicleType, CostFunction, CommonRoadSolutionWriter
 
 from commonroad_dc.feasibility.feasibility_checker import VehicleDynamics, \
     state_transition_feasibility, position_orientation_objective, position_orientation_feasibility_criteria, _angle_diff
 
+from commonroad_dc.feasibility.solution_checker import valid_solution, CollisionException, GoalNotReachedException, \
+    MissingSolutionException
+
 from commonroad_rp.configuration import Configuration
 from commonroad_rp.reactive_planner import ReactivePlannerState
+from commonroad_rp.utility.visualization import plot_final_trajectory
 
 
 def create_full_solution_trajectory(config: Configuration, state_list: List[ReactivePlannerState]) -> Trajectory:
@@ -262,3 +267,55 @@ def plot_inputs(config: Configuration, input_list: List[InputState], save_path: 
     # Save Output
     plot_path = os.path.join(save_path, "evaluation_plot_inputs")
     plt.savefig(f"{plot_path}.svg", format='svg')
+
+
+def evaluate(scenario, planning_problem, id, recorded_state_list, recorded_input_list, config, log_path):
+
+    # create full solution trajectory
+    initial_timestep = planning_problem.initial_state.time_step
+    ego_solution_trajectory = Trajectory(initial_time_step=initial_timestep,
+                                         state_list=recorded_state_list[initial_timestep:])
+
+    # plot full ego vehicle trajectory
+    plot_final_trajectory(scenario, planning_problem, ego_solution_trajectory.state_list,
+                          config, log_path)
+
+    # create CR solution
+    solution = create_planning_problem_solution(config, ego_solution_trajectory,
+                                                scenario, planning_problem)
+
+    # check feasibility
+    # reconstruct inputs (state transition optimizations)
+    feasible, reconstructed_inputs = reconstruct_inputs(config, solution.planning_problem_solutions[0])
+    try:
+        # reconstruct states from inputs
+        reconstructed_states = reconstruct_states(config, ego_solution_trajectory.state_list,
+                                                  reconstructed_inputs)
+        # check acceleration correctness
+        check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
+
+        # remove first element from input list
+        recorded_input_list.pop(0)
+
+        # evaluate
+        plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states,
+                    plot_bounds=False)
+        # CR validity check
+        print(f"[Agent {id}] Feasibility Check Result: ")
+        if valid_solution(scenario, PlanningProblemSet([planning_problem]), solution)[0]:
+            print(f"[Agent {id}] Valid")
+    except CollisionException:
+        print(f"[Agent {id}] Infeasible: Collision")
+    except GoalNotReachedException:
+        print(f"[Agent {id}] Infeasible: Goal not reached")
+    except MissingSolutionException:
+        print(f"[Agent {id}] Infeasible: Missing solution")
+    except:
+        traceback.print_exc()
+        print(f"[Agent {id}] Could not reconstruct states")
+
+    plot_inputs(config, recorded_input_list, log_path, reconstructed_inputs, plot_bounds=True)
+
+    # Write Solution to XML File for later evaluation
+    solutionwriter = CommonRoadSolutionWriter(solution)
+    solutionwriter.write_to_file(log_path, "solution.xml", True)

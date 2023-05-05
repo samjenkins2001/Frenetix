@@ -1,7 +1,6 @@
 import os
 import sys
-from commonroad_rp.run_planner import run_planner
-from multiagent.simulation import Simulation
+from cr_scenario_handler.simulation.simulation import Simulation
 from commonroad_rp.configuration_builder import ConfigurationBuilder
 
 if sys.platform == "darwin":

@@ -2,25 +2,20 @@ import os
 from typing import List, Union, Dict
 
 import matplotlib
-from commonroad.geometry.shape import Rectangle
-from commonroad.prediction.prediction import TrajectoryPrediction
-from commonroad.scenario.trajectory import Trajectory
 from matplotlib import pyplot as plt
 import imageio.v3 as iio
 import numpy as np
 
-from commonroad_prediction.prediction_module import PredictionModule
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-from commonroad.scenario.state import CustomState, State
+from commonroad.scenario.state import State
 from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 
 from commonroad.scenario.scenario import Scenario
 from commonroad.visualization.draw_params import MPDrawParams, DynamicObstacleParams
 from commonroad.visualization.mp_renderer import MPRenderer
 
-from commonroad_rp.configuration import Configuration, VehicleConfiguration
+from commonroad_rp.configuration import Configuration
 from commonroad_rp.trajectories import TrajectorySample
-from commonroad_rp import prediction_helpers as ph
 
 from commonroad_rp.utility.visualization import draw_uncertain_predictions_lb, draw_uncertain_predictions_wale
 
@@ -34,61 +29,6 @@ darkcolors = ["#9c0d00", "#8f9c00", "#5b9c00", "#279c00", "#009c0d",
 lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
                "#69ffa3", "#69ffd5", "#69f8ff", "#69c6ff", "#6993ff",
                "#7069ff", "#a369ff", "#d569ff", "#ff69f8", "#ff69c5"]
-
-# Timeout value used when waiting for messages during parallel execution
-TIMEOUT = 20
-
-
-def get_all_obstacle_ids(scenario: Scenario) -> list:
-    """Return all obstacle IDs that exist in a Commonroad Scenario
-    :param scenario: The scenario of Commonroad we use
-    """
-    obs_list = list()
-    for obs in scenario.obstacles:
-        obs_list.append(obs.obstacle_id)
-    return obs_list
-
-
-def get_predictions(config: Configuration, predictor: PredictionModule,
-                    scenario: Scenario, current_timestep: int):
-    """Calculate the predictions for all obstacles in the scenario.
-    :param config: The configuration.
-    :param predictor: The prediction module object to use.
-    :param scenario: The scenario for which to calculate the predictions.
-    :param current_timestep: The timestep after which to start predicting.
-    """
-
-    if config.prediction.mode:
-        if config.prediction.mode == "walenet":
-            # Calculate predictions for all obstacles using WaleNet.
-            # The state is only used for accessing the current timestep.
-            predictions = ph.main_prediction(predictor, scenario, [obs.obstacle_id for obs in scenario.obstacles],
-                                             CustomState(time_step=current_timestep), scenario.dt,
-                                             [float(config.planning.planning_horizon)])
-        elif config.prediction.mode == "lanebased":
-            print("Lane-based predictions are not supported for multiagent simulations.")
-            predictions = None
-        else:
-            predictions = None
-    else:
-        predictions = None
-
-    return predictions
-
-
-def trajectory_to_obstacle(state_list: List[State],
-                           vehicle_params: VehicleConfiguration, obstacle_id: int):
-    """Convert a state to a dummy DynamicObstacle object.
-
-    :param state_list: List of all states in the trajectory.
-    :param vehicle_params: VehicleConfiguration containing the shape of the obstacle.
-    :param obstacle_id: ID to be assigned, usually equal to the agent ID.
-    """
-
-    trajectory = Trajectory(initial_time_step=state_list[0].time_step, state_list=state_list)
-    shape = Rectangle(vehicle_params.length, vehicle_params.width)
-    prediction = TrajectoryPrediction(trajectory, shape)
-    return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, trajectory.state_list[0], prediction)
 
 
 def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: PlanningProblemSet,
@@ -231,9 +171,9 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
         os.makedirs(plot_dir, exist_ok=True)
         if (len(agent_list) == 1 and agent_list[0].obstacle_id in config.multiagent.save_individual_gifs) \
                 or config.debug.gif:
-            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300)
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep:03d}.png", format='png', dpi=300)
         else:
-            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.svg", format='svg')
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep:03d}.svg", format='svg')
 
     # show plot
     if agent_list[0].obstacle_id in config.multiagent.show_individual_plots or config.debug.show_plots:
@@ -265,7 +205,7 @@ def make_gif(scenario: Scenario, time_steps: Union[range, List[int]],
     path_images = os.path.join(log_path, "plots")
 
     for step in time_steps:
-        im_path = os.path.join(path_images, str(scenario.scenario_id) + "_{}.png".format(step))
+        im_path = os.path.join(path_images, str(scenario.scenario_id) + f"_{step:03d}.png")
         filenames.append(im_path)
 
     for filename in filenames:

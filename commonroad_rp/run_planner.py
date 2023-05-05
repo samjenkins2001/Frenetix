@@ -13,7 +13,7 @@ from copy import deepcopy
 import numpy as np
 
 # commonroad-io
-from commonroad_rp.utility.collision_report import coll_report
+from cr_scenario_handler.utils.collision_report import coll_report
 
 # commonroad-io
 from commonroad.scenario.state import InputState
@@ -23,14 +23,14 @@ from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
 from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
-from commonroad_rp.utility.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
+from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import helper_functions as hf
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.geometry.shape import Rectangle
 
-from commonroad_rp.utility.general import load_scenario_and_planning_problem
+from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
 
 import commonroad_rp.prediction_helpers as ph
 from behavior_planner.behavior_module import BehaviorModule

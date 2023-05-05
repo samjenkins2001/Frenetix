@@ -8,12 +8,10 @@ import random
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
-from commonroad.scenario.scenario import Scenario
-from commonroad_prediction.prediction_module import PredictionModule
 
 # reactive planner
 from commonroad_rp.utility.visualization import make_gif
-from commonroad_rp.utility.general import load_scenario_and_planning_problem
+from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
 from commonroad_rp.configuration import Configuration
 
 from commonroad.scenario.obstacle import StaticObstacle, ObstacleType
@@ -23,12 +21,13 @@ from commonroad.planning.goal import GoalRegion
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 
-from multiagent.agent_batch import AgentBatch
-import multiagent.multiagent_helpers as mh
-from multiagent.multiagent_helpers import TIMEOUT
-from multiagent.multiagent_logging import *
+from cr_scenario_handler.simulation.agent_batch import AgentBatch
+import cr_scenario_handler.utils.multiagent_helpers as mh
+from cr_scenario_handler.utils.multiagent_helpers import TIMEOUT
+from cr_scenario_handler.utils.multiagent_logging import *
 
 import commonroad_rp.prediction_helpers as ph
+from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep
 
 
 class Simulation:
@@ -74,7 +73,6 @@ class Simulation:
         self.traj_set_list = []
         self.ref_path_list = []
 
-
     def scenario_preprocessing(self):
         # Open the commonroad scenario and the planning problems of the
         # original ego vehicles
@@ -105,12 +103,6 @@ class Simulation:
         """ Based on commonroad_rp/run_planner.py
         Set up the configuration and the simulation.
         Creates and manages the agents batches and their communication.
-
-        :param config: The configuration
-        :param log_path: The path used for simulation-level logging,
-                         agent-level logs are located in <log_path>/<agent_id>/
-        :param mod_path: The path of the working directory of the planners
-                         (containing planner configuration)
         """
 
         # start agent batches
@@ -125,12 +117,8 @@ class Simulation:
             # run parallel simulation
             self.run_parallel_simulation()
 
-
     def select_agents(self):
         """Select the dynamic obstacles that should be simulated as agents.
-
-        :param config: The configuration
-        :param scenario: The scenario to select agents for
 
         :return: A List of obstacle IDs that should be used as agents
         """
@@ -282,15 +270,15 @@ class Simulation:
         # Remove agents that did not exist in the last timestep
         if self.current_timestep > 0 and (self.config.debug.show_plots or self.config.debug.save_plots) \
                 and len(self.batch_list) > 0:
-            mh.visualize_multiagent_at_timestep(self.scenario, self.planning_problem_set,
-                                                list(filter(lambda o: not isnan(
-                                                    o.state_at_time(self.current_timestep - 1).position[0]),
-                                                            self.dummy_obstacle_list)),
-                                                self.current_timestep - 1, self.config, self.log_path,
-                                                traj_set_list=self.traj_set_list,
-                                                ref_path_list=self.ref_path_list,
-                                                predictions=predictions,
-                                                plot_window=self.config.debug.plot_window_dyn)
+            visualize_multiagent_at_timestep(self.scenario, self.planning_problem_set,
+                                             list(filter(lambda o: not isnan(
+                                                 o.state_at_time(self.current_timestep - 1).position[0]),
+                                                         self.dummy_obstacle_list)),
+                                             self.current_timestep - 1, self.config, self.log_path,
+                                             traj_set_list=self.traj_set_list,
+                                             ref_path_list=self.ref_path_list,
+                                             predictions=predictions,
+                                             plot_window=self.config.debug.plot_window_dyn)
 
         # Receive simulation step results
         self.dummy_obstacle_list = []

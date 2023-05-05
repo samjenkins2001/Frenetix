@@ -15,9 +15,10 @@ from commonroad.planning.planning_problem import PlanningProblem, PlanningProble
 from commonroad_rp.configuration import Configuration
 import commonroad_rp.prediction_helpers as ph
 
-from multiagent.multiagent_helpers import trajectory_to_obstacle, \
-    visualize_multiagent_at_timestep, make_gif
-from multiagent.frenet_interface import FrenetPlannerInterface
+from cr_scenario_handler.utils.multiagent_helpers import trajectory_to_obstacle
+from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep, make_gif
+from cr_scenario_handler.utils.evaluation import evaluate
+from cr_scenario_handler.planner_interfaces.frenet_interface import FrenetPlannerInterface
 
 
 class Agent:
@@ -240,4 +241,6 @@ class Agent:
         # Evaluate results
         # **************************
         if self.config.debug.evaluation:
-            self.planner.evaluate(self.id, self.record_state_list, self.record_input_list)
+            evaluate(self.scenario, self.planning_problem, self.id,
+                     self.record_state_list, self.record_input_list,
+                     self.config, self.log_path)

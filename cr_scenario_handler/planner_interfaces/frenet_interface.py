@@ -1,0 +1,204 @@
+import os
+from copy import deepcopy
+import numpy as np
+
+from commonroad.scenario.scenario import Scenario
+from commonroad.scenario.trajectory import Trajectory
+
+from commonroad_dc import pycrcc
+from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
+from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
+from commonroad_rp.utility import helper_functions as hf
+
+from commonroad_route_planner.route_planner import RoutePlanner
+
+from behavior_planner.behavior_module import BehaviorModule
+
+from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
+from cr_scenario_handler.utils.collision_report import coll_report
+
+
+class FrenetPlannerInterface(PlannerInterface):
+
+    def __init__(self, config, scenario, planning_problem, log_path, mod_path):
+        self.config = config
+        self.scenario = scenario
+        self.predictions = None
+        self.planning_problem = planning_problem
+        self.log_path = log_path
+        self.mod_path = mod_path
+
+        self.planner = ReactivePlanner(config, scenario, planning_problem,
+                                       log_path, mod_path)
+
+        self.x_0 = ReactivePlannerState.create_from_initial_state(deepcopy(planning_problem.initial_state), config.vehicle.wheelbase, config.vehicle.wb_rear_axle)
+        self.x_cl = None
+
+        self.planner.set_x_0(self.x_0)
+
+        self.desired_velocity = self.x_0.velocity
+
+        # Set reference path
+        self.use_behavior_planner = False
+        if not self.use_behavior_planner:
+            route_planner = RoutePlanner(scenario, planning_problem)
+            self.ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
+        else:
+            # Load behavior planner
+            self.behavior_module = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
+                                                  init_sc_path=config.general.path_scenario,
+                                                  init_ego_state=self.x_0, dt=scenario.dt,
+                                                  vehicle_parameters=config.vehicle)  # testing
+            self.ref_path = self.behavior_module.reference_path
+
+        self.planner.set_reference_path(self.ref_path)
+
+        # Set planning problem
+        goal_area = hf.get_goal_area_shape_group(
+            planning_problem=planning_problem, scenario=scenario
+        )
+        self.planner.set_goal_area(goal_area)
+        self.planner.set_planning_problem(planning_problem)
+
+        # set cost function
+        self.cost_function = AdaptableCostFunction(rp=self.planner, configuration=config)
+        self.planner.set_cost_function(self.cost_function)
+
+    def is_completed(self):
+        self.planner.check_goal_reached()
+        return self.planner.goal_status
+
+    def check_collision(self, ego_vehicle_list, timestep):
+        # Adapted from ReactivePlanner.check_collision
+        # to allow using ego obstacles containing the complete trajectory.
+
+        ego_vehicle = ego_vehicle_list[-1]
+
+        ego = pycrcc.TimeVariantCollisionObject((timestep + 1))
+        ego.append_obstacle(
+            pycrcc.RectOBB(0.5 * self.planner.vehicle_params.length, 0.5 * self.planner.vehicle_params.width,
+                           ego_vehicle.state_at_time(timestep).orientation,
+                           ego_vehicle.state_at_time(timestep).position[0],
+                           ego_vehicle.state_at_time(timestep).position[1]))
+
+        if not self.planner.collision_checker.collide(ego):
+            return False
+        else:
+            try:
+                goal_position = []
+
+                if self.planner.goal_checker.goal.state_list[0].has_value("position"):
+                    for x in self.planner.reference_path:
+                        if self.planner.goal_checker.goal.state_list[0].position.contains_point(x):
+                            goal_position.append(x)
+                    s_goal_1, d_goal_1 = self.planner._co.convert_to_curvilinear_coords(
+                        goal_position[0][0],
+                        goal_position[0][1])
+                    s_goal_2, d_goal_2 = self.planner._co.convert_to_curvilinear_coords(
+                        goal_position[-1][0],
+                        goal_position[-1][1])
+                    s_goal = min(s_goal_1, s_goal_2)
+                    s_start, d_start = self.planner._co.convert_to_curvilinear_coords(
+                        self.planner.planning_problem.initial_state.position[0],
+                        self.planner.planning_problem.initial_state.position[1])
+                    s_current, d_current = self.planner._co.convert_to_curvilinear_coords(
+                        ego_vehicle.state_at_time(timestep).position[0],
+                        ego_vehicle.state_at_time(timestep).position[1])
+                    progress = ((s_current - s_start) / (s_goal - s_start))
+                elif "time_step" in self.planner.goal_checker.goal.state_list[0].attributes:
+                    progress = (timestep - 1 / self.planner.goal_checker.goal.state_list[0].time_step.end)
+                else:
+                    print('Could not calculate progress')
+                    progress = None
+            except:
+                progress = None
+                print('Could not calculate progress')
+
+            collision_obj = self.planner.collision_checker.find_all_colliding_objects(ego)[0]
+            if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
+                obj = collision_obj.obstacle_at_time(timestep)
+                center = obj.center()
+                last_center = collision_obj.obstacle_at_time(timestep - 1).center()
+                r_x = obj.r_x()
+                r_y = obj.r_y()
+                orientation = obj.orientation()
+                self.planner.logger.log_collision(True, self.planner.vehicle_params.length,
+                                                  self.planner.vehicle_params.width,
+                                                  progress, center,
+                                                  last_center, r_x, r_y, orientation)
+            else:
+                self.planner.logger.log_collision(False, self.planner.vehicle_params.length,
+                                                  self.planner.vehicle_params.width,
+                                                  progress)
+
+            if self.config.debug.collision_report:
+                coll_report(ego_vehicle_list, self.planner, self.scenario,
+                            self.planning_problem, timestep, self.log_path)
+
+            return True
+
+    def get_all_traj(self):
+        return self.planner.all_traj
+
+    def get_ref_path(self):
+        return self.planner.reference_path
+
+    def update_planner(self, scenario: Scenario, predictions: dict):
+        self.scenario = scenario
+        self.predictions = predictions
+
+        self.planner.set_scenario(scenario)
+        self.planner.set_predictions(predictions)
+
+        self.planner.set_x_0(self.x_0)
+        self.planner.set_x_cl(self.x_cl)
+
+    def plan(self):
+        if not self.use_behavior_planner:
+            # set desired velocity
+            self.desired_velocity = hf.calculate_desired_velocity(self.scenario, self.planning_problem,
+                                                                  self.x_0, self.config.planning.dt,
+                                                                  self.desired_velocity)
+            self.planner.set_desired_velocity(self.desired_velocity, self.x_0.velocity)
+        else:
+            """-----------------------------------------Testing:---------------------------------------------"""
+            self.behavior_module.execute(predictions=self.predictions, ego_state=self.x_0,
+                                         time_step=self.x_0.time_step)
+
+            # set desired behavior outputs
+            self.planner.set_desired_velocity(self.behavior_module.desired_velocity, self.x_0.velocity)
+            self.planner.set_reference_path(self.behavior_module.reference_path)
+
+            """----------------------------------------Testing:---------------------------------------------"""
+
+        # plan trajectory
+        optimal = self.planner.plan()
+
+        if not optimal:
+            # Could not plan feasible trajectory
+            return 1, None
+
+        # correct orientation angle
+        new_trajectory = self.planner.shift_orientation(optimal[0], interval_start=self.x_0.orientation - np.pi,
+                                                        interval_end=self.x_0.orientation + np.pi)
+
+        # get next state from state list of planned trajectory
+        new_state = new_trajectory.state_list[1]
+        new_state.time_step = self.x_0.time_step + 1
+
+        # update init state and curvilinear state
+        self.x_0 = deepcopy(new_state)
+        self.x_cl = (optimal[2][1], optimal[3][1])
+
+        # Shift the state list to the center of the vehicle
+        shifted_state_list = []
+        for x in new_trajectory.state_list:
+            shifted_state_list.append(
+                x.translate_rotate(np.array([self.config.vehicle.wb_rear_axle * np.cos(x.orientation),
+                                             self.config.vehicle.wb_rear_axle * np.sin(x.orientation)]),
+                                   0.0)
+            )
+
+        shifted_trajectory = Trajectory(shifted_state_list[0].time_step,
+                                        shifted_state_list)
+        return 0, shifted_trajectory
