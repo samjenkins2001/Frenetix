@@ -20,7 +20,7 @@ plotly
 dash_daq
 dash_bootstrap_components
 dash-ag-grid==2.0.0a1
-git+https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction
+commonroad-prediction @ git+https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction
 
 
 
