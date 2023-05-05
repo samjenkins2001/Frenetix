@@ -35,6 +35,9 @@ lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
                "#69ffa3", "#69ffd5", "#69f8ff", "#69c6ff", "#6993ff",
                "#7069ff", "#a369ff", "#d569ff", "#ff69f8", "#ff69c5"]
 
+# Timeout value used when waiting for messages during parallel execution
+TIMEOUT = 20
+
 
 def get_all_obstacle_ids(scenario: Scenario) -> list:
     """Return all obstacle IDs that exist in a Commonroad Scenario

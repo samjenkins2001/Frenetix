@@ -12,7 +12,7 @@ from commonroad_rp.configuration import Configuration
 from commonroad.planning.planning_problem import PlanningProblemSet
 
 from multiagent.agent import Agent
-from multiagent.multiagent_helpers import get_predictions, visualize_multiagent_at_timestep, make_gif
+from multiagent.multiagent_helpers import get_predictions, visualize_multiagent_at_timestep, make_gif, TIMEOUT
 from multiagent.multiagent_logging import *
 
 
@@ -27,7 +27,7 @@ class AgentBatch (Process):
         execution inside one batch is sequential.
 
         Manages the Agents in this batch, and communicates dummy obstacles and
-        predictions with the main simulation at run_multiagent.py.
+        predictions with the main simulation at simulation.py.
 
         :param agent_id_list: IDs of the agents in this batch.
         :param planning_problem_set: Planning problems of the agents.
@@ -140,7 +140,7 @@ class AgentBatch (Process):
         while True:
             # Receive the next predictions
             try:
-                predictions = self.in_queue.get(block=True, timeout=20)
+                predictions = self.in_queue.get(block=True, timeout=TIMEOUT)
             except Empty:
                 print(f"[Batch {self.agent_id_list}] Timeout waiting for new predictions! Exiting.")
                 return
@@ -156,15 +156,15 @@ class AgentBatch (Process):
                 # Wait for termination signal from main simulation
                 print(f"[Batch {self.agent_id_list}] Completed! Exiting")
                 try:
-                    self.in_queue.get(block=True, timeout=20)
+                    self.in_queue.get(block=True, timeout=TIMEOUT)
                 except Empty:
                     print(f"[Batch {self.agent_id_list}] Timeout waiting for termination signal.")
                 return
 
             # receive dummy obstacles and outdated agent list
             try:
-                self.dummy_obstacle_list = self.in_queue.get(block=True, timeout=20)
-                outdated_agent_id_list = self.in_queue.get(block=True, timeout=20)
+                self.dummy_obstacle_list = self.in_queue.get(block=True, timeout=TIMEOUT)
+                outdated_agent_id_list = self.in_queue.get(block=True, timeout=TIMEOUT)
             except Empty:
                 print(f"[Batch {self.agent_id_list}] Timeout waiting for agent updates! Exiting")
                 return

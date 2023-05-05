@@ -75,23 +75,8 @@ class Agent:
         self.max_timestep = int(self.config.general.max_steps *
                                 planning_problem.goal.state_list[0].time_step.end)
 
-        # In case of late startup, fill history with empty states
-        for i in range(self.current_timestep):
-            self.record_state_list.append(
-                CustomState(time_step=i,
-                            position=np.array([float("NaN"), float("NaN")]),
-                            steering_angle=0, velocity=0, orientation=0,
-                            acceleration=0, yaw_rate=0)
-            )
-        self.record_state_list.append(
-            CustomState(time_step=planning_problem.initial_state.time_step,
-                        position=planning_problem.initial_state.position,
-                        steering_angle=0,
-                        velocity=planning_problem.initial_state.velocity,
-                        orientation=planning_problem.initial_state.orientation,
-                        acceleration=planning_problem.initial_state.acceleration,
-                        yaw_rate=planning_problem.initial_state.yaw_rate)
-        )
+        # Create states of the agent before the start of the simulation
+        self.initialize_state_list()
 
         # Dummy obstacle for the agent
         state_list = deepcopy(self.record_state_list)
@@ -105,6 +90,25 @@ class Agent:
 
         # initialize the prediction network if necessary
         self.predictor = ph.load_prediction(self.scenario, self.config.prediction.mode, config)
+
+    def initialize_state_list(self):
+        # In case of late startup, fill history with empty states
+        for i in range(self.current_timestep):
+            self.record_state_list.append(
+                CustomState(time_step=i,
+                            position=np.array([float("NaN"), float("NaN")]),
+                            steering_angle=0, velocity=0, orientation=0,
+                            acceleration=0, yaw_rate=0)
+            )
+        self.record_state_list.append(
+            CustomState(time_step=self.planning_problem.initial_state.time_step,
+                        position=self.planning_problem.initial_state.position,
+                        steering_angle=0,
+                        velocity=self.planning_problem.initial_state.velocity,
+                        orientation=self.planning_problem.initial_state.orientation,
+                        acceleration=self.planning_problem.initial_state.acceleration,
+                        yaw_rate=self.planning_problem.initial_state.yaw_rate)
+        )
 
     def update_scenario(self, outdated_agents, dummy_obstacles):
         """Update the scenario to synchronize the agents.
@@ -171,6 +175,7 @@ class Agent:
         # START TIMER
         comp_time_start = time.time()
 
+        # Execute planner step
         self.planner.update_planner(self.scenario, predictions)
         error, new_trajectory = self.planner.plan()
 
