@@ -14,7 +14,9 @@ from commonroad_rp.utility.visualization import make_gif
 from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
 from commonroad_rp.configuration import Configuration
 
-from commonroad.scenario.obstacle import StaticObstacle, ObstacleType
+from commonroad.prediction.prediction import TrajectoryPrediction
+from commonroad.scenario.trajectory import Trajectory
+from commonroad.scenario.obstacle import ObstacleType, DynamicObstacle
 from commonroad.geometry.shape import Rectangle, Circle
 from commonroad.planning.planning_problem import PlanningProblemSet, PlanningProblem
 from commonroad.planning.goal import GoalRegion
@@ -25,9 +27,9 @@ from cr_scenario_handler.simulation.agent_batch import AgentBatch
 import cr_scenario_handler.utils.multiagent_helpers as mh
 from cr_scenario_handler.utils.multiagent_helpers import TIMEOUT
 from cr_scenario_handler.utils.multiagent_logging import *
+from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep
 
 import commonroad_rp.prediction_helpers as ph
-from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep
 
 
 class Simulation:
@@ -229,11 +231,16 @@ class Simulation:
 
         # add dummy obstacle for original ego vehicle
         vehicle_params = self.config.vehicle
-        dummy_obstacle = StaticObstacle(
+        shape = Rectangle(length=vehicle_params.length, width=vehicle_params.width)
+        dummy_obstacle = DynamicObstacle(
             id,
             ObstacleType.CAR,
-            Rectangle(length=vehicle_params.length, width=vehicle_params.width),
-            planning_problem.initial_state)
+            shape,
+            planning_problem.initial_state,
+            TrajectoryPrediction(Trajectory(planning_problem.initial_state.time_step,
+                                            [planning_problem.initial_state]),
+                                 shape)
+        )
 
         return dummy_obstacle, planning_problem
 

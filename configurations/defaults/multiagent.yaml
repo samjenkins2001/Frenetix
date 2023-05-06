@@ -1,5 +1,5 @@
 # Whether to run multi- or single agent.
-use_multiagent: False
+use_multiagent: True
 
 # The following options only apply for use_multiagent=True:
 
