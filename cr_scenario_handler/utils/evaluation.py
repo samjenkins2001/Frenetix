@@ -13,17 +13,18 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 from commonroad.scenario.trajectory import Trajectory
-from commonroad.scenario.state import InputState, TraceState
+from commonroad.scenario.state import InputState, TraceState, State
 from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 from commonroad.scenario.scenario import Scenario
 from commonroad.common.solution import Solution, PlanningProblemSolution, VehicleModel, \
     VehicleType, CostFunction, CommonRoadSolutionWriter
 
 from commonroad_dc.feasibility.feasibility_checker import VehicleDynamics, \
-    state_transition_feasibility, position_orientation_objective, position_orientation_feasibility_criteria, _angle_diff
+    state_transition_feasibility, position_orientation_objective, \
+    position_orientation_feasibility_criteria, _angle_diff
 
-from commonroad_dc.feasibility.solution_checker import valid_solution, CollisionException, GoalNotReachedException, \
-    MissingSolutionException
+from commonroad_dc.feasibility.solution_checker import valid_solution, CollisionException, \
+    GoalNotReachedException, MissingSolutionException
 
 from commonroad_rp.configuration import Configuration
 from commonroad_rp.reactive_planner import ReactivePlannerState
@@ -269,7 +270,21 @@ def plot_inputs(config: Configuration, input_list: List[InputState], save_path: 
     plt.savefig(f"{plot_path}.svg", format='svg')
 
 
-def evaluate(scenario, planning_problem, id, recorded_state_list, recorded_input_list, config, log_path):
+def evaluate(scenario: Scenario, planning_problem: PlanningProblem, id: int,
+             recorded_state_list: List[State], recorded_input_list: List[InputState],
+             config: Configuration, log_path: str):
+    """ Wrapper function for evaluating a planned trajectory.
+
+    Calls all other functions in this file on a list of recorded states.
+
+    :param scenario: The scenario that has been solved.
+    :param planning_problem: The planning problem of the ego vehicle.
+    :param id: The obstacle ID of the ego vehicle.
+    :param recorded_state_list: List of agent states the agent recorded during simulation.
+    :param recorded_input_list: List of inputs for every planner step.
+    :param config: The configuration.
+    :param log_path: Path to write the evaluation results to.
+    """
 
     # create full solution trajectory
     initial_timestep = planning_problem.initial_state.time_step

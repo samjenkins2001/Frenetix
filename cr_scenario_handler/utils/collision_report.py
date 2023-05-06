@@ -1,27 +1,34 @@
 import traceback
+import numpy as np
+from typing import List
 
 from commonroad_dc.boundary import boundary
-import numpy as np
-from commonroad_rp.utility import helper_functions as hf
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import (
-    create_collision_object,
-)
+from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 
-from risk_assessment.utils.logistic_regression_symmetrical import get_protected_inj_prob_log_reg_ignore_angle
-from commonroad.scenario.obstacle import (
-    ObstacleRole,
-)
+from commonroad_rp.reactive_planner import ReactivePlanner
+from commonroad_rp.utility import helper_functions as hf
+
+from commonroad.scenario.scenario import Scenario
+from commonroad.scenario.obstacle import ObstacleRole, DynamicObstacle
+
+from commonroad.planning.planning_problem import PlanningProblem
+
 from risk_assessment.helpers.collision_helper_function import angle_range
 from risk_assessment.harm_estimation import harm_model
-from risk_assessment.visualization.collision_visualization import (
-    collision_vis,
-)
+from risk_assessment.visualization.collision_visualization import collision_vis
+from risk_assessment.utils.logistic_regression_symmetrical import \
+    get_protected_inj_prob_log_reg_ignore_angle
 
 
-def coll_report(ego_vehicle_list, planner, scenario, planning_problem, timestep, collision_report_path):
+def coll_report(ego_vehicle_list: List[DynamicObstacle], planner: ReactivePlanner,
+                scenario: Scenario, planning_problem: PlanningProblem,
+                timestep: int, collision_report_path: str):
     """Collect and present detailed information about a collision.
 
     :param ego_vehicle_list: List of ego obstacles for at least the last two time steps.
+    :param planner: The planner used by the ego vehicle.
+    :param scenario: The simulated scenario.
+    :param planning_problem: The planning problem of the ego vehicle.
     :param timestep: Time step at which the collision occurred.
     :param collision_report_path: The path to write the report to.
     """
@@ -29,6 +36,8 @@ def coll_report(ego_vehicle_list, planner, scenario, planning_problem, timestep,
     # check if the current state is collision-free
     vel_list = []
     # get ego position and orientation
+    ego_pos = None
+    ego_pos_last = None
     try:
         ego_pos = ego_vehicle_list[-1].state_at_time(timestep).position
 

@@ -21,21 +21,7 @@ class PlannerInterface(ABC):
         :param log_path: Path the planner's log files will be written to.
         :param mod_path: Working directory for the planner.
         """
-
-    @abstractmethod
-    def is_completed(self):
-        """Returns True iff the planner has reached a goal area."""
-        pass
-
-    @abstractmethod
-    def check_collision(self, ego_obstacle: List[DynamicObstacle], timestep: int):
-        """Check for a collision at the given timestep.
-        To be implemented by every specific planner.
-
-        :param ego_obstacle: Dummy obstacles of the ego vehicle at every timestep.
-        :param timestep: Time step at which to check for collisions.
-        """
-        pass
+        raise NotImplementedError()
 
     def get_all_traj(self):
         """Return the sampled trajectories of the last step for plotting.
@@ -52,21 +38,42 @@ class PlannerInterface(ABC):
         return None
 
     @abstractmethod
+    def is_completed(self):
+        """Returns True iff the planner has reached a goal area.
+
+        To be implemented by every specific planner.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
+    def check_collision(self, ego_obstacle: List[DynamicObstacle], timestep: int):
+        """Check for a collision at the given timestep.
+
+        To be implemented by every specific planner.
+
+        :param ego_obstacle: Dummy obstacles of the ego vehicle at every timestep.
+        :param timestep: Time step at which to check for collisions.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
     def update_planner(self, scenario: Scenario, predictions: dict):
         """Update scenario for synchronization between agents.
+
         To be implemented for every specific planner.
 
         :param scenario: Updated scenario showing new agent positions.
         :param predictions: Updated predictions for all obstacles in the scenario.
         """
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def plan(self):
         """Planner step function.
-        To be implemented by every specific planner.
+
+        To be implemented for every specific planner.
 
         :returns: Exit code of the planner step,
                   The planned trajectory.
         """
-        pass
+        raise NotImplementedError()

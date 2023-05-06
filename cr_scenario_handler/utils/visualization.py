@@ -19,6 +19,7 @@ from commonroad_rp.trajectories import TrajectorySample
 
 from commonroad_rp.utility.visualization import draw_uncertain_predictions_lb, draw_uncertain_predictions_wale
 
+
 # Color palette for plotting
 colors = ["#e3af22", "#d6e322", "#96e322", "#55e322", "#22e32f",
           "#22e36f", "#22e3af", "#22d6e3", "#2296e3", "#2255e3",
@@ -205,13 +206,11 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
 
 def make_gif(scenario: Scenario, time_steps: Union[range, List[int]],
              log_path: str, duration: float = 0.1):
-    """
-    Function to create an animated GIF from single images of planning results at each time step.
-    Replaces commonroad_rp.utility.visualization.make_gif
+    """ Create an animated GIF from saved image files.
 
     Images are assumed to be saved as <log_path>/plots/<scenario_id>_<timestep>.png
-    In contrast to the original function, this one does not check the configuration
-    in order to simplify independent configurations on agent and simulation level.
+    Does not check the plotting configuration in order to simplify independent
+    configurations on agent and simulation level. This has to be done by the caller.
 
     :param scenario: CommonRoad scenario object.
     :param time_steps: List or range of time steps to include in the GIF
@@ -243,13 +242,12 @@ def collision_vis(scenario: Scenario, ego_vehicle: DynamicObstacle, destination:
                   pdof: float, ego_angle: float, obs_angle: float,
                   time_step: int, modes: Dict, planning_problem: PlanningProblem = None,
                   global_path: np.ndarray = None, driven_traj: List[State] = None):
-    """
-    Create a report for visualization of the collision and respective harm.
+    """ Create a report for visualization of the collision and respective harm.
 
     Creates a collision report and saves the file in the destination folder
     in a subdirectory called "collisions".
     Replaces risk_assessment.visualization.collision_visualization.collision_vis
-    Allows using the full ego obstacle.
+    to allow using the full ego obstacle.
 
     :param scenario: Considered Scenario.
     :param ego_vehicle: Ego obstacle, may contain both past and future trajectories.
@@ -355,6 +353,7 @@ def collision_vis(scenario: Scenario, ego_vehicle: DynamicObstacle, destination:
         harm = "P(MAIS 2+)"
     else:
         mode = "None"
+        harm = "None"
 
     # get angle mode
     if modes["ignore_angle"] is True or modes["harm_mode"] == "gidas":
