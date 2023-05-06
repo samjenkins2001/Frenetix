@@ -95,8 +95,8 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
 
     obs_params.static_obstacle.show_label = True
-    obs_params.static_obstacle.occupancy.shape.facecolor = "#a30000"
-    obs_params.static_obstacle.occupancy.shape.edgecolor = "#756f61"
+    obs_params.static_obstacle.occupancy.shape.facecolor = "#A30000"
+    obs_params.static_obstacle.occupancy.shape.edgecolor = "#756F61"
 
     # visualize scenario
     scenario.draw(rnd, draw_params=obs_params)
@@ -108,10 +108,16 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
         ego_params.time_begin = timestep
         ego_params.draw_icon = config.debug.draw_icons
         ego_params.show_label = True
-        ego_params.vehicle_shape.occupancy.shape.facecolor = \
-            colors[agent_list[i].obstacle_id % len(colors)]
-        ego_params.vehicle_shape.occupancy.shape.edgecolor = \
-            darkcolors[agent_list[i].obstacle_id % len(darkcolors)]
+
+        # Use standard colors for single-agent plots
+        if len(agent_list) == 1:
+            ego_params.vehicle_shape.occupancy.shape.facecolor = "#E37222"
+            ego_params.vehicle_shape.occupancy.shape.edgecolor = "#9C4100"
+        else:
+            ego_params.vehicle_shape.occupancy.shape.facecolor = \
+                colors[agent_list[i].obstacle_id % len(colors)]
+            ego_params.vehicle_shape.occupancy.shape.edgecolor = \
+                darkcolors[agent_list[i].obstacle_id % len(darkcolors)]
         ego_params.vehicle_shape.occupancy.shape.zorder = 50
         ego_params.vehicle_shape.occupancy.shape.opacity = 1
 
@@ -136,10 +142,20 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
     # Visualize trajectories and paths
     for i in range(len(agent_list)):
 
+        # Use standard colors for single-agent plots
+        if len(agent_list) == 1:
+            darkcolor = "k"
+            lightcolor = "blue"
+            color = "g"
+        else:
+            darkcolor = darkcolors[agent_list[i].obstacle_id % len(darkcolors)]
+            lightcolor = lightcolors[agent_list[i].obstacle_id % len(lightcolors)]
+            color = colors[agent_list[i].obstacle_id % len(colors)]
+
         # visualize optimal trajectory
         rnd.ax.plot(traj_set_list[i][0].cartesian.x[:traj_set_list[i][0].actual_traj_length],
                     traj_set_list[i][0].cartesian.y[:traj_set_list[i][0].actual_traj_length],
-                    color=darkcolors[agent_list[i].obstacle_id % len(darkcolors)],
+                    color=darkcolor,
                     marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
 
         # visualize sampled trajectory bundle
@@ -148,13 +164,13 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
             for j in range(0, len(traj_set_list[i]), step):
                 plt.plot(traj_set_list[i][j].cartesian.x[:traj_set_list[i][j].actual_traj_length],
                          traj_set_list[i][j].cartesian.y[:traj_set_list[i][j].actual_traj_length],
-                         color=lightcolors[agent_list[i].obstacle_id % len(lightcolors)], zorder=20,
-                         linewidth=0.2, alpha=1.0)
+                         color=lightcolor,
+                         zorder=20, linewidth=0.2, alpha=1.0)
 
         # visualize reference path
         if ref_path_list is not None:
             rnd.ax.plot(ref_path_list[i][:, 0], ref_path_list[i][:, 1],
-                        color=colors[agent_list[i].obstacle_id % len(colors)],
+                        color=color,
                         marker='.', markersize=1, zorder=19, linewidth=0.8, label='reference path')
 
     # visualize predictions
