@@ -214,8 +214,10 @@ class Agent:
         self.ego_obstacle_list.append(trajectory_to_obstacle(state_list, self.config.vehicle, self.id))
 
         # plot own view on scenario
-        if self.id in self.config.multiagent.show_individual_plots or \
-                self.id in self.config.multiagent.save_individual_plots:
+        if self.id in self.config.multiagent.show_specific_individual_plots or \
+                self.config.multiagent.show_all_individual_plots or \
+                self.id in self.config.multiagent.save_specific_individual_plots or \
+                self.config.multiagent.save_all_individual_plots:
             visualize_multiagent_at_timestep(scenario=self.scenario,
                                              planning_problem_set=PlanningProblemSet([self.planning_problem]),
                                              agent_list=[self.ego_obstacle_list[-1]],
@@ -231,7 +233,8 @@ class Agent:
 
     def finalize(self):
         # make gif
-        if self.id in self.config.multiagent.save_individual_gifs:
+        if self.id in self.config.multiagent.save_specific_individual_gifs or \
+                self.config.multiagent.save_all_individual_gifs:
             make_gif(self.scenario,
                      range(self.planning_problem.initial_state.time_step,
                            self.current_timestep),

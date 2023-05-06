@@ -165,18 +165,24 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
             draw_uncertain_predictions_wale(predictions, rnd.ax)
 
     # save as .png file
-    if (len(agent_list) == 1 and agent_list[0].obstacle_id in config.multiagent.save_individual_plots) \
+    if (len(agent_list) == 1 and
+            (agent_list[0].obstacle_id in config.multiagent.save_specific_individual_plots or
+            config.multiagent.save_all_individual_plots)) \
             or config.debug.save_plots:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
-        if (len(agent_list) == 1 and agent_list[0].obstacle_id in config.multiagent.save_individual_gifs) \
+        if (len(agent_list) == 1 and
+                (agent_list[0].obstacle_id in config.multiagent.save_specific_individual_gifs or
+                config.multiagent.save_all_individual_gifs)) \
                 or config.debug.gif:
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep:03d}.png", format='png', dpi=300)
         else:
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep:03d}.svg", format='svg')
 
     # show plot
-    if agent_list[0].obstacle_id in config.multiagent.show_individual_plots or config.debug.show_plots:
+    if agent_list[0].obstacle_id in config.multiagent.show_specific_individual_plots \
+            or config.multiagent.show_all_individual_plots \
+            or config.debug.show_plots:
         matplotlib.use("TkAgg")
         plt.pause(0.0001)
 

@@ -46,10 +46,6 @@ class AgentBatch (Process):
         self.config = config
 
         # Initialize queues
-        if config.multiagent.multiprocessing and \
-            (in_queue is None or out_queue is None):
-            print(f"[Batch {agent_id_list}] Communication queues may not be None for parallel execution! Exiting")
-            return
         self.in_queue = in_queue
         self.out_queue = out_queue
 

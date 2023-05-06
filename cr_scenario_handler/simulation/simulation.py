@@ -123,6 +123,10 @@ class Simulation:
         :return: A List of obstacle IDs that should be used as agents
         """
 
+        # Don't create additional agents if we run single agent
+        if not self.config.multiagent.use_multiagent:
+            return []
+
         # Find all dynamic obstacles in the scenario
         all_obs_ids = mh.get_all_obstacle_ids(self.scenario)
 
@@ -136,7 +140,10 @@ class Simulation:
         else:
             agent_id_list = all_obs_ids
 
-        if self.config.multiagent.number_of_agents < len(agent_id_list):
+        if self.config.multiagent.number_of_agents < 0:
+            # Use all obstacles as agents
+            return agent_id_list
+        elif self.config.multiagent.number_of_agents < len(agent_id_list):
             if self.config.multiagent.select_agents_randomly:
                 # Choose agents randomly
                 agent_id_list = random.sample(agent_id_list, self.config.multiagent.number_of_agents)
