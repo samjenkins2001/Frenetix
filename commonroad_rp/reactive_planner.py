@@ -366,7 +366,7 @@ class ReactivePlanner(object):
             assert reference_path is None, '<set reference path>: Please provide a reference path OR a ' \
                                            'CoordinateSystem object to the planner.'
             self._co: CoordinateSystem = coordinate_system
-        self.set_new_ref_path = True
+            self.set_new_ref_path = True
 
     def set_goal_area(self, goal_area):
         """

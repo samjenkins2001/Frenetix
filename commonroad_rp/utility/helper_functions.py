@@ -62,7 +62,7 @@ def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_ve
         if remaining_time > 0.0:
             desired_velocity_new = avg_dist / remaining_time
         else:
-            desired_velocity_new = 1
+            desired_velocity_new = planning_problem.goal.state_list[0].velocity.end
 
     except:
         print("Could not calculate desired velocity")
