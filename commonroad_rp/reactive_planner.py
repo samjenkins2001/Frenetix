@@ -189,10 +189,10 @@ class ReactivePlanner(object):
         self._sampling_max = config.sampling.sampling_max
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
         self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
-        fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
-        self._sampling_d = fs_sampling.d_samples
-        self._sampling_t = fs_sampling.t_samples
-        self._sampling_v = fs_sampling.v_samples
+        # fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
+        # self._sampling_d = fs_sampling.d_samples
+        # self._sampling_t = fs_sampling.t_samples
+        # self._sampling_v = fs_sampling.v_samples
 
         # *****************************
         # Debug & Logger Initialization
@@ -799,7 +799,7 @@ class ReactivePlanner(object):
         # **************************
         self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                         infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-                        cluster=cluster_)
+                        cluster=cluster_, ego_vehicle=self.current_ego_vehicle)
         self.logger.log_pred(self.predictions)
         if self.save_all_traj:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
@@ -1108,6 +1108,7 @@ class ReactivePlanner(object):
                     trajectory.cartesian = CartesianSample(x, y, theta_gl, v, a, kappa_gl,
                                                            kappa_dot=np.append([0], np.diff(kappa_gl)),
                                                            current_time_step=traj_len)
+
                     # store Curvilinear trajectory
                     trajectory.curvilinear = CurviLinearSample(s, d, theta_cl,
                                                                ss=s_velocity, sss=s_acceleration,
@@ -1223,6 +1224,13 @@ class ReactivePlanner(object):
             trajectory_bundle.trajectories = feasible_trajectories
             # sort trajectories according to their costs
             trajectory_bundle.sort()
+
+        # calc occlusion costs for trajectories and sort them again
+        if self.use_occ_model:
+            # sort trajectory bundle according to their costs
+            trajectory_bundle_sorted_list = trajectory_bundle.get_sorted_list()
+            trajectory_bundle_sorted_list = self.occlusion_module.calc_costs(trajectories=trajectory_bundle_sorted_list,
+                                                                             predictions=predictions)
 
         # go through sorted list of trajectories and check for collisions
         for trajectory in trajectory_bundle.get_sorted_list():

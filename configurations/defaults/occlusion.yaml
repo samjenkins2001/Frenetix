@@ -2,20 +2,18 @@ use_occlusion_module: False
 scope: 30 # "sensor_radius" uses sensor radius from prediction or custom number
 
 # visibility estimation
-visibility_estimation: True
+use_visibility_estimator: True
 
-# trajectory evaluation
-trajectory_eval: True
+# uncertainty map evaluation
+use_uncertainty_map_evaluator: True
 
 # phantom pedestrians
-use_phantom_ped: True
-collision_check_mode: 'pycrcc' # shapely or pycrcc
-create_commonroad_obstacle: True # automatically enabled when using pycrcc
-visualize_collision: True # visualize collision
+use_phantom_module: True
+visualize_collision: False # visualize collision
 
 # show/save occlusion debug plots
-show_occlusion_plot: True
-interactive_plot: True # works on Mac only when debug mode is used
+show_occlusion_plot: False
+interactive_plot: False
 plot_backend: "TkAgg" # Qt5Agg or TkAgg
 save_plot: True
 use_fast_plot: False # only calculated areas are shown, not the discretized dots
