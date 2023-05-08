@@ -172,7 +172,7 @@ def run_planner(config, log_path, mod_path):
         # Cycle Occlusion Module
         # **************************
         if config.occlusion.use_occlusion_module and (current_count == 0 or current_count % 1 == 0):
-            occlusion_map = occlusion_module.step()
+            occlusion_module.step(predictions=predictions)
 
         # **************************
         # Set Planner Subscriptions

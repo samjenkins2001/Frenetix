@@ -30,7 +30,7 @@ class OccPlot:
 
     def step_plot(self, time_step=0, ego_state=None, ref_path=None, lanelet_polygon=None, visible_area_vm=None,
                   obstacles=None, visible_area=None, occluded_area=None, additional_plot=None,
-                  sidewalk_polygon=None, lanelet_polygon_along_path=None):
+                  sidewalk_polygon=None, lanelet_polygon_along_path=None, obstacle_id=False):
 
         self.time_step = time_step
 
@@ -107,9 +107,11 @@ class OccPlot:
 
                 # define color
                 if obst.visible_at_timestep:
-                    color = 'c'
+                    color = 'green'
+                    alpha = 1
                 else:
                     color = "orange"
+                    alpha = 0.5
 
                 # create and plot patch
                 try:
@@ -136,16 +138,17 @@ class OccPlot:
                                                          vehicle_color=color,
                                                          edgecolor='black',
                                                          zorder=10)
-                    self._add_patch(obst_patch)
+                    self._add_patch(obst_patch, alpha)
 
                 # plot polygon
                 except:
-                    hf.fill_polygons(self.ax, obst.polygon, color, zorder=1)
+                    hf.fill_polygons(self.ax, obst.polygon, color, zorder=1, opacity=alpha)
 
-                # plot obstacle id
-                x = obst.pos_point.x
-                y = obst.pos_point.y
-                self.ax.annotate(obst.obstacle_id, xy=(x, y), xytext=(x, y), zorder=100, color='white')
+                if obstacle_id:
+                    # plot obstacle id
+                    x = obst.pos_point.x
+                    y = obst.pos_point.y
+                    self.ax.annotate(obst.obstacle_id, xy=(x, y), xytext=(x, y), zorder=100, color='white')
 
         ##################
         # Save Plot
@@ -253,8 +256,9 @@ class OccPlot:
         if self.save_plot:
             self._save_plot()
 
-    def _add_patch(self, patch):
+    def _add_patch(self, patch, alpha=1):
         for p in patch:
+            p.set_alpha(alpha)
             self.ax.add_patch(p)
 
     def plot_uncertainty_map(self, occlusion_map):

@@ -415,6 +415,14 @@ class TrajectorySample(Sample):
         """
         return self._cost
 
+    @property
+    def cost_list(self) -> list:
+        """
+        Evaluated cost of the trajectory sample
+        :return: The cost list of the trajectory sample
+        """
+        return self._cost_list
+
     # @cost.setter
     # def cost(self, cost_function):
     #     """
@@ -527,7 +535,7 @@ class TrajectoryBundle:
         self._cost_function.calc_cost(trajectories, list_predictions, list_responsibilities, cluster_name)
         queue_1.put(trajectories)
 
-    def sort(self):
+    def sort(self, occlusion_module=None):
         """
         Sorts the trajectories within the TrajectoryBundle according to their costs from lowest to highest.
         """
@@ -592,6 +600,9 @@ class TrajectoryBundle:
                     else:
                         self._cost_function.evaluate(self._trajectory_bundle)
 
+                if occlusion_module is not None:
+                    occlusion_module.calc_costs(self._trajectory_bundle)
+
             self._trajectory_bundle.sort(key=lambda x: x.cost)
             self._is_sorted = True
 
@@ -618,14 +629,14 @@ class TrajectoryBundle:
         """
         return self._trajectory_bundle[-1] if self._is_sorted else None
 
-    def get_sorted_list(self) -> list:
+    def get_sorted_list(self, occlusion_module=None) -> list:
         """
         Returns an ordered list of the trajectories. The trajectories are ordered according
         to their costs from lowest to highest.
         :return: List of trajectories sorted from lowest to highest cost
         """
         if not self._is_sorted:
-            self.sort()
+            self.sort(occlusion_module=occlusion_module)
         return self._trajectory_bundle
 
     @property

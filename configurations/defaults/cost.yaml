@@ -16,6 +16,10 @@ params:
     P: 500
     R: 0
 
+    Occ_PM: 1 # Occlusion Phantom Module (phantom pedestrian harm)
+    Occ_UM: 1 # Occlusion Uncertainty Module (distance to uncertainty map)
+    Occ_VE: 1 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
+
   cluster1:
     A: 0.0
     J: 0.00

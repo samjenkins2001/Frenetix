@@ -1216,25 +1216,18 @@ class ReactivePlanner(object):
             for traj in infeasible_trajectories:
                 setattr(traj, 'valid', False)
             trajectory_bundle.trajectories = feasible_trajectories + infeasible_trajectories
-            trajectory_bundle.sort()
+            trajectory_bundle.sort(occlusion_module=self.occlusion_module)
             self.all_traj = trajectory_bundle.trajectories
             trajectory_bundle.trajectories = list(filter(lambda x: x.valid is True, trajectory_bundle.trajectories))
         else:
             # set feasible trajectories in bundle
             trajectory_bundle.trajectories = feasible_trajectories
             # sort trajectories according to their costs
-            trajectory_bundle.sort()
+            trajectory_bundle.sort(occlusion_module=self.occlusion_module)
 
-        # calc occlusion costs for trajectories and sort them again
-        if self.use_occ_model:
-            # sort trajectory bundle according to their costs
-            trajectory_bundle_sorted_list = trajectory_bundle.get_sorted_list()
-            trajectory_bundle_sorted_list = self.occlusion_module.calc_costs(trajectories=trajectory_bundle_sorted_list,
-                                                                             predictions=predictions)
-
-        # go through sorted list of trajectories and check for collisions
-        for trajectory in trajectory_bundle.get_sorted_list():
-            # Add Occupancy of Trejectory to do Collision Checks later
+        # go through sorted list of sorted trajectories and check for collisions
+        for trajectory in trajectory_bundle.get_sorted_list(occlusion_module=self.occlusion_module):
+            # Add Occupancy of Trajectory to do Collision Checks later
             cart_traj = self._compute_cart_traj(trajectory)
             trajectory.occupancy = self.convert_state_list_to_commonroad_object(cart_traj.state_list)
             # get collision_object
