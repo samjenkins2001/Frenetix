@@ -29,10 +29,10 @@ def get_cost_headers_and_remaining(df):
 def get_images(logs_path):       # loads images of each timestep (color is changed here! - why?)
     images_list = os.path.join(logs_path, "plots", "*.png")
     images_list = glob.glob(images_list)
-    images_list.sort(key=lambda var: [int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
     final_plot = [s for s in images_list if "final" in s]
     if final_plot:
         images_list.remove(final_plot[0])
+    images_list.sort(key=lambda var: [int(x) if x.isdigit() else x for x in re.findall(r'[^0-9]|[0-9]+', var)])
 
     img = []
     for i in range(0, len(images_list)):
@@ -51,8 +51,12 @@ def setup_trajs(csv_name):
     # make cost headers to attribute -> csv becomes way longer
     df = pd.melt(df, id_vars=remaining_headers, value_vars=cost_headers, value_name='value')
 
-    df['x_positions_m'] = df['x_positions_m'].apply(lambda x: float(x.split(",")[-1]))  # momentarily fix to show points instead of lines
-    df['y_positions_m'] = df['y_positions_m'].apply(lambda x: float(x.split(",")[-1]))
+    df['x_positions_m'] = df['x_positions_m'].apply(lambda x: x.split(","))
+    df['x_positions_m'] = df.apply(lambda row: row.x_positions_m[row.actual_traj_length-1], axis=1)  # shorten to plottet trajectories
+
+    df['y_positions_m'] = df['y_positions_m'].apply(lambda x: x.split(","))
+    df['y_positions_m'] = df.apply(lambda row: row.y_positions_m[row.actual_traj_length-1], axis=1)  # shorten to plottet trajectories
+
     df['velocities_mps'] = df['velocities_mps'].apply(lambda x: float(x.split(",")[0]))  # only use initial velocity for each timestep
     df['accelerations_mps2'] = df['accelerations_mps2'].apply(lambda x: float(x.split(",")[0]))  # only use initial velocity for each timestep
 
@@ -68,8 +72,8 @@ def setup_trajs(csv_name):
 
 def setup_logs(csv_name):
     logs = pd.read_csv(csv_name, delimiter=";")
-    logs['x_positions_m'] = logs['x_positions_m'].apply(lambda x: x.split(",")[-1])  # momentarily fix to show points instead of lines
-    logs['y_positions_m'] = logs['y_positions_m'].apply(lambda x: x.split(",")[-1])
+    logs['x_positions_m'] = logs['x_positions_m'].apply(lambda x: x.split(",")[0])
+    logs['y_positions_m'] = logs['y_positions_m'].apply(lambda x: x.split(",")[0])
     logs['velocities_mps'] = logs['velocities_mps'].apply(lambda x: x.split(",")[0])
     logs['accelerations_mps2'] = logs['accelerations_mps2'].apply(lambda x: x.split(",")[0])
     logs['theta_orientations_rad'] = logs['theta_orientations_rad'].apply(lambda x: x.split(",")[0])

@@ -94,6 +94,7 @@ class ReactivePlanner(object):
         self.goal_area = None
         self.occlusion_module = None
         self.goal_message = "Planner is in time step 0!"
+        self.use_amazing_visualizer = config.debug.use_amazing_visualizer
 
         self._desired_speed = None
         self._desired_d = 0.
@@ -139,7 +140,8 @@ class ReactivePlanner(object):
         self.save_all_traj = config.debug.save_all_traj
         self.all_traj = None
         self.use_occ_model = config.occlusion.use_occlusion_module
-        self.logger = DataLoggingCosts(path_logs=log_path, save_all_traj=self.save_all_traj)
+        self.logger = DataLoggingCosts(path_logs=log_path,
+                                       save_all_traj=self.save_all_traj or self.use_amazing_visualizer)
         self._draw_traj_set = config.debug.draw_traj_set
         self._kinematic_debug = config.debug.kinematic_debug
 
@@ -733,7 +735,7 @@ class ReactivePlanner(object):
                         infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
                         cluster=cluster_, ego_vehicle=self.current_ego_vehicle)
         self.logger.log_pred(self.predictions)
-        if self.save_all_traj:
+        if self.save_all_traj or self.use_amazing_visualizer:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
 
         # **************************
@@ -1142,7 +1144,7 @@ class ReactivePlanner(object):
         self._infeasible_count_kinematics[0] = len(trajectory_bundle.trajectories) - len(feasible_trajectories)
 
         # for visualization store all trajectories with validity level based on kinematic validity
-        if self._draw_traj_set or self.save_all_traj:
+        if self._draw_traj_set or self.save_all_traj or self.use_amazing_visualizer:
             for traj in feasible_trajectories:
                 setattr(traj, 'valid', True)
             for traj in infeasible_trajectories:
