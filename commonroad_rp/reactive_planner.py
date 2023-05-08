@@ -127,7 +127,7 @@ class ReactivePlanner(object):
         # Set horizon variables
         self.horizon = config.planning.planning_horizon
         self.dT = config.planning.dt
-        self.N = config.planning.time_steps_computation
+        self.N = int(config.planning.planning_horizon / config.planning.dt)
         self._check_valid_settings()
         self.vehicle_params = config.vehicle
         self._low_vel_mode_threshold = config.planning.low_vel_mode_threshold
@@ -188,7 +188,7 @@ class ReactivePlanner(object):
         self._sampling_min = config.sampling.sampling_min
         self._sampling_max = config.sampling.sampling_max
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
+        self.set_t_sampling_parameters(config.planning.planning_horizon, config.planning.dt, config.planning.planning_horizon)
         # fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
         # self._sampling_d = fs_sampling.d_samples
         # self._sampling_t = fs_sampling.t_samples
@@ -1065,7 +1065,7 @@ class ReactivePlanner(object):
                                                                    math.cos(steering_angle) ** 2)
                 kappa_dot = (kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.
                 if abs(kappa_dot) > kappa_dot_max:
-                    # feasible = False
+                    feasible = False
                     infeasible_count_kinematics_traj[7] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break

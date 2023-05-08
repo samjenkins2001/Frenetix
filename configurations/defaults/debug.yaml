@@ -4,7 +4,7 @@ save_unweighted_costs: False
 log_risk: True
 show_plots: False
 save_plots: True
-evaluation: False
+evaluation: True
 collision_report: True
 gif: False
 # plot vehicle position with x_y distance in meters. 0=Standard Plot

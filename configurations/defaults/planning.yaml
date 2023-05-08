@@ -1,11 +1,7 @@
 # planner time step (in s)
 dt: 0.1
-# time steps computation
-time_steps_computation: 20
 # planning time horizon (in s)
-planning_horizon: 2.0
-# replanning frequency (in time steps)
-replanning_frequency: 1
+planning_horizon: 3.0
 # velocity threshold (in m/s) for switching to low velocity mode
 low_vel_mode_threshold: 2
 # determines if the cost function determines the weights by cluster (True) or always the first (False)

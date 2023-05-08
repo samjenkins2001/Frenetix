@@ -20,7 +20,7 @@ class GoalReachedChecker:
             normalized_state = self._normalize_states(current_state, goal_state)
             self._check_position(normalized_state, goal_state, state_status)
             self._check_orientation(normalized_state, goal_state, state_status)
-            # self._check_velocity(normalized_state, goal_state, state_status)
+            self._check_velocity(normalized_state, goal_state, state_status)
             self._check_time_step(normalized_state, goal_state, state_status)
             self.status.append(state_status)
 
