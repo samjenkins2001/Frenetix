@@ -555,16 +555,7 @@ class ReactivePlanner(object):
         try:
             s, d = self._co.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
         except ValueError:
-            print('<Reactive_planner>: Value Error for curvilinear transformation')
-            # TODO: Remove this fix from the reactive planner -> fix in CCosy
-            tmp = np.array([x_0.position])
-            print(x_0.position)
-            if self._co.reference[0][0] > x_0.position[0]:
-                reference_path = np.concatenate((tmp, self._co.reference), axis=0)
-            else:
-                reference_path = np.concatenate((self._co.reference, tmp), axis=0)
-            self.set_reference_path(reference_path)
-            s, d = self._co.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
+            raise ValueError("Initial state could not be transformed.")
 
         # factor for interpolation
         s_idx = np.argmax(self._co.ref_pos > s) - 1
@@ -674,7 +665,11 @@ class ReactivePlanner(object):
         cartTraj = Trajectory(self.x_0.time_step, cart_list)
         cvlnTraj = Trajectory(self.x_0.time_step, cl_list)
 
-        return cartTraj, cvlnTraj, lon_list, lat_list
+        # correct orientations of cartesian output trajectory
+        cartTraj_corrected = self.shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
+                                                    interval_end=self.x_0.orientation + np.pi)
+
+        return cartTraj_corrected, cvlnTraj, lon_list, lat_list
 
     def _compute_cart_traj(self, trajectory: TrajectorySample) -> Trajectory:
         """
