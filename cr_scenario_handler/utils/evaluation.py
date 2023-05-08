@@ -22,7 +22,7 @@ from commonroad_dc.feasibility.feasibility_checker import VehicleDynamics, \
     state_transition_feasibility, position_orientation_objective, position_orientation_feasibility_criteria, _angle_diff
 
 from commonroad_rp.configuration import Configuration
-from commonroad_rp.reactive_planner import ReactivePlannerState
+from commonroad_rp.state import ReactivePlannerState
 
 
 def create_full_solution_trajectory(config: Configuration, state_list: List[ReactivePlannerState]) -> Trajectory:
