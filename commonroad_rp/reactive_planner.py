@@ -364,8 +364,8 @@ class ReactivePlanner(object):
         """
         self._desired_speed = desired_velocity
 
-        min_v = max(0.01, current_speed - self.vehicle_params.a_max * self.horizon)
-        max_v = min(min(current_speed + (self.vehicle_params.a_max / 3.0) * self.horizon, v_limit),
+        min_v = max(0.01, current_speed - 0.75 * self.vehicle_params.a_max * self.horizon)
+        max_v = min(min(current_speed + (self.vehicle_params.a_max / 7.0) * self.horizon, v_limit),
                     self.vehicle_params.v_max)
 
         self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_max)

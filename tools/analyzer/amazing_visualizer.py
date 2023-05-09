@@ -141,7 +141,7 @@ def update_graph(xaxis_column_name, yaxis_column_name,
         color="value", color_continuous_scale='rdylgn_r'
         )
 
-    logg = log[log['trajectory_number']==time_step_value]
+    logg = log[log['trajectory_number'] == time_step_value]
     x, y = logg["x_position_vehicle_m"][time_step_value], logg["y_position_vehicle_m"][time_step_value]
     background = Image.fromarray(img[time_step_value])
 
