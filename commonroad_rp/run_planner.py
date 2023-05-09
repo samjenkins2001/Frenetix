@@ -70,7 +70,6 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Run Variables
     # **************************
-    record_input_list = list()
     shape = Rectangle(planner.vehicle_params.length, planner.vehicle_params.width)
     ego_vehicle = [DynamicObstacle(42, ObstacleType.CAR, shape, x_0, None)]
     x_cl = None
@@ -89,12 +88,6 @@ def run_planner(config, log_path, mod_path):
     # **************************
     x_0 = ReactivePlannerState.create_from_initial_state(x_0, config.vehicle.wheelbase, config.vehicle.wb_rear_axle)
     planner.record_state_and_input(x_0)
-
-    # add initial inputs to recorded input list
-    record_input_list.append(InputState(
-        acceleration=x_0.acceleration,
-        time_step=x_0.time_step,
-        steering_angle_speed=0.))
 
     # *************************************
     # Load Behavior Planner
@@ -127,17 +120,12 @@ def run_planner(config, log_path, mod_path):
     if config.occlusion.use_occlusion_module:
         occlusion_module = OcclusionModule(scenario, config, reference_path, log_path, planner)
 
-    # ***************************
-    # Set External Planner Setups
-    # ***************************
-    planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
-                             reference_path=reference_path)
-
     # **************************
-    # Set Cost Function
+    # Set External Planner Setups
     # **************************
     cost_function = AdaptableCostFunction(rp=planner, configuration=config)
-    planner.update_externals(cost_function=cost_function)
+    planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
+                             reference_path=reference_path, cost_function=cost_function)
 
     # **************************
     # Run Planner Cycle
@@ -145,7 +133,7 @@ def run_planner(config, log_path, mod_path):
     max_time_steps_scenario = int(config.general.max_steps*planning_problem.goal.state_list[0].time_step.end)
     while not planner.goal_status and current_count < max_time_steps_scenario:
 
-        current_count = x_0.time_step
+        current_count = len(planner.record_state_list) - 1
 
         # **************************
         # Cycle Prediction
@@ -178,7 +166,7 @@ def run_planner(config, log_path, mod_path):
         # Set Planner Subscriptions
         # **************************
         planner.update_externals(x_0=x_0, x_cl=x_cl, current_ego_vehicle=ego_vehicle[-1], reference_path=reference_path,
-                            desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
+                                 desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
 
         # **************************
         # Execute Planner
@@ -253,9 +241,6 @@ def run_planner(config, log_path, mod_path):
     if config.debug.gif:
         make_gif(config, scenario, range(0, current_count), log_path, duration=0.25)
 
-    # remove first element
-    record_input_list.pop(0)
-
     # **************************
     # Evaluate results
     # **************************
@@ -281,9 +266,6 @@ def run_planner(config, log_path, mod_path):
             # check acceleration correctness
             check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
 
-            # remove first element from input list
-            record_input_list.pop(0)
-
             # evaluate
             plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
             # CR validity check
@@ -292,7 +274,7 @@ def run_planner(config, log_path, mod_path):
         except:
             print("Could not reconstruct states")
 
-        plot_inputs(config, record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
+        plot_inputs(config, planner.record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
 
         # Write Solution to XML File for later evaluation
         solutionwrtiter = CommonRoadSolutionWriter(solution)
