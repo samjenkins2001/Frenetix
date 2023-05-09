@@ -123,9 +123,10 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Set External Planner Setups
     # **************************
-    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
     planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
-                             reference_path=reference_path, cost_function=cost_function)
+                             reference_path=reference_path)
+    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
+    planner.update_externals( cost_function=cost_function)
 
     # **************************
     # Run Planner Cycle
@@ -277,6 +278,6 @@ def run_planner(config, log_path, mod_path):
         plot_inputs(config, planner.record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
 
         # Write Solution to XML File for later evaluation
-        solutionwrtiter = CommonRoadSolutionWriter(solution)
-        solutionwrtiter.write_to_file(log_path, "solution.xml", True)
+        solutionwriter = CommonRoadSolutionWriter(solution)
+        solutionwriter.write_to_file(log_path, "solution.xml", True)
 
