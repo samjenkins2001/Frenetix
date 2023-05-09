@@ -145,7 +145,6 @@ def update_graph(xaxis_column_name, yaxis_column_name,
     x, y = logg["x_position_vehicle_m"][time_step_value], logg["y_position_vehicle_m"][time_step_value]
     background = Image.fromarray(img[time_step_value])
 
-
     fig.update_traces(customdata=dff[dff['feasible'] == yaxis_column_name]['trajectory_number'])
 
     fig.update_xaxes(title="x_position", type='linear')

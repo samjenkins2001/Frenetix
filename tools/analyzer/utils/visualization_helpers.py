@@ -72,8 +72,8 @@ def setup_trajs(csv_name):
 
 def setup_logs(csv_name):
     logs = pd.read_csv(csv_name, delimiter=";")
-    logs['x_positions_m'] = logs['x_positions_m'].apply(lambda x: x.split(",")[0])
-    logs['y_positions_m'] = logs['y_positions_m'].apply(lambda x: x.split(",")[0])
+    # logs['x_position_vehicle_m'] = logs['x_position_vehicle_m']  #.apply(lambda x: x.split(",")[0])
+    # logs['y_position_vehicle_m'] = logs['y_position_vehicle_m']  # .apply(lambda x: x.split(",")[0])
     logs['velocities_mps'] = logs['velocities_mps'].apply(lambda x: x.split(",")[0])
     logs['accelerations_mps2'] = logs['accelerations_mps2'].apply(lambda x: x.split(",")[0])
     logs['theta_orientations_rad'] = logs['theta_orientations_rad'].apply(lambda x: x.split(",")[0])
