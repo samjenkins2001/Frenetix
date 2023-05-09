@@ -19,13 +19,13 @@ from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.trajectory import Trajectory
-from commonroad.scenario.state import KSState, FloatExactOrInterval, CustomState, InitialState
+from commonroad.scenario.state import CustomState
 from commonroad.scenario.scenario import Scenario
 
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
-from commonroad_dc.collision.collision_detection.scenario import create_collision_checker_scenario
+from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, trajectories_collision_static_obstacles
 
 # commonroad_rp imports
@@ -126,7 +126,7 @@ class ReactivePlanner(object):
         self._sampling_min = config.sampling.sampling_min
         self._sampling_max = config.sampling.sampling_max
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
+        self.set_t_sampling_parameters(config.planning.planning_horizon, config.planning.dt, config.planning.planning_horizon)
         # fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
         # self._sampling_d = fs_sampling.d_samples
         # self._sampling_t = fs_sampling.t_samples
@@ -275,14 +275,20 @@ class ReactivePlanner(object):
         """
         # self.scenario = scenario
         if collision_checker is None:
-            assert scenario is not None, '<set collision checker>: Please provide a CommonRoad scenario OR a ' \
+            assert scenario is not None, '<ReactivePlanner.set collision checker>: Please provide a CommonRoad scenario OR a ' \
                                          'CollisionChecker object to the planner.'
-            cc_scenario = create_collision_checker_scenario(scenario)
+            cc_scenario = pycrcc.CollisionChecker()
+            for co in scenario.static_obstacles:
+                obs = create_collision_object(co)
+                cc_scenario.add_collision_object(obs)
+            for co in scenario.dynamic_obstacles:
+                tvo = create_collision_object(co)
+                cc_scenario.add_collision_object(tvo)
             _, road_boundary_sg_obb = create_road_boundary_obstacle(scenario)
             cc_scenario.add_collision_object(road_boundary_sg_obb)
             self._cc: pycrcc.CollisionChecker = cc_scenario
         else:
-            assert scenario is None, '<set collision checker>: Please provide a CommonRoad scenario OR a ' \
+            assert scenario is None, '<ReactivePlanner.set collision checker>: Please provide a CommonRoad scenario OR a ' \
                                      'CollisionChecker object to the planner.'
             self._cc: pycrcc.CollisionChecker = collision_checker
 
@@ -1251,7 +1257,7 @@ class ReactivePlanner(object):
 
     def check_collision(self, ego_vehicle):
 
-        ego = pycrcc.TimeVariantCollisionObject((self.x_0.time_step - 1))
+        ego = pycrcc.TimeVariantCollisionObject((self.x_0.time_step))
         ego.append_obstacle(pycrcc.RectOBB(0.5 * self.vehicle_params.length, 0.5 * self.vehicle_params.width,
                                            ego_vehicle.initial_state.orientation,
                                            ego_vehicle.initial_state.position[0], ego_vehicle.initial_state.position[1]))
