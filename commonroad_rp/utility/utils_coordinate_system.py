@@ -79,7 +79,7 @@ class CoordinateSystem:
             _, idx = np.unique(reference, axis=0, return_index=True)
             reference = reference[np.sort(idx)]
 
-            smoothing_factor = 1
+            smoothing_factor = 10
             tt = np.linspace(0, 1, len(reference[:, 0]))
             bs_x = UnivariateSpline(x=tt, y=reference[:, 0], s=smoothing_factor)
             bs_y = UnivariateSpline(x=tt, y=reference[:, 1], s=smoothing_factor)
