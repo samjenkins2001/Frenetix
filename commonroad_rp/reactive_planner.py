@@ -19,7 +19,7 @@ from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.trajectory import Trajectory
-from commonroad.scenario.state import CustomState
+from commonroad.scenario.state import CustomState, InputState
 from commonroad.scenario.scenario import Scenario
 
 # commonroad_dc
@@ -76,6 +76,9 @@ class ReactivePlanner(object):
         # Initial State
         self.x_0: Optional[ReactivePlannerState] = None
         self.x_cl: Optional[Tuple[List, List]] = None
+
+        self.record_state_list: List[ReactivePlannerState] = list()
+        self.record_input_list: List[InputState] = list()
 
         self.current_ego_vehicle = None
         self._LOW_VEL_MODE = False
@@ -263,6 +266,25 @@ class ReactivePlanner(object):
 
     def set_behavior(self, behavior):
         self.behavior = behavior
+
+    def record_state_and_input(self, state: ReactivePlannerState):
+        """
+        Adds state to list of recorded states
+        Adds control inputs to list of recorded inputs
+        """
+        # append state to state list
+        self.record_state_list.append(state)
+
+        # compute control inputs and append to input list
+        if len(self.record_state_list) > 1:
+            steering_angle_speed = (state.steering_angle - self.record_state_list[-2].steering_angle) / self.dT
+        else:
+            steering_angle_speed = 0.0
+
+        input_state = InputState(time_step=state.time_step,
+                                 acceleration=state.acceleration,
+                                 steering_angle_speed=steering_angle_speed)
+        self.record_input_list.append(input_state)
 
     def set_collision_checker(self, scenario: Scenario = None, collision_checker: pycrcc.CollisionChecker = None):
         """

@@ -70,7 +70,6 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Run Variables
     # **************************
-    record_state_list = list()
     record_input_list = list()
     shape = Rectangle(planner.vehicle_params.length, planner.vehicle_params.width)
     ego_vehicle = [DynamicObstacle(42, ObstacleType.CAR, shape, x_0, None)]
@@ -89,7 +88,7 @@ def run_planner(config, log_path, mod_path):
     # Convert Initial State
     # **************************
     x_0 = ReactivePlannerState.create_from_initial_state(x_0, config.vehicle.wheelbase, config.vehicle.wb_rear_axle)
-    record_state_list.append(x_0)
+    planner.record_state_and_input(x_0)
 
     # add initial inputs to recorded input list
     record_input_list.append(InputState(
@@ -197,25 +196,11 @@ def run_planner(config, log_path, mod_path):
         planning_times.append(comp_time_end - comp_time_start)
         print(f"***Total Planning Time: {planning_times[-1]}")
 
-        # correct orientation angle
-        new_state_list = planner.shift_orientation(optimal[0], interval_start=x_0.orientation-np.pi,
-                                                   interval_end=x_0.orientation+np.pi)
-
-        # get next state from state list of planned trajectory
-        new_state = new_state_list.state_list[1]
-        new_state.time_step = current_count + 1
-
-        # add input to recorded input list
-        record_input_list.append(InputState(
-            acceleration=new_state.acceleration,
-            steering_angle_speed=(new_state.steering_angle - record_state_list[-1].steering_angle) / DT,
-            time_step=new_state.time_step
-        ))
-        # add new state to recorded state list
-        record_state_list.append(new_state)
+        # record state and input
+        planner.record_state_and_input(optimal[0].state_list[1])
 
         # update init state and curvilinear state
-        x_0 = deepcopy(record_state_list[-1])
+        x_0 = deepcopy(planner.record_state_list[-1])
         x_cl = (optimal[2][1], optimal[3][1])
 
         # create CommonRoad Obstacle for the ego Vehicle
@@ -262,7 +247,7 @@ def run_planner(config, log_path, mod_path):
         print("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory
-    plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
+    plot_final_trajectory(scenario, planning_problem, planner.record_state_list, config, log_path)
 
     # make gif
     if config.debug.gif:
@@ -279,7 +264,7 @@ def run_planner(config, log_path, mod_path):
         from commonroad_dc.feasibility.solution_checker import valid_solution
 
         # create full solution trajectory
-        ego_solution_trajectory = create_full_solution_trajectory(config, record_state_list)
+        ego_solution_trajectory = create_full_solution_trajectory(config, planner.record_state_list)
 
         # plot full ego vehicle trajectory
         plot_final_trajectory(scenario, planning_problem, ego_solution_trajectory.state_list, config, log_path)
