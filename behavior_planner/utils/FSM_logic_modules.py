@@ -406,7 +406,7 @@ class LogicLaneChangeLeft:
             self.FSM_state.initiated_lane_change = None
             self.FSM_state.do_lane_change = False
 
-        if self.cur_state == 'InitiateLaneChange' and self.FSM_state.situation_time_step_counter > 4:
+        if self.cur_state == 'InitiateLaneChange' and self.FSM_state.situation_time_step_counter > 16:
             self.FSM_state.lane_change_left_abort = True
             print("FSM Dynamic Situation State: Aborting Lane Change")
 
@@ -497,7 +497,7 @@ class LogicLaneChangeRight:
             self.FSM_state.initiated_lane_change = None
             self.FSM_state.do_lane_change = False
 
-        if self.cur_state == 'InitiateLaneChange' and self.FSM_state.situation_time_step_counter > 4:
+        if self.cur_state == 'InitiateLaneChange' and self.FSM_state.situation_time_step_counter > 16:
             self.FSM_state.lane_change_left_abort = True
             print("FSM Dynamic Situation State: Aborting Lane Change")
 

@@ -75,8 +75,8 @@ class PathPlanner(object):
         self.reference_path_planner.create_lane_change(ego_state=self.BM_state.ego_state,
                                                        current_lanelet_id=self.BM_state.current_lanelet_id,
                                                        goal_lanelet_id=self.BM_state.current_lanelet_id)
-        self.FSM_state.lane_change_right_abort = None
-        self.FSM_state.lane_change_left_abort = None
+        #self.FSM_state.lane_change_right_abort = None
+        #self.FSM_state.lane_change_left_abort = None
 
         self.PP_state.reference_path = self.reference_path_planner.reference_path
         self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path

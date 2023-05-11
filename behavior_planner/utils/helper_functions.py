@@ -272,6 +272,8 @@ def create_consecutive_lanelet_id_list(lanelet_network, start_lanelet_id, naviga
                     for successor_id in lanelet.successor:
                         if successor_id in navigation_route_ids:
                             consecutive_lanelet_ids += [successor_id]
+                        else:
+                            consecutive_lanelet_ids += [lanelet.successor[0]]
                 else:
                     consecutive_lanelet_ids += [lanelet.successor[0]]
         else:
