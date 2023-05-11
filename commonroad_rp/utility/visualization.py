@@ -20,6 +20,7 @@ import imageio.v3 as iio
 # commonroad-io
 from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.obstacle import DynamicObstacle
+from commonroad.scenario.trajectory import Trajectory
 from commonroad_rp.state import ReactivePlannerState
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams, StaticObstacleParams
@@ -78,9 +79,9 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
 
 def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
                                   timestep: int, config: Configuration, log_path: str,
-                                  traj_set: List[TrajectorySample] = None, ref_path: np.ndarray = None,
-                                  rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
-                                  visible_area=None, cluster=None, occlusion_map=None):
+                                  traj_set: List[TrajectorySample] = None, optimal_traj: Trajectory = None,
+                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None,
+                                  plot_window: int = None, visible_area=None, cluster=None, occlusion_map=None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -88,10 +89,17 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     :param ego: Ego vehicle as CommonRoad DynamicObstacle object
     :param pos: positions of planned trajectory [(nx2) np.ndarray]
     :param timestep: current time step of scenario to plot
+    :param log_path: Log path where to save the plots
     :param config: Configuration object for plot/save settings
     :param traj_set: List of sampled trajectories (optional)
+    :param optimal_traj: Optimal Trajectory selected
     :param ref_path: Reference path for planner as polyline [(nx2) np.ndarray] (optional)
     :param rnd: MPRenderer object (optional: if none is passed, the function creates a new renderer object; otherwise it
+    :param predictions: Predictions used to run the planner
+    :param plot_window: Window size to plot (optional)
+    :param visible_area: Visible Area for plotting (optional)
+    :param cluster: cluster number in this time step (optional)
+    :param occlusion_map: Occlusion map information to plot (optional)
     will visualize on the existing object)
     :param save_path: Path to save plot as .png (optional)
     """
@@ -135,8 +143,8 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     rnd.render()
 
     # visualize optimal trajectory
-    rnd.ax.plot(traj_set[0].cartesian.x[:traj_set[0].actual_traj_length],
-                traj_set[0].cartesian.y[:traj_set[0].actual_traj_length],
+    rnd.ax.plot([i.position[0] for i in optimal_traj.state_list],
+                [i.position[1] for i in optimal_traj.state_list],
                 color='k', marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
 
     # draw visible sensor area

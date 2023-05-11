@@ -202,7 +202,7 @@ def run_planner(config, log_path, mod_path):
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
             visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle[-1],
-                                          traj_set=planner.all_traj, ref_path=reference_path, timestep=current_count,
+                                          traj_set=planner.all_traj, optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
                                           cluster=cost_function.cluster_prediction.cluster_assignments[-1]

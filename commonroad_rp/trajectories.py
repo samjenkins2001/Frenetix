@@ -564,14 +564,14 @@ class TrajectoryBundle:
                             p = Process(target=self._calc_prediction, args=(chunk, i, queue_prediction, queue_responsibility))
                             list_processes.append(p)
                             p.start()
+                        for p in list_processes:
+                            p.join()
                         # # get return values from queue
                         for p in enumerate(list_processes):
                             pred = (queue_prediction.get())
                             list_predictions[pred[0]] = pred[1]
                             resp = (queue_responsibility.get())
                             list_responsibilities[resp[0]] = resp[1]
-                        for p in list_processes:
-                            p.join()
 
                         if self._cost_function.use_clusters:
                             # get cluster assignment based on prediction cost
