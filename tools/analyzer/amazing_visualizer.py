@@ -127,14 +127,13 @@ app.layout = html.Div([
 def update_graph(xaxis_column_name, yaxis_column_name,
                  time_step_value):
 
-    if time_step_value==None:  # if someone gives non-sense input just put to 0
-        time_step_value=0
+    if not time_step_value:  # if someone gives non-sense input just put to 0
+        time_step_value = 0
 
-    dff = trajectories_csv[(trajectories_csv['time_step']==time_step_value) &
-                           (trajectories_csv['variable']=="costs_cumulative_weighted") &
-                           (trajectories_csv['feasible']==yaxis_column_name)][["x_positions_m", "y_positions_m",
+    dff = trajectories_csv[(trajectories_csv['time_step'] == time_step_value) &
+                           (trajectories_csv['variable'] == "costs_cumulative_weighted") &
+                           (trajectories_csv['feasible'] == yaxis_column_name)][["x_positions_m", "y_positions_m",
                                                                                "trajectory_number", "value", "feasible"]]
-
 
     fig = px.scatter(dff,
         x=dff['x_positions_m'],
@@ -143,14 +142,13 @@ def update_graph(xaxis_column_name, yaxis_column_name,
         color="value", color_continuous_scale='rdylgn_r'
         )
 
-
-    logg = log[log['trajectory_number']==time_step_value]
-    x, y = logg["x_position_vehicle_m"][time_step_value], logg["y_position_vehicle_m"][time_step_value]
-    x_1, y_1 = logg["x_positions_m"][time_step_value], logg["y_positions_m"][time_step_value]
+    logg = log[log['trajectory_number'] == time_step_value]
+    x, y = float(logg["x_positions_m"][time_step_value]), float(logg["y_positions_m"][time_step_value])
+    x_1, y_1 = str(logg["x_positions_m"][time_step_value]), str(logg["y_positions_m"][time_step_value])
 
     background = Image.fromarray(img[time_step_value])
 
-    fig.add_scatter(x = [x,x_1], y= [y, y_1], mode="lines")
+    fig.add_scatter(x=[x, x_1], y=[y, y_1], mode="lines")
 
     fig.update_traces(customdata=dff[dff['feasible'] == yaxis_column_name]['trajectory_number'])
 
@@ -161,8 +159,8 @@ def update_graph(xaxis_column_name, yaxis_column_name,
     fig.update_layout(yaxis_range=[y-15, y+15], xaxis_range=[x-15, x+15], hovermode='closest', autosize=False)
 
     fig.update_xaxes(
-        scaleanchor = "y",
-        scaleratio = 1,
+        scaleanchor="y",
+        scaleratio=1,
       )
 
     fig.add_layout_image(
@@ -170,12 +168,12 @@ def update_graph(xaxis_column_name, yaxis_column_name,
                 source=background,
                 xref="x",
                 yref="y",
-                x=x-plot_window-4.985,
-                y=y+plot_window+4.7,
-                sizex=2*plot_window*1.2993763,
-                sizey=2*plot_window*1.68805,
-                #sizing="stretch",
-                #opacity=0.5,
+                x=x-plot_window-3.01*(plot_window/10),
+                y=y+plot_window+3.19*(plot_window/10),
+                sizex=2*plot_window*1.30212499,
+                sizey=2*plot_window*1.69263495,
+                # sizing="stretch",
+                # opacity=0.5,
                 layer="below")
     )
 
