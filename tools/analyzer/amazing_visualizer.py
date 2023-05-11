@@ -3,9 +3,12 @@
 from dash import Dash, html, dcc, Input, Output,  dash_table
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
+import dash_daq as daq
+
 import plotly.express as px
 from PIL import Image
 import os
+import numpy as np
 import yaml
 
 import utils.visualization_helpers as vh
@@ -54,7 +57,7 @@ app.layout = html.Div([
                                 }),
                 ]),
             ],
-            style={'margin-left' : '0px', 'margin-bottom' : '40px', 'width': '100%', 'display': 'inline-block'}),
+            style={'margin-left' : '-0px', 'margin-bottom' : '40px', 'width': '100%', 'display': 'inline-block'}),
         ),
 
         html.Div([
@@ -75,16 +78,10 @@ app.layout = html.Div([
         )
     ], style={'width': '60%', 'display': 'inline-block', 'padding': '0 20'}),
 
-
-
-    html.Div(dcc.Slider(                                                                    # slider to choose timestep for debugging, updates in: update_graph
-        trajectories_csv['time_step'].min(),
-        trajectories_csv['time_step'].max(),
-        step=None,
-        id='crossfilter-time_step--slider',
-        value=trajectories_csv['time_step'].min(),
-        marks={str(time_step): str(time_step) for time_step in trajectories_csv['time_step'].unique()}
-    ), style={'width': '100%', 'padding': '0px 20px 20px 20px'}),
+    dcc.Input(                                                                              # Input field to choose timestep for debugging, updates in: update_graph
+        id="crossfilter-time_step--slider", type="number", value=trajectories_csv['time_step'].min(),
+        min=trajectories_csv['time_step'].min(), max=trajectories_csv['time_step'].max(), step=1,
+    ),
 
 
     html.Div([                                                                              # cost allocation for chosen trajectory, updates in: update_y_timeseries
@@ -103,7 +100,7 @@ app.layout = html.Div([
                 dash_table.DataTable(id='tweet_table_two'),
             ]),
         ],
-        style={'margin-left' : '0px', 'margin-bottom' : '40px', 'width': '100%', 'display': 'inline-block'}),
+        style={'margin-left' : '-0px', 'margin-bottom' : '40px', 'width': '100%', 'display': 'inline-block'}),
     ),
 
     dbc.Row(
@@ -129,10 +126,15 @@ app.layout = html.Div([
     Input('crossfilter-time_step--slider', 'value'))
 def update_graph(xaxis_column_name, yaxis_column_name,
                  time_step_value):
+
+    if time_step_value==None:  # if someone gives non-sense input just put to 0
+        time_step_value=0
+
     dff = trajectories_csv[(trajectories_csv['time_step']==time_step_value) &
                            (trajectories_csv['variable']=="costs_cumulative_weighted") &
                            (trajectories_csv['feasible']==yaxis_column_name)][["x_positions_m", "y_positions_m",
                                                                                "trajectory_number", "value", "feasible"]]
+
 
     fig = px.scatter(dff,
         x=dff['x_positions_m'],
@@ -141,9 +143,14 @@ def update_graph(xaxis_column_name, yaxis_column_name,
         color="value", color_continuous_scale='rdylgn_r'
         )
 
-    logg = log[log['trajectory_number'] == time_step_value]
+
+    logg = log[log['trajectory_number']==time_step_value]
     x, y = logg["x_position_vehicle_m"][time_step_value], logg["y_position_vehicle_m"][time_step_value]
+    x_1, y_1 = logg["x_positions_m"][time_step_value], logg["y_positions_m"][time_step_value]
+
     background = Image.fromarray(img[time_step_value])
+
+    fig.add_scatter(x = [x,x_1], y= [y, y_1], mode="lines")
 
     fig.update_traces(customdata=dff[dff['feasible'] == yaxis_column_name]['trajectory_number'])
 
@@ -163,12 +170,12 @@ def update_graph(xaxis_column_name, yaxis_column_name,
                 source=background,
                 xref="x",
                 yref="y",
-                x=x-plot_window,
-                y=y+plot_window,
-                sizex=2*plot_window,
-                sizey=2*plot_window,
+                x=x-plot_window-4.985,
+                y=y+plot_window+4.7,
+                sizex=2*plot_window*1.2993763,
+                sizey=2*plot_window*1.68805,
                 #sizing="stretch",
-                opacity=0.5,
+                #opacity=0.5,
                 layer="below")
     )
 

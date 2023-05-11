@@ -1,6 +1,6 @@
 
 Dashboard: ['trajectory_number', 'calculation_time_s', 
-        'x_position_vehicle_m', 'y_position_vehicle_m', 'theta_orientations_rad',
+        'x_positions_m', 'y_positions_m', 'theta_orientations_rad',
         'velocities_mps', 'accelerations_mps2', 's_position_m',
         'd_position_m', 'cluster_number']
 

@@ -1049,9 +1049,9 @@ class ReactivePlanner(object):
             # if selected polynomial trajectory is feasible, store it's Cartesian and Curvilinear trajectory
             if feasible or self._draw_traj_set:
                 # Extend Trajectory to get same lenth
-                t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
-                s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
-                d[traj_len:] = d[traj_len-1]
+                # t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
+                # s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
+                # d[traj_len:] = d[traj_len-1]
                 for i in range(0, len(s)):
                     # compute (global) Cartesian position
                     pos: np.ndarray = self._co.convert_to_cartesian_coords(s[i], d[i])

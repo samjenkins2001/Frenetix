@@ -7,7 +7,7 @@ import re
 
 
 def lowest_costs(df):
-    dff = df[df["variable"] == "costs_cumulative_weighted"]  # is not actually total cost but will be fixed
+    dff = df[df["variable"] == "costs_cumulative_weighted"]
     dff = dff.sort_values(by='value')
     dff = dff.reset_index().truncate(before=0, after=9)
     trajs = dff["trajectory_number"].unique()
@@ -26,7 +26,7 @@ def get_cost_headers_and_remaining(df):
     return cost_headers, remaining_headers
 
 
-def get_images(logs_path):       # loads images of each timestep (color is changed here! - why?)
+def get_images(logs_path):
     images_list = os.path.join(logs_path, "plots", "*.png")
     images_list = glob.glob(images_list)
     final_plot = [s for s in images_list if "final" in s]
@@ -72,8 +72,8 @@ def setup_trajs(csv_name):
 
 def setup_logs(csv_name):
     logs = pd.read_csv(csv_name, delimiter=";")
-    # logs['x_position_vehicle_m'] = logs['x_position_vehicle_m']  #.apply(lambda x: x.split(",")[0])
-    # logs['y_position_vehicle_m'] = logs['y_position_vehicle_m']  # .apply(lambda x: x.split(",")[0])
+    logs['x_positions_m'] = logs['x_positions_m'].apply(lambda x: x.split(",")[0])
+    logs['y_positions_m'] = logs['y_positions_m'].apply(lambda x: x.split(",")[0])
     logs['velocities_mps'] = logs['velocities_mps'].apply(lambda x: x.split(",")[0])
     logs['accelerations_mps2'] = logs['accelerations_mps2'].apply(lambda x: x.split(",")[0])
     logs['theta_orientations_rad'] = logs['theta_orientations_rad'].apply(lambda x: x.split(",")[0])
