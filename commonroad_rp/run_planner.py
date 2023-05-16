@@ -72,6 +72,7 @@ def run_planner(config, log_path, mod_path):
     # **************************
     shape = Rectangle(planner.vehicle_params.length, planner.vehicle_params.width)
     ego_vehicle = [DynamicObstacle(42, ObstacleType.CAR, shape, x_0, None)]
+    planner.current_ego_vehicle = ego_vehicle
     x_cl = None
     current_count = 0
     planning_times = list()
@@ -166,7 +167,7 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Set Planner Subscriptions
         # **************************
-        planner.update_externals(x_0=x_0, x_cl=x_cl, current_ego_vehicle=ego_vehicle[-1], reference_path=reference_path,
+        planner.update_externals(x_0=x_0, x_cl=x_cl, reference_path=reference_path,
                                  desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
 
         # **************************
@@ -192,16 +193,13 @@ def run_planner(config, log_path, mod_path):
         x_0 = deepcopy(planner.record_state_list[-1])
         x_cl = (optimal[2][1], optimal[3][1])
 
-        # create CommonRoad Obstacle for the ego Vehicle
-        ego_vehicle.append(planner.convert_state_list_to_commonroad_object(optimal[0].state_list))
-
         print(f"current time step: {current_count}")
 
         # **************************
         # Visualize Scenario
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
-            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle[-1],
+            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.current_ego_vehicle[-1],
                                           traj_set=planner.all_traj, optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
@@ -212,11 +210,11 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Check Collision
         # **************************
-        crash = planner.check_collision(ego_vehicle[-1])
+        crash = planner.check_collision(planner.current_ego_vehicle[-1])
         if crash:
             print("Collision Detected!")
             if config.debug.collision_report and current_count > 0:
-                coll_report(ego_vehicle, planner, scenario, planning_problem,
+                coll_report(planner.current_ego_vehicle, planner, scenario, planning_problem,
                             log_path)
             break
 

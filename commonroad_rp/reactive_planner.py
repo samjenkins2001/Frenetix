@@ -706,6 +706,7 @@ class ReactivePlanner(object):
 
         # initialize optimal trajectory dummy
         optimal_trajectory = None
+        trajectory_pair = None
         cluster_ = None
         t0 = time.time()
 
@@ -733,6 +734,11 @@ class ReactivePlanner(object):
             self.logger.trajectory_number = self.x_0.time_step
 
             optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, self.predictions, i)
+            trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
+
+            # create CommonRoad Obstacle for the ego Vehicle
+            if trajectory_pair is not None:
+                self.current_ego_vehicle.append(self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list))
 
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
@@ -762,7 +768,7 @@ class ReactivePlanner(object):
         if optimal_trajectory is not None:
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                             infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-                            cluster=cluster_, ego_vehicle=self.current_ego_vehicle)
+                            cluster=cluster_, ego_vehicle=self.current_ego_vehicle[-1])
             self.logger.log_pred(self.predictions)
         if self.save_all_traj or self.use_amazing_visualizer:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
@@ -780,7 +786,7 @@ class ReactivePlanner(object):
             if self.max_seen_costs < self._optimal_cost:
                 self.max_seen_costs = self._optimal_cost
 
-        return self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
+        return trajectory_pair
 
     def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
         """
