@@ -6,12 +6,17 @@ import dash_ag_grid as dag
 import dash_daq as daq
 
 import plotly.express as px
+import plotly
 from PIL import Image
 import os
 import numpy as np
 import yaml
 
 import utils.visualization_helpers as vh
+
+import time
+
+display = None
 
 mod_path = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)
@@ -57,7 +62,7 @@ app.layout = html.Div([
                                 }),
                 ]),
             ],
-            style={'margin-left' : '-0px', 'margin-bottom' : '40px', 'width': '100%', 'display': 'inline-block'}),
+            style={'margin-left' : '-140px', 'margin-bottom' : '40px', 'width': '100%', 'display': 'inline-block'}),
         ),
 
         html.Div([
@@ -83,6 +88,11 @@ app.layout = html.Div([
         min=trajectories_csv['time_step'].min(), max=trajectories_csv['time_step'].max(), step=1,
     ),
 
+    dcc.Input(                                                                              # Input field to choose timestep for debugging, updates in: update_graph
+        id="trajectory-number-input", type="number", value=trajectories_csv['trajectory_number'].min(),
+        min=trajectories_csv['trajectory_number'].min(), max=trajectories_csv['trajectory_number'].max(), step=1,
+    ),
+
 
     html.Div([                                                                              # cost allocation for chosen trajectory, updates in: update_y_timeseries
         dcc.Graph(id='x-time-series'),
@@ -100,7 +110,7 @@ app.layout = html.Div([
                 dash_table.DataTable(id='tweet_table_two'),
             ]),
         ],
-        style={'margin-left' : '-0px', 'margin-bottom' : '40px', 'width': '100%', 'display': 'inline-block'}),
+        style={'margin-left' : '-140px', 'margin-bottom' : '40px', 'width': '100%', 'display': 'inline-block'}),
     ),
 
     dbc.Row(
@@ -127,12 +137,12 @@ app.layout = html.Div([
 def update_graph(xaxis_column_name, yaxis_column_name,
                  time_step_value):
 
-    if not time_step_value:  # if someone gives non-sense input just put to 0
-        time_step_value = 0
+    if time_step_value==None:  # if someone inputs non-sense just put to 0
+        time_step_value=0
 
-    dff = trajectories_csv[(trajectories_csv['time_step'] == time_step_value) &
-                           (trajectories_csv['variable'] == "costs_cumulative_weighted") &
-                           (trajectories_csv['feasible'] == yaxis_column_name)][["x_positions_m", "y_positions_m",
+    dff = trajectories_csv[(trajectories_csv['time_step']==time_step_value) &
+                           (trajectories_csv['variable']=="costs_cumulative_weighted") &
+                           (trajectories_csv['feasible']==yaxis_column_name)][["x_positions_m", "y_positions_m",
                                                                                "trajectory_number", "value", "feasible"]]
 
     fig = px.scatter(dff,
@@ -143,12 +153,10 @@ def update_graph(xaxis_column_name, yaxis_column_name,
         )
 
     logg = log[log['trajectory_number'] == time_step_value]
-    x, y = float(logg["x_positions_m"][time_step_value]), float(logg["y_positions_m"][time_step_value])
-    x_1, y_1 = str(logg["x_positions_m"][time_step_value]), str(logg["y_positions_m"][time_step_value])
+    x, y = float(logg["x_position_vehicle_m"][time_step_value]), float(logg["y_position_vehicle_m"][time_step_value])
+
 
     background = Image.fromarray(img[time_step_value])
-
-    fig.add_scatter(x=[x, x_1], y=[y, y_1], mode="lines")
 
     fig.update_traces(customdata=dff[dff['feasible'] == yaxis_column_name]['trajectory_number'])
 
@@ -168,12 +176,10 @@ def update_graph(xaxis_column_name, yaxis_column_name,
                 source=background,
                 xref="x",
                 yref="y",
-                x=x-plot_window-3.01*(plot_window/10),
-                y=y+plot_window+3.19*(plot_window/10),
-                sizex=2*plot_window*1.30212499,
-                sizey=2*plot_window*1.69263495,
-                # sizing="stretch",
-                # opacity=0.5,
+                x=x-plot_window,
+                y=y+plot_window,
+                sizex=2*plot_window,
+                sizey=2*plot_window,
                 layer="below")
     )
 
@@ -181,8 +187,6 @@ def update_graph(xaxis_column_name, yaxis_column_name,
 
 
 def create_time_series_one(dff, title):
-
-    # todo: remove total costs?
 
     fig = px.bar(dff, x= 'trajectory_number', y="value", color="variable")
 
@@ -228,17 +232,16 @@ def create_time_series_two(dff, title):
 
 @app.callback(
     Output('z-time-series', 'figure'),
-    Input('crossfilter-indicator-scatter', 'hoverData'),
     Input('crossfilter-xaxis-column', 'value'),
     Input('crossfilter-time_step--slider', 'value'))
-def update_z_timeseries(hoverData, yaxis_column_name, time_step):
+def update_z_timeseries(yaxis_column_name, time_step):
     dff = trajectories_csv[trajectories_csv['feasible'] == yaxis_column_name]
     dff = dff[dff['time_step'] == time_step]
     dff = dff[dff['variable'] != "costs_cumulative_weighted"]
     return create_time_series_one(dff, yaxis_column_name)
 
 
-@app.callback(
+@app.callback(                                                     #  trajectory-number-input
     Output('x-time-series', 'figure'),
     Input('crossfilter-indicator-scatter', 'hoverData'),            
     Input('crossfilter-xaxis-column', 'value'),

@@ -196,7 +196,8 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
         if config.debug.gif or config.debug.use_amazing_visualizer:
-            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300)
+            plt.axis('off')
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300, bbox_inches='tight', pad_inches=0)
         else:
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.svg", format='svg')
 
