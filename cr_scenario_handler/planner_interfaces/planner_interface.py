@@ -38,14 +38,6 @@ class PlannerInterface(ABC):
         return None
 
     @abstractmethod
-    def is_completed(self):
-        """Returns True iff the planner has reached a goal area.
-
-        To be implemented by every specific planner.
-        """
-        raise NotImplementedError()
-
-    @abstractmethod
     def check_collision(self, ego_obstacle: List[DynamicObstacle], timestep: int):
         """Check for a collision at the given timestep.
 

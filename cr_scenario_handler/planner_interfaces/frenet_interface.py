@@ -12,7 +12,7 @@ from commonroad.planning.planning_problem import PlanningProblem
 
 from commonroad_dc import pycrcc
 
-from commonroad_rp.configuration import Configuration
+from cr_scenario_handler.utils.configuration import Configuration
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
@@ -98,14 +98,6 @@ class FrenetPlannerInterface(PlannerInterface):
         """Return the reference path for plotting purposes."""
         return self.planner.reference_path
 
-    def is_completed(self):
-        """Check for completion of the planner.
-
-        :return: True iff the goal area has been reached.
-        """
-        self.planner.check_goal_reached()
-        return self.planner.goal_status
-
     def check_collision(self, ego_vehicle_list: List[DynamicObstacle], timestep: int):
         """ Check for collisions with the ego vehicle.
 
@@ -181,7 +173,7 @@ class FrenetPlannerInterface(PlannerInterface):
 
             if self.config.debug.collision_report:
                 coll_report(ego_vehicle_list, self.planner, self.scenario,
-                            self.planning_problem, timestep, self.log_path)
+                            self.planning_problem, timestep, self.config, self.log_path)
 
             return True
 

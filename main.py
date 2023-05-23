@@ -1,7 +1,7 @@
 import os
 import sys
 from cr_scenario_handler.simulation.simulation import Simulation
-from commonroad_rp.configuration_builder import ConfigurationBuilder
+from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 
 if sys.platform == "darwin":
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'

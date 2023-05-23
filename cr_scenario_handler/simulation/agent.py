@@ -14,8 +14,9 @@ from commonroad.scenario.obstacle import DynamicObstacle
 from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 
 # reactive planner
-from commonroad_rp.configuration import Configuration
+from cr_scenario_handler.utils.configuration import Configuration
 import commonroad_rp.prediction_helpers as ph
+from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 
 # scenario handler
 from cr_scenario_handler.utils.multiagent_helpers import trajectory_to_obstacle
@@ -55,6 +56,7 @@ class Agent:
         self.id = agent_id
 
         self.planning_problem = planning_problem
+        self.goal_checker = GoalReachedChecker(planning_problem)
 
         # Configuration
         self.config = config
@@ -139,6 +141,15 @@ class Agent:
         # Add all dummies except of the ego one
         self.scenario.add_objects(list(filter(lambda obs: not obs.obstacle_id == self.id, dummy_obstacles)))
 
+    def is_completed(self):
+        """Check for completion of the planner.
+
+        :return: True iff the goal area has been reached.
+        """
+        self.goal_checker.register_current_state(self.record_state_list[-1])
+        goal_status, _, _ = self.goal_checker.goal_reached_status()
+        return goal_status
+
     def step_agent(self, global_predictions):
         """ Execute one planning step.
 
@@ -164,7 +175,7 @@ class Agent:
         print(f"[Agent {self.id}] current time step: {self.current_timestep}")
 
         # check for completion of this agent
-        if self.planner.is_completed() or self.current_timestep >= self.max_timestep:
+        if self.is_completed() or self.current_timestep >= self.max_timestep:
             self.finalize()
             return 1, None
 

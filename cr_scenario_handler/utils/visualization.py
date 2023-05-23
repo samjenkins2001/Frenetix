@@ -7,18 +7,17 @@ import imageio.v3 as iio
 import numpy as np
 
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-from commonroad.scenario.state import State
+from commonroad.scenario.state import State, CustomState
 from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 
 from commonroad.scenario.scenario import Scenario
-from commonroad.visualization.draw_params import MPDrawParams, DynamicObstacleParams
+from commonroad.visualization.draw_params import MPDrawParams, DynamicObstacleParams, ShapeParams
 from commonroad.visualization.mp_renderer import MPRenderer
+from commonroad.geometry.shape import Rectangle
 
-from commonroad_rp.configuration import Configuration
-from commonroad_rp.trajectories import TrajectorySample
+from cr_scenario_handler.utils.configuration import Configuration
 
-from commonroad_rp.utility.visualization import draw_uncertain_predictions_lb, draw_uncertain_predictions_wale
-
+from prediction.utils.visualization import draw_uncertain_predictions
 
 # Color palette for plotting
 colors = ["#e3af22", "#d6e322", "#96e322", "#55e322", "#22e32f",
@@ -35,7 +34,7 @@ lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
 def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: PlanningProblemSet,
                                      agent_list: List[DynamicObstacle], timestep: int,
                                      config: Configuration, log_path: str,
-                                     traj_set_list: List[List[TrajectorySample]] = None,
+                                     traj_set_list: List[List] = None,
                                      ref_path_list: List[np.ndarray] = None,
                                      predictions: dict = None, visible_area=None,
                                      rnd: MPRenderer = None,
@@ -176,10 +175,7 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
 
     # visualize predictions
     if predictions is not None:
-        if config.prediction.mode == "lanebased":
-            draw_uncertain_predictions_lb(predictions, rnd.ax)
-        elif config.prediction.mode == "walenet":
-            draw_uncertain_predictions_wale(predictions, rnd.ax)
+        draw_uncertain_predictions(predictions, rnd.ax)
 
     # save as .png file
     if (len(agent_list) == 1 and
@@ -407,3 +403,69 @@ def collision_vis(scenario: Scenario, ego_vehicle: DynamicObstacle, destination:
 
     plt.savefig(destination + "/" + str(scenario.scenario_id) + ".svg", format="svg")
     plt.close()
+
+
+def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[CustomState],
+                          config: Configuration, log_path: str, ref_path: np.ndarray = None):
+    """
+    Function plots occupancies for a given CommonRoad trajectory (of the ego vehicle)
+    :param scenario: CommonRoad scenario object
+    :param planning_problem CommonRoad Planning problem object
+    :param state_list: List of trajectory States
+    :param config: Configuration object for plot/save settings
+    :param ref_path: Reference path as [(nx2) np.ndarray] (optional)
+    :param save_path: Path to save plot as .png (optional)
+    """
+    # create renderer object (if no existing renderer is passed)
+    rnd = MPRenderer(figsize=(20, 10))
+
+    # set renderer draw params
+    rnd.draw_params.time_begin = 0
+    rnd.draw_params.planning_problem.initial_state.state.draw_arrow = False
+    rnd.draw_params.planning_problem.initial_state.state.radius = 0.5
+
+    # set occupancy shape params
+    occ_params = ShapeParams()
+    occ_params.facecolor = '#E37222'
+    occ_params.edgecolor = '#9C4100'
+    occ_params.opacity = 1.0
+    occ_params.zorder = 51
+
+    # visualize scenario
+    scenario.draw(rnd)
+    # visualize planning problem
+    planning_problem.draw(rnd)
+    # visualize occupancies of trajectory
+    for i in range(len(state_list)):
+        state = state_list[i]
+        occ_pos = Rectangle(length=config.vehicle.length, width=config.vehicle.width, center=state.position,
+                            orientation=state.orientation)
+        if i >= 1:
+            occ_params.opacity = 0.3
+            occ_params.zorder = 50
+        occ_pos.draw(rnd, draw_params=occ_params)
+    # render scenario and occupancies
+    rnd.render()
+
+    # visualize trajectory
+    pos = np.asarray([state.position for state in state_list])
+    rnd.ax.plot(pos[:, 0], pos[:, 1], color='k', marker='x', markersize=3.0, markeredgewidth=0.4, zorder=21,
+                linewidth=0.8)
+
+    # visualize reference path
+    if ref_path is not None:
+        rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=19, linewidth=0.8,
+                    label='reference path')
+
+    # save as .png file
+    if config.debug.save_plots:
+        plot_dir = os.path.join(log_path, "plots")
+        os.makedirs(plot_dir, exist_ok=True)
+        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.svg", format='svg',
+                    bbox_inches='tight')
+
+    # show plot
+    if config.debug.show_plots:
+        matplotlib.use("TkAgg")
+        # plt.show(block=False)
+        # plt.pause(0.0001)

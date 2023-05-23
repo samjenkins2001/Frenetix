@@ -10,9 +10,9 @@ import random
 from commonroad.scenario.state import CustomState
 
 # reactive planner
-from commonroad_rp.utility.visualization import make_gif
+from cr_scenario_handler.utils.visualization import make_gif
 from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
-from commonroad_rp.configuration import Configuration
+from cr_scenario_handler.utils.configuration import Configuration
 
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.trajectory import Trajectory

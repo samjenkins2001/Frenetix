@@ -34,7 +34,7 @@ from commonroad_rp.parameter import DefGymSampling, TimeSampling, VelocitySampli
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
-from commonroad_rp.configuration import Configuration
+from cr_scenario_handler.utils.configuration import Configuration
 from commonroad_rp.utility import reachable_set
 
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker

@@ -22,7 +22,7 @@ from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.obstacle import DynamicObstacle
 from commonroad.scenario.state import CustomState
 from commonroad.planning.planning_problem import PlanningProblem
-from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams, StaticObstacleParams
+from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams
 from commonroad.geometry.shape import Rectangle
 from commonroad.visualization.draw_params import MPDrawParams
 
@@ -31,7 +31,7 @@ from commonroad_dc import pycrcc
 
 # commonroad-rp
 from commonroad_rp.trajectories import TrajectorySample
-from commonroad_rp.configuration import Configuration
+from cr_scenario_handler.utils.configuration import Configuration
 
 
 """Visualization functions for the frenét planner."""

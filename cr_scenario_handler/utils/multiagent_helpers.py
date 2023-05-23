@@ -3,6 +3,7 @@ from typing import List
 from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.trajectory import Trajectory
+from commonroad_dc import pycrcc
 
 from commonroad_prediction.prediction_module import PredictionModule
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
@@ -10,7 +11,7 @@ from commonroad.scenario.state import CustomState, State
 
 from commonroad.scenario.scenario import Scenario
 
-from commonroad_rp.configuration import Configuration, VehicleConfiguration
+from cr_scenario_handler.utils.configuration import Configuration, VehicleConfiguration
 from commonroad_rp import prediction_helpers as ph
 
 
@@ -70,3 +71,29 @@ def trajectory_to_obstacle(state_list: List[State],
     prediction = TrajectoryPrediction(trajectory, shape)
 
     return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, trajectory.state_list[0], prediction)
+
+
+def create_tvobstacle(
+    traj_list: [[float]], box_length: float, box_width: float, start_time_step: int
+):
+    """
+    Return a time variant collision object.
+    Clone of commonroad_rp/utils/helper_functions/create_tvobstacle().
+
+    Args:
+        traj_list ([[float]]): List with the trajectory ([x-position, y-position, orientation]).
+        box_length (float): Length of the obstacle.
+        box_width (float): Width of the obstacle.
+        start_time_step (int): Time step of the initial state.
+
+    Returns:
+        pyrcc.TimeVariantCollisionObject: Collision object.
+    """
+    # time variant object starts at the given time step
+    tv_obstacle = pycrcc.TimeVariantCollisionObject(time_start_idx=start_time_step)
+    for state in traj_list:
+        # append each state to the time variant collision object
+        tv_obstacle.append_obstacle(
+            pycrcc.RectOBB(box_length, box_width, state[2], state[0], state[1])
+        )
+    return tv_obstacle

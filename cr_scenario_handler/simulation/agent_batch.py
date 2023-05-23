@@ -9,7 +9,7 @@ from commonroad.planning.planning_problem import PlanningProblemSet
 
 from commonroad_prediction.prediction_module import PredictionModule
 
-from commonroad_rp.configuration import Configuration
+from cr_scenario_handler.utils.configuration import Configuration
 
 from cr_scenario_handler.simulation.agent import Agent
 from cr_scenario_handler.utils.multiagent_helpers import get_predictions, TIMEOUT

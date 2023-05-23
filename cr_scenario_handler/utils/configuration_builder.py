@@ -2,7 +2,7 @@ import os
 import glob
 from typing import Union
 from omegaconf import OmegaConf, ListConfig, DictConfig
-from commonroad_rp.configuration import Configuration
+from cr_scenario_handler.utils.configuration import Configuration
 
 
 class ConfigurationBuilder:
@@ -23,7 +23,7 @@ class ConfigurationBuilder:
 
         """
         if path_root is None:
-            path_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../"))
+            path_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../"))
 
         if cls.path_root is None:
             cls.set_paths(path_root=path_root, dir_config=dir_config, dir_config_default=dir_config_default)

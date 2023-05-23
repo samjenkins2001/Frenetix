@@ -26,12 +26,11 @@ from commonroad_dc.feasibility.feasibility_checker import VehicleDynamics, \
 from commonroad_dc.feasibility.solution_checker import valid_solution, CollisionException, \
     GoalNotReachedException, MissingSolutionException
 
-from commonroad_rp.configuration import Configuration
-from commonroad_rp.reactive_planner import ReactivePlannerState
-from commonroad_rp.utility.visualization import plot_final_trajectory
+from cr_scenario_handler.utils.configuration import Configuration
+from cr_scenario_handler.utils.visualization import plot_final_trajectory
 
 
-def create_full_solution_trajectory(config: Configuration, state_list: List[ReactivePlannerState]) -> Trajectory:
+def create_full_solution_trajectory(config: Configuration, state_list: List[State]) -> Trajectory:
     """
     Create CR solution trajectory from recorded state list of the reactive planner
     Positions are shifted from rear axis to vehicle center due to CR position convention
@@ -60,7 +59,7 @@ def create_planning_problem_solution(config: Configuration, solution_trajectory:
     return solution
 
 
-def reconstruct_states(config: Configuration, states: List[Union[ReactivePlannerState, TraceState]], inputs: List[InputState]):
+def reconstruct_states(config: Configuration, states: List[Union[State, TraceState]], inputs: List[InputState]):
     """reconstructs states from a given list of inputs by forward simulation"""
     vehicle_dynamics = VehicleDynamics.from_model(VehicleModel.KS, VehicleType(config.vehicle.cr_vehicle_id))
 
@@ -95,7 +94,7 @@ def reconstruct_inputs(config: Configuration, pps: PlanningProblemSolution):
     return feasible_state_list, reconstructed_inputs
 
 
-def check_acceleration(config: Configuration, state_list:  List[Union[ReactivePlannerState, TraceState]], plot=False):
+def check_acceleration(config: Configuration, state_list:  List[Union[State, TraceState]], plot=False):
     """Checks whether the computed acceleration the trajectory matches the velocity difference (dv/dt), i.e., assuming
     piecewise constant acceleration input"""
     # computed acceleration of trajectory
@@ -125,7 +124,7 @@ def check_acceleration(config: Configuration, state_list:  List[Union[ReactivePl
         # plt.show()
 
 
-def plot_states(config: Configuration, state_list: List[Union[ReactivePlannerState, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
+def plot_states(config: Configuration, state_list: List[Union[State, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
     """
     Plots states of trajectory from a given state_list
     state_list must contain the following states: steering_angle, velocity, orientation and yaw_rate
