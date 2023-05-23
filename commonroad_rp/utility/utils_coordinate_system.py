@@ -8,7 +8,7 @@ __status__ = "Alpha"
 
 from copy import deepcopy
 import numpy as np
-from scipy.interpolate import splprep, splev
+from scipy.interpolate import UnivariateSpline
 
 from commonroad_dc.pycrccosy import CurvilinearCoordinateSystem
 from commonroad_dc.geometry.util import compute_pathlength_from_polyline,compute_curvature_from_polyline, \
@@ -79,18 +79,14 @@ class CoordinateSystem:
             _, idx = np.unique(reference, axis=0, return_index=True)
             reference = reference[np.sort(idx)]
 
-            smoothing_scipy_splines = True
-            if smoothing_scipy_splines:
-                # print("Smoothing via spline interpolation...")
-                tck, u = splprep(reference.T, u=None, k=3, s=0.0)
-                u_new = np.linspace(u.min(), u.max(), 200)
-                x_new, y_new = splev(u_new, tck, der=0)
-                ref_path = np.array([x_new, y_new]).transpose()
-                reference = resample_polyline(ref_path, 1)
-            # remove duplicated vertices in reference path
-            _, idx = np.unique(reference, axis=0, return_index=True)
-            reference = reference[np.sort(idx)]
+            smoothing_factor = 10
+            tt = np.linspace(0, 1, len(reference[:, 0]))
+            bs_x = UnivariateSpline(x=tt, y=reference[:, 0], s=smoothing_factor)
+            bs_y = UnivariateSpline(x=tt, y=reference[:, 1], s=smoothing_factor)
 
+            x_smooth = bs_x(tt)
+            y_smooth = bs_y(tt)
+            reference = np.column_stack((x_smooth, y_smooth))
             self.reference = reference
         else:
             assert ccosy is not None, '<CoordinateSystem>: Please provide a reference path OR a ' \

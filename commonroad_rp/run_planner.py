@@ -21,7 +21,8 @@ from commonroad.scenario.state import InputState
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
+from commonroad_rp.reactive_planner import ReactivePlanner
+from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
@@ -69,10 +70,9 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Run Variables
     # **************************
-    record_state_list = list()
-    record_input_list = list()
     shape = Rectangle(planner.vehicle_params.length, planner.vehicle_params.width)
     ego_vehicle = [DynamicObstacle(42, ObstacleType.CAR, shape, x_0, None)]
+    planner.current_ego_vehicle = ego_vehicle
     x_cl = None
     current_count = 0
     planning_times = list()
@@ -88,13 +88,7 @@ def run_planner(config, log_path, mod_path):
     # Convert Initial State
     # **************************
     x_0 = ReactivePlannerState.create_from_initial_state(x_0, config.vehicle.wheelbase, config.vehicle.wb_rear_axle)
-    record_state_list.append(x_0)
-
-    # add initial inputs to recorded input list
-    record_input_list.append(InputState(
-        acceleration=x_0.acceleration,
-        time_step=x_0.time_step,
-        steering_angle_speed=0.))
+    planner.record_state_and_input(x_0)
 
     # *************************************
     # Load Behavior Planner
@@ -117,11 +111,6 @@ def run_planner(config, log_path, mod_path):
         reference_path = behavior_modul.reference_path
 
     # **************************
-    # Set Cost Function
-    # **************************
-    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
-
-    # **************************
     # Load Prediction
     # **************************
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
@@ -132,11 +121,13 @@ def run_planner(config, log_path, mod_path):
     if config.occlusion.use_occlusion_module:
         occlusion_module = OcclusionModule(scenario, config, reference_path, log_path, planner)
 
-    # ***************************
+    # **************************
     # Set External Planner Setups
-    # ***************************
+    # **************************
     planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
-                             cost_function=cost_function, reference_path=reference_path)
+                             reference_path=reference_path)
+    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
+    planner.update_externals( cost_function=cost_function)
 
     # **************************
     # Run Planner Cycle
@@ -144,7 +135,7 @@ def run_planner(config, log_path, mod_path):
     max_time_steps_scenario = int(config.general.max_steps*planning_problem.goal.state_list[0].time_step.end)
     while not planner.goal_status and current_count < max_time_steps_scenario:
 
-        current_count = x_0.time_step
+        current_count = len(planner.record_state_list) - 1
 
         # **************************
         # Cycle Prediction
@@ -171,13 +162,13 @@ def run_planner(config, log_path, mod_path):
         # Cycle Occlusion Module
         # **************************
         if config.occlusion.use_occlusion_module and (current_count == 0 or current_count % 1 == 0):
-            occlusion_map = occlusion_module.step()
+            occlusion_module.step(predictions=predictions)
 
         # **************************
         # Set Planner Subscriptions
         # **************************
-        planner.update_externals(x_0=x_0, x_cl=x_cl, current_ego_vehicle=ego_vehicle[-1], reference_path=reference_path,
-                            desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
+        planner.update_externals(x_0=x_0, x_cl=x_cl, reference_path=reference_path,
+                                 desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
 
         # **************************
         # Execute Planner
@@ -195,29 +186,12 @@ def run_planner(config, log_path, mod_path):
         planning_times.append(comp_time_end - comp_time_start)
         print(f"***Total Planning Time: {planning_times[-1]}")
 
-        # correct orientation angle
-        new_state_list = planner.shift_orientation(optimal[0], interval_start=x_0.orientation-np.pi,
-                                                   interval_end=x_0.orientation+np.pi)
-
-        # get next state from state list of planned trajectory
-        new_state = new_state_list.state_list[1]
-        new_state.time_step = current_count + 1
-
-        # add input to recorded input list
-        record_input_list.append(InputState(
-            acceleration=new_state.acceleration,
-            steering_angle_speed=(new_state.steering_angle - record_state_list[-1].steering_angle) / DT,
-            time_step=new_state.time_step
-        ))
-        # add new state to recorded state list
-        record_state_list.append(new_state)
+        # record state and input
+        planner.record_state_and_input(optimal[0].state_list[1])
 
         # update init state and curvilinear state
-        x_0 = deepcopy(record_state_list[-1])
+        x_0 = deepcopy(planner.record_state_list[-1])
         x_cl = (optimal[2][1], optimal[3][1])
-
-        # create CommonRoad Obstacle for the ego Vehicle
-        ego_vehicle.append(planner.convert_state_list_to_commonroad_object(optimal[0].state_list))
 
         print(f"current time step: {current_count}")
 
@@ -225,8 +199,8 @@ def run_planner(config, log_path, mod_path):
         # Visualize Scenario
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
-            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=ego_vehicle[-1],
-                                          traj_set=planner.all_traj, ref_path=reference_path, timestep=current_count,
+            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.current_ego_vehicle[-1],
+                                          traj_set=planner.all_traj, optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
                                           cluster=cost_function.cluster_prediction.cluster_assignments[-1]
@@ -236,11 +210,11 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Check Collision
         # **************************
-        crash = planner.check_collision(ego_vehicle[-1])
+        crash = planner.check_collision(planner.current_ego_vehicle[-1])
         if crash:
             print("Collision Detected!")
             if config.debug.collision_report and current_count > 0:
-                coll_report(ego_vehicle, planner, scenario, planning_problem,
+                coll_report(planner.current_ego_vehicle, planner, scenario, planning_problem,
                             log_path)
             break
 
@@ -260,14 +234,11 @@ def run_planner(config, log_path, mod_path):
         print("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory
-    plot_final_trajectory(scenario, planning_problem, record_state_list, config, log_path)
+    plot_final_trajectory(scenario, planning_problem, planner.record_state_list, config, log_path)
 
     # make gif
     if config.debug.gif:
         make_gif(config, scenario, range(0, current_count), log_path, duration=0.25)
-
-    # remove first element
-    record_input_list.pop(0)
 
     # **************************
     # Evaluate results
@@ -277,7 +248,7 @@ def run_planner(config, log_path, mod_path):
         from commonroad_dc.feasibility.solution_checker import valid_solution
 
         # create full solution trajectory
-        ego_solution_trajectory = create_full_solution_trajectory(config, record_state_list)
+        ego_solution_trajectory = create_full_solution_trajectory(config, planner.record_state_list)
 
         # plot full ego vehicle trajectory
         plot_final_trajectory(scenario, planning_problem, ego_solution_trajectory.state_list, config, log_path)
@@ -294,9 +265,6 @@ def run_planner(config, log_path, mod_path):
             # check acceleration correctness
             check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
 
-            # remove first element from input list
-            record_input_list.pop(0)
-
             # evaluate
             plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
             # CR validity check
@@ -305,9 +273,9 @@ def run_planner(config, log_path, mod_path):
         except:
             print("Could not reconstruct states")
 
-        plot_inputs(config, record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
+        plot_inputs(config, planner.record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
 
         # Write Solution to XML File for later evaluation
-        solutionwrtiter = CommonRoadSolutionWriter(solution)
-        solutionwrtiter.write_to_file(log_path, "solution.xml", True)
+        solutionwriter = CommonRoadSolutionWriter(solution)
+        solutionwriter.write_to_file(log_path, "solution.xml", True)
 

@@ -107,6 +107,11 @@ class AdaptableCostFunction(CostFunction):
         self.params = OmegaConf.to_object(configuration.cost.params)
         self.save_unweighted_costs = configuration.debug.save_unweighted_costs
         self.use_clusters = configuration.planning.use_clusters
+        if self.use_clusters:
+            self.cluster_mapping = {}
+            for i in range(configuration.planning.nr_clusters):
+                self.cluster_mapping[i] = "cluster"+str(i)
+            self.cluster_prediction = ClusterBasedCostFunction(self.rp, self.configuration)
 
         self.PartialCostFunctionMapping = {
             PartialCostFunction.A: cost_functions.acceleration_cost,
@@ -143,10 +148,6 @@ class AdaptableCostFunction(CostFunction):
             if str(name).split('.')[1] in irrelevant_costs:
                 del self.PartialCostFunctionMapping[name]
 
-        if self.use_clusters:
-            self.cluster_mapping = {0: "cluster0", 1: "cluster1", 2: "cluster2", 3: "cluster3",
-                                    4: "cluster4", 5: "cluster5"}
-            self.cluster_prediction = ClusterBasedCostFunction(self.rp, self.configuration)
 
     def update_state(self, scenario, rp, predictions, reachset):
         self.scenario = scenario

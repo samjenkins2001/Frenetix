@@ -7,6 +7,8 @@ save_plots: False
 evaluation: False
 collision_report: True
 gif: False
+# Select True if you want to use the Amazing Visualizer after the Run
+use_amazing_visualizer: True
 # plot vehicle position with x_y distance in meters. 0=Standard Plot
 plot_window_dyn: 30
 # draw obstacles with vehicle icons

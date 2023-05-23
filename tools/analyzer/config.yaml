@@ -1,0 +1,15 @@
+
+Dashboard: ['trajectory_number', 'calculation_time_s', 
+        'x_positions_m', 'y_positions_m', 'theta_orientations_rad',
+        'velocities_mps', 'accelerations_mps2', 's_position_m',
+        'd_position_m', 'cluster_number']
+
+Infeasible: ['infeasible_kinematics_sum',
+       'inf_kin_acceleration', 'inf_kin_negative_s_velocity',
+       'inf_kin_max_s_idx', 'inf_kin_negative_v_velocity',
+       'inf_kin_max_curvature', 'inf_kin_yaw_rate',
+       'inf_kin_max_curvature_rate', 'inf_kin_vehicle_acc',
+       'infeasible_collision']
+
+Trajectories: "trajectories.csv"
+logs: "logs.csv"

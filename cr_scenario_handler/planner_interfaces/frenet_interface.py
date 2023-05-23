@@ -39,7 +39,6 @@ class FrenetPlannerInterface(PlannerInterface):
         :param log_path: Path for writing planner-specific log files to.
         :param mod_path: Working directory of the planner.
         """
-
         self.config = config
         self.scenario = scenario
         self.predictions = None
@@ -73,6 +72,7 @@ class FrenetPlannerInterface(PlannerInterface):
             self.behavior_module = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
                                                   init_sc_path=os.path.join(config.general.path_scenarios,
                                                                             config.general.name_scenario),
+
                                                   init_ego_state=self.x_0, dt=scenario.dt,
                                                   vehicle_parameters=config.vehicle)  # testing
             self.ref_path = self.behavior_module.reference_path
@@ -211,7 +211,6 @@ class FrenetPlannerInterface(PlannerInterface):
                     using the vehicle center for the position: If error == 0
                 None: Otherwise
         """
-
         if not self.use_behavior_planner:
             # set desired velocity
             self.desired_velocity = hf.calculate_desired_velocity(self.scenario, self.planning_problem,

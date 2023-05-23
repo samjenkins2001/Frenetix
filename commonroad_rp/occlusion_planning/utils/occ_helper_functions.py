@@ -278,8 +278,17 @@ def plot_occ_map(ax, occ_map, cmap):
 
 def normalize_costs_z(costs, max_costs=100):
 
+    # if max of costs is 0 return costs
+    if max(costs) == 0.0:
+        return costs
+
+    # calc z scores and normalize costs
     z_scores = (costs - np.mean(costs)) / np.std(costs)
     norm_costs = (z_scores - np.min(z_scores)) / (np.max(z_scores) - np.min(z_scores)) * max_costs
+
+    # if all cost values are almost the same, the result will be nan --> return zeros
+    if any(np.isnan(norm_costs)):
+        return np.zeros(len(costs))
 
     return norm_costs
 
