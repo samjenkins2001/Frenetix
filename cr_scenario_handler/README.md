@@ -4,6 +4,7 @@ This project allows running different motion planners on
 
 ## Getting Started
 These instructions should help you to install the scenario handler and use it for development and testing purposes.
+The full documentation can be built using doxygen in `doxygen/`.
 
 ### Requirements
 The software is  developed and tested on recent versions of Linux and OS X.
@@ -23,6 +24,8 @@ For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
       (not into commonroad-reactive-planner or sc_scenario_handler) with: 
       * `git clone https://gitlab.lrz.de/tum-cps/commonroad-scenarios.git`
 
+4. (Optional: Build documentation)
+    * Call `doxygen` inside the `cr_scenario_handler/doxygen` directory.
 
 ### Run Code
 * The main entry point to the scenario handler is `main.py`. Adjust the path within the python file to select the scenario you want to execute.
