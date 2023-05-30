@@ -1,8 +1,8 @@
 import os
 import sys
 from commonroad_rp.run_planner import run_planner
-from cr_scenario_handler.scenario_handler import ScenarioHandler
-from commonroad_rp.configuration_builder import ConfigurationBuilder
+from cr_scenario_handler.simulation.simulation import Simulation
+from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 
 if sys.platform == "darwin":
     os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -28,4 +28,5 @@ if __name__ == '__main__':
     if not start_multiagent:
         run_planner(config, log_path, mod_path)
     else:
-        ScenarioHandler(config, log_path, mod_path)
+        simulation = Simulation(config, log_path, mod_path)
+        simulation.run_simulation()

@@ -33,11 +33,11 @@ from commonroad_rp.parameter import DefGymSampling, TimeSampling, VelocitySampli
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
-from commonroad_rp.configuration import Configuration
 from commonroad_rp.utility import reachable_set
 from commonroad_rp.state import ReactivePlannerState
 
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
+from cr_scenario_handler.utils.configuration import Configuration
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
 from commonroad_rp.prediction_helpers import collision_checker_prediction
@@ -738,7 +738,7 @@ class ReactivePlanner(object):
 
             # create CommonRoad Obstacle for the ego Vehicle
             if trajectory_pair is not None:
-                self.current_ego_vehicle.append(self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list))
+                self.current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
 
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
@@ -768,7 +768,7 @@ class ReactivePlanner(object):
         if optimal_trajectory is not None:
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                             infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-                            cluster=cluster_, ego_vehicle=self.current_ego_vehicle[-1])
+                            cluster=cluster_, ego_vehicle=self.current_ego_vehicle)
             self.logger.log_pred(self.predictions)
         if self.save_all_traj or self.use_amazing_visualizer:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)

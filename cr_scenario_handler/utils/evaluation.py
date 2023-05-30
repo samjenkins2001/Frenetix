@@ -7,32 +7,39 @@ __status__ = "Beta"
 
 
 import os
+import traceback
 from typing import List, Union
 from matplotlib import pyplot as plt
 import numpy as np
 
 from commonroad.scenario.trajectory import Trajectory
-from commonroad.scenario.state import InputState, TraceState
-from commonroad.planning.planning_problem import PlanningProblem
+from commonroad.scenario.state import InputState, TraceState, State
+from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
 from commonroad.scenario.scenario import Scenario
 from commonroad.common.solution import Solution, PlanningProblemSolution, VehicleModel, \
-    VehicleType, CostFunction
+    VehicleType, CostFunction, CommonRoadSolutionWriter
 
 from commonroad_dc.feasibility.feasibility_checker import VehicleDynamics, \
-    state_transition_feasibility, position_orientation_objective, position_orientation_feasibility_criteria, _angle_diff
+    state_transition_feasibility, position_orientation_objective, \
+    position_orientation_feasibility_criteria, _angle_diff
 
-from commonroad_rp.configuration import Configuration
-from commonroad_rp.state import ReactivePlannerState
+from commonroad_dc.feasibility.solution_checker import valid_solution, CollisionException, \
+    GoalNotReachedException, MissingSolutionException
+
+from cr_scenario_handler.utils.configuration import Configuration
+from cr_scenario_handler.utils.visualization import plot_final_trajectory
 
 
-def create_full_solution_trajectory(config: Configuration, state_list: List[ReactivePlannerState]) -> Trajectory:
+def create_full_solution_trajectory(config: Configuration, state_list: List[State]) -> Trajectory:
     """
     Create CR solution trajectory from recorded state list of the reactive planner
     Positions are shifted from rear axis to vehicle center due to CR position convention
     """
     new_state_list = list()
     for state in state_list:
-        new_state_list.append(state.shift_positions_to_center(config.vehicle.wb_rear_axle))
+        new_state_list.append(
+            state.translate_rotate(np.array([config.vehicle.wb_rear_axle * np.cos(state.orientation),
+                                             config.vehicle.wb_rear_axle * np.sin(state.orientation)]), 0.0))
     return Trajectory(initial_time_step=new_state_list[0].time_step, state_list=new_state_list)
 
 
@@ -52,7 +59,7 @@ def create_planning_problem_solution(config: Configuration, solution_trajectory:
     return solution
 
 
-def reconstruct_states(config: Configuration, states: List[Union[ReactivePlannerState, TraceState]], inputs: List[InputState]):
+def reconstruct_states(config: Configuration, states: List[Union[State, TraceState]], inputs: List[InputState]):
     """reconstructs states from a given list of inputs by forward simulation"""
     vehicle_dynamics = VehicleDynamics.from_model(VehicleModel.KS, VehicleType(config.vehicle.cr_vehicle_id))
 
@@ -87,7 +94,7 @@ def reconstruct_inputs(config: Configuration, pps: PlanningProblemSolution):
     return feasible_state_list, reconstructed_inputs
 
 
-def check_acceleration(config: Configuration, state_list:  List[Union[ReactivePlannerState, TraceState]], plot=False):
+def check_acceleration(config: Configuration, state_list:  List[Union[State, TraceState]], plot=False):
     """Checks whether the computed acceleration the trajectory matches the velocity difference (dv/dt), i.e., assuming
     piecewise constant acceleration input"""
     # computed acceleration of trajectory
@@ -117,7 +124,7 @@ def check_acceleration(config: Configuration, state_list:  List[Union[ReactivePl
         # plt.show()
 
 
-def plot_states(config: Configuration, state_list: List[Union[ReactivePlannerState, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
+def plot_states(config: Configuration, state_list: List[Union[State, TraceState]], save_path: str, reconstructed_states=None, plot_bounds=False):
     """
     Plots states of trajectory from a given state_list
     state_list must contain the following states: steering_angle, velocity, orientation and yaw_rate
@@ -260,3 +267,69 @@ def plot_inputs(config: Configuration, input_list: List[InputState], save_path: 
     # Save Output
     plot_path = os.path.join(save_path, "evaluation_plot_inputs")
     plt.savefig(f"{plot_path}.svg", format='svg')
+
+
+def evaluate(scenario: Scenario, planning_problem: PlanningProblem, id: int,
+             recorded_state_list: List[State], recorded_input_list: List[InputState],
+             config: Configuration, log_path: str):
+    """ Wrapper function for evaluating a planned trajectory.
+
+    Calls all other functions in this file on a list of recorded states.
+
+    :param scenario: The scenario that has been solved.
+    :param planning_problem: The planning problem of the ego vehicle.
+    :param id: The obstacle ID of the ego vehicle.
+    :param recorded_state_list: List of agent states the agent recorded during simulation.
+    :param recorded_input_list: List of inputs for every planner step.
+    :param config: The configuration.
+    :param log_path: Path to write the evaluation results to.
+    """
+
+    # create full solution trajectory
+    initial_timestep = planning_problem.initial_state.time_step
+    ego_solution_trajectory = Trajectory(initial_time_step=initial_timestep,
+                                         state_list=recorded_state_list[initial_timestep:])
+
+    # plot full ego vehicle trajectory
+    plot_final_trajectory(scenario, planning_problem, ego_solution_trajectory.state_list,
+                          config, log_path)
+
+    # create CR solution
+    solution = create_planning_problem_solution(config, ego_solution_trajectory,
+                                                scenario, planning_problem)
+
+    # check feasibility
+    # reconstruct inputs (state transition optimizations)
+    feasible, reconstructed_inputs = reconstruct_inputs(config, solution.planning_problem_solutions[0])
+    try:
+        # reconstruct states from inputs
+        reconstructed_states = reconstruct_states(config, ego_solution_trajectory.state_list,
+                                                  reconstructed_inputs)
+        # check acceleration correctness
+        check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
+
+        # remove first element from input list
+        recorded_input_list.pop(0)
+
+        # evaluate
+        plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states,
+                    plot_bounds=False)
+        # CR validity check
+        print(f"[Agent {id}] Feasibility Check Result: ")
+        if valid_solution(scenario, PlanningProblemSet([planning_problem]), solution)[0]:
+            print(f"[Agent {id}] Valid")
+    except CollisionException:
+        print(f"[Agent {id}] Infeasible: Collision")
+    except GoalNotReachedException:
+        print(f"[Agent {id}] Infeasible: Goal not reached")
+    except MissingSolutionException:
+        print(f"[Agent {id}] Infeasible: Missing solution")
+    except:
+        traceback.print_exc()
+        print(f"[Agent {id}] Could not reconstruct states")
+
+    plot_inputs(config, recorded_input_list, log_path, reconstructed_inputs, plot_bounds=True)
+
+    # Write Solution to XML File for later evaluation
+    solutionwriter = CommonRoadSolutionWriter(solution)
+    solutionwriter.write_to_file(log_path, "solution.xml", True)

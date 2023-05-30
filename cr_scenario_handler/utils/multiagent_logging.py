@@ -1,11 +1,22 @@
 import os
-import traceback
 
 from typing import List
 
 
 def init_log(log_path: str):
-    """Create log file and write header"""
+    """Create log file for simulation-level logging and write the header.
+
+    The log file will contain the following fields:
+    time_step: The time step of this log entry.
+    domain_time: The time step expressed in simulated time.
+    total_planning_time: The wall clock time required for executing the planner step of all agents.
+    total_synchronization_time: The wall clock time required for synchronizing the agents.
+    agent_ids: A list of the IDs of all agents in the simulation.
+    agent_states: A list of the return values of the agents' step function,
+        in the same order as the agent_ids
+
+    :param log_path: Base path the log file is written to
+    """
 
     os.makedirs(log_path, exist_ok=True)
 

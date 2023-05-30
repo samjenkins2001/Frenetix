@@ -1,7 +1,5 @@
 import numpy as np
 from commonroad.common.file_reader import CommonRoadFileReader
-# from commonroad_helper_functions.interpolation import interpolate_scenario
-import commonroad_rp.utility.helper_functions as hf
 
 
 def load_scenario_and_planning_problem(config, idx_planning_problem: int = 0):
@@ -24,6 +22,7 @@ def check_if_obstacle_on_same_position(scenario, init_state):
     for i in scenario.dynamic_obstacles:
         if i.prediction.initial_time_step < 2:
             obs_pos = np.array((i.initial_state.position[0], i.initial_state.position[1]))
-            if hf.distance(init_pos, obs_pos) < 2:
+            # Euclidean distance
+            if np.linalg.norm(init_pos - obs_pos) < 2:
                 scenario.remove_obstacle(i)
     return scenario
