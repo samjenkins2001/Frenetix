@@ -26,7 +26,6 @@ from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
-from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.utility import helper_functions as hf
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.geometry.shape import Rectangle
@@ -37,7 +36,7 @@ import commonroad_rp.prediction_helpers as ph
 from behavior_planner.behavior_module import BehaviorModule
 
 from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
-
+from frenetPlannerHelper import TrajectoryHandler
 
 def run_planner(config, log_path, mod_path):
 
@@ -66,6 +65,8 @@ def run_planner(config, log_path, mod_path):
     # Initialize Reactive Planner
     # *************************************
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
+    planner.handler = TrajectoryHandler(dt=DT)
+    planner.set_handler_constant_functions()
 
     # **************************
     # Run Variables
@@ -126,8 +127,7 @@ def run_planner(config, log_path, mod_path):
     # **************************
     planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
                              reference_path=reference_path)
-    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
-    planner.update_externals( cost_function=cost_function)
+
 
     # **************************
     # Run Planner Cycle
@@ -167,12 +167,14 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Set Planner Subscriptions
         # **************************
-        planner.update_externals(x_0=x_0, x_cl=x_cl, reference_path=reference_path,
-                                 desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
+        planner.update_externals(x_0=x_0, x_cl=x_cl, desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
 
         # **************************
         # Execute Planner
         # **************************
+        # check for low velocity mode
+
+        planner.set_handler_changing_functions()
         comp_time_start = time.time()
         optimal = planner.plan()  # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
@@ -184,7 +186,7 @@ def run_planner(config, log_path, mod_path):
 
         # store planning times
         planning_times.append(comp_time_end - comp_time_start)
-        print(f"***Total Planning Time: {planning_times[-1]}")
+        print(f"***Total Planning Time: \t\t{planning_times[-1]:.5f} s")
 
         # record state and input
         planner.record_state_and_input(optimal[0].state_list[1])
@@ -200,11 +202,9 @@ def run_planner(config, log_path, mod_path):
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
             visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.current_ego_vehicle,
-                                          traj_set=planner.all_traj, optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
+                                          traj_set=list(planner.handler.get_sorted_trajectories()), optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
-                                          cluster=cost_function.cluster_prediction.cluster_assignments[-1]
-                                                  if cost_function.cluster_prediction is not None else None,
                                           log_path=log_path, visible_area=visible_area, occlusion_map=occlusion_map)
 
         # **************************

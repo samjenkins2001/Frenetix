@@ -1,14 +1,14 @@
 # show/save plots
 save_all_traj: False
 save_unweighted_costs: False
-log_risk: True
+log_risk: False
 show_plots: False
 save_plots: True
-evaluation: True
+evaluation: False
 collision_report: True
 gif: False
 # Select True if you want to use the Amazing Visualizer after the Run
-use_amazing_visualizer: True
+use_amazing_visualizer: False
 # plot vehicle position with x_y distance in meters. 0=Standard Plot
 plot_window_dyn: 30
 # draw obstacles with vehicle icons

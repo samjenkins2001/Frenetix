@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from enum import Enum
 
-from commonroad_rp.trajectories import TrajectorySample
+from frenetPlannerHelper import TrajectorySample
 
 
 class DataLoggingCosts:
