@@ -129,7 +129,7 @@ class ReactivePlanner(object):
         self._sampling_min = config.sampling.sampling_min
         self._sampling_max = config.sampling.sampling_max
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.planning.planning_horizon, config.planning.dt, config.planning.planning_horizon)
+        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
         # fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
         # self._sampling_d = fs_sampling.d_samples
         # self._sampling_t = fs_sampling.t_samples
@@ -359,10 +359,7 @@ class ReactivePlanner(object):
         :param dt: length of each sampled step
         :param horizon: sampled time horizon
         """
-        # self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
-        self._sampling_t = TimeSampling(horizon, horizon, self._sampling_max, dt)
-        # self.N = int(round(horizon / dt))
-        # self.horizon = horizon
+        self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
 
     def set_d_sampling_parameters(self, delta_d_min, delta_d_max):
         """
@@ -1069,9 +1066,9 @@ class ReactivePlanner(object):
             # if selected polynomial trajectory is feasible, store it's Cartesian and Curvilinear trajectory
             if feasible or self._draw_traj_set:
                 # Extend Trajectory to get same lenth
-                # t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
-                # s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
-                # d[traj_len:] = d[traj_len-1]
+                t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
+                s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
+                d[traj_len:] = d[traj_len-1]
                 for i in range(0, len(s)):
                     # compute (global) Cartesian position
                     pos: np.ndarray = self._co.convert_to_cartesian_coords(s[i], d[i])
