@@ -361,8 +361,8 @@ class ReactivePlanner(object):
         """
         # self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
         self._sampling_t = TimeSampling(horizon, horizon, self._sampling_max, dt)
-        self.N = int(round(horizon / dt))
-        self.horizon = horizon
+        # self.N = int(round(horizon / dt))
+        # self.horizon = horizon
 
     def set_d_sampling_parameters(self, delta_d_min, delta_d_max):
         """
@@ -788,14 +788,15 @@ class ReactivePlanner(object):
 
         return trajectory_pair
 
-    def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
+    def _compute_standstill_trajectory(self) -> TrajectorySample:
         """
         Computes a standstill trajectory if the vehicle is already at velocity 0
-        :param x_0: The current state of the ego vehicle
-        :param x_0_lon: The longitudinal state in curvilinear coordinates
-        :param x_0_lat: The lateral state in curvilinear coordinates
         :return: The TrajectorySample for a standstill trajectory
         """
+        # current planner initial state
+        x_0 = self.x_0
+        x_0_lon, x_0_lat = self.x_cl
+
         # create artificial standstill trajectory
         if self.debug_mode >= 1:
             print('Adding standstill trajectory')
@@ -811,15 +812,27 @@ class ReactivePlanner(object):
         traj_lat = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lat),
                                      x_d=np.array([x_0_lat[0], 0, 0]))
 
-        # create Cartesian and Curvilinear trajectory
-        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat, 0)
+        # compute initial ego curvature (global coordinates) from initial steering angle
+        kappa_0 = np.tan(x_0.steering_angle) / self.vehicle_params.wheelbase
+
+        # create Trajectory sample
+        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat)
+
+        # create Cartesian trajectory sample
         p.cartesian = CartesianSample(np.repeat(x_0.position[0], self.N), np.repeat(x_0.position[1], self.N),
                                       np.repeat(x_0.orientation, self.N), np.repeat(0, self.N),
-                                      np.repeat(0, self.N), np.repeat(0, self.N), np.repeat(0, self.N),
+                                      np.repeat(0, self.N), np.repeat(kappa_0, self.N), np.repeat(0, self.N),
                                       current_time_step=self.N)
 
+        # create Curvilinear trajectory sample
+        # compute orientation in curvilinear coordinate frame
+        s_idx = np.argmax(self._co.ref_pos > x_0_lon[0]) - 1
+        ref_theta = np.unwrap(self._co.ref_theta)
+        theta_cl = x_0.orientation - interpolate_angle(x_0_lon[0], self._co.ref_pos[s_idx], self._co.ref_pos[s_idx + 1],
+                                                       ref_theta[s_idx], ref_theta[s_idx + 1])
+
         p.curvilinear = CurviLinearSample(np.repeat(x_0_lon[0], self.N), np.repeat(x_0_lat[0], self.N),
-                                          np.repeat(x_0.orientation, self.N), dd=np.repeat(x_0_lat[1], self.N),
+                                          np.repeat(theta_cl, self.N), dd=np.repeat(x_0_lat[1], self.N),
                                           ddd=np.repeat(x_0_lat[2], self.N), ss=np.repeat(x_0_lon[1], self.N),
                                           sss=np.repeat(x_0_lon[2], self.N), current_time_step=self.N)
         return p
