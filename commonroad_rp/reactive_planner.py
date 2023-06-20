@@ -50,6 +50,9 @@ from commonroad_rp.utility.load_json import (
     load_risk_json
 )
 
+# precision value
+_EPS = 1e-5
+
 
 class ReactivePlanner(object):
     """
@@ -805,7 +808,7 @@ class ReactivePlanner(object):
             print("x_0_lat is {}".format(x_0_lat))
         # create lon and lat polynomial
         traj_lon = QuarticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lon),
-                                     x_d=np.array([self._desired_speed, 0]))
+                                     x_d=np.array([0, 0]))
         traj_lat = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lat),
                                      x_d=np.array([x_0_lat[0], 0, 0]))
 
@@ -895,6 +898,11 @@ class ReactivePlanner(object):
                 d_velocity[:traj_len] = trajectory.trajectory_lat.calc_velocity(s1, s2, s3, s4)  # lat velocity
                 d_acceleration[:traj_len] = trajectory.trajectory_lat.calc_acceleration(s1, s2, s3)  # lat acceleration
 
+            # precision for near zero velocities from evaluation of polynomial coefficients
+            # set small velocities to zero
+            s_velocity[np.abs(s_velocity) < _EPS] = 0.0
+            d_velocity[np.abs(d_velocity) < _EPS] = 0.0
+
             # Initialize trajectory state vectors
             # (Global) Cartesian positions x, y
             x = np.zeros(self.N + 1)
@@ -921,7 +929,7 @@ class ReactivePlanner(object):
                     infeasible_count_kinematics[1] += 1
                     infeasible_trajectories.append(trajectory)
                     continue
-                if np.any(s_velocity < -0.1):
+                if np.any(s_velocity < -_EPS):
                     if self.debug_mode >= 2:
                         print(f"Velocity {min(s_velocity)} at step")
                     feasible = False
@@ -1013,7 +1021,7 @@ class ReactivePlanner(object):
                 kappa_cl[i] = kappa_gl[i] - k_r
 
                 # compute (global) Cartesian velocity
-                v[i] = abs(s_velocity[i] * (oneKrD / (math.cos(theta_cl[i]))))
+                v[i] = s_velocity[i] * (oneKrD / (math.cos(theta_cl[i])))
 
                 # compute (global) Cartesian acceleration
                 a[i] = s_acceleration[i] * oneKrD / cosTheta + ((s_velocity[i] ** 2) / cosTheta) * (
@@ -1022,7 +1030,7 @@ class ReactivePlanner(object):
 
                 # CHECK KINEMATIC CONSTRAINTS (remove infeasible trajectories)
                 # velocity constraint
-                if v[i] < -0.1:
+                if v[i] < -_EPS:
                     feasible = False
                     infeasible_count_kinematics_traj[4] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
@@ -1037,7 +1045,7 @@ class ReactivePlanner(object):
                 # yaw rate (orientation change) constraint
                 yaw_rate = (theta_gl[i] - theta_gl[i-1]) / self.dT if i > 0 else 0.
                 theta_dot_max = kappa_max * v[i]
-                if abs(yaw_rate) > theta_dot_max:
+                if abs(round(yaw_rate, 5)) > theta_dot_max:
                     feasible = False
                     infeasible_count_kinematics_traj[6] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
