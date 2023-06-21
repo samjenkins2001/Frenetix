@@ -8,7 +8,7 @@ import re
 
 def lowest_costs(df):
     dff = df[df["variable"] == "costs_cumulative_weighted"]
-    dff = dff.sort_values(by='value')
+    dff = dff.sort_values(by='costs')
     dff = dff.reset_index().truncate(before=0, after=9)
     trajs = dff["trajectory_number"].unique()
     df = df[df["trajectory_number"].isin(trajs)]
@@ -41,6 +41,17 @@ def get_images(logs_path):
     return img
 
 
+def create_cost_color_mapping(trajectories_csv):
+    colors = ["#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe", "#008080", "#e6beff", "#9a6324", "#fffac8", "#800000", "#aaffc3", "#808000", "#ffd8b1", "#000075", "#808080", "#ffffff", "#000000"]
+    cost_vars = trajectories_csv["variable"].unique()
+    my_dict = {}
+    for (cost_var, color) in zip(cost_vars, colors):
+        my_dict[cost_var] = color
+    return my_dict
+
+
+
+
 def setup_trajs(csv_name):
     df = pd.read_csv(csv_name, delimiter=";")
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
@@ -49,7 +60,7 @@ def setup_trajs(csv_name):
     cost_headers, remaining_headers = get_cost_headers_and_remaining(df)
 
     # make cost headers to attribute -> csv becomes way longer
-    df = pd.melt(df, id_vars=remaining_headers, value_vars=cost_headers, value_name='value')
+    df = pd.melt(df, id_vars=remaining_headers, value_vars=cost_headers, value_name='costs')
 
     df['x_positions_m'] = df['x_positions_m'].apply(lambda x: x.split(","))
     df['x_positions_m'] = df.apply(lambda row: row.x_positions_m[row.actual_traj_length-1], axis=1)  # shorten to plottet trajectories
@@ -60,8 +71,8 @@ def setup_trajs(csv_name):
     df['velocities_mps'] = df['velocities_mps'].apply(lambda x: float(x.split(",")[0]))  # only use initial velocity for each timestep
     df['accelerations_mps2'] = df['accelerations_mps2'].apply(lambda x: float(x.split(",")[0]))  # only use initial velocity for each timestep
 
-    df = df.replace(True, 'feasible')
-    df = df.replace(False, 'infeasible')
+    df = df.replace(True, 'Feasible')
+    df = df.replace(False, 'Infeasible')
 
     df_two = df.copy(deep=True)
     df_two = df_two.assign(feasible='All')

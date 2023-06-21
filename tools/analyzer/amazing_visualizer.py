@@ -3,18 +3,12 @@
 from dash import Dash, html, dcc, Input, Output, dash_table
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
-import dash_daq as daq
-
 import plotly.express as px
-import plotly
 from PIL import Image
 import os
-import numpy as np
 import yaml
-
 import utils.visualization_helpers as vh
 
-import time
 
 mod_path = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)
@@ -27,21 +21,22 @@ dash_board_two = config["Infeasible"]
 trajectory_csv_path = config["Trajectories"]
 logs_csv_path = config["logs"]
 
-with open(os.path.join(mod_path, 'configurations', 'defaults', 'debug.yaml')) as stream:    # access debug info
+with open(os.path.join(mod_path, 'configurations', 'defaults', 'debug.yaml')) as stream:  # access debug info
     debug = yaml.safe_load(stream)
 plot_window = debug["plot_window_dyn"]
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']                       # set up dashboard style
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']  # set up dashboard style
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 
-logs_path = vh.get_latest_log_files(os.path.join(mod_path, 'logs'))                         # set up log file path & load csv's
+logs_path = vh.get_latest_log_files(os.path.join(mod_path, 'logs'))  # set up log file path & load csv's
 trajectories_csv = vh.setup_trajs(os.path.join(logs_path, trajectory_csv_path))
 log = vh.setup_logs(os.path.join(logs_path, logs_csv_path))
 
-img = vh.get_images(logs_path)                                                              # load scenario visualization
+img = vh.get_images(logs_path)  # load scenario visualization
+color_mapping = vh.create_cost_color_mapping(trajectories_csv)
 
 time_step = 0
-trajectory_number = 0                                                           # load scenario visualization
+trajectory_number = 0
 
 # order of figures
 app.layout = html.Div([
@@ -63,7 +58,7 @@ app.layout = html.Div([
                         }),
                 ]),
             ],
-                style={'margin-left': '-140px', 'margin-bottom': '40px', 'width': '100%', 'display': 'inline-block'}),
+                style={'margin-left': '-0px', 'margin-bottom': '40px', 'width': '100%', 'display': 'inline-block'}),
         ),
 
         html.Div([
@@ -98,11 +93,11 @@ app.layout = html.Div([
 
     html.Div([  # cost allocation for chosen trajectory, updates in: update_y_timeseries
         dcc.Graph(id='x-time-series'),
-    ], style={'display': 'inline-block', 'width': '30%'}),
+    ], style={'display': 'inline-block', 'width': '45%'}),
 
     html.Div([  # cost allocation for chosen trajectory, updates in: update_z_timeseries
         dcc.Graph(id='z-time-series'),
-    ], style={'display': 'inline-block', 'width': '39%'}),
+    ], style={'display': 'inline-block', 'width': '45%'}),
 
     dbc.Row(  # info table 2: shows number of infeasible listed by the reason
         html.Div([
@@ -111,7 +106,7 @@ app.layout = html.Div([
                 dash_table.DataTable(id='tweet_table_two'),
             ]),
         ],
-            style={'margin-left': '-140px', 'margin-bottom': '40px', 'width': '100%', 'display': 'inline-block'}),
+            style={'margin-left': '-0px', 'margin-bottom': '40px', 'width': '100%', 'display': 'inline-block'}),
     ),
 
     dbc.Row(
@@ -162,19 +157,23 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
         dff = trajectories_csv[(trajectories_csv['time_step'] == time_step_input) &
                                (trajectories_csv['variable'] == "costs_cumulative_weighted") &
                                (trajectories_csv['feasible'] == yaxis_column_name)][["x_positions_m", "y_positions_m",
-                                                                                     "trajectory_number", "value",
+                                                                                     "trajectory_number", "costs",
                                                                                      "feasible"]]
+
+        logg = log[log['trajectory_number'] == time_step_input]
+        x, y = float(logg["x_position_vehicle_m"][time_step_input]), float(
+            logg["y_position_vehicle_m"][time_step_input])
+
+        # for i in range(len(dff)):
+        #   dff["costs"][i] =  np.linalg.norm(np.array((float(dff["x_positions_m"][i]), float(dff["y_positions_m"][i]))) - np.array((x, y)))
+        #  print(dff["costs"][i])
 
         fig = px.scatter(dff,
                          x=dff['x_positions_m'],
                          y=dff['y_positions_m'],
                          hover_name=dff['trajectory_number'],
-                         color="value", color_continuous_scale='rdylgn_r'
+                         color="costs", color_continuous_scale='rdylgn_r'
                          )
-
-        logg = log[log['trajectory_number'] == time_step_input]
-        x, y = float(logg["x_position_vehicle_m"][time_step_input]), float(
-            logg["y_position_vehicle_m"][time_step_input])
 
         background = Image.fromarray(img[time_step_input])
 
@@ -210,7 +209,7 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
                                (trajectories_csv['trajectory_number'] == trajectory_number_input) &
                                (trajectories_csv['variable'] == "costs_cumulative_weighted")][
             ["x_positions_m", "y_positions_m",
-             "trajectory_number", "value", "feasible"]]
+             "trajectory_number", "costs", "feasible"]]
 
         if yaxis_column_name == "All":
             dff = dff[dff['feasible'] == "All"].reset_index()
@@ -218,7 +217,7 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
             dff = dff[dff['feasible'] != "All"].reset_index()
             if len(trajectories_csv[(trajectories_csv['time_step'] == time_step_input) & (
                     trajectories_csv['feasible'] == yaxis_column_name)]) == 0:
-                return fig
+                return fig  # if no trajectories with chosen feasibility exist
 
         while dff['feasible'][
             0] != yaxis_column_name:  # find next higher trajectory that fullfills feasibility requirements
@@ -228,7 +227,7 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
                                    (trajectories_csv['feasible'] != "All") &
                                    (trajectories_csv['variable'] == "costs_cumulative_weighted")][
                 ["x_positions_m", "y_positions_m",
-                 "trajectory_number", "value", "feasible"]]
+                 "trajectory_number", "costs", "feasible"]]
 
             if len(dff) == 0:  # if max trajectory number reached start from beginning
                 trajectory_number_input = 0
@@ -237,7 +236,7 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
                                        (trajectories_csv['feasible'] != "All") &
                                        (trajectories_csv['variable'] == "costs_cumulative_weighted")][
                     ["x_positions_m", "y_positions_m",
-                     "trajectory_number", "value", "feasible"]]
+                     "trajectory_number", "costs", "feasible"]]
 
             dff = dff.reset_index()
 
@@ -282,7 +281,7 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
                                (trajectories_csv['trajectory_number'] == trajectory_number_input) &
                                (trajectories_csv['variable'] == "costs_cumulative_weighted")][
             ["x_positions_m", "y_positions_m",
-             "trajectory_number", "value", "feasible"]]
+             "trajectory_number", "costs", "feasible"]]
 
         if yaxis_column_name == "All":
             dff = dff[dff['feasible'] == "All"].reset_index()
@@ -300,7 +299,7 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
                                    (trajectories_csv['feasible'] != "All") &
                                    (trajectories_csv['variable'] == "costs_cumulative_weighted")][
                 ["x_positions_m", "y_positions_m",
-                 "trajectory_number", "value", "feasible"]]
+                 "trajectory_number", "costs", "feasible"]]
 
             if len(dff) == 0:  # if max trajectory number reached start from beginning
                 trajectory_number_input = 0
@@ -309,7 +308,7 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
                                        (trajectories_csv['feasible'] != "All") &
                                        (trajectories_csv['variable'] == "costs_cumulative_weighted")][
                     ["x_positions_m", "y_positions_m",
-                     "trajectory_number", "value", "feasible"]]
+                     "trajectory_number", "costs", "feasible"]]
 
             dff = dff.reset_index()
 
@@ -347,7 +346,9 @@ def update_graph(figure, xaxis_column_name, yaxis_column_name,
 
 
 def create_time_series_one(dff, title):
-    fig = px.bar(dff, x='trajectory_number', y="value", color="variable")
+    global color_mapping
+
+    fig = px.bar(dff, x='trajectory_number', y="costs", color="variable", color_discrete_map=color_mapping)
 
     fig.update_traces()
 
@@ -365,14 +366,17 @@ def create_time_series_one(dff, title):
 
 
 def create_time_series_two(dff, title):
+    global color_mapping
+
     try:
-        total = dff[dff['variable'] == "costs_cumulative_weighted"]["value"].iloc[0]
+        total = dff[dff['variable'] == "costs_cumulative_weighted"]["costs"].iloc[0]
     except:
         total = 1
 
-    dff["Percentage"] = dff["value"] / total
+    dff["Percentage"] = dff["costs"] / total
 
-    fig = px.bar(dff, x='trajectory_number', y="value", color="variable", barmode='group', hover_data=["Percentage"])
+    fig = px.bar(dff, x='trajectory_number', y="costs", color="variable", barmode='group', hover_data=["Percentage"],
+                 color_discrete_map=color_mapping)
 
     fig.update_traces()
 
