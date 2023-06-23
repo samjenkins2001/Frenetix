@@ -109,6 +109,7 @@ def get_lanelet_information(scenario, reference_path_ids, ego_state, country: Su
 
     current_position = ego_state.position
     current_lanelets = scenario.lanelet_network.find_lanelet_by_position([current_position])[0]
+    current_lanelet = None
 
     # get legal speed limit
     speed_limit = traffic_signs.speed_limit(lanelet_ids=frozenset(current_lanelets))
@@ -121,6 +122,9 @@ def get_lanelet_information(scenario, reference_path_ids, ego_state, country: Su
                 current_lanelet = lanelet_id
             else:
                 current_lanelet = current_lanelets[0]
+    else:
+        print("no lanelets detected")
+
 
     # check for street setting
     lanelet_type = scenario.lanelet_network.find_lanelet_by_id(current_lanelet).lanelet_type
@@ -272,8 +276,6 @@ def create_consecutive_lanelet_id_list(lanelet_network, start_lanelet_id, naviga
                     for successor_id in lanelet.successor:
                         if successor_id in navigation_route_ids:
                             consecutive_lanelet_ids += [successor_id]
-                        else:
-                            consecutive_lanelet_ids += [lanelet.successor[0]]
                 else:
                     consecutive_lanelet_ids += [lanelet.successor[0]]
         else:

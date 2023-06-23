@@ -1,5 +1,9 @@
 import os
 import sys
+<<<<<<< HEAD
+=======
+from commonroad_rp.run_planner import run_planner
+>>>>>>> develop_RT
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 

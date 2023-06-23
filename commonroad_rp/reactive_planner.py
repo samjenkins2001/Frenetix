@@ -50,6 +50,9 @@ from commonroad_rp.utility.load_json import (
     load_risk_json
 )
 
+# precision value
+_EPS = 1e-5
+
 
 class ReactivePlanner(object):
     """
@@ -129,7 +132,7 @@ class ReactivePlanner(object):
         self._sampling_min = config.sampling.sampling_min
         self._sampling_max = config.sampling.sampling_max
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.planning.planning_horizon, config.planning.dt, config.planning.planning_horizon)
+        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
         # fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
         # self._sampling_d = fs_sampling.d_samples
         # self._sampling_t = fs_sampling.t_samples
@@ -359,10 +362,7 @@ class ReactivePlanner(object):
         :param dt: length of each sampled step
         :param horizon: sampled time horizon
         """
-        # self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
-        self._sampling_t = TimeSampling(horizon, horizon, self._sampling_max, dt)
-        self.N = int(round(horizon / dt))
-        self.horizon = horizon
+        self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
 
     def set_d_sampling_parameters(self, delta_d_min, delta_d_max):
         """
@@ -788,14 +788,15 @@ class ReactivePlanner(object):
 
         return trajectory_pair
 
-    def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
+    def _compute_standstill_trajectory(self) -> TrajectorySample:
         """
         Computes a standstill trajectory if the vehicle is already at velocity 0
-        :param x_0: The current state of the ego vehicle
-        :param x_0_lon: The longitudinal state in curvilinear coordinates
-        :param x_0_lat: The lateral state in curvilinear coordinates
         :return: The TrajectorySample for a standstill trajectory
         """
+        # current planner initial state
+        x_0 = self.x_0
+        x_0_lon, x_0_lat = self.x_cl
+
         # create artificial standstill trajectory
         if self.debug_mode >= 1:
             print('Adding standstill trajectory')
@@ -807,19 +808,31 @@ class ReactivePlanner(object):
             print("x_0_lat is {}".format(x_0_lat))
         # create lon and lat polynomial
         traj_lon = QuarticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lon),
-                                     x_d=np.array([self._desired_speed, 0]))
+                                     x_d=np.array([0, 0]))
         traj_lat = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lat),
                                      x_d=np.array([x_0_lat[0], 0, 0]))
 
-        # create Cartesian and Curvilinear trajectory
-        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat, 0)
+        # compute initial ego curvature (global coordinates) from initial steering angle
+        kappa_0 = np.tan(x_0.steering_angle) / self.vehicle_params.wheelbase
+
+        # create Trajectory sample
+        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat)
+
+        # create Cartesian trajectory sample
         p.cartesian = CartesianSample(np.repeat(x_0.position[0], self.N), np.repeat(x_0.position[1], self.N),
                                       np.repeat(x_0.orientation, self.N), np.repeat(0, self.N),
-                                      np.repeat(0, self.N), np.repeat(0, self.N), np.repeat(0, self.N),
+                                      np.repeat(0, self.N), np.repeat(kappa_0, self.N), np.repeat(0, self.N),
                                       current_time_step=self.N)
 
+        # create Curvilinear trajectory sample
+        # compute orientation in curvilinear coordinate frame
+        s_idx = np.argmax(self._co.ref_pos > x_0_lon[0]) - 1
+        ref_theta = np.unwrap(self._co.ref_theta)
+        theta_cl = x_0.orientation - interpolate_angle(x_0_lon[0], self._co.ref_pos[s_idx], self._co.ref_pos[s_idx + 1],
+                                                       ref_theta[s_idx], ref_theta[s_idx + 1])
+
         p.curvilinear = CurviLinearSample(np.repeat(x_0_lon[0], self.N), np.repeat(x_0_lat[0], self.N),
-                                          np.repeat(x_0.orientation, self.N), dd=np.repeat(x_0_lat[1], self.N),
+                                          np.repeat(theta_cl, self.N), dd=np.repeat(x_0_lat[1], self.N),
                                           ddd=np.repeat(x_0_lat[2], self.N), ss=np.repeat(x_0_lon[1], self.N),
                                           sss=np.repeat(x_0_lon[2], self.N), current_time_step=self.N)
         return p
@@ -885,6 +898,11 @@ class ReactivePlanner(object):
                 d_velocity[:traj_len] = trajectory.trajectory_lat.calc_velocity(s1, s2, s3, s4)  # lat velocity
                 d_acceleration[:traj_len] = trajectory.trajectory_lat.calc_acceleration(s1, s2, s3)  # lat acceleration
 
+            # precision for near zero velocities from evaluation of polynomial coefficients
+            # set small velocities to zero
+            s_velocity[np.abs(s_velocity) < _EPS] = 0.0
+            d_velocity[np.abs(d_velocity) < _EPS] = 0.0
+
             # Initialize trajectory state vectors
             # (Global) Cartesian positions x, y
             x = np.zeros(self.N + 1)
@@ -911,7 +929,7 @@ class ReactivePlanner(object):
                     infeasible_count_kinematics[1] += 1
                     infeasible_trajectories.append(trajectory)
                     continue
-                if np.any(s_velocity < -0.1):
+                if np.any(s_velocity < -_EPS):
                     if self.debug_mode >= 2:
                         print(f"Velocity {min(s_velocity)} at step")
                     feasible = False
@@ -1003,7 +1021,7 @@ class ReactivePlanner(object):
                 kappa_cl[i] = kappa_gl[i] - k_r
 
                 # compute (global) Cartesian velocity
-                v[i] = abs(s_velocity[i] * (oneKrD / (math.cos(theta_cl[i]))))
+                v[i] = s_velocity[i] * (oneKrD / (math.cos(theta_cl[i])))
 
                 # compute (global) Cartesian acceleration
                 a[i] = s_acceleration[i] * oneKrD / cosTheta + ((s_velocity[i] ** 2) / cosTheta) * (
@@ -1012,7 +1030,7 @@ class ReactivePlanner(object):
 
                 # CHECK KINEMATIC CONSTRAINTS (remove infeasible trajectories)
                 # velocity constraint
-                if v[i] < -0.1:
+                if v[i] < -_EPS:
                     feasible = False
                     infeasible_count_kinematics_traj[4] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
@@ -1027,7 +1045,7 @@ class ReactivePlanner(object):
                 # yaw rate (orientation change) constraint
                 yaw_rate = (theta_gl[i] - theta_gl[i-1]) / self.dT if i > 0 else 0.
                 theta_dot_max = kappa_max * v[i]
-                if abs(yaw_rate) > theta_dot_max:
+                if abs(round(yaw_rate, 5)) > theta_dot_max:
                     feasible = False
                     infeasible_count_kinematics_traj[6] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
@@ -1056,9 +1074,9 @@ class ReactivePlanner(object):
             # if selected polynomial trajectory is feasible, store it's Cartesian and Curvilinear trajectory
             if feasible or self._draw_traj_set:
                 # Extend Trajectory to get same lenth
-                # t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
-                # s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
-                # d[traj_len:] = d[traj_len-1]
+                t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
+                s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
+                d[traj_len:] = d[traj_len-1]
                 for i in range(0, len(s)):
                     # compute (global) Cartesian position
                     pos: np.ndarray = self._co.convert_to_cartesian_coords(s[i], d[i])
