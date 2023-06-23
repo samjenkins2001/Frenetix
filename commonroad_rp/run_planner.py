@@ -38,6 +38,7 @@ from behavior_planner.behavior_module import BehaviorModule
 from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
 from frenetPlannerHelper import TrajectoryHandler
 
+
 def run_planner(config, log_path, mod_path):
 
     DT = config.planning.dt  # planning time step

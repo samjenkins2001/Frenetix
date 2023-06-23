@@ -276,8 +276,6 @@ class ReactivePlanner(object):
                 for key2 in self.predictionsForCpp[key].keys():
                     self.predictionsForCpp[key][key2] = self.predictionsForCpp[key][key2].astype(np.float64)
 
-
-
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""
         self.scenario = scenario
@@ -660,19 +658,6 @@ class ReactivePlanner(object):
         # sample until trajectory has been found or sampling sets are empty
         while optimal_trajectory is None and samp_level < self._sampling_max:
 
-            # self.cost_function.update_state(scenario=self.scenario, rp=self,
-            #                                 predictions=self.predictions, reachset=reachable_set)
-            #
-            # # sample trajectory bundle
-            # if self.behavior:
-            #     if self.behavior.flags["stopping_for_traffic_light"]:
-            #         stop_point = [self.behavior.BM_state.VP_state.stop_distance, 0]
-            #         bundle = self._create_stopping_trajectory(self.x_0, x_0_lon, x_0_lat, stop_point, self.cost_function)
-            #     else:
-            #         bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
-            # else:
-            #     bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
-
             # get optimal trajectory
             t0 = time.time()
             t1_range = np.array(list(self._sampling_t.to_range(samp_level)))
@@ -760,7 +745,7 @@ class ReactivePlanner(object):
                 coll_obj = self._create_coll_object(occupancy, self.vehicle_params, self.x_0)
 
                 #TODO: Check kinematic checks in cpp. no valid traj available
-                if False: # self.use_prediction:
+                if self.use_prediction:
                     collision_detected = collision_checker_prediction(
                         predictions=self.predictions,
                         scenario=self.scenario,
@@ -802,6 +787,7 @@ class ReactivePlanner(object):
                 # *****************************************************************************************************
                 # end of for loop looking for the trajectory with the lowest cost and no collision
                 # *****************************************************************************************************
+
 
             if self.debug_mode >= 2:
                 print(f'Collision Check took \t\t\t{time.time()-t0:.5f} s')
@@ -861,43 +847,6 @@ class ReactivePlanner(object):
                 self.max_seen_costs = self._optimal_cost
 
         return trajectory_pair
-
-    def _compute_standstill_trajectory(self, x_0, x_0_lon, x_0_lat) -> TrajectorySample:
-        """
-        Computes a standstill trajectory if the vehicle is already at velocity 0
-        :param x_0: The current state of the ego vehicle
-        :param x_0_lon: The longitudinal state in curvilinear coordinates
-        :param x_0_lat: The lateral state in curvilinear coordinates
-        :return: The TrajectorySample for a standstill trajectory
-        """
-        # create artificial standstill trajectory
-        if self.debug_mode >= 1:
-            print('Adding standstill trajectory')
-            print("x_0 is {}".format(x_0))
-            print("x_0_lon is {}".format(x_0_lon))
-            print("x_0_lon is {}".format(type(x_0_lon)))
-            for i in x_0_lon:
-                print("The element {} of format {} is a real number? {}".format(i, type(i), is_real_number(i)))
-            print("x_0_lat is {}".format(x_0_lat))
-        # create lon and lat polynomial
-        traj_lon = QuarticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lon),
-                                     x_d=np.array([self._desired_speed, 0]))
-        traj_lat = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lat),
-                                     x_d=np.array([x_0_lat[0], 0, 0]))
-
-        # create Cartesian and Curvilinear trajectory
-        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat, 0)
-        p.cartesian = CartesianSample(np.repeat(x_0.position[0], self.N), np.repeat(x_0.position[1], self.N),
-                                      np.repeat(x_0.orientation, self.N), np.repeat(0, self.N),
-                                      np.repeat(0, self.N), np.repeat(0, self.N), np.repeat(0, self.N),
-                                      current_time_step=self.N)
-
-        p.curvilinear = CurviLinearSample(np.repeat(x_0_lon[0], self.N), np.repeat(x_0_lat[0], self.N),
-                                          np.repeat(x_0.orientation, self.N), dd=np.repeat(x_0_lat[1], self.N),
-                                          ddd=np.repeat(x_0_lat[2], self.N), ss=np.repeat(x_0_lon[1], self.N),
-                                          sss=np.repeat(x_0_lon[2], self.N), current_time_step=self.N)
-        return p
-
 
     def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState], obstacle_id: int = 42):
         """
