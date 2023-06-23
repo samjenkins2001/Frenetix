@@ -788,7 +788,6 @@ class ReactivePlanner(object):
                 # end of for loop looking for the trajectory with the lowest cost and no collision
                 # *****************************************************************************************************
 
-
             if self.debug_mode >= 2:
                 print(f'Collision Check took \t\t\t{time.time()-t0:.5f} s')
             # *****************************************************************************************************
@@ -796,10 +795,7 @@ class ReactivePlanner(object):
             # *****************************************************************************************************
 
             t0 = time.time()
-            trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
-            # create CommonRoad Obstacle for the ego Vehicle
-            if trajectory_pair is not None:
-                self.current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
+
 
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.set_risk_costs(optimal_trajectory)
@@ -818,6 +814,16 @@ class ReactivePlanner(object):
             # *****************************************************************************************************
             # end of while loop looking for a optimal trajectory until one is found or the sampling level is too high
             # *****************************************************************************************************
+        if optimal_trajectory is None:
+            for traje in feasible_trajectories:
+                self.set_risk_costs(traje)
+            sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk, reverse=False)
+            optimal_trajectory = sort_risk[0]
+
+        trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
+        # create CommonRoad Obstacle for the ego Vehicle
+        if trajectory_pair is not None:
+            self.current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
 
         # **************************
         # Logging
