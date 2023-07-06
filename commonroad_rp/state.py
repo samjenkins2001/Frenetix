@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from commonroad.scenario.state import KSState, FloatExactOrInterval, InitialState
+from commonroad.scenario.trajectory import Trajectory
 
 
 @dataclass(eq=False)
@@ -65,3 +66,12 @@ class ReactivePlannerState(KSState):
         x0_planner.steering_angle = np.arctan2(wheelbase * x0_planner.yaw_rate, x0_planner.velocity)
 
         return x0_planner
+
+
+def shift_orientation(trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
+    for state in trajectory.state_list:
+        while state.orientation < interval_start:
+            state.orientation += 2 * np.pi
+        while state.orientation > interval_end:
+            state.orientation -= 2 * np.pi
+    return trajectory

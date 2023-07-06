@@ -29,19 +29,18 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, trajectories_collision_static_obstacles
 
 # commonroad_rp imports
-from commonroad_rp.parameter import DefGymSampling, TimeSampling, VelocitySampling, PositionSampling
+from commonroad_rp.parameter import TimeSampling, VelocitySampling, PositionSampling
 
-from frenetPlannerHelper import TrajectoryHandler, TrajectorySample, CartesianSample, CurviLinearSample, CoordinateSystemWrapper
-from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
+from frenetPlannerHelper import TrajectoryHandler, TrajectorySample, CoordinateSystemWrapper
+from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path
 from commonroad_rp.utility import reachable_set
-from commonroad_rp.state import ReactivePlannerState
+from commonroad_rp.state import ReactivePlannerState, shift_orientation
 
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 from cr_scenario_handler.utils.configuration import Configuration
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
 from commonroad_rp.prediction_helpers import collision_checker_prediction
-from commonroad_rp.utility.responsibility import assign_responsibility_by_action_space
 from commonroad_rp.utility import helper_functions as hf
 from risk_assessment.utils.logistic_regression_symmetrical import get_protected_inj_prob_log_reg_ignore_angle
 
@@ -53,7 +52,7 @@ from commonroad_rp.utility.load_json import (
 #### new imports ###
 from commonroad_rp.sampling_matrix import generate_sampling_matrix
 from omegaconf import OmegaConf
-from scipy.interpolate import UnivariateSpline
+
 from frenetPlannerHelper.trajectory_functions.feasability_functions import *
 from frenetPlannerHelper.trajectory_functions.cost_functions import *
 from frenetPlannerHelper.trajectory_functions import FillCoordinates, ComputeInitialState
@@ -389,7 +388,7 @@ class ReactivePlanner(object):
         :param reference_path: reference_path as polyline
         """
 
-        reference_path = self.smooth_ref_path(reference_path)
+        reference_path = smooth_ref_path(reference_path)
         self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(reference_path)
 
     def set_goal_area(self, goal_area):
@@ -539,7 +538,7 @@ class ReactivePlanner(object):
         cvlnTraj = Trajectory(self.x_0.time_step, cl_list)
 
         # correct orientations of cartesian output trajectory
-        cartTraj_corrected = self.shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
+        cartTraj_corrected = shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
                                                     interval_end=self.x_0.orientation + np.pi)
 
         return cartTraj_corrected, cvlnTraj, lon_list, lat_list
@@ -578,9 +577,6 @@ class ReactivePlanner(object):
     def plan(self) -> tuple:
         """
         Plans an optimal trajectory
-        :param x_0: Initial state as CR state
-        :param cl_states: Curvilinear initial states if re-planning is used
-        :param predictions (dict): Predictions of the visible obstacles
         :return: Optimal trajectory as tuple
         """
 
@@ -592,8 +588,10 @@ class ReactivePlanner(object):
         #     # calculate reachable sets
         #     self.reach_set.calc_reach_sets(self.x_0, list(self.predictions.keys()))
 
+        # **************************************
+        # Initialization of Cpp Frenet Functions
+        # **************************************
         self.set_handler_changing_functions()
-        # compute initial state
         initial_state = TrajectorySample(x0=self.x_0.position[0],
                                          y0=self.x_0.position[1],
                                          orientation0=self.x_0.orientation,
@@ -621,17 +619,16 @@ class ReactivePlanner(object):
         if self.debug_mode >= 1:
             print('<Reactive Planner>: desired velocity is {} m/s'.format(self._desired_speed))
 
-        # initialize optimal trajectory dummy
+        # Initialization of while loop
         optimal_trajectory = None
-        # cluster_ = None
-
-        # initial index of sampling set to use
-        samp_level = self._sampling_min  # Time sampling is not used. To get more samples, start with level 1.
-        # sample until trajectory has been found or sampling sets are empty
+        feasible_trajectories = []
+        t0 = time.time()
+        samp_level = self._sampling_min
         while optimal_trajectory is None and samp_level < self._sampling_max:
 
-            # get optimal trajectory
-            t0 = time.time()
+            # *************************************
+            # Create & Evaluate Trajectories in Cpp
+            # *************************************
             t1_range = np.array(list(self._sampling_t.to_range(samp_level)))
             ss1_range = np.array(list(self._sampling_v.to_range(samp_level)))
             d1_range = np.array(list(self._sampling_d.to_range(samp_level).union(x_0_lat[0])))
@@ -652,22 +649,7 @@ class ReactivePlanner(object):
 
             self.handler.reset_Trajectories()
             self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
-
-            if self.debug_mode >= 2:
-                print(f'Generating Trajectories took \t\t{time.time()-t0:.5f} s')
-            # *****************************************************************************************************
-            # end of _create_trajectory_bundle part
-            # *****************************************************************************************************
-
-            self.logger.trajectory_number = self.x_0.time_step
-
-            # evaluate all current functions stored in the handler
-            # time the following function
-            t0 = time.time()
             self.handler.evaluate_all_current_functions_concurrent(True)
-            # self.handler.evaluate_all_current_functions(False)
-            if self.debug_mode >= 2:
-                print(f'Evaluation of all functions took \t{time.time() - t0:.5f} s')
 
             feasible_trajectories = []
             infeasible_trajectories = []
@@ -681,79 +663,22 @@ class ReactivePlanner(object):
             # for visualization store all trajectories with validity level based on kinematic validity
             if self._draw_traj_set or self.save_all_traj or self.use_amazing_visualizer:
                 trajectories = feasible_trajectories + infeasible_trajectories
-                # trajectory_bundle.sort(occlusion_module=self.occlusion_module)
                 self.all_traj = trajectories
 
+            # *****************************
+            # Optional: Use Occlusion Model
+            # *****************************
             if self.use_occ_model and feasible_trajectories:
                 self.occlusion_module.occ_phantom_module.evaluate_trajectories(feasible_trajectories)
-                # self.occlusion_module.occ_visibility_estimator.evaluate_trajectories(feasible_trajectories, predictions)
                 self.occlusion_module.occ_uncertainty_map_evaluator.evaluate_trajectories(feasible_trajectories)
 
-            t0 = time.time()
-            # go through sorted list of sorted trajectories and check for collisions
-            for trajectory in feasible_trajectories:
-                # Add Occupancy of Trajectory to do Collision Checks later
-                cart_traj = self._compute_cart_traj(trajectory)
-                occupancy = self.convert_state_list_to_commonroad_object(cart_traj.state_list)
-                # get collision_object
-                coll_obj = self._create_coll_object(occupancy, self.vehicle_params, self.x_0)
-
-                #TODO: Check kinematic checks in cpp. no valid traj available
-                if self.use_prediction:
-                    collision_detected = collision_checker_prediction(
-                        predictions=self.predictions,
-                        scenario=self.scenario,
-                        ego_co=coll_obj,
-                        frenet_traj=trajectory,
-                        ego_state=self.x_0,
-                    )
-                    if collision_detected:
-                        self._infeasible_count_collision += 1
-                else:
-                    collision_detected = False
-
-                leaving_road_at = trajectories_collision_static_obstacles(
-                    trajectories=[coll_obj],
-                    static_obstacles=self.road_boundary,
-                    method="grid",
-                    num_cells=32,
-                    auto_orientation=True,
-                )
-                if leaving_road_at[0] != -1:
-                    coll_time_step = leaving_road_at[0] - self.x_0.time_step
-                    coll_vel = trajectory.cartesian.v[coll_time_step]
-
-                    boundary_harm = get_protected_inj_prob_log_reg_ignore_angle(
-                        velocity=coll_vel, coeff=self.params_harm
-                    )
-
-                else:
-                    boundary_harm = 0
-
-                # Save Status of Trajectory to sort for alternative
-                trajectory.boundary_harm = boundary_harm
-                trajectory._coll_detected = collision_detected
-
-                if not collision_detected and boundary_harm == 0:
-                    optimal_trajectory = trajectory
-                    break
-
-                # *****************************************************************************************************
-                # end of for loop looking for the trajectory with the lowest cost and no collision
-                # *****************************************************************************************************
-
-            if self.debug_mode >= 2:
-                print(f'Collision Check took \t\t\t{time.time()-t0:.5f} s')
-            # *****************************************************************************************************
-            # end of get_optimal_trajectory part
-            # *****************************************************************************************************
-
-            t0 = time.time()
+            # ******************************************
+            # Check Feasible Trajectories for Collisions
+            # ******************************************
+            optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
 
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.set_risk_costs(optimal_trajectory)
-            if self.debug_mode >= 2:
-                print(f'Computing Trajectory Pair took \t\t{time.time()-t0:.5f} s')
 
             if self.debug_mode >= 1:
                 print('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
@@ -764,17 +689,21 @@ class ReactivePlanner(object):
             # increase sampling level (i.e., density) if no optimal trajectory could be found
             samp_level += 1
 
-            # *****************************************************************************************************
-            # end of while loop looking for a optimal trajectory until one is found or the sampling level is too high
-            # *****************************************************************************************************
+        planning_time = time.time() - t0
+
+        # **************************
+        # Set Risk Costs
+        # **************************
         if optimal_trajectory is None:
             for traje in feasible_trajectories:
                 self.set_risk_costs(traje)
             sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk, reverse=False)
             optimal_trajectory = sort_risk[0]
 
+        # ******************************************
+        # Update Trajectory Pair & Commonroad Object
+        # ******************************************
         trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
-        # create CommonRoad Obstacle for the ego Vehicle
         if trajectory_pair is not None:
             current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
             self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
@@ -782,10 +711,10 @@ class ReactivePlanner(object):
         # **************************
         # Logging
         # **************************
-
         if optimal_trajectory is not None:
+            self.logger.trajectory_number = self.x_0.time_step
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
+                            infeasible_collision=self.infeasible_count_collision, planning_time=planning_time,
                             ego_vehicle=self.ego_vehicle_history[-1])
             self.logger.log_predicition(self.predictions)
         if self.save_all_traj or self.use_amazing_visualizer:
@@ -806,7 +735,62 @@ class ReactivePlanner(object):
 
         return trajectory_pair
 
-    def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState], obstacle_id: int = 42):
+    def trajectory_collision_check(self, feasible_trajectories):
+        """
+        Checks valid trajectories for collisions with static obstacles
+        :param feasible_trajectories: feasible trajectories list
+        :return trajectory: optimal feasible trajectory or None
+        """
+        # go through sorted list of sorted trajectories and check for collisions
+        for trajectory in feasible_trajectories:
+            # Add Occupancy of Trajectory to do Collision Checks later
+            cart_traj = self._compute_cart_traj(trajectory)
+            occupancy = self.convert_state_list_to_commonroad_object(cart_traj.state_list)
+            # get collision_object
+            coll_obj = self._create_coll_object(occupancy, self.vehicle_params, self.x_0)
+
+            # TODO: Check kinematic checks in cpp. no valid traj available
+            if self.use_prediction:
+                collision_detected = collision_checker_prediction(
+                    predictions=self.predictions,
+                    scenario=self.scenario,
+                    ego_co=coll_obj,
+                    frenet_traj=trajectory,
+                    ego_state=self.x_0,
+                )
+                if collision_detected:
+                    self._infeasible_count_collision += 1
+            else:
+                collision_detected = False
+
+            leaving_road_at = trajectories_collision_static_obstacles(
+                trajectories=[coll_obj],
+                static_obstacles=self.road_boundary,
+                method="grid",
+                num_cells=32,
+                auto_orientation=True,
+            )
+            if leaving_road_at[0] != -1:
+                coll_time_step = leaving_road_at[0] - self.x_0.time_step
+                coll_vel = trajectory.cartesian.v[coll_time_step]
+
+                boundary_harm = get_protected_inj_prob_log_reg_ignore_angle(
+                    velocity=coll_vel, coeff=self.params_harm
+                )
+
+            else:
+                boundary_harm = 0
+
+            # Save Status of Trajectory to sort for alternative
+            trajectory.boundary_harm = boundary_harm
+            trajectory._coll_detected = collision_detected
+
+            if not collision_detected and boundary_harm == 0:
+                return trajectory
+
+        return None
+
+    def convert_state_list_to_commonroad_object(self, state_list, obstacle_id: int = 42):
         """
         Converts a CR trajectory to a CR dynamic obstacle with given dimensions
         :param state_list: trajectory state list of reactive planner
@@ -824,15 +808,6 @@ class ReactivePlanner(object):
         # get trajectory prediction
         prediction = TrajectoryPrediction(trajectory, shape)
         return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, trajectory.state_list[0], prediction)
-
-    @staticmethod
-    def shift_orientation(trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
-        for state in trajectory.state_list:
-            while state.orientation < interval_start:
-                state.orientation += 2 * np.pi
-            while state.orientation > interval_end:
-                state.orientation -= 2 * np.pi
-        return trajectory
 
     def check_goal_reached(self):
         # Get the ego vehicle
@@ -886,19 +861,6 @@ class ReactivePlanner(object):
             else:
                 self.logger.log_collision(False, self.vehicle_params.length, self.vehicle_params.width, progress)
             return True
-
-    def smooth_ref_path(self, reference: np.ndarray):
-        _, idx = np.unique(reference, axis=0, return_index=True)
-        reference = reference[np.sort(idx)]
-
-        smoothing_factor = 10
-        tt = np.linspace(0, 1, len(reference[:, 0]))
-        bs_x = UnivariateSpline(x=tt, y=reference[:, 0], s=smoothing_factor)
-        bs_y = UnivariateSpline(x=tt, y=reference[:, 1], s=smoothing_factor)
-        x_smooth = bs_x(tt)
-        y_smooth = bs_y(tt)
-        reference = np.column_stack((x_smooth, y_smooth))
-        return reference
 
     def set_risk_costs(self, trajectory):
 
