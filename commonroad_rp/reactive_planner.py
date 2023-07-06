@@ -115,10 +115,10 @@ class ReactivePlanner(object):
         # Handler import
         # **************************
 
-        self.handler: TrajectoryHandler = None
+        self.handler: TrajectoryHandler = TrajectoryHandler(dt=config.planning.dt)
         self.params = OmegaConf.to_object(config.cost.params)
         self.coordinate_system: CoordinateSystemWrapper = None
-
+        self.set_handler_constant_functions()
         # **************************
         # Extensions Initialization
         # **************************
@@ -160,7 +160,8 @@ class ReactivePlanner(object):
         self.all_traj = None
         self.use_occ_model = config.occlusion.use_occlusion_module
         self.logger = DataLoggingCosts(path_logs=log_path,
-                                       save_all_traj=self.save_all_traj or self.use_amazing_visualizer)
+                                       save_all_traj=self.save_all_traj or self.use_amazing_visualizer,
+                                       cost_params=config.cost.params.cluster0)
         self._draw_traj_set = config.debug.draw_traj_set
         self._kinematic_debug = config.debug.kinematic_debug
 
@@ -829,15 +830,13 @@ class ReactivePlanner(object):
         # Logging
         # **************************
 
-        #TODO: Logging
-
-        # if optimal_trajectory is not None:
-        #     self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-        #                     infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-        #                     cluster=cluster_, ego_vehicle=self.current_ego_vehicle)
-        #     self.logger.log_pred(self.predictions)
-        # if self.save_all_traj or self.use_amazing_visualizer:
-        #     self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
+        if optimal_trajectory is not None:
+            self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
+                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
+                            ego_vehicle=self.current_ego_vehicle)
+            self.logger.log_predicition(self.predictions)
+        if self.save_all_traj or self.use_amazing_visualizer:
+            self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step)
 
         # **************************
         # Check Cost Status

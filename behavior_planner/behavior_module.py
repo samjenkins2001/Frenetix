@@ -7,8 +7,6 @@ from behavior_planner.utils.velocity_planner import VelocityPlanner
 from behavior_planner.utils.path_planner import PathPlanner
 from behavior_planner.utils.FSM_model import EgoFSM
 
-from commonroad.scenario.traffic_sign import TrafficLightState
-
 
 class BehaviorModule(object):
     """

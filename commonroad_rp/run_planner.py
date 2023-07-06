@@ -66,8 +66,6 @@ def run_planner(config, log_path, mod_path):
     # Initialize Reactive Planner
     # *************************************
     planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
-    planner.handler = TrajectoryHandler(dt=DT)
-    planner.set_handler_constant_functions()
 
     # **************************
     # Run Variables

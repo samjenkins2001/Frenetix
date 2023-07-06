@@ -16,94 +16,9 @@ params:
     Prediction: 200
     Responsibility: 0
 
-    Occ_PM: 1 # Occlusion Phantom Module (phantom pedestrian harm)
-    Occ_UM: 1 # Occlusion Uncertainty Module (distance to uncertainty map)
-    Occ_VE: 1 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
-
-  cluster1:
-    Acceleration: 0.0
-    Jerk: 0.00
-    Lateral Jerk: 0.01
-    Longitudinal Jerk: 0.01
-    Orientation Offset: 1.0
-    Path Length: 1.0
-
-    Lane Center Offset: 10.0
-    Velocity Offset: 0.1
-    Velocity Costs: 0.1
-    Distance to Reference Path: 10
-    Distance to Obstacles: 20
-
-    Prediction: 500
-    Responsibility: 0
-
-  cluster2:
-    Acceleration: 0.0
-    Jerk: 0.00
-    Lateral Jerk: 0.01
-    Longitudinal Jerk: 0.01
-    Orientation Offset: 1.0
-    Path Length: 1.0
-
-    Lane Center Offset: 10.0
-    Velocity Offset: 0.1
-    Velocity Costs: 0.1
-    Distance to Reference Path: 10
-    Distance to Obstacles: 20
-
-    Prediction: 500
-    Responsibility: 0
-
-  cluster3:
-    Acceleration: 0.0
-    Jerk: 0.00
-    Lateral Jerk: 0.01
-    Longitudinal Jerk: 0.01
-    Orientation Offset: 1.0
-    Path Length: 1.0
-
-    Lane Center Offset: 10.0
-    Velocity Offset: 0.1
-    Velocity Costs: 0.1
-    Distance to Reference Path: 10
-    Distance to Obstacles: 20
-
-    Prediction: 500
-    Responsibility: 0
-
-  cluster4:
-    Acceleration: 0.0
-    Jerk: 0.00
-    Lateral Jerk: 0.01
-    Longitudinal Jerk: 0.01
-    Orientation Offset: 1.0
-    Path Length: 1.0
-
-    Lane Center Offset: 10.0
-    Velocity Offset: 0.1
-    Velocity Costs: 0.1
-    Distance to Reference Path: 10
-    Distance to Obstacles: 20
-
-    Prediction: 500
-    Responsibility: 0
-
-  cluster5:
-    Acceleration: 0.0
-    Jerk: 0.00
-    Lateral Jerk: 0.01
-    Longitudinal Jerk: 0.01
-    Orientation Offset: 1.0
-    Path Length: 1.0
-
-    Lane Center Offset: 10.0
-    Velocity Offset: 0.1
-    Velocity Costs: 0.1
-    Distance to Reference Path: 10
-    Distance to Obstacles: 20
-
-    Prediction: 500
-    Responsibility: 0
+    Occ_PM: 0 # Occlusion Phantom Module (phantom pedestrian harm)
+    Occ_UM: 0 # Occlusion Uncertainty Module (distance to uncertainty map)
+    Occ_VE: 0 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
 
 normalizers:
   means: [ 7.05110264e-03,  7.18838630e+00,  2.84390826e-01,  3.62645397e-01 ,1.02147705e+00, -3.33536304e+01]
