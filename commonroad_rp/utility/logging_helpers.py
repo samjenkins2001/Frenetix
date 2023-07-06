@@ -230,7 +230,7 @@ class DataLoggingCosts:
         cartesian = trajectory.cartesian
         cost_list_names = list(trajectory.costMap.keys())
 
-        new_line += ";" + str(trajectory.actual_traj_length)
+        new_line += ";" + str(int(trajectory.m_horizon/trajectory.dt))
         # log position
         new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
         new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)

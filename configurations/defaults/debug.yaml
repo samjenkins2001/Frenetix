@@ -1,7 +1,7 @@
 # show/save plots
 save_all_traj: False
 save_unweighted_costs: False
-log_risk: False
+log_risk: False # Doesn't work for ground_truth prediction!
 show_plots: False
 save_plots: True
 evaluation: False

@@ -309,8 +309,6 @@ def get_ground_truth_prediction(
     """
     # create a dictionary for the predictions
     prediction_result = {}
-    if time_step == 29:
-        print("DDD")
     for obstacle_id in obstacle_ids:
         obstacle = scenario.obstacle_by_id(obstacle_id)
         fut_pos = []
