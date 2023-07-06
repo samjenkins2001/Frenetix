@@ -95,6 +95,7 @@ class ReactivePlanner(object):
         self.scenario = scenario
         self.planning_problem = planning_problem
         self.predictions = None
+        self.predictionsForCpp = None
         self.behavior = None
         self.set_new_ref_path = None
         self.cost_function = None
@@ -117,7 +118,7 @@ class ReactivePlanner(object):
 
         self.handler: TrajectoryHandler = TrajectoryHandler(dt=config.planning.dt)
         self.params = OmegaConf.to_object(config.cost.params)
-        self.coordinate_system: CoordinateSystemWrapper = None
+        self.coordinate_system: CoordinateSystemWrapper
         self.set_handler_constant_functions()
         # **************************
         # Extensions Initialization
@@ -144,12 +145,12 @@ class ReactivePlanner(object):
         # Set Sampling Parameters#
         self._sampling_min = config.sampling.sampling_min
         self._sampling_max = config.sampling.sampling_max
+        self._sampling_d = None
+        self._sampling_t = None
+        self._sampling_v = None
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.planning.planning_horizon, config.planning.dt, config.planning.planning_horizon)
-        # fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
-        # self._sampling_d = fs_sampling.d_samples
-        # self._sampling_t = fs_sampling.t_samples
-        # self._sampling_v = fs_sampling.v_samples
+        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt,
+                                       config.planning.planning_horizon)
 
         # *****************************
         # Debug & Logger Initialization
@@ -269,8 +270,8 @@ class ReactivePlanner(object):
             self.predictionsForCpp = copy.deepcopy(self.predictions)
             for key in self.predictionsForCpp.keys():
 
-                self.predictionsForCpp[key]['cov_list_0'] = self.predictionsForCpp[key]['cov_list'][:,:,0]
-                self.predictionsForCpp[key]['cov_list_1'] = self.predictionsForCpp[key]['cov_list'][:,:,1]
+                self.predictionsForCpp[key]['cov_list_0'] = self.predictionsForCpp[key]['cov_list'][:, :, 0]
+                self.predictionsForCpp[key]['cov_list_1'] = self.predictionsForCpp[key]['cov_list'][:, :, 1]
                 self.predictionsForCpp[key].pop('cov_list')
                 self.predictionsForCpp[key]['shape'] = np.array(list(self.predictionsForCpp[key]['shape'].values()))
 
@@ -363,12 +364,13 @@ class ReactivePlanner(object):
         self.handler.add_cost_function(CalculateLateralJerkCost())
         self.handler.add_cost_function(CalculateLongitudinalJerkCost())
         self.handler.add_cost_function(CalculateOrientationOffsetCost())
+        self.handler.add_cost_function(CalculateDistanceToReferencePathCost())
 
     def set_handler_changing_functions(self):
 
         time_array = np.arange(0, np.round(self.horizon + self.dT, 5), self.dT)
         self.handler.add_function(FillCoordinates(times=time_array,
-                                                  lowVelocityMode = self._LOW_VEL_MODE,
+                                                  lowVelocityMode=self._LOW_VEL_MODE,
                                                   initialOrientation=self.x_0.orientation,
                                                   coordinateSystem=self.coordinate_system))
         self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(self.predictionsForCpp))
@@ -381,7 +383,7 @@ class ReactivePlanner(object):
                 obstacle_positions[i, 1] = state.position[1]
 
         self.handler.add_cost_function(CalculateDistanceToObstacleCost(obstacle_positions))
-
+        self.handler.add_cost_function(CalculateVelocityOffsetCost(self._desired_speed))
 
     def set_reference_path(self, reference_path: np.ndarray):
         """
@@ -391,7 +393,6 @@ class ReactivePlanner(object):
 
         reference_path = self.smooth_ref_path(reference_path)
         self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(reference_path)
-
 
     def set_goal_area(self, goal_area):
         """
@@ -417,8 +418,7 @@ class ReactivePlanner(object):
         :param dt: length of each sampled step
         :param horizon: sampled time horizon
         """
-        # self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
-        self._sampling_t = TimeSampling(horizon, horizon, self._sampling_max, dt)
+        self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
         self.N = int(round(horizon / dt))
         self.horizon = horizon
 
@@ -487,37 +487,9 @@ class ReactivePlanner(object):
 
         return collision_object
 
-    def _create_stopping_trajectory(self, x_0, x_0_lon, x_0_lat, stop_point, cost_function):
-        print('<ReactivePlanner>: sampling stopping trajectory at stop line')
-        # reset cost statistic
-        self._min_cost = 10 ** 9
-        self._max_cost = 0
-
-        trajectories = list()
-
-        # Longitudinal sampling for all possible velocities
-        end_state_lon = np.array([x_0_lon[0] + stop_point[0], 0.0, 0.0])
-        trajectory_long = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.array(x_0_lon),
-                                            x_d=end_state_lon)
-
-        # Sample lateral end states (add x_0_lat to sampled states)
-        if trajectory_long.coeffs is not None:
-            end_state_lat = np.array([stop_point[1], 0.0, 0.0])
-            trajectory_lat = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.array(x_0_lat),
-                                               x_d=end_state_lat)
-            if trajectory_lat.coeffs is not None:
-                trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat,
-                                                     len(trajectories))
-                trajectories.append(trajectory_sample)
-
-        # perform pre-check and order trajectories according their cost
-        trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
-                                             multiproc=self._multiproc, num_workers=self._num_workers)
-        self._total_count = len(trajectory_bundle._trajectory_bundle)
-        if self.debug_mode >= 1:
-            print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
-        return trajectory_bundle
-
+    # def _create_stopping_trajectory(self, x_0, x_0_lon, x_0_lat, stop_point, cost_function):
+    #
+    #     return trajectory_bundle
 
     def _compute_trajectory_pair(self, trajectory: TrajectorySample) -> tuple:
         """

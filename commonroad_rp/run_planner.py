@@ -9,14 +9,8 @@ import os
 import time
 from copy import deepcopy
 
-# third party
-import numpy as np
-
 # commonroad-io
 from cr_scenario_handler.utils.collision_report import coll_report
-
-# commonroad-io
-from commonroad.scenario.state import InputState
 
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
@@ -36,7 +30,6 @@ import commonroad_rp.prediction_helpers as ph
 from behavior_planner.behavior_module import BehaviorModule
 
 from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
-from frenetPlannerHelper import TrajectoryHandler
 
 
 def run_planner(config, log_path, mod_path):
@@ -126,7 +119,6 @@ def run_planner(config, log_path, mod_path):
     # **************************
     planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
                              reference_path=reference_path)
-
 
     # **************************
     # Run Planner Cycle

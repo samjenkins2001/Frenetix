@@ -1,5 +1,5 @@
 # minimum time sampling in s (t_max is given by planning horizon)
-t_min: 0.4 # currently deactivated. No time sampling used
+t_min: 0.8 # currently deactivated. No time sampling used
 
 # velocity sampling interval
 v_min: 0 # is calculated with current velodity & acc limits
@@ -10,5 +10,5 @@ d_min: -3
 d_max: 3
 
 # sampling density minimum and maximum
-sampling_min: 2
-sampling_max: 3
+sampling_min: 1
+sampling_max: 2
