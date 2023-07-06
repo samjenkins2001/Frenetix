@@ -236,6 +236,13 @@ class ReactivePlanner(object):
                          desired_velocity: float = None, predictions=None, behavior=None):
         if x_0 is not None:
             self.x_0 = x_0
+
+            # Check for low velocity mode
+            if self.x_0.velocity < self._low_vel_mode_threshold:
+                self._LOW_VEL_MODE = True
+            else:
+                self._LOW_VEL_MODE = False
+
         if x_cl is not None:
             self.x_cl = x_cl
         if scenario is not None:
@@ -254,18 +261,7 @@ class ReactivePlanner(object):
             self.set_desired_velocity(desired_velocity, x_0.velocity)
         if predictions is not None:
             self.predictions = predictions
-        if behavior is not None:
-            self.behavior = behavior
-
-         # check for low velocity mode
-        if self.x_0 is not None:
-            if self.x_0.velocity < self._low_vel_mode_threshold:
-                self._LOW_VEL_MODE = True
-            else:
-                self._LOW_VEL_MODE = False
-
-        if self.predictions is not None:
-            self.predictionsForCpp = copy.deepcopy(self.predictions)
+            self.predictionsForCpp = copy.deepcopy(predictions)
 
             for key in self.predictionsForCpp.keys():
 
@@ -276,6 +272,9 @@ class ReactivePlanner(object):
 
                 for key2 in self.predictionsForCpp[key].keys():
                     self.predictionsForCpp[key][key2] = self.predictionsForCpp[key][key2].astype(np.float64)
+
+        if behavior is not None:
+            self.behavior = behavior
 
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""
@@ -593,6 +592,7 @@ class ReactivePlanner(object):
         #     # calculate reachable sets
         #     self.reach_set.calc_reach_sets(self.x_0, list(self.predictions.keys()))
 
+        self.set_handler_changing_functions()
         # compute initial state
         initial_state = TrajectorySample(x0=self.x_0.position[0],
                                          y0=self.x_0.position[1],

@@ -164,9 +164,6 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Execute Planner
         # **************************
-        # check for low velocity mode
-
-        planner.set_handler_changing_functions()
         comp_time_start = time.time()
         optimal = planner.plan()  # returns the planned (i.e., optimal) trajectory
         comp_time_end = time.time()
