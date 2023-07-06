@@ -195,9 +195,10 @@ def collision_checker_prediction(
         bool: True if the trajectory collides with a prediction.
     """
     # check every obstacle in the predictions
-    for obstacle in scenario.static_obstacles:  # list(predictions.keys()):
-
+    for obstacle in scenario.static_obstacles:  #list(predictions.keys()):
         obstacle_id = obstacle.obstacle_id
+        if obstacle_id not in predictions:
+            continue
         # check if the obstacle is not a rectangle (only shape with attribute length)
         if not hasattr(scenario.obstacle_by_id(obstacle_id).obstacle_shape, 'length'):
             raise Warning('Collision Checker can only handle rectangular obstacles.')

@@ -1,5 +1,6 @@
 import numpy as np
 from shapely.geometry import Polygon, Point
+import math
 
 
 def calc_visible_area_from_lanelet_geometry(lanelet_polygon, ego_pos, sensor_radius=50, buffer=0.0):
@@ -45,7 +46,13 @@ def calc_visible_area_from_lanelet_geometry(lanelet_polygon, ego_pos, sensor_rad
 
         # subtract polygon from visible area if it is valid
         if pol.is_valid:
-            visible_area = visible_area.difference(pol)
+            area_check = visible_area.difference(pol)
+            # shapely has a bug, that visible area can be empty after performing .difference for no reason
+            if area_check.is_empty:
+                # a very small buffer fixes that
+                visible_area = visible_area.buffer(0.0001).difference(pol)
+            else:
+                visible_area = area_check
 
     return visible_area
 
@@ -199,4 +206,15 @@ def angle_between(v1, v2):
     v1_u = _unit_vector(v1)
     v2_u = _unit_vector(v2)
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+
+def angle_between_positive(v1, v2):
+    """Returns the positive angle (mathematically positive) in radians between vectors 'v1' and 'v2':"""
+    v1_u = _unit_vector(v1)
+    v2_u = _unit_vector(v2)
+    dot_product = np.dot(v1_u, v2_u)
+    angle_rad = math.atan2(np.linalg.det([v1_u, v2_u]), dot_product)
+    if angle_rad < 0:
+        angle_rad += 2 * math.pi
+    return angle_rad
 

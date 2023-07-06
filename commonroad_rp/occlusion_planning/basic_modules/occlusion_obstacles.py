@@ -29,17 +29,24 @@ class OcclusionObstacle:
         self.obstacle_type = obst.obstacle_type
         self.obstacle_role = obst.obstacle_role.name
         self.obstacle_shape = obst.obstacle_shape
+        self.initial_time_step = obst.initial_state.time_step
+        self.first_time_visible = None
+        self.first_time_visible_distance_ego = None
+        self.visibility_time = 0
         self.visible_at_timestep = False
+        self.last_visible_timestep = None
         self.visible_in_driving_direction = None
 
         if self.obstacle_role == "STATIC":
             self.pos = obst.initial_state.position
+            self.current_pos = obst.initial_state.position
             self.orientation = obst.initial_state.orientation
             self.corner_points = vhf.calc_corner_points(self.pos, self.orientation, self.obstacle_shape)
             self.polygon = Polygon(self.corner_points)
             self.pos_point = Point(self.pos)
         else:
             self.pos = [state.position for state in obst.prediction.trajectory.state_list]
+            self.current_pos = obst.initial_state.position
             self.orientation = [state.orientation for state in obst.prediction.trajectory.state_list]
             # corner points and polygon will be updated each timestep, no history saved
             self.corner_points = vhf.calc_corner_points(self.pos[0], self.orientation[0], self.obstacle_shape)
@@ -49,12 +56,15 @@ class OcclusionObstacle:
     def update_at_timestep(self, time_step):
         if not self.obstacle_role == "STATIC" and self.pos is not None:
             try:
-                self.corner_points = vhf.calc_corner_points(self.pos[time_step], self.orientation[time_step],
+                ts = time_step - self.initial_time_step
+                self.corner_points = vhf.calc_corner_points(self.pos[ts], self.orientation[ts],
                                                             self.obstacle_shape)
                 self.polygon = Polygon(self.corner_points)
-                self.pos_point = Point(self.pos[time_step])
+                self.pos_point = Point(self.pos[ts])
+                self.current_pos = self.pos[ts]
             except IndexError:
                 self.pos = None
+                self.current_pos = None
                 self.orientation = None
                 self.corner_points = None
                 self.polygon = None
@@ -104,12 +114,13 @@ class EstimationObstacle(OccBasicObstacle):
 
 class OccPhantomObstacle(OccBasicObstacle):
     def __init__(self, phantom_id, pos, orientation, length=0.3, width=0.5, vector=None, s=None,
-                 calc_ped_traj_polygons=False, create_cr_obst=False):
+                 calc_ped_traj_polygons=False, create_cr_obst=False, time_step=0):
 
         # initialize phantom obstacle using OccBasicObstacle class
         super().__init__(phantom_id, pos, orientation, length, width)
 
         # assign additional variables
+        self.time_step = time_step
         self.calc_ped_traj_polygons = calc_ped_traj_polygons
         self.create_cr_obst = create_cr_obst
         self.orientations = []
@@ -127,17 +138,22 @@ class OccPhantomObstacle(OccBasicObstacle):
         self.cr_collision_object = None
         self.cr_tv_collision_object = None
         self.commonroad_predictions = None
-        self.cr_tv_obstacle = None
+        #self.cr_tv_obstacle = None
+
+    def create_cr_predictions(self):
+        self._create_cr_predictions()
+        return self.commonroad_predictions
 
     def _create_cr_predictions(self):
         # create dict like a commonroad prediction (e.g. walenet) -> needed in harm estimation
-        shape = {'length': self.shape.length,
-                 'width': self.shape.width}
+        shape = {'length': self.shape.length * 1.2, 'width': self.shape.width * 1.2}
 
         self.commonroad_predictions = {'orientation_list': np.ones(len(self.trajectory)) * self.orientation,
                                        'v_list': np.ones(len(self.trajectory)) * self.v,
                                        'pos_list': self.trajectory,
-                                       'shape': shape}
+                                       'shape': shape,
+                                       'cov_list': np.zeros([len(self.trajectory), 2, 2])}
+
 
     def _create_cr_collision_object(self):
         # function is currently not active
@@ -153,11 +169,10 @@ class OccPhantomObstacle(OccBasicObstacle):
                                                         box_width=self.shape.width / 2,
                                                         start_time_step=0)
 
-    def _create_cr_obstacle(self):
+    def create_cr_obstacle(self, time_step=0):
         # create commonroad dynamic obstacle for harm estimation (also for further usage if needed)
-
         # create initial state
-        initial_state = InitialState(time_step=0,
+        initial_state = InitialState(time_step=time_step,
                                      position=self.pos,
                                      orientation=self.orientation,
                                      velocity=self.v,
@@ -171,12 +186,12 @@ class OccPhantomObstacle(OccBasicObstacle):
             custom_state = CustomState(orientation=self.orientation,
                                        velocity=self.v,
                                        position=self.trajectory[i],
-                                       time_step=i)
+                                       time_step=time_step + i)
 
             state_list.append(custom_state)
 
         # create trajectory from state list
-        trajectory = Trajectory(initial_time_step=0, state_list=state_list)
+        trajectory = Trajectory(initial_time_step=time_step, state_list=state_list)
 
         # create trajectory prediction from trajectory
         trajectory_prediction = TrajectoryPrediction(trajectory=trajectory,
@@ -234,7 +249,7 @@ class OccPhantomObstacle(OccBasicObstacle):
             self.calc_traj_polygons()
 
         if self.create_cr_obst:
-            self._create_cr_obstacle()
+            self.create_cr_obstacle(time_step=self.time_step)
             self._create_cr_predictions()
             self._create_cr_tv_collision_object()
 
@@ -242,13 +257,19 @@ class OccPhantomObstacle(OccBasicObstacle):
         # define length of linestring (only used to calculate final destination)
         length = 10
 
-        # calculation final coordinates
+        # calculate start side of linestring
+        start_x = self.pos_point.x + length * np.cos(np.pi + self.orientation)
+        start_y = self.pos_point.y + length * np.sin(np.pi + self.orientation)
+        start_point = Point(start_x, start_y)
+
+        # calculate end of linestring
         end_x = self.pos_point.x + length * np.cos(self.orientation)
         end_y = self.pos_point.y + length * np.sin(self.orientation)
         end_point = Point(end_x, end_y)
 
         # create linestring
-        line = LineString([self.pos_point, end_point])
+        # line = LineString([self.pos_point, end_point])
+        line = LineString([start_point, end_point])
 
         # calc intersection between line and sidewalk (goal position)
         goal_position = line.intersection(sidewalk.interiors)[0]
@@ -269,6 +290,10 @@ class OccPhantomObstacle(OccBasicObstacle):
             self.goal_position = points[max_distance_index]
         else:
             self.goal_position = np.array(goal_position.coords).flatten()
+
+        # update orientation
+        vector = self.goal_position - self.pos
+        self.orientation = vhf.angle_between_positive(np.array([1, 0]), vector)
 
         # calculate length of trajectory
         self.trajectory_length = np.linalg.norm(self.goal_position - self.pos)

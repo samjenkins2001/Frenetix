@@ -270,13 +270,13 @@ def fill_polygons(ax, polys, color='b', zorder=1, opacity=1):
         print('Could not plot the Polygon')
 
 
-def plot_occ_map(ax, occ_map, cmap):
-    scatter = ax.scatter(occ_map[:, 1], occ_map[:, 2], c=occ_map[:, 3], cmap=cmap, s=5)
-    handles, labels = scatter.legend_elements(prop="colors", alpha=0.6)
-    ax.legend(handles, labels, loc="upper right", title="Occlusion")
+def plot_occ_map(ax, occ_map, cmap, alpha=0.5):
+    scatter = ax.scatter(occ_map[:, 1], occ_map[:, 2], c=occ_map[:, 3], cmap=cmap, s=10, alpha=alpha)
+    #handles, labels = scatter.legend_elements(prop="colors", alpha=0.6)
+    #ax.legend(handles, labels, loc="upper right", title="Occlusion")
 
 
-def normalize_costs_z(costs, max_costs=100):
+def normalize_costs_z(costs, max_costs=100) -> np.array:
 
     # if max of costs is 0 return costs
     if max(costs) == 0.0:
@@ -304,7 +304,7 @@ def normalize_costs_log(costs, max_costs=100):
     return costs_norm
 
 
-def normalize_costs_iqr(costs, max_costs=100):
+def normalize_costs_iqr(costs, max_costs=10):
     # calculate 25 and 75 quantile
     q25 = np.quantile(costs, 0.25)
     q75 = np.quantile(costs, 0.75)
@@ -460,4 +460,48 @@ def merge_dicts(list_of_dicts):
                 result_dict[key] = value
 
     return result_dict
+
+
+def scale_array(arr, threshold) -> np.array:
+    # scale array if threshold is exceeded
+    max_value = max(arr)
+    if max_value > threshold:
+
+        scale_factor = threshold / np.max(arr)
+        # scaled array
+        scaled_arr = arr * scale_factor
+
+        return scaled_arr
+    else:
+        return arr
+
+
+def remove_small_areas(multipolygon, threshold=1):
+
+    # list for cleaned polygons
+    cleaned_polygons = []
+
+    # iterate over polygons
+    for polygon in multipolygon.geoms:
+        # check if polygon area is greater than threshold
+        if polygon.area >= threshold:
+            # append polygon to list
+            cleaned_polygons.append(polygon)
+
+    # combine list of cleaned polygons to multipolygon
+    cleaned_multipolygon = MultiPolygon(cleaned_polygons)
+
+    return cleaned_multipolygon.buffer(0)
+
+
+def calc_easy_covariance_vector(position_vector):
+    n = len(position_vector)
+
+    covariance_vector = []
+
+    for i in range(n):
+        covariance_matrix = np.array([[i * 0.0015, i * 0.0001], [i * 0.0001, i * 0.0015]])
+        covariance_vector.append(covariance_matrix)
+
+    return np.array(covariance_vector)
 

@@ -8,7 +8,7 @@ Date: 27.04.2023
 
 # imports
 import numpy as np
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Polygon
 from shapely.ops import unary_union
 from functools import reduce
 from omegaconf import OmegaConf
@@ -25,6 +25,9 @@ from commonroad_rp.occlusion_planning.evaluation_modules.phantom_module import O
 
 class OcclusionModule:
     def __init__(self, scenario, config, ref_path, log_path, planner):
+        self.planner = planner
+        self.vehicle = config.vehicle
+        self.cr_scenario = scenario
         self.scenario_id = scenario.scenario_id
         self.occ_config = config.occlusion
         self.cost_config = OmegaConf.to_object(config.cost.params)
@@ -43,7 +46,7 @@ class OcclusionModule:
                                         ref_path=ref_path,
                                         scenario_lanelet_network=scenario.lanelet_network,
                                         dt=config.planning.dt,
-                                        sidewalk_buffer=2)  # if sidewalk buffer > 0 sidewalks will be considered
+                                        sidewalk_buffer=2.2)  # if sidewalk buffer > 0 sidewalks will be considered
 
         # initialize the visibility module which calculates the visible area (step is in prediction_preprocessing)
         # stores information about the visible area, occlusion obstacles, the ego position and the current timestep
@@ -87,7 +90,7 @@ class OcclusionModule:
         # corresponding visible area (calculates v_ratio and evaluates it)
         self.occ_visibility_estimator = OccVisibilityEstimator(self.occ_scenario, self.vis_module, self.occ_plot)
 
-    def step(self, predictions=None):
+    def step(self, predictions=None, x_0=None, x_cl=None):
 
         # calc visible and occluded area for further processing
         if self.vis_module.visible_area_timestep is not None:
@@ -104,6 +107,8 @@ class OcclusionModule:
             occluded_area = None
             add_occ_plot = None
 
+        self.update_pedestrian_predictions(predictions)
+
         # store predictions
         self.predictions = predictions
 
@@ -111,7 +116,7 @@ class OcclusionModule:
         self.occ_visible_area.set_area(visible_area)
         self.occ_occluded_area.set_area(occluded_area)
 
-        # if plot is activated plot the oclusion scenario
+        # if plot is activated plot the occlusion scenario
         if self.plot:
             self.occ_plot.step_plot(time_step=self.vis_module.time_step,
                                     ego_state=self.vis_module.ego_state,
@@ -121,13 +126,42 @@ class OcclusionModule:
                                     lanelet_polygon_along_path=self.occ_scenario.lanelets_along_path_combined,
                                     # visible_area_vm=self.vis_module.visible_area_timestep,
                                     obstacles=self.vis_module.obstacles,
-                                    obstacle_id=True,
+                                    cr_scenario=self.cr_scenario,
+                                    obstacle_id=False,
                                     visible_area=self.occ_visible_area.poly,
                                     occluded_area=self.occ_occluded_area.poly,
+                                    x_cl=x_cl,
+                                    x_0=x_0,
+                                    ego_vehicle=self.vehicle
                                     # additional_plot=add_occ_plot
                                     )
 
-    def calc_costs(self, trajectories=None, scenario="cluster0", plot=True):
+        self.occ_visibility_estimator.calc_current_v_ratio(self.predictions)
+
+    def update_pedestrian_predictions(self, predictions):
+        if self.occ_phantom_module.added_phantom is None:
+            return
+        # update prediction of pedestrian
+        for added_phantom in self.occ_phantom_module.added_phantom.values():
+            ped = added_phantom['ped']
+            added_at_timestep = added_phantom['added_at_timestep']
+            if ped.obstacle_id in predictions.keys():
+                if ped.commonroad_predictions is not None:
+                    pred = ped.commonroad_predictions
+                else:
+                    pred = ped.create_cr_predictions()
+
+                index = self.vis_module.time_step - added_at_timestep
+
+                cov_list = ohf.calc_easy_covariance_vector(pred['pos_list'][index:])
+
+                predictions[ped.obstacle_id] = {'orientation_list': pred['orientation_list'][index:],
+                                                'v_list': pred['v_list'][index:],
+                                                'pos_list': pred['pos_list'][index:],
+                                                'cov_list': cov_list,
+                                                'shape': pred['shape']}
+
+    def calc_costs(self, trajectories=None, scenario="cluster0", plot=False):
         # quit if error
         if trajectories is None or len(trajectories) == 0:
             raise ValueError('Trajectory list is empty')
@@ -135,21 +169,33 @@ class OcclusionModule:
         # evaluate phantom module if activated
         if self.occ_config.use_phantom_module:
             phantom_costs = self.occ_phantom_module.evaluate_trajectories(trajectories, max_harm=0.5, plot=False)
+
+            if phantom_costs is None:
+                phantom_costs = np.zeros(len(trajectories))
         else:
             phantom_costs = np.zeros(len(trajectories))
 
         # evaluate uncertainty map if activated
         if self.occ_config.use_uncertainty_map_evaluator:
             uncertainty_costs = self.occ_uncertainty_map_evaluator.evaluate_trajectories(trajectories,
-                                                                                         plot_uncertainty_map=False,
-                                                                                         plot=False)
+                                                                                         plot_uncertainty_map=True,
+                                                                                         plot=True)
+            if uncertainty_costs is None:
+                uncertainty_costs = np.zeros(len(trajectories))
         else:
             uncertainty_costs = np.zeros(len(trajectories))
 
         # evaluate visibility estimator if activated
         if self.occ_config.use_visibility_estimator and self.predictions is not None:
             vis_est_costs = self.occ_visibility_estimator.evaluate_trajectories(trajectories, self.predictions,
-                                                                                plot_traj=True, plot_map=False)
+                                                                                forecast_timestep=10,
+                                                                                forecast_distance_s_min=5,
+                                                                                forecast_distance_d=0.5,
+                                                                                forecast_sample_d=6,
+                                                                                consideration_radius=20,
+                                                                                plot_traj=False, plot_map=False)
+            if vis_est_costs is None:
+                vis_est_costs = np.zeros(len(trajectories))
         else:
             vis_est_costs = np.zeros(len(trajectories))
 
@@ -169,7 +215,8 @@ class OcclusionModule:
 
         # plot costs if plot is activated
         if self.occ_plot is not None and plot:
-            self.occ_plot.plot_trajectories_cost_color(trajectories, total_cost)
+            self.occ_plot.plot_trajectories_cost_color(trajectories, cost_list_weighted[:, 0])
+            # self.occ_plot.plot_trajectories_cost_color(trajectories, total_cost)
 
         # calc new costs (traj cost + occlusion cost)
         for i, traj in enumerate(trajectories):
@@ -179,10 +226,25 @@ class OcclusionModule:
             # update trajectory costs
             traj.set_costs(traj_cost, np.append(traj_cost_list, cost_list_weighted[i]))
 
+        # try to add phantom pedestrian to commonroad scenario -- for evaluation --
+        # has to be done at the end of a timestep
+        flag = self.occ_phantom_module.add_phantom_ped_to_cr(self.cr_scenario, self.planner)
+        if flag == 'deactivate_pm':
+            self.occ_config.use_phantom_module = False
+            self.occ_phantom_module.phantom_peds = None
+        elif flag == 'activate_pm':
+            self.occ_config.use_phantom_module = True
+
+        if self.occ_plot is not None and self.occ_plot.save_plot:
+            self.occ_plot.save_plot_to_file()
+
+        if self.occ_plot is not None and self.occ_plot.interactive_plot:
+            self.occ_plot.pause(t=0.1)
+
 
 class OccScenario:
     def __init__(self, ego_width=1.8, ego_length=5, ref_path=None,
-                 scenario_lanelet_network=None, dt=0.1, sidewalk_buffer=0):
+                 scenario_lanelet_network=None, dt=0.1, sidewalk_buffer=0.0):
         # private attributes
         self._scenario_lanelet_network = scenario_lanelet_network
         self._lanelets_polygon_list = None
@@ -219,14 +281,21 @@ class OccScenario:
 
     def _convert_lanelet_network(self):
 
+        # create polygon list from lanelet network
         self._lanelets_polygon_list = [poly.shapely_object for poly in self._scenario_lanelet_network.lanelet_polygons]
 
-        self.lanelets_combined = reduce(lambda x, y: x.union(y), self._lanelets_polygon_list)
+        # combine polygon list to one polygon
+        lanelets_combined = reduce(lambda x, y: x.union(y), self._lanelets_polygon_list)
+        # only use the exterior (prevent bug in sidewalk calculation)
+        self.lanelets_combined = Polygon(lanelets_combined.exterior)
 
+        # calculate combined polygon of lanelets with sidewalk
         self.lanelets_combined_with_sidewalk = self.lanelets_combined.buffer(self._sidewalk_buffer)
 
+        # subtract lanelets from sidewalk to get only the sidewalk
         self.sidewalk_combined = self.lanelets_combined_with_sidewalk.difference(self.lanelets_combined)
 
+        # convert list of polygons to multipolygon (each lanelet is a polygon)
         self.lanelets_single = ohf.convert_list_to_multipolygon(self._lanelets_polygon_list)
 
     def _lanelets_along_path(self):
@@ -249,18 +318,18 @@ class OccArea:
         self.type = area_type
         self.poly = None
         self.area = None
-        self.centroids = None
+        # self.centroids = None
         self.points = None
 
     def set_area(self, polygon):
         if polygon is not None:
             self.poly = polygon
             self.area = polygon.area
-            self.centroids = polygon.centroid
+            # self.centroids = polygon.centroid
             self.points = ohf.point_cloud(polygon)
         else:
             self.poly = None
             self.area = None
-            self.centroids = None
+            # self.centroids = None
             self.points = None
 # eof

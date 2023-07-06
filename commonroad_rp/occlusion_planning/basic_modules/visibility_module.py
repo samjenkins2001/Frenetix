@@ -1,6 +1,7 @@
 import commonroad_rp.occlusion_planning.utils.vis_helper_functions as vhf
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
 from commonroad_rp.occlusion_planning.basic_modules.occlusion_obstacles import OcclusionObstacle
+import numpy as np
 
 
 class VisibilityModule:
@@ -21,7 +22,7 @@ class VisibilityModule:
         for obst in self.obstacles:
             obst.update_at_timestep(time_step)
 
-    def get_visible_area_and_objects(self, ego_state=None):
+    def get_visible_area_and_objects(self, ego_state=None, debug=True):
 
         if ego_state is None:
             raise ValueError("Ego state must be provided for the calculation of visible area and visible objects!")
@@ -61,14 +62,42 @@ class VisibilityModule:
                     visible_objects_timestep.append(obst.obstacle_id)
                     obst.visible_at_timestep = True
 
+                    if obst.last_visible_timestep != self.time_step:
+                        obst.visibility_time += 1
+
+                    obst.last_visible_timestep = self.time_step
+
+                    # set time step when obstacle was visible for the first time
+                    if obst.first_time_visible is None:
+                        obst.first_time_visible = self.time_step
+                        obst.first_time_visible_distance_ego = np.linalg.norm(obst.current_pos - self.ego_pos)
+                        if debug:
+                            print("Obstacle {} first time visible at timestep {} with distance {} from ego"
+                                  .format(obst.obstacle_id, self.time_step, obst.first_time_visible_distance_ego))
+
+                else:
+                    obst.visibility_time = 0
+
+                # print visibility time
+                if obst.visibility_time != 0 and debug:
+                    print("Obstacle {} visible for {} timesteps ".format(obst.obstacle_id, obst.visibility_time))
+
         # remove linestrings from visible_area
         visible_area = ohf.remove_unwanted_shapely_elements(visible_area)
+
+        # remove unwanted areas if visible_area is multipolygon
+        if visible_area.geom_type == "MultiPolygon":
+            visible_area = ohf.remove_small_areas(visible_area)
 
         # save visible_objects and visible area in VisibilityModule object
         self.visible_objects_timestep = visible_objects_timestep
         self.visible_area_timestep = visible_area
 
         return visible_objects_timestep, visible_area
+
+    def add_occ_obstacle(self, obstacle):
+        new_occ_obstacle = OcclusionObstacle(obstacle)
+        self.obstacles.append(new_occ_obstacle)
 
 
 def convert_obstacles(obstacles):

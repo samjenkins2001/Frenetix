@@ -1,3 +1,11 @@
+"""
+The module evaluates different points along the reference path to calculate a lateral trajectory adjustment to
+increase visible areas.
+
+Author: Korbinian Moller, TUM
+Date: 29.05.2023
+"""
+
 # imports
 import numpy as np
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
@@ -12,13 +20,17 @@ class OccVisibilityEstimator:
         self.vis_module = vis_module
         self.occ_plot = occ_plot
         self.forecast_distance_s = None
-        self.cost_factor = 100
         self.costs = None
+        self.estimation_points = None
         self.max_costs = 10
+        self.max_rel_costs = 3  # define how much the trajectories should be compared with each other
+        self.abs_cost_factor = 10
+        self.current_v_ratio = 0
+        self.current_v_ratio_basic = 0
 
-    def evaluate_trajectories(self, trajectories, predictions, forecast_timestep=10,
-                              forecast_distance_d=0.5, forecast_sample_d=6, consideration_radius=30, plot_traj=False,
-                              plot_map=False):
+    def evaluate_trajectories(self, trajectories, predictions, forecast_timestep=10, forecast_distance_s_min=5,
+                              forecast_distance_d=0.5, forecast_sample_d=6, consideration_radius=40, plot_traj=False,
+                              plot_map=False, debug=False):
 
         # set self.costs to None
         self.costs = None
@@ -26,6 +38,7 @@ class OccVisibilityEstimator:
         # calculate visibility ratio -> np.array [v_ratio, d in curvilinear coords]
         v_ratio = self.estimate(predictions,
                                 forecast_timestep=forecast_timestep,
+                                forecast_distance_s_min=forecast_distance_s_min,
                                 forecast_distance_d=forecast_distance_d,
                                 forecast_sample_d=forecast_sample_d,
                                 consideration_radius=consideration_radius,
@@ -35,40 +48,84 @@ class OccVisibilityEstimator:
         s_interp = trajectories[0].curvilinear.s[0] + self.forecast_distance_s
 
         # initialize cost list
-        costs = []
+        occ_ratios = []
+        d_interp_list = []
 
         # iterate over trajectories
         for traj in trajectories:
             # interpolate d for each trajectory using s_interp
             d_interp = np.interp(s_interp, traj.curvilinear.s, traj.curvilinear.d)
+            d_interp_list.append(d_interp)
 
             # interpolate v_ratio for each trajectory
-            v_ratio_interp = np.interp(d_interp, v_ratio[:, 1], v_ratio[:, 0])
+            try:
+                v_ratio_interp = np.interp(d_interp, v_ratio[:, 1], v_ratio[:, 0])
+            except:
+                print('<VisibilityEstimator>: Could not interpolate v_ratio! Process will be terminated!')
+                return None
 
             # calculate occ ratio (1-v_ratio) for cost calculation
             occ_ratio = (1 - v_ratio_interp)
-            cost = self.cost_factor * occ_ratio
-            costs.append(cost)
+            occ_ratios.append(occ_ratio)
 
-        self.costs = ohf.normalize_costs_z(costs, self.max_costs)
+        # calc relative costs
+        costs_rel = ohf.normalize_costs_z(occ_ratios, self.max_rel_costs)
+
+        # calc absolute costs using relative costs and occ_ratio (small v_ratio -> costs are getting more important)
+        costs = costs_rel * (np.power(np.array(occ_ratios), 1)) * self.abs_cost_factor
+
+        self.costs = ohf.scale_array(costs, 10)
+
+        # show debug information if enabled
+        if debug:
+            index_minus = min(range(len(d_interp_list)), key=lambda i: d_interp_list[i])
+            index_0 = min(range(len(d_interp_list)), key=lambda i: abs(d_interp_list[i]))
+            index_plus = max(range(len(d_interp_list)), key=lambda i: d_interp_list[i])
+
+            print("d: left {} -- center {} -- right {}".format(d_interp_list[index_minus], d_interp_list[index_0],
+                                                               d_interp_list[index_plus]))
+            print("Occ Ratio: min {} -- mean {} -- max {}" .format(min(occ_ratios), np.mean(occ_ratios),
+                                                                   max(occ_ratios)))
+            print("left: {} -- center: {} -- right: {}" .format(self.costs[index_plus], self.costs[index_0],
+                                                                self.costs[index_minus]))
 
         if plot_traj and self.occ_plot is not None:
+            for point in self.estimation_points:
+                self.occ_plot.ax.plot(point.pos[0], point.pos[1], 'bo')
+
             self.occ_plot.plot_trajectories_cost_color(trajectories, self.costs)
 
         return self.costs
 
-    def estimate(self, predictions, forecast_timestep=10, forecast_distance_d=1.5, forecast_sample_d=2,
-                 consideration_radius=None, plot=False) -> np.array:
+    def calc_current_v_ratio(self, predictions):
+        # only for evaluation -- calc v-ratio of current position for logging
+        ego_pos = self.vis_module.ego_pos
+        est_point = OccVisEstimationPoint(pos=ego_pos, d=0)
+        reference_area = self.vis_module.lanelets.intersection(Point(ego_pos).buffer(20))
+        estimation_obstacles = _create_estimation_obstacles(predictions, 0)
+        if self.occ_plot is not None:
+            ax = self.occ_plot.ax
+        else:
+            ax = None
+        est_point.evaluate(reference_area, self.vis_module.sensor_radius, estimation_obstacles, self.occ_scenario,
+                           ax=ax, plot=False)
+
+        self.current_v_ratio = est_point.v_ratio
+        self.current_v_ratio_basic = est_point.v_ratio_basic
+
+    def estimate(self, predictions, forecast_timestep=10, forecast_distance_d=1.5, forecast_distance_s_min=5,
+                 forecast_sample_d=2, consideration_radius=None, plot=False) -> np.array:
 
         # define consideration_radius
         if consideration_radius is None:
             consideration_radius = self.vis_module.sensor_radius
 
-        # set forecast distance in curvilinear coordinates (s), if v=0 standard value of 5m will be used
-        if self.vis_module.ego_state.velocity > 0:
-            forecast_distance_s = self.vis_module.ego_state.velocity * self.occ_scenario.dt * forecast_timestep
-        else:
-            forecast_distance_s = 5
+        # set forecast distance in curvilinear coordinates (s)
+        forecast_distance_s = self.vis_module.ego_state.velocity * self.occ_scenario.dt * forecast_timestep
+
+        # if s < s_min standard value will be used
+        if forecast_distance_s < forecast_distance_s_min:
+            forecast_distance_s = forecast_distance_s_min
 
         # calculate (forecast_sample_d * 2) estimation points around forecast_distance_s on ref path
         estimation_points, forecast_s_np = self._create_estimation_points(forecast_distance_s, forecast_distance_d,
@@ -85,6 +142,9 @@ class OccVisibilityEstimator:
 
         # store forecast_distance in object
         self.forecast_distance_s = forecast_distance_s
+
+        # store estimation points
+        self.estimation_points = estimation_points
 
         return v_ratios
 
@@ -106,11 +166,11 @@ class OccVisibilityEstimator:
             if self.occ_plot is not None and plot:
                 self.occ_plot.ax.plot(point.pos[0], point.pos[1], 'bo')
 
+            if point.v_ratio is None:
+                print('he')
+
             # store v_ratios
-            if point.v_ratio is not None:
-                v_ratios.append([point.v_ratio, point.d])
-            else:
-                v_ratios.append([point.v_ratio_basic, point.d])
+            v_ratios.append([point.v_ratio, point.d])
 
         # convert v_ratios to numpy array
         v_ratios = np.array(v_ratios)
@@ -145,6 +205,7 @@ class OccVisibilityEstimator:
 class OccVisEstimationPoint:
     def __init__(self, pos, d):
         self.v_ratio = None
+        self.v_ratio_basic = None
         self.d = d
         self.pos = pos
         self.visible_area = None
@@ -157,11 +218,16 @@ class OccVisEstimationPoint:
         self._calc_areas(reference_area, sensor_radius, estimation_obstacles, occ_scenario.ref_path)
 
         self._evaluate_areas(prio_area=occ_scenario.lanelets_along_path_combined,
-                             prio_weight=5,
+                             weight_visible=1,
+                             weight_occluded=3,
+                             prio_weight=10,
                              sidewalk=occ_scenario.sidewalk_combined,
-                             sidewalk_weight=1,
+                             sidewalk_weight=2,
                              ax=ax,
                              plot=plot)
+
+        if self.v_ratio is None:
+            print('jee')
 
     def _calc_areas(self, lanelet_polygon, sensor_radius, estimation_obstacles, ref_path):
 
@@ -182,8 +248,8 @@ class OccVisEstimationPoint:
             ref_path_buffer=15,
             cut_backwards=True)
 
-    def _evaluate_areas(self, std_weight=1, prio_area=None, prio_weight=1, sidewalk=None, sidewalk_weight=1, ax=None,
-                        plot=False):
+    def _evaluate_areas(self, std_weight=1, prio_area=None, weight_visible=1, weight_occluded=5, prio_weight=1, sidewalk=None, sidewalk_weight=1, ax=None,
+                        plot=False, plot_all=False):
 
         # return if no occluded area exists -> v_ratio = 1
         if self.occluded_area.is_empty:
@@ -196,89 +262,98 @@ class OccVisEstimationPoint:
 
         # calculate total area
         area_total_m2 = visible_area_m2 + occluded_area_m2
-        self.v_ratio = visible_area_m2 / area_total_m2
+        self.v_ratio_basic = visible_area_m2 / area_total_m2
 
-        # exit function here if both "special" areas are none --> only v_ratio_basic is calculated
-        if prio_area is None and sidewalk is None:
-            return
+        # try to calc extended v ratio
+        try:
 
-        # initialize variables
-        visible_prio_area_m2 = 0
-        visible_sw_area_m2 = 0
-        occluded_prio_area_m2 = 0
-        occluded_sw_area_m2 = 0
+            # exit function here if both "special" areas are none --> only v_ratio_basic is calculated
+            if prio_area is None and sidewalk is None:
+                return
 
-        if prio_area is not None:
-            # evaluate visible area
-            visible_prio_area = prio_area.intersection(self.visible_area)
-            visible_prio_area_m2 = visible_prio_area.area
-            self.visible_areas_detail["visible_prio_area"] = visible_prio_area
+            # initialize variables
+            visible_prio_area_m2 = 0
+            visible_sw_area_m2 = 0
+            occluded_prio_area_m2 = 0
+            occluded_sw_area_m2 = 0
 
-            # evaluate occluded area
-            occluded_prio_area = prio_area.intersection(self.occluded_area)
-            occluded_prio_area_m2 = occluded_prio_area.area
-            self.occluded_areas_detail["occluded_prio_area"] = occluded_prio_area
+            if prio_area is not None:
+                # evaluate visible area
+                visible_prio_area = prio_area.intersection(self.visible_area).buffer(0)
+                visible_prio_area_m2 = visible_prio_area.area
+                self.visible_areas_detail["visible_prio_area"] = visible_prio_area
 
-        if sidewalk is not None:
-            # evaluate visible area
-            visible_sw_area = sidewalk.intersection(self.visible_area)
-            visible_sw_area_m2 = visible_sw_area.area
-            self.visible_areas_detail["visible_sw_area"] = visible_sw_area
+                # evaluate occluded area
+                occluded_prio_area = prio_area.intersection(self.occluded_area).buffer(0)
+                occluded_prio_area_m2 = occluded_prio_area.area
+                self.occluded_areas_detail["occluded_prio_area"] = occluded_prio_area
 
-            # evaluate occluded area
-            occluded_sw_area = sidewalk.intersection(self.occluded_area)
-            occluded_sw_area_m2 = occluded_sw_area.area
-            self.occluded_areas_detail["occluded_sw_area"] = occluded_sw_area
+            if sidewalk is not None:
+                # evaluate visible area
+                visible_sw_area = sidewalk.intersection(self.visible_area).buffer(0)
+                visible_sw_area_m2 = visible_sw_area.area
+                self.visible_areas_detail["visible_sw_area"] = visible_sw_area
 
-        # subtract "special" areas from "standard" areas
-        if prio_area is not None and sidewalk is not None:
-            subtract_visible = visible_prio_area.union(visible_sw_area)
-            subtract_occluded = occluded_prio_area.union(occluded_sw_area)
-        elif prio_area is not None:
-            subtract_visible = visible_prio_area
-            subtract_occluded = occluded_prio_area
-        elif sidewalk is not None:
-            subtract_visible = visible_sw_area
-            subtract_occluded = occluded_sw_area
+                # evaluate occluded area
+                occluded_sw_area = sidewalk.intersection(self.occluded_area).buffer(0)
+                occluded_sw_area_m2 = occluded_sw_area.area
+                self.occluded_areas_detail["occluded_sw_area"] = occluded_sw_area
 
-        visible_standard_area = self.visible_area.difference(subtract_visible)
-        visible_standard_area_m2 = visible_standard_area.area
+            # subtract "special" areas from "standard" areas
+            if prio_area is not None and sidewalk is not None:
+                subtract_visible = visible_prio_area.union(visible_sw_area).buffer(0)
+                subtract_occluded = occluded_prio_area.union(occluded_sw_area).buffer(0)
+            elif prio_area is not None:
+                subtract_visible = visible_prio_area
+                subtract_occluded = occluded_prio_area
+            elif sidewalk is not None:
+                subtract_visible = visible_sw_area
+                subtract_occluded = occluded_sw_area
 
-        occluded_standard_area = self.occluded_area.difference(subtract_occluded)
-        occluded_standard_area_m2 = occluded_standard_area.area
+            visible_standard_area = self.visible_area.difference(subtract_visible)
+            visible_standard_area_m2 = visible_standard_area.area
 
-        sum_visible = (visible_prio_area_m2 * prio_weight +
-                       visible_sw_area_m2 * sidewalk_weight +
-                       visible_standard_area_m2 * std_weight)
+            occluded_standard_area = self.occluded_area.difference(subtract_occluded)
+            occluded_standard_area_m2 = occluded_standard_area.area
 
-        sum_occluded = (occluded_prio_area_m2 * prio_weight +
-                        occluded_sw_area_m2 * sidewalk_weight +
-                        occluded_standard_area_m2 * std_weight)
+            sum_visible = (visible_prio_area_m2 * prio_weight +
+                           visible_sw_area_m2 * sidewalk_weight +
+                           visible_standard_area_m2 * std_weight) * weight_visible
 
-        self.v_ratio = sum_visible / (sum_visible + sum_occluded)
+            sum_occluded = (occluded_prio_area_m2 * prio_weight +
+                            occluded_sw_area_m2 * sidewalk_weight +
+                            occluded_standard_area_m2 * std_weight) * weight_occluded
 
-        if ax is not None and plot:
-            ax.plot(self.pos[0], self.pos[1], 'mo')
-            ohf.plot_polygons(ax, prio_area, 'k')
+            self.v_ratio = sum_visible / (sum_visible + sum_occluded)
 
-            ohf.fill_polygons(ax, visible_prio_area, 'g')
-            ohf.fill_polygons(ax, visible_standard_area, 'yellow')
+            if ax is not None and plot and (self.d == 0 or plot_all):
+                ax.plot(self.pos[0], self.pos[1], 'mo')
+                ohf.plot_polygons(ax, prio_area, 'k', opacity=0.8)
 
-            ohf.fill_polygons(ax, occluded_prio_area, 'r')
-            ohf.fill_polygons(ax, occluded_standard_area, 'darkorange')
+                ohf.fill_polygons(ax, visible_prio_area, 'g', opacity=0.8)
+                ohf.fill_polygons(ax, visible_standard_area, 'yellow', opacity=0.8)
 
-            ohf.fill_polygons(ax, visible_sw_area, 'lime')
-            ohf.fill_polygons(ax, occluded_sw_area, 'coral')
+                ohf.fill_polygons(ax, occluded_prio_area, 'r', opacity=0.8)
+                ohf.fill_polygons(ax, occluded_standard_area, 'darkorange', opacity=0.8)
+
+                ohf.fill_polygons(ax, visible_sw_area, 'lime', opacity=0.8)
+                ohf.fill_polygons(ax, occluded_sw_area, 'coral', opacity=0.8)
+
+        except:
+            print('<VisibilityEstimator>: Error in Calculation of v_ratio!')
+            pass
 
 
 def _create_estimation_obstacles(predictions, forecast_timestep) -> list:
     # prepare estimations (e.g. from WaleNet) for further calculation
     estimation_obstacles = []
     for i in predictions:
-        # create estimation obstacles and save them to predictions_prepared
-        est_obst = EstimationObstacle(i, predictions[i], forecast_timestep)
-        estimation_obstacles.append(est_obst)
-        # ohf.fill_polygons(self.occ_plot.ax, est_obst.polygon, 'orange', zorder=100)
+        # create estimation obstacles and save them
+        try:
+            est_obst = EstimationObstacle(i, predictions[i], forecast_timestep)
+            estimation_obstacles.append(est_obst)
+        except:
+            pass
 
     return estimation_obstacles
 

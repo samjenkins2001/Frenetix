@@ -17,7 +17,7 @@ class OccUncertaintyMap:
         self.occ_occluded_area = occ_occluded_area
         self._np_init_len = 3
         self._threshold_low = -100
-        self._threshold_high = 10
+        self._threshold_high = 20
         self.error = False
         self.map_detail = None
         self.map = None

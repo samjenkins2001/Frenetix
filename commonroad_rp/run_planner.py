@@ -158,7 +158,8 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Set Planner Subscriptions
         # **************************
-        planner.update_externals(x_0=x_0, x_cl=x_cl, desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
+        planner.update_externals(x_0=x_0, x_cl=x_cl, desired_velocity=desired_velocity, predictions=predictions,
+                                 behavior=behavior)
 
         # **************************
         # Execute Planner
