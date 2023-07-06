@@ -47,6 +47,10 @@ def step_prediction(scenario, predictor, config, ego_state, occlusion_module=Non
     elif config.prediction.mode == "lanebased":
         predictions = predictor.main_prediction(ego_state, config.prediction.sensor_radius,
                                                 [float(config.planning.planning_horizon)])
+
+    elif config.prediction.mode == "ground_truth":
+        predictions = get_ground_truth_prediction(visible_obstacles, scenario, ego_state.time_step,
+                                                  int(config.prediction.pred_horizon_in_s/config.planning.dt))
     else:
         predictions = None
 
@@ -305,6 +309,8 @@ def get_ground_truth_prediction(
     """
     # create a dictionary for the predictions
     prediction_result = {}
+    if time_step == 29:
+        print("DDD")
     for obstacle_id in obstacle_ids:
         obstacle = scenario.obstacle_by_id(obstacle_id)
         fut_pos = []
@@ -316,7 +322,7 @@ def get_ground_truth_prediction(
         else:
             len_pred = pred_horizon
         # create mean and the covariance matrix of the obstacles
-        for ts in range(time_step, min(pred_horizon, len_pred)):
+        for ts in range(time_step, min(pred_horizon + time_step, len_pred)):
             # get the occupancy of an obstacles (if it is not in the scenario at the given time step, the occupancy is None)
             occupancy = obstacle.occupancy_at_time(ts)
             if occupancy is not None:
@@ -327,8 +333,9 @@ def get_ground_truth_prediction(
         fut_pos = np.array(fut_pos)
         fut_cov = np.array(fut_cov)
 
+        shape_obs = {'length': obstacle.obstacle_shape.length, 'width': obstacle.obstacle_shape.width}
         # add the prediction for the considered obstacle
-        prediction_result[obstacle_id] = {'pos_list': fut_pos, 'cov_list': fut_cov}
+        prediction_result[obstacle_id] = {'pos_list': fut_pos, 'cov_list': fut_cov, 'shape': shape_obs}
 
     return prediction_result
 

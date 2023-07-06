@@ -13,7 +13,7 @@ params:
     Distance to Reference Path: 10
     Distance to Obstacles: 0
 
-    Prediction: 200
+    Prediction: 20000
     Responsibility: 0
 
     Occ_PM: 0 # Occlusion Phantom Module (phantom pedestrian harm)

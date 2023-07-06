@@ -88,7 +88,7 @@ class ReactivePlanner(object):
         self.record_state_list: List[ReactivePlannerState] = list()
         self.record_input_list: List[InputState] = list()
 
-        self.current_ego_vehicle = None
+        self.ego_vehicle_history = list()
         self._LOW_VEL_MODE = False
 
         # Scenario
@@ -231,15 +231,13 @@ class ReactivePlanner(object):
         return self._infeasible_count_kinematics
 
     def update_externals(self, x_0: ReactivePlannerState=None, x_cl: Optional[Tuple[List, List]]=None,
-                         current_ego_vehicle=None, scenario: Scenario=None, goal_area=None, planning_problem=None,
+                         scenario: Scenario=None, goal_area=None, planning_problem=None,
                          cost_function=None, reference_path: np.ndarray=None, occlusion_module=None,
                          desired_velocity: float = None, predictions=None, behavior=None):
         if x_0 is not None:
             self.x_0 = x_0
         if x_cl is not None:
             self.x_cl = x_cl
-        if current_ego_vehicle is not None:
-            self.current_ego_vehicle = current_ego_vehicle
         if scenario is not None:
             self.set_scenario(scenario)
         if goal_area is not None:
@@ -268,6 +266,7 @@ class ReactivePlanner(object):
 
         if self.predictions is not None:
             self.predictionsForCpp = copy.deepcopy(self.predictions)
+
             for key in self.predictionsForCpp.keys():
 
                 self.predictionsForCpp[key]['cov_list_0'] = self.predictionsForCpp[key]['cov_list'][:, :, 0]
@@ -295,7 +294,7 @@ class ReactivePlanner(object):
         self.x_cl = x_cl
 
     def set_ego_vehicle_state(self, current_ego_vehicle):
-        self.current_ego_vehicle = current_ego_vehicle
+        self.ego_vehicle_history.append(current_ego_vehicle)
 
     def set_behavior(self, behavior):
         self.behavior = behavior
@@ -637,7 +636,7 @@ class ReactivePlanner(object):
             ss1_range = np.array(list(self._sampling_v.to_range(samp_level)))
             d1_range = np.array(list(self._sampling_d.to_range(samp_level).union(x_0_lat[0])))
 
-            sampling_matrix = generate_sampling_matrix(t0_range=0,
+            sampling_matrix = generate_sampling_matrix(t0_range=0.0,
                                                        t1_range=t1_range,
                                                        s0_range=x_0_lon[0],
                                                        ss0_range=x_0_lon[1],
@@ -648,8 +647,8 @@ class ReactivePlanner(object):
                                                        dd0_range=x_0_lat[1],
                                                        ddd0_range=x_0_lat[2],
                                                        d1_range=d1_range,
-                                                       dd1_range=0,
-                                                       ddd1_range=0)
+                                                       dd1_range=0.0,
+                                                       ddd1_range=0.0)
 
             self.handler.reset_Trajectories()
             self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
@@ -661,24 +660,6 @@ class ReactivePlanner(object):
             # *****************************************************************************************************
 
             self.logger.trajectory_number = self.x_0.time_step
-
-            # optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, self.predictions, i)
-            # trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
-
-            # create CommonRoad Obstacle for the ego Vehicle
-            # if trajectory_pair is not None:
-            #     self.current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
-            #
-            # if optimal_trajectory is not None and self.log_risk:
-            #     optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
-            #
-            # if self.behavior:
-            #     if self.behavior.flags["waiting_for_green_light"]:
-            #         optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
-
-            # *****************************************************************************************************
-            # _get_optimal_trajectory part
-            # *****************************************************************************************************
 
             # evaluate all current functions stored in the handler
             # time the following function
@@ -769,7 +750,6 @@ class ReactivePlanner(object):
 
             t0 = time.time()
 
-
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.set_risk_costs(optimal_trajectory)
             if self.debug_mode >= 2:
@@ -796,7 +776,8 @@ class ReactivePlanner(object):
         trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
         # create CommonRoad Obstacle for the ego Vehicle
         if trajectory_pair is not None:
-            self.current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
+            current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
+            self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
 
         # **************************
         # Logging
@@ -805,7 +786,7 @@ class ReactivePlanner(object):
         if optimal_trajectory is not None:
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                             infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-                            ego_vehicle=self.current_ego_vehicle)
+                            ego_vehicle=self.ego_vehicle_history[-1])
             self.logger.log_predicition(self.predictions)
         if self.save_all_traj or self.use_amazing_visualizer:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step)

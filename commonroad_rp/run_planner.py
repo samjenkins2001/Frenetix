@@ -65,7 +65,7 @@ def run_planner(config, log_path, mod_path):
     # **************************
     shape = Rectangle(planner.vehicle_params.length, planner.vehicle_params.width)
     ego_vehicle = DynamicObstacle(42, ObstacleType.CAR, shape, x_0, None)
-    planner.current_ego_vehicle = ego_vehicle
+    planner.set_ego_vehicle_state(current_ego_vehicle=ego_vehicle)
     x_cl = None
     current_count = 0
     planning_times = list()
@@ -193,7 +193,7 @@ def run_planner(config, log_path, mod_path):
         # Visualize Scenario
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
-            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.current_ego_vehicle,
+            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.ego_vehicle_history[-1],
                                           traj_set=list(planner.handler.get_sorted_trajectories()), optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
@@ -202,11 +202,11 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Check Collision
         # **************************
-        crash = planner.check_collision(planner.current_ego_vehicle)
+        crash = planner.check_collision(planner.ego_vehicle_history[-1])
         if crash:
             print("Collision Detected!")
             if config.debug.collision_report and current_count > 0:
-                coll_report([planner.current_ego_vehicle], planner, scenario, planning_problem, current_count, config,
+                coll_report(planner.ego_vehicle_history, planner, scenario, planning_problem, current_count, config,
                             log_path)
             break
 
