@@ -1,5 +1,5 @@
 # Whether to run multi- or single agent.
-use_multiagent: False
+use_multiagent: True
 
 # The following options only apply for use_multiagent=True:
 
@@ -7,7 +7,7 @@ use_multiagent: False
 # otherwise, number_of_agents vehicles are randomly chosen.
 use_specific_agents: False
 # List of vehicle IDs to use as agents additionally to the original PlanningProblem
-agent_ids: [5, 7]
+agent_ids: []
 # Number of agents to create additionally to the original PlanningProblem.
 # Set to -1 to use all DynamicObstacles from the scenario.
 number_of_agents: -1
@@ -23,5 +23,5 @@ save_specific_individual_plots: [60000]
 save_all_individual_gifs: False
 save_specific_individual_gifs: []
 
-multiprocessing: True
+multiprocessing: False
 num_procs: 4

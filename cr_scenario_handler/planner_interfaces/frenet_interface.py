@@ -1,19 +1,16 @@
 import os
 import traceback
 from copy import deepcopy
-import numpy as np
 from typing import List
 
 
 from commonroad.scenario.scenario import Scenario
-from commonroad.scenario.trajectory import Trajectory
 from commonroad.scenario.obstacle import DynamicObstacle
 from commonroad.planning.planning_problem import PlanningProblem
 
 from commonroad_dc import pycrcc
 
 from cr_scenario_handler.utils.configuration import Configuration
-from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
 
@@ -87,8 +84,8 @@ class FrenetPlannerInterface(PlannerInterface):
         self.planner.set_planning_problem(planning_problem)
 
         # set cost function
-        self.cost_function = AdaptableCostFunction(rp=self.planner, configuration=config)
-        self.planner.set_cost_function(self.cost_function)
+        # self.cost_function = AdaptableCostFunction(rp=self.planner, configuration=config)
+        # self.planner.set_cost_function(self.cost_function)
 
     def get_all_traj(self):
         """Return the sampled trajectory bundle for plotting purposes."""
@@ -187,12 +184,7 @@ class FrenetPlannerInterface(PlannerInterface):
         """
         self.scenario = scenario
         self.predictions = predictions
-
-        self.planner.set_scenario(scenario)
-        self.planner.set_predictions(predictions)
-
-        self.planner.set_x_0(self.x_0)
-        self.planner.set_x_cl(self.x_cl)
+        self.planner.update_externals(x_0=self.x_0, x_cl=self.x_cl, scenario=scenario, predictions=predictions)
 
     def plan(self):
         """ Execute one planing step.
@@ -237,26 +229,26 @@ class FrenetPlannerInterface(PlannerInterface):
             return 1, None
 
         # correct orientation angle
-        new_trajectory = self.planner.shift_orientation(optimal[0], interval_start=self.x_0.orientation - np.pi,
-                                                        interval_end=self.x_0.orientation + np.pi)
+        #new_trajectory = self.planner.shift_orientation(optimal[0], interval_start=self.x_0.orientation - np.pi,
+        #                                                interval_end=self.x_0.orientation + np.pi)
 
         # get next state from state list of planned trajectory
-        new_state = new_trajectory.state_list[1]
-        new_state.time_step = self.x_0.time_step + 1
-
+        #new_state = new_trajectory.state_list[1]
+        #new_state.time_step = self.x_0.time_step + 1
+        self.planner.record_state_and_input(optimal[0].state_list[1])
         # update init state and curvilinear state
-        self.x_0 = deepcopy(new_state)
+        self.x_0 = deepcopy(self.planner.record_state_list[-1])
         self.x_cl = (optimal[2][1], optimal[3][1])
 
         # Shift the state list to the center of the vehicle
-        shifted_state_list = []
-        for x in new_trajectory.state_list:
-            shifted_state_list.append(
-                x.translate_rotate(np.array([self.config.vehicle.wb_rear_axle * np.cos(x.orientation),
-                                             self.config.vehicle.wb_rear_axle * np.sin(x.orientation)]),
-                                   0.0)
-            )
-
-        shifted_trajectory = Trajectory(shifted_state_list[0].time_step,
-                                        shifted_state_list)
-        return 0, shifted_trajectory
+        # shifted_state_list = []
+        # for x in optimal[0].state_list[1]:
+        #     shifted_state_list.append(
+        #         x.translate_rotate(np.array([self.config.vehicle.wb_rear_axle * np.cos(x.orientation),
+        #                                      self.config.vehicle.wb_rear_axle * np.sin(x.orientation)]),
+        #                            0.0)
+        #     )
+        #
+        # shifted_trajectory = Trajectory(shifted_state_list[0].time_step,
+        #                                 shifted_state_list)
+        return 0, optimal[0]

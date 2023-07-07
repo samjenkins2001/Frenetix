@@ -93,9 +93,6 @@ class Agent:
             time_step=self.record_state_list[-1].time_step,
             steering_angle_speed=0.))
 
-        # initialize the prediction network if necessary
-        self.predictor = ph.load_prediction(self.scenario, self.config.prediction.mode, config)
-
     def initialize_state_list(self):
         """ Initialize the recorded trajectory of the agent.
 

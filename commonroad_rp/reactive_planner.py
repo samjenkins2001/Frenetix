@@ -390,6 +390,7 @@ class ReactivePlanner(object):
 
         reference_path = smooth_ref_path(reference_path)
         self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(reference_path)
+        self._co: CoordinateSystem = CoordinateSystem(reference_path)
 
     def set_goal_area(self, goal_area):
         """
@@ -694,7 +695,7 @@ class ReactivePlanner(object):
         # **************************
         # Set Risk Costs
         # **************************
-        if optimal_trajectory is None:
+        if optimal_trajectory is None and feasible_trajectories:
             for traje in feasible_trajectories:
                 self.set_risk_costs(traje)
             sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk, reverse=False)

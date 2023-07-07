@@ -30,6 +30,7 @@ def smooth_ref_path(reference: np.ndarray):
     reference = np.column_stack((x_smooth, y_smooth))
     return reference
 
+
 def interpolate_angle(x: float, x1: float, x2: float, y1: float, y2: float) -> float:
     """
     Interpolates an angle value between two angles according to the miminal value of the absolute difference
@@ -89,7 +90,7 @@ class CoordinateSystem:
             # set reference and create ccosy from given reference
 
             # remove duplicated vertices in reference path
-            self.reference = smooth_ref_path(reference)
+            self.reference = reference
         else:
             assert ccosy is not None, '<CoordinateSystem>: Please provide a reference path OR a ' \
                                           'CurvilinearCoordinateSystem object.'

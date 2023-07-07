@@ -141,7 +141,7 @@ class Simulation:
             batch_list.append((AgentBatch(self.agent_id_list, self.planning_problem_set, self.scenario,
                                           self.config, self.log_path, self.mod_path,
                                           None, None),
-                              None, None, self.agent_id_list))
+                               None, None, self.agent_id_list))
 
         else:
             batch_list = []
@@ -178,14 +178,19 @@ class Simulation:
             return []
 
         # Find all dynamic obstacles in the scenario
-        all_obs_ids = mh.get_all_obstacle_ids(self.scenario)
+        allowed_types = [ObstacleType.CAR,
+                         ObstacleType.TRUCK,
+                         ObstacleType.BUS]
+        all_obs_ids = list(filter(lambda id: self.scenario.obstacle_by_id(id).obstacle_type in allowed_types,
+                             mh.get_all_obstacle_ids(self.scenario)))
 
         if self.config.multiagent.use_specific_agents:
             # Agents were selected by the user
             agent_id_list = self.config.multiagent.agent_ids
             for agent_ids_check in agent_id_list:
                 if agent_ids_check not in all_obs_ids:
-                    raise ValueError("Selected Obstacle IDs not existent in Scenario!\n"
+                    raise ValueError("Selected Obstacle IDs not existent in Scenario, "
+                                     "or of unsupported ObstacleType!\n"
                                      "Check selected 'agent_ids' in config!")
         else:
             agent_id_list = all_obs_ids
