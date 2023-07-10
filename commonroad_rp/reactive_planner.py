@@ -354,14 +354,42 @@ class ReactivePlanner(object):
         self.handler.add_feasability_function(CheckCurvatureConstraint(deltaMax=self.vehicle_params.delta_max, wheelbase=self.vehicle_params.wheelbase))
         self.handler.add_feasability_function(CheckCurvatureRateConstraint(wheelbase=self.vehicle_params.wheelbase, velocityDeltaMax=self.vehicle_params.v_delta_max))
 
-        self.handler.set_cost_weights(self.params["cluster0"])
+        name = "Acceleration"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateAccelerationCost(name, self.params["cluster0"][name]))
 
-        self.handler.add_cost_function(CalculateJerkCost())
-        self.handler.add_cost_function(CalculateAccelerationCost())
-        self.handler.add_cost_function(CalculateLateralJerkCost())
-        self.handler.add_cost_function(CalculateLongitudinalJerkCost())
-        self.handler.add_cost_function(CalculateOrientationOffsetCost())
-        self.handler.add_cost_function(CalculateDistanceToReferencePathCost())
+        name = "Jerk"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateJerkCost(name, self.params["cluster0"][name]))
+
+        name = "Lateral Jerk"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateLateralJerkCost(name, self.params["cluster0"][name]))
+
+        name = "Longitudinal Jerk"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateLongitudinalJerkCost(name, self.params["cluster0"][name]))
+
+        name = "Orientation Offset"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateOrientationOffsetCost(name, self.params["cluster0"][name]))
+
+        name = "Path Length"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            print("Path Length not implemented yet")
+
+        name = "Lane Center Offset"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateLaneCenterOffsetCost(name, self.params["cluster0"][name]))
+
+        name = "Velocity Costs"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            print("Velocity Offset not implemented yet")
+
+        name = "Distance to Reference Path"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateDistanceToReferencePathCost(name, self.params["cluster0"][name]))
+
 
     def set_handler_changing_functions(self):
 
@@ -370,17 +398,24 @@ class ReactivePlanner(object):
                                                   lowVelocityMode=self._LOW_VEL_MODE,
                                                   initialOrientation=self.x_0.orientation,
                                                   coordinateSystem=self.coordinate_system))
-        self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(self.predictionsForCpp))
+        name = "Prediction"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.params["cluster0"][name], self.predictionsForCpp))
 
-        obstacle_positions = np.zeros((len(self.scenario.obstacles), 2))
-        for i, obstacle in enumerate(self.scenario.obstacles):
-            state = obstacle.state_at_time(self.x_0.time_step)
-            if state is not None:
-                obstacle_positions[i, 0] = state.position[0]
-                obstacle_positions[i, 1] = state.position[1]
+        name = "Distance to Obstacles"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            obstacle_positions = np.zeros((len(self.scenario.obstacles), 2))
+            for i, obstacle in enumerate(self.scenario.obstacles):
+                state = obstacle.state_at_time(self.x_0.time_step)
+                if state is not None:
+                    obstacle_positions[i, 0] = state.position[0]
+                    obstacle_positions[i, 1] = state.position[1]
 
-        self.handler.add_cost_function(CalculateDistanceToObstacleCost(obstacle_positions))
-        self.handler.add_cost_function(CalculateVelocityOffsetCost(self._desired_speed))
+            self.handler.add_cost_function(CalculateDistanceToObstacleCost(name, self.params["cluster0"][name], obstacle_positions))
+
+        name = "Velocity Offset"
+        if name in self.params["cluster0"].values() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateVelocityOffsetCost(name, self.params["cluster0"][name], self._desired_speed))
 
     def set_reference_path(self, reference_path: np.ndarray):
         """
@@ -651,6 +686,7 @@ class ReactivePlanner(object):
             self.handler.reset_Trajectories()
             self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
             self.handler.evaluate_all_current_functions_concurrent(True)
+            #self.handler.evaluate_all_current_functions(True)
 
             feasible_trajectories = []
             infeasible_trajectories = []
