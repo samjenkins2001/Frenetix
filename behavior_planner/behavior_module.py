@@ -1,5 +1,4 @@
 from commonroad.common.file_reader import CommonRoadFileReader
-from behavior_planner.utils.configuration_builder import ConfigurationBuilder
 from commonroad_route_planner.route_planner import RoutePlanner
 
 import behavior_planner.utils.helper_functions as hf
@@ -16,21 +15,19 @@ class BehaviorModule(object):
     TODO: Include FSM
     """
 
-    def __init__(self, proj_path, init_sc_path, init_ego_state, dt, vehicle_parameters):
+    def __init__(self, scenario, planning_problem, init_ego_state, dt, config):
         """ Init Behavior Module.
 
         Args:
         pro_path (str): project path.
-        init_sc_path (str): scenario path.
+        scenario: scenario.
         init_ego_state : initialized ego state.
         """
 
         self.BM_state = BehaviorModuleState()  # behavior module information
 
         # load config
-        self.config = ConfigurationBuilder.build_configuration(proj_path)
-        self.BM_state.priority_right = self.config.mission.priorityright
-        self.BM_state.overtaking = self.config.mode.overtaking
+        self.BM_state.config = config
 
         # init behavior planner and load scenario information
         self.VP_state = self.BM_state.VP_state  # velocity planner information
@@ -38,14 +35,9 @@ class BehaviorModule(object):
         self.FSM_state = self.BM_state.FSM_state  # FSM information
         self.BM_state.init_velocity = init_ego_state.velocity
         self.BM_state.dt = dt
-        self.BM_state.vehicle_params = vehicle_parameters
 
-        self.BM_state.scenario, self.planning_problem_set = CommonRoadFileReader(init_sc_path).open()
-
-        # for traffic light testing
-        # (self.BM_state.scenario.lanelet_network.find_traffic_light_by_id(3835)).cycle[0].state = TrafficLightState('red')
-
-        self.BM_state.planning_problem = list(self.planning_problem_set.planning_problem_dict.values())[0]
+        self.BM_state.scenario = scenario
+        self.BM_state.planning_problem = planning_problem
 
         self.BM_state.country = hf.find_country_traffic_sign_id(self.BM_state.scenario)
         self.BM_state.current_lanelet_id, self.BM_state.speed_limit, self.BM_state.street_setting = \
@@ -132,17 +124,18 @@ class BehaviorModule(object):
         self.behavior_input.desired_velocity = self.desired_velocity
         self.behavior_input.flags = self.flags
 
-        print("\nVP velocity mode: ", self.VP_state.velocity_mode)
-        print("VP TTC velocity: ", self.VP_state.TTC)
-        print("VP MAX velocity: ", self.VP_state.MAX)
-        if self.VP_state.closest_preceding_vehicle is not None:
-            print("VP position of preceding vehicle: ", self.VP_state.closest_preceding_vehicle.get('pos_list')[0])
-        print("VP velocity of preceding vehicle: ", self.VP_state.vel_preceding_veh)
-        print("VP distance to preceding vehicle: ", self.VP_state.dist_preceding_veh)
-        print("VP safety distance to preceding vehicle: ", self.VP_state.safety_dist)
-        print("VP recommended velocity: ", self.VP_state.goal_velocity)
-        print("BP recommended desired velocity: ", self.desired_velocity)
-        print("current ego velocity: ", self.BM_state.ego_state.velocity, "\n")
+        if self.BM_state.config.behavior.debug > 1:
+            print("\nVP velocity mode: ", self.VP_state.velocity_mode)
+            print("VP TTC velocity: ", self.VP_state.TTC)
+            print("VP MAX velocity: ", self.VP_state.MAX)
+            if self.VP_state.closest_preceding_vehicle is not None:
+                print("VP position of preceding vehicle: ", self.VP_state.closest_preceding_vehicle.get('pos_list')[0])
+            print("VP velocity of preceding vehicle: ", self.VP_state.vel_preceding_veh)
+            print("VP distance to preceding vehicle: ", self.VP_state.dist_preceding_veh)
+            print("VP safety distance to preceding vehicle: ", self.VP_state.safety_dist)
+            print("VP recommended velocity: ", self.VP_state.goal_velocity)
+            print("BP recommended desired velocity: ", self.desired_velocity)
+            print("current ego velocity: ", self.BM_state.ego_state.velocity, "\n")
 
         return self.behavior_input
 
