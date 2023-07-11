@@ -222,15 +222,15 @@ class DataLoggingCosts:
     def log_trajectory(self, trajectory: TrajectorySample, trajectory_number: int, time_step, feasible: bool, cluster: int):
         new_line = "\n" + str(time_step)
         new_line += ";" + str(trajectory_number)
-        new_line += ";" + str(trajectory.m_uniqueId)
+        new_line += ";" + str(trajectory.uniqueId)
         new_line += ";" + str(feasible)
-        new_line += ";" + str(trajectory.m_horizon)
+        new_line += ";" + str(round(trajectory.sampling_parameters[1], 3))
         new_line += ";" + str(trajectory.dt)
 
         cartesian = trajectory.cartesian
         cost_list_names = list(trajectory.costMap.keys())
 
-        new_line += ";" + str(int(trajectory.m_horizon/trajectory.dt))
+        new_line += ";" + str(int(round(trajectory.sampling_parameters[1], 3)/trajectory.dt))
         # log position
         new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
         new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)

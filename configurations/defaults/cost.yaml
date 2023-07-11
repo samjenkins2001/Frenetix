@@ -2,15 +2,15 @@ params:
   cluster0:
     Acceleration: 0.0
     Jerk: 0.00
-    Lateral Jerk: 10.
-    Longitudinal Jerk: 10.
+    Lateral Jerk: 0.1
+    Longitudinal Jerk: 0.1
     Orientation Offset: 0.0
     Path Length: 0.0
 
     Lane Center Offset: 0.0
     Velocity Offset: 0.2
-    Velocity Costs: 2.0
-    Distance to Reference Path: 10
+    Velocity Costs: 0.
+    Distance to Reference Path: 2
     Distance to Obstacles: 0
 
     Prediction: 20000
