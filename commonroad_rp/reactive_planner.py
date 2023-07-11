@@ -384,12 +384,11 @@ class ReactivePlanner(object):
 
         name = "Velocity Costs"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            print("Velocity Offset not implemented yet")
+            print("Velocity Costs not implemented yet")
 
         name = "Distance to Reference Path"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
             self.handler.add_cost_function(CalculateDistanceToReferencePathCost(name, self.params["cluster0"][name]))
-
 
     def set_handler_changing_functions(self):
 
