@@ -310,30 +310,39 @@ def get_ground_truth_prediction(
     # create a dictionary for the predictions
     prediction_result = {}
     for obstacle_id in obstacle_ids:
-        obstacle = scenario.obstacle_by_id(obstacle_id)
-        fut_pos = []
-        fut_cov = []
-        # predict dynamic obstacles as long as they are in the scenario
-        if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
-            len_pred = len(obstacle.prediction.occupancy_set)
-        # predict static obstacles for the length of the prediction horizon
-        else:
-            len_pred = pred_horizon
-        # create mean and the covariance matrix of the obstacles
-        for ts in range(time_step, min(pred_horizon + time_step, len_pred)):
-            # get the occupancy of an obstacles (if it is not in the scenario at the given time step, the occupancy is None)
-            occupancy = obstacle.occupancy_at_time(ts)
-            if occupancy is not None:
-                # create mean and covariance matrix
-                fut_pos.append(occupancy.shape.center)
-                fut_cov.append([[0.1, 0.0], [0.0, 0.1]])
+        try:
+            obstacle = scenario.obstacle_by_id(obstacle_id)
+            fut_pos = []
+            fut_cov = []
+            fut_yaw = []
+            fut_v = []
+            # predict dynamic obstacles as long as they are in the scenario
+            if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
+                len_pred = len(obstacle.prediction.occupancy_set)
+            # predict static obstacles for the length of the prediction horizon
+            else:
+                len_pred = pred_horizon
+            # create mean and the covariance matrix of the obstacles
+            for ts in range(time_step, min(pred_horizon + time_step, len_pred)):
+                occupancy = obstacle.occupancy_at_time(ts)
+                if occupancy is not None:
+                    # create mean and covariance matrix
+                    fut_pos.append(occupancy.shape.center)
+                    fut_cov.append([[0.1, 0.0], [0.0, 0.1]])
+                    fut_yaw.append(occupancy.shape.orientation)
+                    fut_v.append(obstacle.prediction.trajectory.state_list[ts].velocity)
 
-        fut_pos = np.array(fut_pos)
-        fut_cov = np.array(fut_cov)
+            fut_pos = np.array(fut_pos)
+            fut_cov = np.array(fut_cov)
+            fut_yaw = np.array(fut_yaw)
+            fut_v = np.array(fut_v)
 
-        shape_obs = {'length': obstacle.obstacle_shape.length, 'width': obstacle.obstacle_shape.width}
-        # add the prediction for the considered obstacle
-        prediction_result[obstacle_id] = {'pos_list': fut_pos, 'cov_list': fut_cov, 'shape': shape_obs}
+            shape_obs = {'length': obstacle.obstacle_shape.length, 'width': obstacle.obstacle_shape.width}
+            # add the prediction for the considered obstacle
+            prediction_result[obstacle_id] = {'pos_list': fut_pos, 'cov_list': fut_cov, 'orientation_list': fut_yaw,
+                                              'v_list': fut_v, 'shape': shape_obs}
+        except Exception as e:
+            print("Could not calculate ground truth prediction: ", e)
 
     return prediction_result
 
