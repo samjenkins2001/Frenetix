@@ -17,8 +17,10 @@ stack_path = os.path.dirname(os.path.dirname(
 
 if __name__ == '__main__':
 
-    scenario_name = "ZAM_Tjunction-1_100_T-1"
-    scenario_path = os.path.join(stack_path, "commonroad-scenarios", "scenarios", scenario_name)
+    scenario_name = "ZAM_Tjunction-1_42_T-1"
+    scenario_path = os.path.join("./example_scenarios", scenario_name)
+    #scenario_name = "ZAM_Tjunction-1_100_T-1"
+    #scenario_path = os.path.join(stack_path, "commonroad-scenarios", "scenarios", scenario_name)
 
     config = ConfigurationBuilder.build_configuration(scenario_path+".xml")
     log_path = "./logs/"+scenario_path.split("/")[-1]

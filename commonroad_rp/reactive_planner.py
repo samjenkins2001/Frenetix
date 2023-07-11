@@ -56,7 +56,7 @@ from omegaconf import OmegaConf
 from frenetPlannerHelper.trajectory_functions.feasability_functions import *
 from frenetPlannerHelper.trajectory_functions.cost_functions import *
 from frenetPlannerHelper.trajectory_functions import FillCoordinates, ComputeInitialState
-
+from frenetPlannerHelper import *
 
 class ReactivePlanner(object):
     """
@@ -94,7 +94,7 @@ class ReactivePlanner(object):
         self.scenario = scenario
         self.planning_problem = planning_problem
         self.predictions = None
-        self.predictionsForCpp = None
+        self.predictionsForCpp = {}
         self.behavior = None
         self.set_new_ref_path = None
         self.cost_function = None
@@ -260,9 +260,25 @@ class ReactivePlanner(object):
             self.set_desired_velocity(desired_velocity, x_0.velocity)
         if predictions is not None:
             self.predictions = predictions
-            self.predictionsForCpp = copy.deepcopy(predictions)
+            #self.predictionsForCpp = copy.deepcopy(predictions)
 
-            for key in self.predictionsForCpp.keys():
+            for key in self.predictions.keys():
+                self.predictionsForCpp[key] = PoseWithCovariance()
+                self.predictionsForCpp[key].pose.position.x = self.predictions[key]['pos_list'][0]
+                self.predictionsForCpp[key].pose.position.y = self.predictions[key]['pos_list'][1]
+                self.predictionsForCpp[key].pose.position.z = 0
+
+                self.predictionsForCpp[key].pose.orientation.x = 0
+                self.predictionsForCpp[key].pose.orientation.y = 0
+                self.predictionsForCpp[key].pose.orientation.z = np.sin(self.predictions[key]['orientation'] / 2.0)
+                self.predictionsForCpp[key].pose.orientation.w = np.cos(self.predictions[key]['orientation'] / 2.0)
+
+                self.predictionsForCpp[key].covariance = np.zeros(36)
+                self.predictionsForCpp[key].covariance[0] = self.predictions[key]['cov_list'][0,0]
+                self.predictionsForCpp[key].covariance[1] = self.predictions[key]['cov_list'][0,1]
+                self.predictionsForCpp[key].covariance[6] = self.predictions[key]['cov_list'][1,0]
+                self.predictionsForCpp[key].covariance[7] = self.predictions[key]['cov_list'][1,1]
+
 
                 self.predictionsForCpp[key]['cov_list_0'] = self.predictionsForCpp[key]['cov_list'][:, :, 0]
                 self.predictionsForCpp[key]['cov_list_1'] = self.predictionsForCpp[key]['cov_list'][:, :, 1]
@@ -384,7 +400,7 @@ class ReactivePlanner(object):
 
         name = "Velocity Costs"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            print("Velocity Offset not implemented yet")
+            print("Velocity not implemented yet")
 
         name = "Distance to Reference Path"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
@@ -396,9 +412,9 @@ class ReactivePlanner(object):
         self.handler.add_function(FillCoordinates(lowVelocityMode=self._LOW_VEL_MODE,
                                                   initialOrientation=self.x_0.orientation,
                                                   coordinateSystem=self.coordinate_system))
-        name = "Prediction"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.params["cluster0"][name], self.predictionsForCpp))
+        #name = "Prediction"
+        #if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
+        #    self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.params["cluster0"][name], self.predictionsForCpp))
 
         name = "Distance to Obstacles"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
