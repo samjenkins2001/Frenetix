@@ -96,11 +96,11 @@ def run_planner(config, log_path, mod_path):
         route_planner = RoutePlanner(scenario, planning_problem)
         reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
     else:
-        behavior_modul = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
-                                        init_sc_path=config.general.name_scenario,
+        behavior_modul = BehaviorModule(scenario=scenario,
+                                        planning_problem=planning_problem,
                                         init_ego_state=x_0,
                                         dt=DT,
-                                        vehicle_parameters=config.vehicle)  # testing
+                                        config=config)
         reference_path = behavior_modul.reference_path
 
     # **************************
@@ -141,13 +141,9 @@ def run_planner(config, log_path, mod_path):
             # set desired velocity
             desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
         else:
-            behavior_comp_time1 = time.time()
             behavior = behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
-            behavior_comp_time2 = time.time()
-            # set desired behavior outputs
             desired_velocity = behavior_modul.desired_velocity
             reference_path = behavior_modul.reference_path
-            print("\n***Behavior Planning Time: \n", behavior_comp_time2 - behavior_comp_time1)
 
         # **************************
         # Cycle Occlusion Module
