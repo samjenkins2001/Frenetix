@@ -158,6 +158,7 @@ class ReactivePlanner(object):
         self.log_risk = config.debug.log_risk
         self.save_all_traj = config.debug.save_all_traj
         self.all_traj = None
+        self.optimal_trajectory = None
         self.use_occ_model = config.occlusion.use_occlusion_module
         self.logger = DataLoggingCosts(path_logs=log_path,
                                        save_all_traj=self.save_all_traj or self.use_amazing_visualizer,
@@ -722,6 +723,7 @@ class ReactivePlanner(object):
             samp_level += 1
 
         planning_time = time.time() - t0
+        self.optimal_trajectory = optimal_trajectory
 
         # **************************
         # Set Risk Costs

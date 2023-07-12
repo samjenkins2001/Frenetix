@@ -14,7 +14,7 @@ ruamel.yaml
 pygeos
 imageio
 shapely>=2.0.1
-wale-net==3.0.2
+wale-net==3.0.3
 dash
 plotly
 dash_daq
