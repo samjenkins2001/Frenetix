@@ -260,33 +260,15 @@ class ReactivePlanner(object):
             self.set_desired_velocity(desired_velocity, x_0.velocity)
         if predictions is not None:
             self.predictions = predictions
-            #self.predictionsForCpp = copy.deepcopy(predictions)
-
             for key in self.predictions.keys():
-                self.predictionsForCpp[key] = PoseWithCovariance()
-                self.predictionsForCpp[key].pose.position.x = self.predictions[key]['pos_list'][0]
-                self.predictionsForCpp[key].pose.position.y = self.predictions[key]['pos_list'][1]
-                self.predictionsForCpp[key].pose.position.z = 0
+                self.predictionsForCpp[key] = PredictedObject(self.predictions[key]['pos_list'].shape[0])
+                for time_step in range(self.predictions[key]['pos_list'].shape[0]):
+                    self.predictionsForCpp[key].object_id = key
+                    self.predictionsForCpp[key].predictedPath[time_step].position = np.append(self.predictions[key]['pos_list'][time_step], 0)
+                    self.predictionsForCpp[key].predictedPath[time_step].orientation[2] = np.sin(self.predictions[key]['orientation_list'][time_step] / 2.0)
+                    self.predictionsForCpp[key].predictedPath[time_step].orientation[3] = np.cos(self.predictions[key]['orientation_list'][time_step] / 2.0)
+                    self.predictionsForCpp[key].predictedPath[time_step].covariance[:2, :2] = self.predictions[key]['cov_list'][time_step]
 
-                self.predictionsForCpp[key].pose.orientation.x = 0
-                self.predictionsForCpp[key].pose.orientation.y = 0
-                self.predictionsForCpp[key].pose.orientation.z = np.sin(self.predictions[key]['orientation'] / 2.0)
-                self.predictionsForCpp[key].pose.orientation.w = np.cos(self.predictions[key]['orientation'] / 2.0)
-
-                self.predictionsForCpp[key].covariance = np.zeros(36)
-                self.predictionsForCpp[key].covariance[0] = self.predictions[key]['cov_list'][0,0]
-                self.predictionsForCpp[key].covariance[1] = self.predictions[key]['cov_list'][0,1]
-                self.predictionsForCpp[key].covariance[6] = self.predictions[key]['cov_list'][1,0]
-                self.predictionsForCpp[key].covariance[7] = self.predictions[key]['cov_list'][1,1]
-
-
-                self.predictionsForCpp[key]['cov_list_0'] = self.predictionsForCpp[key]['cov_list'][:, :, 0]
-                self.predictionsForCpp[key]['cov_list_1'] = self.predictionsForCpp[key]['cov_list'][:, :, 1]
-                self.predictionsForCpp[key].pop('cov_list')
-                self.predictionsForCpp[key]['shape'] = np.array(list(self.predictionsForCpp[key]['shape'].values()))
-
-                for key2 in self.predictionsForCpp[key].keys():
-                    self.predictionsForCpp[key][key2] = self.predictionsForCpp[key][key2].astype(np.float64)
 
         if behavior is not None:
             self.behavior = behavior
@@ -412,9 +394,9 @@ class ReactivePlanner(object):
         self.handler.add_function(FillCoordinates(lowVelocityMode=self._LOW_VEL_MODE,
                                                   initialOrientation=self.x_0.orientation,
                                                   coordinateSystem=self.coordinate_system))
-        #name = "Prediction"
-        #if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-        #    self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.params["cluster0"][name], self.predictionsForCpp))
+        name = "Prediction"
+        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
+            self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.params["cluster0"][name], self.predictionsForCpp))
 
         name = "Distance to Obstacles"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
