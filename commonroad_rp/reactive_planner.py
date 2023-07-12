@@ -56,7 +56,7 @@ from omegaconf import OmegaConf
 from frenetPlannerHelper.trajectory_functions.feasability_functions import *
 from frenetPlannerHelper.trajectory_functions.cost_functions import *
 from frenetPlannerHelper.trajectory_functions import FillCoordinates, ComputeInitialState
-
+from frenetPlannerHelper import *
 
 class ReactivePlanner(object):
     """
@@ -94,7 +94,7 @@ class ReactivePlanner(object):
         self.scenario = scenario
         self.planning_problem = planning_problem
         self.predictions = None
-        self.predictionsForCpp = None
+        self.predictionsForCpp = {}
         self.behavior = None
         self.set_new_ref_path = None
         self.cost_function = None
@@ -260,17 +260,15 @@ class ReactivePlanner(object):
             self.set_desired_velocity(desired_velocity, x_0.velocity)
         if predictions is not None:
             self.predictions = predictions
-            self.predictionsForCpp = copy.deepcopy(predictions)
+            for key in self.predictions.keys():
+                self.predictionsForCpp[key] = PredictedObject(self.predictions[key]['pos_list'].shape[0])
+                for time_step in range(self.predictions[key]['pos_list'].shape[0]):
+                    self.predictionsForCpp[key].object_id = key
+                    self.predictionsForCpp[key].predictedPath[time_step].position = np.append(self.predictions[key]['pos_list'][time_step], 0)
+                    self.predictionsForCpp[key].predictedPath[time_step].orientation[2] = np.sin(self.predictions[key]['orientation_list'][time_step] / 2.0)
+                    self.predictionsForCpp[key].predictedPath[time_step].orientation[3] = np.cos(self.predictions[key]['orientation_list'][time_step] / 2.0)
+                    self.predictionsForCpp[key].predictedPath[time_step].covariance[:2, :2] = self.predictions[key]['cov_list'][time_step]
 
-            for key in self.predictionsForCpp.keys():
-
-                self.predictionsForCpp[key]['cov_list_0'] = self.predictionsForCpp[key]['cov_list'][:, :, 0]
-                self.predictionsForCpp[key]['cov_list_1'] = self.predictionsForCpp[key]['cov_list'][:, :, 1]
-                self.predictionsForCpp[key].pop('cov_list')
-                self.predictionsForCpp[key]['shape'] = np.array(list(self.predictionsForCpp[key]['shape'].values()))
-
-                for key2 in self.predictionsForCpp[key].keys():
-                    self.predictionsForCpp[key][key2] = self.predictionsForCpp[key][key2].astype(np.float64)
 
         if behavior is not None:
             self.behavior = behavior
