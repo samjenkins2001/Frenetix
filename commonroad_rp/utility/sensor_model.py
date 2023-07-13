@@ -291,7 +291,7 @@ if __name__ == '__main__':
         )
 
         clear_console()
-        print("Visible object IDs: {}".format(visible_object_ids), end='\r')
+        # print("Visible object IDs: {}".format(visible_object_ids), end='\r')
 
         visualize_timestep(
             scenario, time_step, visible_area=visible_area, save_animation=False

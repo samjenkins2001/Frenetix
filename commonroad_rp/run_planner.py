@@ -8,6 +8,8 @@ import os
 # standard imports
 import time
 from copy import deepcopy
+import logging
+from commonroad_rp.utility.logging_helpers import messages_logger_initialization
 
 # commonroad-io
 from cr_scenario_handler.utils.collision_report import coll_report
@@ -35,6 +37,12 @@ from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
 def run_planner(config, log_path, mod_path):
 
     DT = config.planning.dt  # planning time step
+
+    # *************************************
+    # Message Logger of Run
+    # *************************************
+    messages_logger_initialization(config, log_path)
+    msg_logger = logging.getLogger("Message_logger")
 
     # *************************************
     # Open CommonRoad scenario
@@ -166,12 +174,12 @@ def run_planner(config, log_path, mod_path):
 
         # if the planner fails to find an optimal trajectory -> terminate
         if not optimal:
-            print("No Kinematic Feasible and Optimal Trajectory Available!")
+            msg_logger.critical("No Kinematic Feasible and Optimal Trajectory Available!")
             break
 
         # store planning times
         planning_times.append(comp_time_end - comp_time_start)
-        print(f"***Total Planning Time: \t\t{planning_times[-1]:.5f} s")
+        msg_logger.info(f"***Total Planning Time: \t\t{planning_times[-1]:.5f} s")
 
         # record state and input
         planner.record_state_and_input(optimal[0].state_list[1])
@@ -180,7 +188,7 @@ def run_planner(config, log_path, mod_path):
         x_0 = deepcopy(planner.record_state_list[-1])
         x_cl = (optimal[2][1], optimal[3][1])
 
-        print(f"current time step: {current_count}")
+        msg_logger.info(f"current time step: {current_count}")
 
         # **************************
         # Visualize Scenario
@@ -197,7 +205,7 @@ def run_planner(config, log_path, mod_path):
         # **************************
         crash = planner.check_collision(planner.ego_vehicle_history[-1])
         if crash:
-            print("Collision Detected!")
+            msg_logger.info("Collision Detected!")
             if config.debug.collision_report and current_count > 0:
                 coll_report(planner.ego_vehicle_history, planner, scenario, planning_problem, current_count, config,
                             log_path)
@@ -212,11 +220,11 @@ def run_planner(config, log_path, mod_path):
     # End of Cycle
     # ******************************************************************************
 
-    print(planner.goal_message)
+    msg_logger.debug(planner.goal_message)
     if planner.full_goal_status:
-        print("\n", planner.full_goal_status)
+        msg_logger.debug("\n", planner.full_goal_status)
     if not planner.goal_status and current_count >= max_time_steps_scenario:
-        print("Scenario Aborted! Maximum Time Step Reached!")
+        msg_logger.debug("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory
     plot_final_trajectory(scenario, planning_problem, planner.record_state_list, config, log_path)
@@ -253,10 +261,10 @@ def run_planner(config, log_path, mod_path):
             # evaluate
             plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
             # CR validity check
-            print("Feasibility Check Result: ")
-            print(valid_solution(scenario, planning_problem_set, solution))
+            msg_logger.info("Feasibility Check Result: ")
+            msg_logger.info(valid_solution(scenario, planning_problem_set, solution))
         except:
-            print("Could not reconstruct states")
+            msg_logger.error("Could not reconstruct states")
 
         plot_inputs(config, planner.record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
 

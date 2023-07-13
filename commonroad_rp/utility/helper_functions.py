@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import subprocess
 import zipfile
+import logging
 import math
 import ruamel.yaml as yaml
 import pickle
@@ -13,6 +14,9 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
 from commonroad_dc.pycrcc import ShapeGroup
 import commonroad_dc.pycrcc as pycrcc
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_velocity) -> float:
@@ -65,7 +69,7 @@ def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_ve
             desired_velocity_new = planning_problem.goal.state_list[0].velocity.end
 
     except:
-        print("Could not calculate desired velocity")
+        msg_logger.warning("Could not calculate desired velocity")
         desired_velocity_new = desired_velocity
 
     if np.abs(desired_velocity - desired_velocity_new) > 5 or np.abs(state.velocity - desired_velocity_new) > 5:
@@ -199,7 +203,7 @@ def createfolder_if_not_existent(inputpath):
     if not os.path.exists(inputpath):
         os.makedirs(inputpath, mode=0o777)
         name_folder = inputpath.rsplit('/')[-1]
-        print("Create " + name_folder + " folder")
+        msg_logger.debug("Create " + name_folder + " folder")
 
 
 def create_time_in_date_folder(inputpath):
@@ -231,7 +235,7 @@ def zip_log_files(inputpath):
         for file in filePaths:
             zip_file.write(file)
 
-    print(inputpath + '.zip file is created successfully!')
+    msg_logger.debug(inputpath + '.zip file is created successfully!')
 
     # Remove Log files
     # shutil.rmtree(inputpath)

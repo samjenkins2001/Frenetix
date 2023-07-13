@@ -3,6 +3,10 @@ from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem
 
 from itertools import zip_longest
 import numpy as np
+import logging
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 class PathPlanner(object):
@@ -220,7 +224,7 @@ class RoutePlan(object):
                 stop_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
                     stop_position_x, stop_position_y)[0]
             except:
-                print("PP stop line position of traffic sign or light is out of projection domain")
+                msg_logger.error("PP stop line position of traffic sign or light is out of projection domain")
                 stop_position_s = None
 
             if lanelet.stop_line.traffic_sign_ref is not None:
@@ -232,7 +236,7 @@ class RoutePlan(object):
                             traffic_sign_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
                                 traffic_sign_position_xy[0], traffic_sign_position_xy[1])[0]
                         except:
-                            print("PP position of traffic sign is out of projection domain")
+                            msg_logger.error("PP position of traffic sign is out of projection domain")
                             traffic_sign_position_s = None
                         for traffic_sign_element in traffic_sign.traffic_sign_elements:
 
@@ -241,7 +245,7 @@ class RoutePlan(object):
                             elif stop_position_s is not None and traffic_sign_position_s is None:
                                 traffic_sign_position_s = stop_position_s
                             elif stop_position_s is None and traffic_sign_position_s is None:
-                                print("PP traffic sign is out of projection domain")
+                                msg_logger.warning("PP traffic sign is out of projection domain")
                                 continue
 
                             if traffic_sign_element.traffic_sign_element_id.name == 'YIELD':
@@ -268,7 +272,7 @@ class RoutePlan(object):
                             traffic_light_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
                                 traffic_light.position[0], traffic_light.position[1])[0]
                         except:
-                            print('PP traffic light position out of projection domain')
+                            msg_logger.warning('PP traffic light position out of projection domain')
                             traffic_light_position_s = None
 
                         if stop_position_s is None and traffic_light_position_s is not None:
@@ -276,7 +280,7 @@ class RoutePlan(object):
                         elif stop_position_s is not None and traffic_light_position_s is None:
                             traffic_light_position_s = stop_position_s
                         elif stop_position_s is None and traffic_light_position_s is None:
-                            print("PP traffic light is out of projection domain")
+                            msg_logger.warning("PP traffic light is out of projection domain")
                             continue
 
                         if traffic_light.active:
@@ -306,7 +310,7 @@ class RoutePlan(object):
                                 lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
                         except:
                             merging_point_s = None
-                            print("PP merging point is out of projection domain")
+                            msg_logger.error("PP merging point is out of projection domain")
                             continue
                         self.lane_merges += [{'type': 'LaneMerge',
                                               'position_xy': lanelet.center_vertices[0],
@@ -328,21 +332,21 @@ class RoutePlan(object):
                                 lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
                         except:
                             start_s = None
-                            print("PP start of intersection out of projection domain")
+                            msg_logger.error("PP start of intersection out of projection domain")
                         end_xy = lanelet.center_vertices[-1].tolist()
                         try:
                             end_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
                                 lanelet.center_vertices[-1][0], lanelet.center_vertices[-1][1])[0]
                         except:
                             end_s = None
-                            print("PP end of intersection out of projection domain")
+                            msg_logger.error("PP end of intersection out of projection domain")
 
                         if start_s is None and end_s is not None:
                             start_s = max([0.001, end_s - 15])
                         elif start_s is not None and end_s is None:
                             end_s = start_s + 15
                         elif start_s is None and end_s is None:
-                            print("PP intersection is out of projection domain")
+                            msg_logger.warning("PP intersection is out of projection domain")
                             continue
 
                         self.intersections += [{'id': intersection_element.incoming_id,

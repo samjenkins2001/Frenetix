@@ -1,10 +1,13 @@
-from commonroad.common.file_reader import CommonRoadFileReader
+import logging
 from commonroad_route_planner.route_planner import RoutePlanner
 
 import behavior_planner.utils.helper_functions as hf
 from behavior_planner.utils.velocity_planner import VelocityPlanner
 from behavior_planner.utils.path_planner import PathPlanner
 from behavior_planner.utils.FSM_model import EgoFSM
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 class BehaviorModule(object):
@@ -89,7 +92,7 @@ class BehaviorModule(object):
         #        TrafficLightState('green')
         #    (self.BM_state.scenario.lanelet_network.find_traffic_light_by_id(3835)).cycle[2].state = \
         #        TrafficLightState('green')
-        #    print("Testing:: Traffic Light now green")
+        #    msg_logger.info("Testing:: Traffic Light now green")
 
         # inputs
         self.BM_state.predictions = predictions
@@ -124,18 +127,18 @@ class BehaviorModule(object):
         self.behavior_input.desired_velocity = self.desired_velocity
         self.behavior_input.flags = self.flags
 
-        if self.BM_state.config.behavior.debug > 1:
-            print("\nVP velocity mode: ", self.VP_state.velocity_mode)
-            print("VP TTC velocity: ", self.VP_state.TTC)
-            print("VP MAX velocity: ", self.VP_state.MAX)
-            if self.VP_state.closest_preceding_vehicle is not None:
-                print("VP position of preceding vehicle: ", self.VP_state.closest_preceding_vehicle.get('pos_list')[0])
-            print("VP velocity of preceding vehicle: ", self.VP_state.vel_preceding_veh)
-            print("VP distance to preceding vehicle: ", self.VP_state.dist_preceding_veh)
-            print("VP safety distance to preceding vehicle: ", self.VP_state.safety_dist)
-            print("VP recommended velocity: ", self.VP_state.goal_velocity)
-            print("BP recommended desired velocity: ", self.desired_velocity)
-            print("current ego velocity: ", self.BM_state.ego_state.velocity, "\n")
+
+        msg_logger.debug("\nVP velocity mode: ", self.VP_state.velocity_mode)
+        msg_logger.debug("VP TTC velocity: ", self.VP_state.TTC)
+        msg_logger.debug("VP MAX velocity: ", self.VP_state.MAX)
+        if self.VP_state.closest_preceding_vehicle is not None:
+            msg_logger.debug("VP position of preceding vehicle: ", self.VP_state.closest_preceding_vehicle.get('pos_list')[0])
+        msg_logger.debug("VP velocity of preceding vehicle: ", self.VP_state.vel_preceding_veh)
+        msg_logger.debug("VP distance to preceding vehicle: ", self.VP_state.dist_preceding_veh)
+        msg_logger.debug("VP safety distance to preceding vehicle: ", self.VP_state.safety_dist)
+        msg_logger.debug("VP recommended velocity: ", self.VP_state.goal_velocity)
+        msg_logger.debug("BP recommended desired velocity: ", self.desired_velocity)
+        msg_logger.debug("current ego velocity: ", self.BM_state.ego_state.velocity, "\n")
 
         return self.behavior_input
 
@@ -161,12 +164,12 @@ class BehaviorModule(object):
             self.BM_state.ref_position_s = self.PP_state.cl_ref_coordinate_system.convert_to_curvilinear_coords(
                 ego_state.position[0], ego_state.position[1])[0]
         except:
-            print("Ego position out of reference path coordinate system projection domain")
+            msg_logger.error("Ego position out of reference path coordinate system projection domain")
         try:
             self.BM_state.nav_position_s = self.PP_state.cl_nav_coordinate_system.convert_to_curvilinear_coords(
                 ego_state.position[0], ego_state.position[1])[0]
         except:
-            print("Ego position out of navigation route coordinate system projection domain")
+            msg_logger.error("Ego position out of navigation route coordinate system projection domain")
 
     def _collect_necessary_information(self):
         self.BM_state.current_lanelet_id, self.BM_state.speed_limit, self.BM_state.street_setting_scenario = \

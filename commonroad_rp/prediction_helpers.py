@@ -8,6 +8,7 @@ import sys
 from commonroad.scenario.obstacle import ObstacleRole
 from commonroad_dc.collision.trajectory_queries import trajectory_queries
 import json
+import logging
 
 module_path = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -18,6 +19,9 @@ from commonroad_rp.utility.helper_functions import create_tvobstacle, distance, 
 from prediction import WaleNet
 from commonroad_rp.utility.sensor_model import get_visible_objects
 from commonroad_prediction.prediction_module import PredictionModule
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 def load_prediction(scenario, mode, config):
@@ -342,7 +346,7 @@ def get_ground_truth_prediction(
             prediction_result[obstacle_id] = {'pos_list': fut_pos, 'cov_list': fut_cov, 'orientation_list': fut_yaw,
                                               'v_list': fut_v, 'shape': shape_obs}
         except Exception as e:
-            print("Could not calculate ground truth prediction: ", e)
+            msg_logger.warning("Could not calculate ground truth prediction: ", e)
 
     return prediction_result
 
@@ -362,7 +366,7 @@ def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None,
                 )
             return visible_obstacles, visible_area
         except:
-            print("Could not calculate visible area!")
+            msg_logger.warning("Could not calculate visible area!")
             visible_obstacles = get_obstacles_in_radius(
                 scenario=scenario,
                 ego_id=ego_id,

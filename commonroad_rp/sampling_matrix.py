@@ -1,9 +1,13 @@
 import numpy as np
 import itertools
+import logging
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_range, ss1_range, sss1_range, d0_range,
-                             dd0_range, ddd0_range, d1_range, dd1_range, ddd1_range, debug_mode=True):
+                             dd0_range, ddd0_range, d1_range, dd1_range, ddd1_range):
     """
     Generates a sampling matrix with all possible combinations of the given parameter ranges.
     Each row of the matrix is a different combination. Every parameter has to be passed by keyword argument,
@@ -37,7 +41,6 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
     # Use itertools.product to generate all combinations
     combinations = list(itertools.product(*ranges))
 
-    if debug_mode >= 1:
-        print('<ReactivePlanner>: %s trajectories sampled' % len(combinations))
+    msg_logger.debug('<ReactivePlanner>: %s trajectories sampled' % len(combinations))
     # Convert the list of combinations to a numpy array and return
     return np.array(combinations)

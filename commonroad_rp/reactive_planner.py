@@ -10,6 +10,7 @@ import time
 
 import numpy as np
 from typing import List, Optional, Tuple
+import logging
 from risk_assessment.risk_costs import calc_risk
 
 import copy
@@ -31,7 +32,6 @@ from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajec
 # commonroad_rp imports
 from commonroad_rp.parameter import TimeSampling, VelocitySampling, PositionSampling
 
-from frenetPlannerHelper import TrajectoryHandler, TrajectorySample, CoordinateSystemWrapper
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path
 from commonroad_rp.utility import reachable_set
 from commonroad_rp.state import ReactivePlannerState, shift_orientation
@@ -49,7 +49,6 @@ from commonroad_rp.utility.load_json import (
     load_risk_json
 )
 
-#### new imports ###
 from commonroad_rp.sampling_matrix import generate_sampling_matrix
 from omegaconf import OmegaConf
 
@@ -57,6 +56,10 @@ from frenetPlannerHelper.trajectory_functions.feasability_functions import *
 from frenetPlannerHelper.trajectory_functions.cost_functions import *
 from frenetPlannerHelper.trajectory_functions import FillCoordinates, ComputeInitialState
 from frenetPlannerHelper import *
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
+
 
 class ReactivePlanner(object):
     """
@@ -154,7 +157,6 @@ class ReactivePlanner(object):
         # *****************************
         # Debug & Logger Initialization
         # *****************************
-        self.debug_mode = config.debug.debug_mode
         self.log_risk = config.debug.log_risk
         self.save_all_traj = config.debug.save_all_traj
         self.all_traj = None
@@ -375,7 +377,7 @@ class ReactivePlanner(object):
 
         name = "Path Length"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            print("Path Length not implemented yet")
+            msg_logger.info("Path Length not implemented yet")
 
         name = "Lane Center Offset"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
@@ -383,7 +385,7 @@ class ReactivePlanner(object):
 
         name = "Velocity Costs"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            print("Velocity Costs not implemented yet")
+            msg_logger.info("Velocity Costs not implemented yet")
 
         name = "Distance to Reference Path"
         if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
@@ -485,8 +487,7 @@ class ReactivePlanner(object):
 
         self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_max)
 
-        if self.debug_mode >= 2:
-            print('<Reactive_planner>: Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
+        msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
     def _get_no_of_samples(self, samp_level: int) -> int:
         """
@@ -640,16 +641,13 @@ class ReactivePlanner(object):
         x_0_lat = [initial_state.curvilinear.d, initial_state.curvilinear.d_dot, initial_state.curvilinear.d_ddot]
         x_0_lon = [initial_state.curvilinear.s, initial_state.curvilinear.s_dot, initial_state.curvilinear.s_ddot]
 
-        if self.debug_mode >= 2:
-            print("<ReactivePlanner>: Starting planning with: \n#################")
-            print(f'Initial x_0 lon = {x_0_lon}')
-            print(f'Initial x_0 lat = {x_0_lat}')
-            print("#################")
+        msg_logger.debug("<ReactivePlanner>: Starting planning with: \n#################")
+        msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
+        msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
+        msg_logger.debug("#################")
 
-        if self.debug_mode >= 2:
-            print('<Reactive Planner>: initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
-        if self.debug_mode >= 1:
-            print('<Reactive Planner>: desired velocity is {} m/s'.format(self._desired_speed))
+        msg_logger.debug('<Reactive Planner>: initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
+        msg_logger.debug('<Reactive Planner>: desired velocity is {} m/s'.format(self._desired_speed))
 
         # Initialization of while loop
         optimal_trajectory = None
@@ -713,11 +711,10 @@ class ReactivePlanner(object):
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.set_risk_costs(optimal_trajectory)
 
-            if self.debug_mode >= 1:
-                print('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
-                    self.infeasible_count_kinematics))
-                print('<ReactivePlanner>: Rejected {} infeasible trajectories due to collisions'.format(
-                    self.infeasible_count_collision))
+            msg_logger.debug('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
+                self.infeasible_count_kinematics))
+            msg_logger.debug('<ReactivePlanner>: Rejected {} infeasible trajectories due to collisions'.format(
+                self.infeasible_count_collision))
 
             # increase sampling level (i.e., density) if no optimal trajectory could be found
             samp_level += 1
@@ -758,12 +755,11 @@ class ReactivePlanner(object):
         # Check Cost Status
         # **************************
         if optimal_trajectory is not None and self.x_0.time_step > 0:
-            if self.debug_mode >= 1:
-                self._optimal_cost = optimal_trajectory.cost
-                print('Found optimal trajectory with {}% of maximum seen costs'
-                      .format(int((self._optimal_cost/self.max_seen_costs)*100)))
+            self._optimal_cost = optimal_trajectory.cost
+            msg_logger.debug('Found optimal trajectory with {}% of maximum seen costs'
+                  .format(int((self._optimal_cost/self.max_seen_costs)*100)))
 
-        if optimal_trajectory is not None and self.debug_mode >= 1:
+        if optimal_trajectory is not None:
             if self.max_seen_costs < self._optimal_cost:
                 self.max_seen_costs = self._optimal_cost
 
@@ -876,11 +872,11 @@ class ReactivePlanner(object):
                 elif "time_step" in self.goal_checker.goal.state_list[0].attributes:
                     progress = ((self.x_0.time_step -1) / self.goal_checker.goal.state_list[0].time_step.end)
                 else:
-                    print('Could not calculate progress')
+                    msg_logger.error('Could not calculate progress')
                     progress = None
             except:
                 progress = None
-                print('Could not calculate progress')
+                msg_logger.error('Could not calculate progress')
 
             collision_obj = self.collision_checker.find_all_colliding_objects(ego)[0]
             if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):

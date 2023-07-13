@@ -1,7 +1,11 @@
 import os
+import sys
 import numpy as np
 import json
 from pathlib import Path
+from datetime import datetime
+import logging
+from cr_scenario_handler.utils.configuration import Configuration
 
 from frenetPlannerHelper import TrajectorySample
 
@@ -316,3 +320,42 @@ def default(obj):
     if isinstance(obj, np.integer):
         return int(obj)
     raise TypeError("Not serializable (type: " + str(type(obj)) + ")")
+
+
+def messages_logger_initialization(config: Configuration, log_path) -> logging.Logger:
+    """
+    Message Logger Initialization
+    """
+
+    # msg logger
+    msg_logger = logging.getLogger("Message_logger")
+
+    # create file handler (outputs to file)
+    string_date_time = datetime.now().strftime("_%Y_%m_%d_%H-%M-%S")
+    path_log = os.path.join(log_path, "messages.log")
+    file_handler = logging.FileHandler(path_log)
+
+    # set logging levels
+    loglevel = config.debug.msg_log_mode
+    msg_logger.setLevel(loglevel)
+    file_handler.setLevel(loglevel)
+
+    # create log formatter
+    # formatter = logging.Formatter('%(asctime)s\t%(filename)s\t\t%(funcName)s@%(lineno)d\t%(levelname)s\t%(message)s')
+    log_formatter = logging.Formatter("%(levelname)-8s [%(asctime)s] --- %(message)s (%(filename)s:%(lineno)s)",
+                                  "%Y-%m-%d %H:%M:%S")
+    file_handler.setFormatter(log_formatter)
+
+    # create stream handler (prints to stdout)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(loglevel)
+
+    # create stream formatter
+    stream_formatter = logging.Formatter("%(levelname)-8s [ReactivePlanner]: %(message)s")
+    stream_handler.setFormatter(stream_formatter)
+
+    # add handlers
+    msg_logger.addHandler(file_handler)
+    msg_logger.addHandler(stream_handler)
+
+    return msg_logger

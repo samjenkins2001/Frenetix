@@ -17,8 +17,11 @@ draw_icons: True
 draw_traj_set: True
 
 kinematic_debug: True
-# set debug level: #0: print no debug info,  #1: print basic debug info,   #2: print all debug info
-debug_mode: 0
+
+# Messages Logging
+# Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
+msg_log_mode: INFO
+
 # use multiprocessing True/False
 multiproc: True
 # number of workers for multiprocessing
