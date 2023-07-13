@@ -1,8 +1,11 @@
 import os
+import sys
 import numpy as np
 import json
 from pathlib import Path
-from enum import Enum
+from datetime import datetime
+import logging
+from cr_scenario_handler.utils.configuration import Configuration
 
 from commonroad_rp.trajectories import TrajectorySample
 
@@ -134,44 +137,7 @@ class DataLoggingCosts:
     def get_headers(self):
         return self.header
 
-    # def log_cost(
-    #     self,
-    #     costs: list
-    # ) -> None:
-    #     """log_data _summary_
-    #     """
-    #
-    #         with open(self.__log_path, "a") as fh:
-    #             fh.write(
-    #                 "\n"
-    #                 + str(self.trajectory_number)
-    #                 + ";"
-    #                 + json.dumps(str(costs[0]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[1]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[2]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[3]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[4]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[5]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[6]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[7]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[8]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[9]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[10]))
-    #                 + ";"
-    #                 + json.dumps(str(costs[11]))
-    #             )
-
-    def log(self, trajectory, infeasible_kinematics, infeasible_collision: int, planning_time: float, cluster: int,
+    def log(self, trajectory, infeasible_kinematics, infeasible_collision: int, planning_time: float, cluster: int = None,
             collision: bool = False, ego_vehicle=None):
 
         new_line = "\n" + str(self.trajectory_number)
@@ -257,7 +223,7 @@ class DataLoggingCosts:
         with open(self.__log_path, "a") as fh:
             fh.write(new_line)
 
-    def log_pred(self, prediction):
+    def log_predicition(self, prediction):
         new_line = "\n" + str(self.trajectory_number)
 
         new_line += ";" + json.dumps(prediction, default=default)
@@ -363,3 +329,42 @@ def default(obj):
     if isinstance(obj, np.integer):
         return int(obj)
     raise TypeError("Not serializable (type: " + str(type(obj)) + ")")
+
+
+def messages_logger_initialization(config: Configuration, log_path) -> logging.Logger:
+    """
+    Message Logger Initialization
+    """
+
+    # msg logger
+    msg_logger = logging.getLogger("Message_logger")
+
+    # create file handler (outputs to file)
+    string_date_time = datetime.now().strftime("_%Y_%m_%d_%H-%M-%S")
+    path_log = os.path.join(log_path, "messages.log")
+    file_handler = logging.FileHandler(path_log)
+
+    # set logging levels
+    loglevel = config.debug.msg_log_mode
+    msg_logger.setLevel(loglevel)
+    file_handler.setLevel(loglevel)
+
+    # create log formatter
+    # formatter = logging.Formatter('%(asctime)s\t%(filename)s\t\t%(funcName)s@%(lineno)d\t%(levelname)s\t%(message)s')
+    log_formatter = logging.Formatter("%(levelname)-8s [%(asctime)s] --- %(message)s (%(filename)s:%(lineno)s)",
+                                  "%Y-%m-%d %H:%M:%S")
+    file_handler.setFormatter(log_formatter)
+
+    # create stream handler (prints to stdout)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(loglevel)
+
+    # create stream formatter
+    stream_formatter = logging.Formatter("%(levelname)-8s [ReactivePlanner]: %(message)s")
+    stream_handler.setFormatter(stream_formatter)
+
+    # add handlers
+    msg_logger.addHandler(file_handler)
+    msg_logger.addHandler(stream_handler)
+
+    return msg_logger

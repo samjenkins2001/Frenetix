@@ -17,6 +17,20 @@ from commonroad_dc.geometry.util import compute_pathlength_from_polyline,compute
 from commonroad.common.util import make_valid_orientation
 
 
+def smooth_ref_path(reference: np.ndarray):
+    _, idx = np.unique(reference, axis=0, return_index=True)
+    reference = reference[np.sort(idx)]
+
+    smoothing_factor = 10
+    tt = np.linspace(0, 1, len(reference[:, 0]))
+    bs_x = UnivariateSpline(x=tt, y=reference[:, 0], s=smoothing_factor)
+    bs_y = UnivariateSpline(x=tt, y=reference[:, 1], s=smoothing_factor)
+    x_smooth = bs_x(tt)
+    y_smooth = bs_y(tt)
+    reference = np.column_stack((x_smooth, y_smooth))
+    return reference
+
+
 def interpolate_angle(x: float, x1: float, x2: float, y1: float, y2: float) -> float:
     """
     Interpolates an angle value between two angles according to the miminal value of the absolute difference
@@ -76,17 +90,6 @@ class CoordinateSystem:
             # set reference and create ccosy from given reference
 
             # remove duplicated vertices in reference path
-            _, idx = np.unique(reference, axis=0, return_index=True)
-            reference = reference[np.sort(idx)]
-
-            smoothing_factor = 10
-            tt = np.linspace(0, 1, len(reference[:, 0]))
-            bs_x = UnivariateSpline(x=tt, y=reference[:, 0], s=smoothing_factor)
-            bs_y = UnivariateSpline(x=tt, y=reference[:, 1], s=smoothing_factor)
-
-            x_smooth = bs_x(tt)
-            y_smooth = bs_y(tt)
-            reference = np.column_stack((x_smooth, y_smooth))
             self.reference = reference
         else:
             assert ccosy is not None, '<CoordinateSystem>: Please provide a reference path OR a ' \

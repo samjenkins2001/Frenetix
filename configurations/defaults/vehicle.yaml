@@ -3,22 +3,27 @@ cr_vehicle_id: 2
 
 # explicitly provide one of the following parameters to overwrite the default parameters of CR vehicle type
 # vehicle dimensions
-length: !!null
-width: !!null
-wheelbase: !!null
+
+################
+# EDGAR PARAMS #
+################
+length: 4.973
+width: 1.941
+wheelbase: 2.971
+mass: 2520
 
 # distance front/rear axle to vehicle center
-wb_front_axle: !!null
-wb_rear_axle: !!null
+wb_front_axle: 1.724
+wb_rear_axle: 1.247
 
 # acceleration
-a_max: !!null
-v_max: !!null
+a_max: 2.5
+v_max: 36 # 190 km/h theoretical, 130 km/h --> set limit
 # switching velocity
 v_switch: !!null
 #steering angle
-delta_min: !!null
-delta_max: !!null
+delta_min: -0.610865
+delta_max: 0.610865
 # steering velocity
 v_delta_min: !!null
 v_delta_max: !!null

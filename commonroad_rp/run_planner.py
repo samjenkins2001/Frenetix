@@ -8,15 +8,11 @@ import os
 # standard imports
 import time
 from copy import deepcopy
-
-# third party
-import numpy as np
+import logging
+from commonroad_rp.utility.logging_helpers import messages_logger_initialization
 
 # commonroad-io
 from cr_scenario_handler.utils.collision_report import coll_report
-
-# commonroad-io
-from commonroad.scenario.state import InputState
 
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
@@ -42,6 +38,12 @@ from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
 def run_planner(config, log_path, mod_path):
 
     DT = config.planning.dt  # planning time step
+
+    # *************************************
+    # Message Logger of Run
+    # *************************************
+    messages_logger_initialization(config, log_path)
+    msg_logger = logging.getLogger("Message_logger")
 
     # *************************************
     # Open CommonRoad scenario
@@ -72,7 +74,7 @@ def run_planner(config, log_path, mod_path):
     # **************************
     shape = Rectangle(planner.vehicle_params.length, planner.vehicle_params.width)
     ego_vehicle = DynamicObstacle(42, ObstacleType.CAR, shape, x_0, None)
-    planner.current_ego_vehicle = ego_vehicle
+    planner.set_ego_vehicle_state(current_ego_vehicle=ego_vehicle)
     x_cl = None
     current_count = 0
     planning_times = list()
@@ -103,11 +105,11 @@ def run_planner(config, log_path, mod_path):
         route_planner = RoutePlanner(scenario, planning_problem)
         reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
     else:
-        behavior_modul = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
-                                        init_sc_path=config.general.name_scenario,
+        behavior_modul = BehaviorModule(scenario=scenario,
+                                        planning_problem=planning_problem,
                                         init_ego_state=x_0,
                                         dt=DT,
-                                        vehicle_parameters=config.vehicle)  # testing
+                                        config=config)
         reference_path = behavior_modul.reference_path
 
     # **************************
@@ -150,13 +152,9 @@ def run_planner(config, log_path, mod_path):
             # set desired velocity
             desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
         else:
-            behavior_comp_time1 = time.time()
             behavior = behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
-            behavior_comp_time2 = time.time()
-            # set desired behavior outputs
             desired_velocity = behavior_modul.desired_velocity
             reference_path = behavior_modul.reference_path
-            print("\n***Behavior Planning Time: \n", behavior_comp_time2 - behavior_comp_time1)
 
         # **************************
         # Cycle Occlusion Module
@@ -167,8 +165,8 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Set Planner Subscriptions
         # **************************
-        planner.update_externals(x_0=x_0, x_cl=x_cl, reference_path=reference_path,
-                                 desired_velocity=desired_velocity, predictions=predictions, behavior=behavior)
+        planner.update_externals(x_0=x_0, x_cl=x_cl, desired_velocity=desired_velocity, predictions=predictions,
+                                 behavior=behavior)
 
         # **************************
         # Execute Planner
@@ -179,12 +177,12 @@ def run_planner(config, log_path, mod_path):
 
         # if the planner fails to find an optimal trajectory -> terminate
         if not optimal:
-            print("No Kinematic Feasible and Optimal Trajectory Available!")
+            msg_logger.critical("No Kinematic Feasible and Optimal Trajectory Available!")
             break
 
         # store planning times
         planning_times.append(comp_time_end - comp_time_start)
-        print(f"***Total Planning Time: {planning_times[-1]}")
+        msg_logger.info(f"***Total Planning Time: \t\t{planning_times[-1]:.5f} s")
 
         # record state and input
         planner.record_state_and_input(optimal[0].state_list[1])
@@ -193,13 +191,13 @@ def run_planner(config, log_path, mod_path):
         x_0 = deepcopy(planner.record_state_list[-1])
         x_cl = (optimal[2][1], optimal[3][1])
 
-        print(f"current time step: {current_count}")
+        msg_logger.info(f"current time step: {current_count}")
 
         # **************************
         # Visualize Scenario
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
-            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.current_ego_vehicle,
+            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.ego_vehicle_history[-1],
                                           traj_set=planner.all_traj, optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
@@ -210,11 +208,11 @@ def run_planner(config, log_path, mod_path):
         # **************************
         # Check Collision
         # **************************
-        crash = planner.check_collision(planner.current_ego_vehicle)
+        crash = planner.check_collision(planner.ego_vehicle_history[-1])
         if crash:
-            print("Collision Detected!")
+            msg_logger.info("Collision Detected!")
             if config.debug.collision_report and current_count > 0:
-                coll_report([planner.current_ego_vehicle], planner, scenario, planning_problem, current_count, config,
+                coll_report(planner.ego_vehicle_history, planner, scenario, planning_problem, current_count, config,
                             log_path)
             break
 
@@ -227,11 +225,11 @@ def run_planner(config, log_path, mod_path):
     # End of Cycle
     # ******************************************************************************
 
-    print(planner.goal_message)
+    msg_logger.debug(planner.goal_message)
     if planner.full_goal_status:
-        print("\n", planner.full_goal_status)
+        msg_logger.debug("\n", planner.full_goal_status)
     if not planner.goal_status and current_count >= max_time_steps_scenario:
-        print("Scenario Aborted! Maximum Time Step Reached!")
+        msg_logger.debug("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory
     plot_final_trajectory(scenario, planning_problem, planner.record_state_list, config, log_path)
@@ -268,10 +266,10 @@ def run_planner(config, log_path, mod_path):
             # evaluate
             plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
             # CR validity check
-            print("Feasibility Check Result: ")
-            print(valid_solution(scenario, planning_problem_set, solution))
+            msg_logger.info("Feasibility Check Result: ")
+            msg_logger.info(valid_solution(scenario, planning_problem_set, solution))
         except:
-            print("Could not reconstruct states")
+            msg_logger.error("Could not reconstruct states")
 
         plot_inputs(config, planner.record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
 

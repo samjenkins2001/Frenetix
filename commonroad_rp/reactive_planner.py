@@ -8,9 +8,12 @@ __status__ = "Beta"
 # python packages
 import math
 import time
+
 import numpy as np
 from typing import List, Optional, Tuple
+import logging
 import multiprocessing
+from risk_assessment.risk_costs import calc_risk
 from multiprocessing.context import Process
 
 # commonroad-io
@@ -29,12 +32,12 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, trajectories_collision_static_obstacles
 
 # commonroad_rp imports
-from commonroad_rp.parameter import DefGymSampling, TimeSampling, VelocitySampling, PositionSampling
+from commonroad_rp.parameter import TimeSampling, VelocitySampling, PositionSampling
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
-from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
+from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle, smooth_ref_path
 from commonroad_rp.utility import reachable_set
-from commonroad_rp.state import ReactivePlannerState
+from commonroad_rp.state import ReactivePlannerState, shift_orientation
 
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 from cr_scenario_handler.utils.configuration import Configuration
@@ -52,6 +55,9 @@ from commonroad_rp.utility.load_json import (
 
 # precision value
 _EPS = 1e-5
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 class ReactivePlanner(object):
@@ -83,7 +89,7 @@ class ReactivePlanner(object):
         self.record_state_list: List[ReactivePlannerState] = list()
         self.record_input_list: List[InputState] = list()
 
-        self.current_ego_vehicle = None
+        self.ego_vehicle_history = list()
         self._LOW_VEL_MODE = False
 
         # Scenario
@@ -131,20 +137,20 @@ class ReactivePlanner(object):
         # Set Sampling Parameters#
         self._sampling_min = config.sampling.sampling_min
         self._sampling_max = config.sampling.sampling_max
+        self._sampling_d = None
+        self._sampling_t = None
+        self._sampling_v = None
         self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt, config.planning.planning_horizon)
-        # fs_sampling = DefGymSampling(self.dT, self.horizon, config.sampling.sampling_max)
-        # self._sampling_d = fs_sampling.d_samples
-        # self._sampling_t = fs_sampling.t_samples
-        # self._sampling_v = fs_sampling.v_samples
+        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt,
+                                       config.planning.planning_horizon)
 
         # *****************************
         # Debug & Logger Initialization
         # *****************************
-        self.debug_mode = config.debug.debug_mode
         self.log_risk = config.debug.log_risk
         self.save_all_traj = config.debug.save_all_traj
         self.all_traj = None
+        self.optimal_trajectory = None
         self.use_occ_model = config.occlusion.use_occlusion_module
         self.logger = DataLoggingCosts(path_logs=log_path,
                                        save_all_traj=self.save_all_traj or self.use_amazing_visualizer)
@@ -220,15 +226,20 @@ class ReactivePlanner(object):
         return self._infeasible_count_kinematics
 
     def update_externals(self, x_0: ReactivePlannerState=None, x_cl: Optional[Tuple[List, List]]=None,
-                         current_ego_vehicle=None, scenario: Scenario=None, goal_area=None, planning_problem=None,
+                         scenario: Scenario=None, goal_area=None, planning_problem=None,
                          cost_function=None, reference_path: np.ndarray=None, occlusion_module=None,
                          desired_velocity: float = None, predictions=None, behavior=None):
         if x_0 is not None:
             self.x_0 = x_0
+
+            # Check for low velocity mode
+            if self.x_0.velocity < self._low_vel_mode_threshold:
+                self._LOW_VEL_MODE = True
+            else:
+                self._LOW_VEL_MODE = False
+
         if x_cl is not None:
             self.x_cl = x_cl
-        if current_ego_vehicle is not None:
-            self.current_ego_vehicle = current_ego_vehicle
         if scenario is not None:
             self.set_scenario(scenario)
         if goal_area is not None:
@@ -265,7 +276,7 @@ class ReactivePlanner(object):
         self.x_cl = x_cl
 
     def set_ego_vehicle_state(self, current_ego_vehicle):
-        self.current_ego_vehicle = current_ego_vehicle
+        self.ego_vehicle_history.append(current_ego_vehicle)
 
     def set_behavior(self, behavior):
         self.behavior = behavior
@@ -363,6 +374,8 @@ class ReactivePlanner(object):
         :param horizon: sampled time horizon
         """
         self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
+        self.N = int(round(horizon / dt))
+        self.horizon = horizon
 
     def set_d_sampling_parameters(self, delta_d_min, delta_d_max):
         """
@@ -398,8 +411,7 @@ class ReactivePlanner(object):
 
         self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_max)
 
-        if self.debug_mode >= 2:
-            print('<Reactive_planner>: Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
+        msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
     def _get_no_of_samples(self, samp_level: int) -> int:
         """
@@ -477,12 +489,11 @@ class ReactivePlanner(object):
         trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
                                              multiproc=self._multiproc, num_workers=self._num_workers)
         self._total_count = len(trajectory_bundle._trajectory_bundle)
-        if self.debug_mode >= 1:
-            print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
+        msg_logger.debug('%s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
         return trajectory_bundle
 
     def _create_stopping_trajectory(self, x_0, x_0_lon, x_0_lat, stop_point, cost_function):
-        print('<ReactivePlanner>: sampling stopping trajectory at stop line')
+        msg_logger.debug('sampling stopping trajectory at stop line')
         # reset cost statistic
         self._min_cost = 10 ** 9
         self._max_cost = 0
@@ -574,12 +585,10 @@ class ReactivePlanner(object):
         x_0_lon: List[float] = [s, s_velocity, s_acceleration]
         x_0_lat: List[float] = [d, d_velocity, d_acceleration]
 
-        if self.debug_mode >= 2:
-            print("<ReactivePlanner>: Starting planning with: \n#################")
-            print(f'Initial state for planning is {x_0}')
-            print(f'Initial x_0 lon = {x_0_lon}')
-            print(f'Initial x_0 lat = {x_0_lat}')
-            print("#################")
+        msg_logger.debug("Starting planning with: \n#################")
+        msg_logger.debug(f'Initial state for planning is {x_0}')
+        msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
+        msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
 
         return x_0_lon, x_0_lat
 
@@ -633,7 +642,7 @@ class ReactivePlanner(object):
         cvlnTraj = Trajectory(self.x_0.time_step, cl_list)
 
         # correct orientations of cartesian output trajectory
-        cartTraj_corrected = self.shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
+        cartTraj_corrected = shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
                                                     interval_end=self.x_0.orientation + np.pi)
 
         return cartTraj_corrected, cvlnTraj, lon_list, lat_list
@@ -672,9 +681,6 @@ class ReactivePlanner(object):
     def plan(self) -> tuple:
         """
         Plans an optimal trajectory
-        :param x_0: Initial state as CR state
-        :param cl_states: Curvilinear initial states if re-planning is used
-        :param predictions (dict): Predictions of the visible obstacles
         :return: Optimal trajectory as tuple
         """
 
@@ -686,12 +692,6 @@ class ReactivePlanner(object):
             # calculate reachable sets
             self.reach_set.calc_reach_sets(self.x_0, list(self.predictions.keys()))
 
-        # check for low velocity mode
-        if self.x_0.velocity < self._low_vel_mode_threshold:
-            self._LOW_VEL_MODE = True
-        else:
-            self._LOW_VEL_MODE = False
-
         # compute curvilinear initial states
         if self.x_cl is not None and not self.set_new_ref_path:
             x_0_lon, x_0_lat = self.x_cl
@@ -699,10 +699,8 @@ class ReactivePlanner(object):
             x_0_lon, x_0_lat = self._compute_initial_states(self.x_0)
             self.set_new_ref_path = False
 
-        if self.debug_mode >= 2:
-            print('<Reactive Planner>: initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
-        if self.debug_mode >= 1:
-            print('<Reactive Planner>: desired velocity is {} m/s'.format(self._desired_speed))
+        msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
+        msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
 
         # initialize optimal trajectory dummy
         optimal_trajectory = None
@@ -730,7 +728,7 @@ class ReactivePlanner(object):
                 bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
 
             # get optimal trajectory
-            t0 = time.time()
+
             self.logger.trajectory_number = self.x_0.time_step
 
             optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, self.predictions, i)
@@ -738,27 +736,27 @@ class ReactivePlanner(object):
 
             # create CommonRoad Obstacle for the ego Vehicle
             if trajectory_pair is not None:
-                self.current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
+                current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
+                self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
 
             if optimal_trajectory is not None and self.log_risk:
-                optimal_trajectory = self.cost_function.set_risk_costs(optimal_trajectory)
+                optimal_trajectory = self.set_risk_costs(optimal_trajectory)
 
             if self.behavior:
                 if self.behavior.flags["waiting_for_green_light"]:
                     optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
 
-            if self.debug_mode >= 1:
-                print('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
-                    self.infeasible_count_kinematics))
-                print('<ReactivePlanner>: Rejected {} infeasible trajectories due to collisions'.format(
-                    self.infeasible_count_collision))
+            msg_logger.debug('Rejected {} infeasible trajectories due to kinematics'.format(
+                self.infeasible_count_kinematics))
+            msg_logger.debug('Rejected {} infeasible trajectories due to collisions'.format(
+                self.infeasible_count_collision))
 
             # increase sampling level (i.e., density) if no optimal trajectory could be found
             i = i + 1
 
+        planning_time = time.time() - t0
         if optimal_trajectory is None and self.x_0.velocity <= 0.1:
-            print('<ReactivePlanner>: planning standstill for the current scenario')
-            t0 = time.time()
+            msg_logger.warning('Planning standstill for the current scenario')
             self.logger.trajectory_number = self.x_0.time_step
             optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
 
@@ -767,9 +765,9 @@ class ReactivePlanner(object):
         # **************************
         if optimal_trajectory is not None:
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
-                            infeasible_collision=self.infeasible_count_collision, planning_time=time.time() - t0,
-                            cluster=cluster_, ego_vehicle=self.current_ego_vehicle)
-            self.logger.log_pred(self.predictions)
+                            infeasible_collision=self.infeasible_count_collision, planning_time=planning_time,
+                            cluster=cluster_, ego_vehicle=self.ego_vehicle_history[-1])
+            self.logger.log_predicition(self.predictions)
         if self.save_all_traj or self.use_amazing_visualizer:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
 
@@ -777,12 +775,11 @@ class ReactivePlanner(object):
         # Check Cost Status
         # **************************
         if optimal_trajectory is not None and self.x_0.time_step > 0:
-            if self.debug_mode >= 1:
-                self._optimal_cost = optimal_trajectory.cost
-                print('Found optimal trajectory with {}% of maximum seen costs'
-                      .format(int((self._optimal_cost/self.max_seen_costs)*100)))
+            self._optimal_cost = optimal_trajectory.cost
+            msg_logger.debug('Found optimal trajectory with {}% of maximum seen costs'
+                  .format(int((self._optimal_cost/self.max_seen_costs)*100)))
 
-        if optimal_trajectory is not None and self.debug_mode >= 1:
+        if optimal_trajectory is not None:
             if self.max_seen_costs < self._optimal_cost:
                 self.max_seen_costs = self._optimal_cost
 
@@ -1189,8 +1186,7 @@ class ReactivePlanner(object):
             # self.occlusion_module.occ_visibility_estimator.evaluate_trajectories(feasible_trajectories, predictions)
             self.occlusion_module.occ_uncertainty_map_evaluator.evaluate_trajectories(feasible_trajectories)
 
-        if self.debug_mode >= 2:
-            print('<ReactivePlanner>: Kinematic check of %s trajectories done' % len(trajectory_bundle.trajectories))
+        msg_logger.debug('Kinematic check of %s trajectories done' % len(trajectory_bundle.trajectories))
 
         # update number of infeasible trajectories
         self._infeasible_count_kinematics = infeasible_count_kinematics
@@ -1222,7 +1218,7 @@ class ReactivePlanner(object):
 
             if self.use_prediction:
                 collision_detected = collision_checker_prediction(
-                    predictions=predictions,
+                    predictions=self.predictions,
                     scenario=self.scenario,
                     ego_co=coll_obj,
                     frenet_traj=trajectory,
@@ -1288,15 +1284,6 @@ class ReactivePlanner(object):
         prediction = TrajectoryPrediction(trajectory, shape)
         return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, trajectory.state_list[0], prediction)
 
-    @staticmethod
-    def shift_orientation(trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
-        for state in trajectory.state_list:
-            while state.orientation < interval_start:
-                state.orientation += 2 * np.pi
-            while state.orientation > interval_end:
-                state.orientation -= 2 * np.pi
-        return trajectory
-
     def check_goal_reached(self):
         # Get the ego vehicle
         self.goal_checker.register_current_state(self.x_0)
@@ -1330,11 +1317,11 @@ class ReactivePlanner(object):
                 elif "time_step" in self.goal_checker.goal.state_list[0].attributes:
                     progress = ((self.x_0.time_step -1) / self.goal_checker.goal.state_list[0].time_step.end)
                 else:
-                    print('Could not calculate progress')
+                    msg_logger.error('Could not calculate progress')
                     progress = None
             except:
                 progress = None
-                print('Could not calculate progress')
+                msg_logger.error('Could not calculate progress')
 
             collision_obj = self.collision_checker.find_all_colliding_objects(ego)[0]
             if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
@@ -1350,3 +1337,19 @@ class ReactivePlanner(object):
                 self.logger.log_collision(False, self.vehicle_params.length, self.vehicle_params.width, progress)
             return True
 
+    def set_risk_costs(self, trajectory):
+
+        ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict, ego_risk, obst_risk = calc_risk(
+            traj=trajectory,
+            ego_state=self.x_0,
+            predictions=self.predictions,
+            scenario=self.scenario,
+            ego_id=24,
+            vehicle_params=self.vehicle_params,
+            road_boundary=self.road_boundary,
+            params_harm=self.params_harm,
+            params_risk=self.params_risk,
+        )
+        trajectory._ego_risk = ego_risk
+        trajectory._obst_risk = obst_risk
+        return trajectory

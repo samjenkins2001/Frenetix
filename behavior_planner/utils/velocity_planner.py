@@ -1,4 +1,8 @@
 import behavior_planner.utils.helper_functions as hf
+import logging
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 class VelocityPlanner(object):
@@ -67,7 +71,7 @@ class VelocityPlanner(object):
             if self.FSM_state.change_velocity_for_lane_change:
                 self.VP_state.desired_velocity = \
                     self.BM_state.ego_state.velocity + self.FSM_state.free_space_offset * 0.75
-                print("BP slowing vehicle for lane change maneuver, recommended velocity is: ",
+                msg_logger.debug("BP slowing vehicle for lane change maneuver, recommended velocity is: ",
                       self.VP_state.desired_velocity, "\n")
                 self.FSM_state.change_velocity_for_lane_change = False
 
@@ -76,7 +80,7 @@ class VelocityPlanner(object):
                     or self.FSM_state.behavior_state_dynamic == 'PrepareLaneChangeRight':
                 if self.VP_state.desired_velocity > self.BM_state.ego_state.velocity * 1.05:
                     self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 1.05
-                    print("BP no strong vehicle acceleration while lane change maneuvers, recommended velocity is: ",
+                    msg_logger.debug("BP no strong vehicle acceleration while lane change maneuvers, recommended velocity is: ",
                           self.VP_state.desired_velocity, "\n")
 
             # stopping for traffic light
@@ -86,11 +90,11 @@ class VelocityPlanner(object):
             # prevent large velocity jumps
             if self.BM_state.ego_state.velocity > 8.333:
                 if self.VP_state.desired_velocity > self.BM_state.ego_state.velocity * 1.33:
-                    print("BP planner velocity too high, recommended velocity is: ",
+                    msg_logger.debug("BP planner velocity too high, recommended velocity is: ",
                           self.BM_state.ego_state.velocity * 1.33, "\n")
                     self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 1.33
                 elif self.VP_state.desired_velocity < self.BM_state.ego_state.velocity * 0.67:
-                    print("BP planner velocity too low, recommended velocity is: ",
+                    msg_logger.debug("BP planner velocity too low, recommended velocity is: ",
                           self.BM_state.ego_state.velocity * 0.67, "\n")
                     self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 0.67
 

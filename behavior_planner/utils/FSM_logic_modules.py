@@ -1,9 +1,10 @@
 """Logic Modules for the FSM Machines"""
 from random import randint
 from commonroad.scenario.lanelet import LineMarking
+import logging
 
-
-'''EGO FSM Logic Module'''
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 class LogicStreetSetting:
@@ -408,7 +409,7 @@ class LogicLaneChangeLeft:
 
         if self.cur_state == 'InitiateLaneChange' and self.FSM_state.situation_time_step_counter > 16:
             self.FSM_state.lane_change_left_abort = True
-            print("FSM Dynamic Situation State: Aborting Lane Change")
+            msg_logger.debug("FSM Dynamic Situation State: Aborting Lane Change")
 
         if self.FSM_state.detected_lanelets is not None:
             if len(self.FSM_state.detected_lanelets) > 1 \
@@ -499,7 +500,7 @@ class LogicLaneChangeRight:
 
         if self.cur_state == 'InitiateLaneChange' and self.FSM_state.situation_time_step_counter > 16:
             self.FSM_state.lane_change_left_abort = True
-            print("FSM Dynamic Situation State: Aborting Lane Change")
+            msg_logger.debug("FSM Dynamic Situation State: Aborting Lane Change")
 
         if self.FSM_state.detected_lanelets is not None:
             if len(self.FSM_state.detected_lanelets) > 1 \

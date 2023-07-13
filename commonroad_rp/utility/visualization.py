@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import imageio.v3 as iio
+from PIL import Image
 
 # commonroad-io
 from commonroad.scenario.scenario import Scenario
