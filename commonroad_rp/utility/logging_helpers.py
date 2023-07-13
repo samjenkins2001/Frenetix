@@ -330,8 +330,11 @@ def messages_logger_initialization(config: Configuration, log_path) -> logging.L
     # msg logger
     msg_logger = logging.getLogger("Message_logger")
 
+    # Create directories
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+
     # create file handler (outputs to file)
-    string_date_time = datetime.now().strftime("_%Y_%m_%d_%H-%M-%S")
     path_log = os.path.join(log_path, "messages.log")
     file_handler = logging.FileHandler(path_log)
 
