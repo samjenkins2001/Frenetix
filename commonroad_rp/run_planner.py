@@ -60,10 +60,6 @@ def run_planner(config, log_path, mod_path):
         problem_init_state.acceleration = 0.
     x_0 = deepcopy(problem_init_state)
 
-    goal_area = hf.get_goal_area_shape_group(
-       planning_problem=planning_problem, scenario=scenario
-    )
-
     # *************************************
     # Initialize Reactive Planner
     # *************************************
@@ -126,10 +122,9 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Set External Planner Setups
     # **************************
-    planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
-                             reference_path=reference_path)
+    planner.update_externals(reference_path=reference_path)
     cost_function = AdaptableCostFunction(rp=planner, configuration=config)
-    planner.update_externals( cost_function=cost_function)
+    planner.update_externals(cost_function=cost_function)
 
     # **************************
     # Run Planner Cycle

@@ -90,7 +90,7 @@ class CoordinateSystem:
             # set reference and create ccosy from given reference
 
             # remove duplicated vertices in reference path
-            self.reference = reference
+            self.reference = smooth_ref_path(reference)
         else:
             assert ccosy is not None, '<CoordinateSystem>: Please provide a reference path OR a ' \
                                           'CurvilinearCoordinateSystem object.'

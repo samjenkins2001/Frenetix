@@ -103,7 +103,7 @@ class ReactivePlanner(object):
         self._cc: Optional[pycrcc.CollisionChecker] = None
         self.goal_status = False
         self.full_goal_status = None
-        self.goal_area = None
+        self.goal_area = hf.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
         self.occlusion_module = None
         self.goal_message = "Planner is in time step 0!"
         self.use_amazing_visualizer = config.debug.use_amazing_visualizer
@@ -519,8 +519,7 @@ class ReactivePlanner(object):
         trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
                                              multiproc=self._multiproc, num_workers=self._num_workers)
         self._total_count = len(trajectory_bundle._trajectory_bundle)
-        if self.debug_mode >= 1:
-            print('<ReactivePlanner>: %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
+        msg_logger.debug(' %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
         return trajectory_bundle
 
     def _compute_initial_states(self, x_0: ReactivePlannerState) -> (np.ndarray, np.ndarray):
@@ -795,14 +794,13 @@ class ReactivePlanner(object):
         x_0_lon, x_0_lat = self.x_cl
 
         # create artificial standstill trajectory
-        if self.debug_mode >= 1:
-            print('Adding standstill trajectory')
-            print("x_0 is {}".format(x_0))
-            print("x_0_lon is {}".format(x_0_lon))
-            print("x_0_lon is {}".format(type(x_0_lon)))
-            for i in x_0_lon:
-                print("The element {} of format {} is a real number? {}".format(i, type(i), is_real_number(i)))
-            print("x_0_lat is {}".format(x_0_lat))
+        msg_logger.debug('Adding standstill trajectory')
+        msg_logger.debug("x_0 is {}".format(x_0))
+        msg_logger.debug("x_0_lon is {}".format(x_0_lon))
+        msg_logger.debug("x_0_lon is {}".format(type(x_0_lon)))
+        for i in x_0_lon:
+            msg_logger.debug("The element {} of format {} is a real number? {}".format(i, type(i), is_real_number(i)))
+        msg_logger.debug("x_0_lat is {}".format(x_0_lat))
         # create lon and lat polynomial
         traj_lon = QuarticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lon),
                                      x_d=np.array([0, 0]))
@@ -920,15 +918,13 @@ class ReactivePlanner(object):
             if not self._draw_traj_set:
                 # pre-filter with quick underapproximative check for feasibility
                 if np.any(np.abs(s_acceleration) > self.vehicle_params.a_max):
-                    if self.debug_mode >= 2:
-                        print(f"Acceleration {np.max(np.abs(s_acceleration))}")
+                    msg_logger.debug(f"Acceleration {np.max(np.abs(s_acceleration))}")
                     feasible = False
                     infeasible_count_kinematics[1] += 1
                     infeasible_trajectories.append(trajectory)
                     continue
                 if np.any(s_velocity < -_EPS):
-                    if self.debug_mode >= 2:
-                        print(f"Velocity {min(s_velocity)} at step")
+                    msg_logger.debug(f"Velocity {min(s_velocity)} at step")
                     feasible = False
                     infeasible_count_kinematics[2] += 1
                     infeasible_trajectories.append(trajectory)
@@ -1083,8 +1079,7 @@ class ReactivePlanner(object):
                     else:
                         feasible = False
                         infeasible_count_kinematics_traj[9] = 1
-                        if self.debug_mode >= 2:
-                            print("Out of projection domain")
+                        msg_logger.debug("Out of projection domain")
                         break
 
                 if feasible or self._draw_traj_set:
