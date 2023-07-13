@@ -64,6 +64,7 @@ class DataLoggingCosts:
             "x_position_vehicle_m;"
             "y_position_vehicle_m;"
             "optimal_trajectory;"
+            "percentage_feasible_traj;"
             "infeasible_kinematics_sum;"
             "inf_kin_acceleration;"
             "inf_kin_negative_s_velocity;"
@@ -137,7 +138,7 @@ class DataLoggingCosts:
     def get_headers(self):
         return self.header
 
-    def log(self, trajectory, infeasible_kinematics, infeasible_collision: int, planning_time: float, cluster: int = None,
+    def log(self, trajectory, infeasible_kinematics, percentage_kinematics, infeasible_collision: int, planning_time: float, cluster: int = None,
             collision: bool = False, ego_vehicle=None):
 
         new_line = "\n" + str(self.trajectory_number)
@@ -158,6 +159,8 @@ class DataLoggingCosts:
             # optimaltrajectory available
             new_line += ";True"
             # log infeasible
+            new_line += ";" + json.dumps(str(percentage_kinematics), default=default)
+
             for kin in infeasible_kinematics:
                 new_line += ";" + json.dumps(str(kin), default=default)
             new_line += ";" + \

@@ -8,8 +8,8 @@ params:
     L: 0.0
 
     LC: 0.0
-    V: 0.02
-    VC: 0.5
+    V: 1
+    VC: 1
     DR: 1
     DO: 0
 

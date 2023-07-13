@@ -129,6 +129,7 @@ class ReactivePlanner(object):
         self._total_count = 0
         self._infeasible_count_collision = 0
         self._infeasible_count_kinematics = np.zeros(10)
+        self.infeasible_kinematics_percentage = None
         self._optimal_cost = 0
 
         # **************************
@@ -764,6 +765,7 @@ class ReactivePlanner(object):
         # **************************
         if optimal_trajectory is not None:
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
+                            percentage_kinematics=self.infeasible_kinematics_percentage,
                             infeasible_collision=self.infeasible_count_collision, planning_time=planning_time,
                             cluster=cluster_, ego_vehicle=self.ego_vehicle_history[-1])
             self.logger.log_predicition(self.predictions)
@@ -1050,7 +1052,7 @@ class ReactivePlanner(object):
                                                                    math.cos(steering_angle) ** 2)
                 kappa_dot = (kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.
                 if abs(kappa_dot) > kappa_dot_max:
-                    feasible = False
+                    # feasible = False
                     infeasible_count_kinematics_traj[7] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
@@ -1186,6 +1188,8 @@ class ReactivePlanner(object):
         # update number of infeasible trajectories
         self._infeasible_count_kinematics = infeasible_count_kinematics
         self._infeasible_count_kinematics[0] = len(trajectory_bundle.trajectories) - len(feasible_trajectories)
+        self.infeasible_kinematics_percentage = float(len(feasible_trajectories)/
+                                                      len(trajectory_bundle.trajectories)) * 100
 
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj or self.use_amazing_visualizer:
