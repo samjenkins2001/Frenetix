@@ -159,14 +159,14 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
         step = 1  # draw every trajectory (step=2 would draw every second trajectory)
         if traj_set_list is not None:
             # visualize optimal trajectory
-            rnd.ax.plot(traj_set_list[i][0].cartesian.x[:traj_set_list[i][0].actual_traj_length],
-                        traj_set_list[i][0].cartesian.y[:traj_set_list[i][0].actual_traj_length],
+            rnd.ax.plot(traj_set_list[i][0].cartesian.x,
+                        traj_set_list[i][0].cartesian.y,
                         color=darkcolor,
                         marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
 
             for j in range(0, len(traj_set_list[i]), step):
-                plt.plot(traj_set_list[i][j].cartesian.x[:traj_set_list[i][j].actual_traj_length],
-                         traj_set_list[i][j].cartesian.y[:traj_set_list[i][j].actual_traj_length],
+                plt.plot(traj_set_list[i][j].cartesian.x,
+                         traj_set_list[i][j].cartesian.y,
                          color=lightcolor,
                          zorder=20, linewidth=0.2, alpha=1.0)
 

@@ -28,5 +28,6 @@ if __name__ == '__main__':
     if not start_multiagent:
         run_planner(config, log_path, mod_path)
     else:
+        # Works only with wale-net. Ground Truth Prediction not possible!
         simulation = Simulation(config, log_path, mod_path)
         simulation.run_simulation()
