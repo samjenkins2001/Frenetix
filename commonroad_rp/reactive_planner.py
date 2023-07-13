@@ -714,7 +714,7 @@ class ReactivePlanner(object):
         while optimal_trajectory is None and i < self._sampling_max:
 
             self.cost_function.update_state(scenario=self.scenario, rp=self,
-                                            predictions=self.predictions, reachset=reachable_set)
+                                            predictions=self.predictions, reachset=self.reach_set)
 
             # sample trajectory bundle
             if self.behavior:
@@ -1203,14 +1203,38 @@ class ReactivePlanner(object):
             # sort trajectories according to their costs
             trajectory_bundle.sort(occlusion_module=self.occlusion_module)
 
+        # ******************************************
+        # Check Feasible Trajectories for Collisions
+        # ******************************************
+        optimal_trajectory = self.trajectory_collision_check(
+                                trajectory_bundle.get_sorted_list(occlusion_module=self.occlusion_module))
+
+        if samp_lvl >= self._sampling_max - 1 and optimal_trajectory is None and feasible_trajectories:
+            for traje in feasible_trajectories:
+                self.set_risk_costs(traje)
+            sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk,
+                               reverse=False)
+            optimal_trajectory = sort_risk[0]
+            return optimal_trajectory
+
+        else:
+            return optimal_trajectory, trajectory_bundle.cluster
+
+    def trajectory_collision_check(self, feasible_trajectories):
+        """
+        Checks valid trajectories for collisions with static obstacles
+        :param feasible_trajectories: feasible trajectories list
+        :return trajectory: optimal feasible trajectory or None
+        """
         # go through sorted list of sorted trajectories and check for collisions
-        for trajectory in trajectory_bundle.get_sorted_list(occlusion_module=self.occlusion_module):
+        for trajectory in feasible_trajectories:
             # Add Occupancy of Trajectory to do Collision Checks later
             cart_traj = self._compute_cart_traj(trajectory)
-            trajectory.occupancy = self.convert_state_list_to_commonroad_object(cart_traj.state_list)
+            occupancy = self.convert_state_list_to_commonroad_object(cart_traj.state_list)
             # get collision_object
-            coll_obj = self._create_coll_object(trajectory.occupancy, self.vehicle_params, self.x_0)
+            coll_obj = self._create_coll_object(occupancy, self.vehicle_params, self.x_0)
 
+            # TODO: Check kinematic checks in cpp. no valid traj available
             if self.use_prediction:
                 collision_detected = collision_checker_prediction(
                     predictions=self.predictions,
@@ -1247,18 +1271,9 @@ class ReactivePlanner(object):
             trajectory._coll_detected = collision_detected
 
             if not collision_detected and boundary_harm == 0:
-                return trajectory, trajectory_bundle.cluster
+                return trajectory
 
-        if samp_lvl >= self._sampling_max - 1:
-            sort_harm = sorted(trajectory_bundle.get_sorted_list(), key=lambda traj: traj.boundary_harm, reverse=False)
-            if any(bundle.boundary_harm == 0 for bundle in sort_harm):
-                return sort_harm[0], trajectory_bundle.cluster
-            elif trajectory_bundle.get_sorted_list():
-                return trajectory_bundle.get_sorted_list()[0], trajectory_bundle.cluster
-            else:
-                return None, trajectory_bundle.cluster
-        else:
-            return None, trajectory_bundle.cluster
+        return None
 
     def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState], obstacle_id: int = 42):
         """

@@ -17,7 +17,7 @@ import commonroad_rp.cost_functions.partial_cost_functions as cost_functions
 from commonroad_rp.cost_functions.cluster_based_cost_functions import ClusterBasedCostFunction
 
 from risk_assessment.collision_probability import (
-    get_collision_probability_fast
+    get_collision_probability_fast, get_inv_mahalanobis_dist
 )
 from risk_assessment.risk_costs import get_responsibility_cost
 from risk_assessment.risk_costs import calc_risk
@@ -148,7 +148,6 @@ class AdaptableCostFunction(CostFunction):
             if str(name).split('.')[1] in irrelevant_costs:
                 del self.PartialCostFunctionMapping[name]
 
-
     def update_state(self, scenario, rp, predictions, reachset):
         self.scenario = scenario
         self.rp = rp
@@ -173,65 +172,50 @@ class AdaptableCostFunction(CostFunction):
         # calculate total cost
         self.calc_cost(trajectories, prediction_cost_list, responsibility_cost_list, scenario)
 
-    def set_risk_costs(self, trajectory):
-        if self.reachset is not None:
-            ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict, ego_risk, obst_risk = calc_risk(
-                traj=trajectory,
-                ego_state=self.rp.x_0,
-                predictions=self.predictions,
-                scenario=self.scenario,
-                ego_id=24,
-                vehicle_params=self.vehicle_params,
-                road_boundary=self.rp.road_boundary,
-                params_harm=self.rp.params_harm,
-                params_risk=self.rp.params_risk,
-            )
-            trajectory._ego_risk = ego_risk
-            trajectory._obst_risk = obst_risk
-        return trajectory
-
     # calculate prediction costs for all trajectories
     def calc_prediction(self, trajectories: List[TrajectorySample]):
         prediction_cost_list = []
         responsibility_cost_list = []
         for trajectory in trajectories:
-            if self.predictions is not None:
-                if self.reachset is not None:
-                    ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict, ego_risk, obst_risk = calc_risk(
-                        traj=trajectory,
-                        ego_state=self.rp.x_0,
-                        predictions=self.predictions,
-                        scenario=self.scenario,
-                        ego_id=24,
-                        vehicle_params=self.vehicle_params,
-                        road_boundary=self.rp.road_boundary,
-                        params_harm=self.rp.params_harm,
-                        params_risk=self.rp.params_risk,
-                    )
-                    trajectory._ego_risk = ego_risk
-                    trajectory._obst_risk = obst_risk
-
-                    responsibility_cost, bool_contain_cache = get_responsibility_cost(
-                        scenario=self.scenario,
-                        traj=trajectory,
-                        ego_state=self.rp.x_0,
-                        obst_risk_max=obst_risk_dict,
-                        predictions=self.predictions,
-                        reach_set=self.rp.reach_set
-                    )
-                else:
-                    responsibility_cost = 0.0
-                prediction_costs_raw = get_collision_probability_fast(
+            if self.predictions is not None and self.reachset is not None:
+                ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict, ego_risk, obst_risk = calc_risk(
                     traj=trajectory,
+                    ego_state=self.rp.x_0,
                     predictions=self.predictions,
-                    vehicle_params=self.vehicle_params
+                    scenario=self.scenario,
+                    ego_id=24,
+                    vehicle_params=self.vehicle_params,
+                    road_boundary=self.rp.road_boundary,
+                    params_harm=self.rp.params_harm,
+                    params_risk=self.rp.params_risk,
                 )
-                prediction_costs = 0
-                for key in prediction_costs_raw:
-                    prediction_costs += np.sum(prediction_costs_raw[key])
+                trajectory._ego_risk = ego_risk
+                trajectory._obst_risk = obst_risk
 
-                prediction_cost_list.append(prediction_costs)
-                responsibility_cost_list.append(responsibility_cost)
+                responsibility_cost, bool_contain_cache = get_responsibility_cost(
+                    scenario=self.scenario,
+                    traj=trajectory,
+                    ego_state=self.rp.x_0,
+                    obst_risk_max=obst_risk_dict,
+                    predictions=self.predictions,
+                    reach_set=self.rp.reach_set
+                )
+            else:
+                responsibility_cost = 0.0
+            # prediction_costs_raw = get_collision_probability_fast(
+            #     traj=trajectory,
+            #     predictions=self.predictions,
+            #     vehicle_params=self.vehicle_params
+            # )
+            prediction_costs_raw = get_inv_mahalanobis_dist(traj=trajectory, predictions=self.predictions,
+                                                            vehicle_params=self.vehicle_params)
+
+            prediction_costs = 0
+            for key in prediction_costs_raw:
+                prediction_costs += np.sum(prediction_costs_raw[key])
+
+            prediction_cost_list.append(prediction_costs)
+            responsibility_cost_list.append(responsibility_cost)
         return prediction_cost_list, responsibility_cost_list
 
     # calculate all costs (except prediction) and weigh them
