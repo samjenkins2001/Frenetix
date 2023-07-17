@@ -34,7 +34,7 @@ from commonroad_rp.parameter import TimeSampling, VelocitySampling, PositionSamp
 
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path
 from commonroad_rp.utility import reachable_set
-from commonroad_rp.state import ReactivePlannerState, shift_orientation
+from commonroad_rp.state import ReactivePlannerState
 
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 from cr_scenario_handler.utils.configuration import Configuration
@@ -571,7 +571,7 @@ class ReactivePlanner(object):
         cvlnTraj = Trajectory(self.x_0.time_step, cl_list)
 
         # correct orientations of cartesian output trajectory
-        cartTraj_corrected = shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
+        cartTraj_corrected = self.shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
                                                     interval_end=self.x_0.orientation + np.pi)
 
         return cartTraj_corrected, cvlnTraj, lon_list, lat_list
@@ -907,4 +907,12 @@ class ReactivePlanner(object):
         )
         trajectory._ego_risk = ego_risk
         trajectory._obst_risk = obst_risk
+        return trajectory
+
+    def shift_orientation(self, trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
+        for state in trajectory.state_list:
+            while state.orientation < interval_start:
+                state.orientation += 2 * np.pi
+            while state.orientation > interval_end:
+                state.orientation -= 2 * np.pi
         return trajectory
