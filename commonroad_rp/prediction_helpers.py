@@ -8,6 +8,7 @@ import sys
 from commonroad.scenario.obstacle import ObstacleRole
 from commonroad_dc.collision.trajectory_queries import trajectory_queries
 import json
+import logging
 
 module_path = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -18,6 +19,9 @@ from commonroad_rp.utility.helper_functions import create_tvobstacle, distance, 
 from prediction import WaleNet
 from commonroad_rp.utility.sensor_model import get_visible_objects
 from commonroad_prediction.prediction_module import PredictionModule
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 def load_prediction(scenario, mode, config):
@@ -47,6 +51,10 @@ def step_prediction(scenario, predictor, config, ego_state, occlusion_module=Non
     elif config.prediction.mode == "lanebased":
         predictions = predictor.main_prediction(ego_state, config.prediction.sensor_radius,
                                                 [float(config.planning.planning_horizon)])
+
+    elif config.prediction.mode == "ground_truth":
+        predictions = get_ground_truth_prediction(visible_obstacles, scenario, ego_state.time_step,
+                                                  int(config.prediction.pred_horizon_in_s/config.planning.dt))
     else:
         predictions = None
 
@@ -195,8 +203,10 @@ def collision_checker_prediction(
         bool: True if the trajectory collides with a prediction.
     """
     # check every obstacle in the predictions
-    for obstacle_id in list(predictions.keys()):
-
+    for obstacle in scenario.static_obstacles:  #list(predictions.keys()):
+        obstacle_id = obstacle.obstacle_id
+        if obstacle_id not in predictions:
+            continue
         # check if the obstacle is not a rectangle (only shape with attribute length)
         if not hasattr(scenario.obstacle_by_id(obstacle_id).obstacle_shape, 'length'):
             raise Warning('Collision Checker can only handle rectangular obstacles.')
@@ -304,29 +314,39 @@ def get_ground_truth_prediction(
     # create a dictionary for the predictions
     prediction_result = {}
     for obstacle_id in obstacle_ids:
-        obstacle = scenario.obstacle_by_id(obstacle_id)
-        fut_pos = []
-        fut_cov = []
-        # predict dynamic obstacles as long as they are in the scenario
-        if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
-            len_pred = len(obstacle.prediction.occupancy_set)
-        # predict static obstacles for the length of the prediction horizon
-        else:
-            len_pred = pred_horizon
-        # create mean and the covariance matrix of the obstacles
-        for ts in range(time_step, min(pred_horizon, len_pred)):
-            # get the occupancy of an obstacles (if it is not in the scenario at the given time step, the occupancy is None)
-            occupancy = obstacle.occupancy_at_time(ts)
-            if occupancy is not None:
-                # create mean and covariance matrix
-                fut_pos.append(occupancy.shape.center)
-                fut_cov.append([[0.1, 0.0], [0.0, 0.1]])
+        try:
+            obstacle = scenario.obstacle_by_id(obstacle_id)
+            fut_pos = []
+            fut_cov = []
+            fut_yaw = []
+            fut_v = []
+            # predict dynamic obstacles as long as they are in the scenario
+            if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
+                len_pred = len(obstacle.prediction.occupancy_set)
+            # predict static obstacles for the length of the prediction horizon
+            else:
+                len_pred = pred_horizon
+            # create mean and the covariance matrix of the obstacles
+            for ts in range(time_step, min(pred_horizon + time_step, len_pred)):
+                occupancy = obstacle.occupancy_at_time(ts)
+                if occupancy is not None:
+                    # create mean and covariance matrix
+                    fut_pos.append(occupancy.shape.center)
+                    fut_cov.append([[0.1, 0.0], [0.0, 0.1]])
+                    fut_yaw.append(occupancy.shape.orientation)
+                    fut_v.append(obstacle.prediction.trajectory.state_list[ts].velocity)
 
-        fut_pos = np.array(fut_pos)
-        fut_cov = np.array(fut_cov)
+            fut_pos = np.array(fut_pos)
+            fut_cov = np.array(fut_cov)
+            fut_yaw = np.array(fut_yaw)
+            fut_v = np.array(fut_v)
 
-        # add the prediction for the considered obstacle
-        prediction_result[obstacle_id] = {'pos_list': fut_pos, 'cov_list': fut_cov}
+            shape_obs = {'length': obstacle.obstacle_shape.length, 'width': obstacle.obstacle_shape.width}
+            # add the prediction for the considered obstacle
+            prediction_result[obstacle_id] = {'pos_list': fut_pos, 'cov_list': fut_cov, 'orientation_list': fut_yaw,
+                                              'v_list': fut_v, 'shape': shape_obs}
+        except Exception as e:
+            msg_logger.warning("Could not calculate ground truth prediction: ", e)
 
     return prediction_result
 
@@ -346,7 +366,7 @@ def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None,
                 )
             return visible_obstacles, visible_area
         except:
-            print("Could not calculate visible area!")
+            msg_logger.warning("Could not calculate visible area!")
             visible_obstacles = get_obstacles_in_radius(
                 scenario=scenario,
                 ego_id=ego_id,

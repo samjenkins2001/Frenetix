@@ -14,11 +14,12 @@ class OccUncertaintyMapEvaluator:
         self.max_dist = 3.0
         self.dist_mode = 1
         self.w_distance = 1
-        self.w_velocity = 1
+        self.w_velocity = 4
         self.costs = None
         self.traj_length_m = None
         self.traj_speeds_occ = None
         self.max_cost = 10
+        self.range = 35
 
     def evaluate_trajectories(self, trajectories, plot_uncertainty_map=False, plot=False):
         # step uncertainty map
@@ -56,8 +57,8 @@ class OccUncertaintyMapEvaluator:
         # calculate the distance of each point in the uncertainty map from the ego position
         ego_dist = np.sqrt(np.sum((occ_map[:, :2] - self.vis_module.ego_pos) ** 2, axis=1))
 
-        # only consider points that are closer than 25 m
-        occ_map = occ_map[ego_dist < 25]
+        # only consider points that are closer than range in m
+        occ_map = occ_map[ego_dist < self.range]
 
         if len(occ_map) == 0:
             return None, None, None

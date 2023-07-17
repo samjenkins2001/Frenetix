@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from commonroad.scenario.state import KSState, FloatExactOrInterval, InitialState
+from commonroad.scenario.trajectory import Trajectory
 
 
 @dataclass(eq=False)

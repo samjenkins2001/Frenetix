@@ -7,14 +7,14 @@ omegaconf>=2.1.1
 scipy>=1.7.1
 sphinx>=2.2.1
 commonroad-route-planner>=2022.3
-commonroad-io>=2023.1
+commonroad-io>=2023.2
 commonroad-drivability-checker>=2022.2.1
 commonroad-helper-functions
 ruamel.yaml
 pygeos
 imageio
 shapely>=2.0.1
-wale-net==3.0.2
+wale-net>=3.0.3
 dash
 plotly
 dash_daq

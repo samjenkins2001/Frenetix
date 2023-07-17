@@ -2,6 +2,10 @@ import behavior_planner.utils.FSM_logic_modules as Logic
 from commonroad.geometry.shape import Rectangle
 import behavior_planner.utils.helper_functions as hf
 import time
+import logging
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 '''base type 'State' used to create states'''
 State = type("State", (object,), {})
@@ -135,7 +139,7 @@ class Country(State):
         self.cur_state_dynamic = 'DynamicDefault'
 
     def execute(self):
-        print("FSM Street Setting: Country")
+        msg_logger.debug("FSM Street Setting: Country")
         # FSM static
         transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
         if transition_static is not None:
@@ -238,7 +242,7 @@ class Urban(State):
         self.cur_state_dynamic = 'DynamicDefault'
 
     def execute(self):
-        print("FSM Street Setting: Urban")
+        msg_logger.debug("FSM Street Setting: Urban")
         # FSM static
         transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
         if transition_static is not None:
@@ -315,7 +319,7 @@ class Highway(State):
         self.cur_state_dynamic = 'DynamicDefault'
 
     def execute(self):
-        print("FSM Street Setting: Highway")
+        msg_logger.debug("FSM Street Setting: Highway")
         # FSM static
         transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
         if transition_static is not None:
@@ -349,9 +353,6 @@ class Highway(State):
         self.FSM_state.behavior_state_dynamic = 'DynamicDefault'
 
 
-'''Behavior States: '''
-
-
 class StaticDefault(State):
 
     def execute(self):
@@ -364,7 +365,7 @@ class StaticDefault(State):
 class NoLaneChanges(State):
 
     def execute(self):
-        print("FSM Dynamic Behavior State: NoLaneChanges")
+        msg_logger.debug("FSM Dynamic Behavior State: NoLaneChanges")
 
     def reset_state(self):
         return 0
@@ -399,7 +400,7 @@ class PrepareLaneChangeLeft(State):
         self.FSM_state.situation_time_step_counter = 0
 
     def execute(self):
-        print("FSM Behavior State: Preparing for Lane Change Left")
+        msg_logger.debug("FSM Behavior State: Preparing for Lane Change Left")
         # FSM
         transition, self.cur_state = self.logic.execute(self.cur_state)
         if transition is not None:
@@ -439,7 +440,7 @@ class LaneChangeLeft(State):
         self.FSM_state.situation_time_step_counter = 0
 
     def execute(self):
-        print("FSM Dynamic Behavior State: Changing Lane to the Left")
+        msg_logger.debug("FSM Dynamic Behavior State: Changing Lane to the Left")
         # FSM
         transition, self.cur_state = self.logic.execute(self.cur_state)
         if transition is not None:
@@ -484,7 +485,7 @@ class PrepareLaneChangeRight(State):
         self.FSM_state.situation_time_step_counter = 0
 
     def execute(self):
-        print("FSM Dynamic Behavior State: Preparing for Lane Change Right")
+        msg_logger.debug("FSM Dynamic Behavior State: Preparing for Lane Change Right")
         # FSM
         transition, self.cur_state = self.logic.execute(self.cur_state)
         if transition is not None:
@@ -523,7 +524,7 @@ class LaneChangeRight(State):
         self.FSM_state.situation_time_step_counter = 0
 
     def execute(self):
-        print("FSM Dynamic Behavior State: Changing Lane to the Right")
+        msg_logger.debug("FSM Dynamic Behavior State: Changing Lane to the Right")
         # FSM
         transition, self.cur_state = self.logic.execute(self.cur_state)
         if transition is not None:
@@ -569,7 +570,7 @@ class PrepareLaneMerge(State):
         self.cur_state = 'EstimateMergingLaneLengthAndEmergencyStopPoint'
 
     def execute(self):
-        print("FSM Dynamic Behavior State: Preparing for Lane Merge")
+        msg_logger.debug("FSM Dynamic Behavior State: Preparing for Lane Merge")
         transition, self.cur_state = self.logic.execute(self.cur_state)
         if transition is not None:
             self.FSM_prepare_lane_merge.transition(transition)
@@ -604,7 +605,7 @@ class LaneMerge(State):
         self.cur_state = 'InitiateLaneMerge'
 
     def execute(self):
-        print("FSM Behavior State: Merging in Lane")
+        msg_logger.debug("FSM Behavior State: Merging in Lane")
         # FSM
         transition, self.cur_state = self.logic.execute(self.cur_state)
         if transition is not None:
@@ -639,7 +640,7 @@ class PrepareRoadExit(State):
         self.cur_state = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
 
     def execute(self):
-        print("FSM Behavior State: Preparing for Road Exit")
+        msg_logger.debug("FSM Behavior State: Preparing for Road Exit")
         # FSM
         transition, self.cur_state = self.logic.execute(self.cur_state)
         if transition is not None:
@@ -675,7 +676,7 @@ class RoadExit(State):
         self.cur_state = 'InitiateRoadExit'
 
     def execute(self):
-        print("FSM Behavior State: Exiting Road")
+        msg_logger.debug("FSM Behavior State: Exiting Road")
         # FSM
         transition, self.cur_state = self.logic.execute(self.cur_state)
         if transition is not None:
@@ -694,7 +695,8 @@ class RoadExit(State):
 
 class PrepareIntersection(State):
     def execute(self):
-        print("FSM Behavior State: Preparing for Intersection")
+        msg_logger.debug("FSM Behavior State: Preparing for Intersection")
+        pass
 
     def reset_state(self):
         return 0
@@ -702,7 +704,7 @@ class PrepareIntersection(State):
 
 class Intersection(State):
     def execute(self):
-        print("FSM Behavior State: Intersection")
+        msg_logger.debug("FSM Behavior State: Intersection")
 
     def reset_state(self):
         return 0
@@ -710,7 +712,7 @@ class Intersection(State):
 
 class PrepareTurnLeft(State):
     def execute(self):
-        print("FSM Behavior State: Preparing for Left Turn")
+        msg_logger.debug("FSM Behavior State: Preparing for Left Turn")
 
     def reset_state(self):
         return 0
@@ -718,7 +720,7 @@ class PrepareTurnLeft(State):
 
 class TurnLeft(State):
     def execute(self):
-        print("FSM Behavior State: Turning Left")
+        msg_logger.debug("FSM Behavior State: Turning Left")
 
     def reset_state(self):
         return 0
@@ -726,7 +728,7 @@ class TurnLeft(State):
 
 class PrepareTurnRight(State):
     def execute(self):
-        print("FSM Behavior State: Preparing for Right Turn")
+        msg_logger.debug("FSM Behavior State: Preparing for Right Turn")
 
     def reset_state(self):
         return 0
@@ -734,7 +736,7 @@ class PrepareTurnRight(State):
 
 class TurnRight(State):
     def execute(self):
-        print("FSM Behavior State: Turning Right")
+        msg_logger.debug("FSM Behavior State: Turning Right")
 
     def reset_state(self):
         return 0
@@ -742,7 +744,7 @@ class TurnRight(State):
 
 class PrepareOvertake(State):
     def execute(self):
-        print("FSM Behavior State: Preparing for Overtake")
+        msg_logger.debug("FSM Behavior State: Preparing for Overtake")
 
     def reset_state(self):
         return 0
@@ -750,7 +752,7 @@ class PrepareOvertake(State):
 
 class Overtake(State):
     def execute(self):
-        print("FSM Behavior State: Overtaking")
+        msg_logger.debug("FSM Behavior State: Overtaking")
 
     def reset_state(self):
         return 0
@@ -773,7 +775,7 @@ class PrepareTrafficLight(State):
         self.cur_state = 'ObservingTrafficLight'
 
     def execute(self):
-        print("FSM Behavior State: Preparing for Traffic Light")
+        msg_logger.debug("FSM Behavior State: Preparing for Traffic Light")
 
         self.FSM_state.traffic_light_state = self.BM_state.current_static_goal.goal_object.get_state_at_time_step(
             time_step=self.BM_state.time_step).value
@@ -786,8 +788,7 @@ class PrepareTrafficLight(State):
 
         # actions
         self.FSM_prepare_traffic_light.execute()
-
-        print("FSM Behavior State: Traffic Light is: ", self.FSM_state.traffic_light_state)
+        msg_logger.debug("FSM Behavior State: Traffic Light is: ", self.FSM_state.traffic_light_state)
 
     def reset_state(self):
         self.cur_state = 'ObservingTrafficLight'
@@ -825,7 +826,7 @@ class TrafficLight(State):
         self.cur_state = self.init_state
 
     def execute(self):
-        print("FSM Behavior State: Traffic Light")
+        msg_logger.debug("FSM Behavior State: Traffic Light")
 
         self.FSM_state.traffic_light_state = self.BM_state.current_static_goal.goal_object.get_state_at_time_step(
             time_step=self.BM_state.time_step).value
@@ -838,7 +839,7 @@ class TrafficLight(State):
 
         # actions
         self.FSM_traffic_light.execute()
-        print("FSM Behavior State: Traffic Light is: ", self.FSM_state.traffic_light_state)
+        msg_logger.debug("FSM Behavior State: Traffic Light is: ", self.FSM_state.traffic_light_state)
 
     def reset_state(self):
         self.cur_state = self.init_state
@@ -849,7 +850,7 @@ class TrafficLight(State):
 
 class PrepareCrosswalk(State):
     def execute(self):
-        print("FSM Behavior State: Preparing for Crosswalk")
+        msg_logger.debug("FSM Behavior State: Preparing for Crosswalk")
 
     def reset_state(self):
         return 0
@@ -857,7 +858,7 @@ class PrepareCrosswalk(State):
 
 class Crosswalk(State):
     def execute(self):
-        print("FSM Behavior State: Crosswalk")
+        msg_logger.debug("FSM Behavior State: Crosswalk")
 
     def reset_state(self):
         return 0
@@ -865,7 +866,7 @@ class Crosswalk(State):
 
 class PrepareStopSign(State):
     def execute(self):
-        print("FSM Behavior State: Preparing for Stop Sign")
+        msg_logger.debug("FSM Behavior State: Preparing for Stop Sign")
 
     def reset_state(self):
         return 0
@@ -873,7 +874,7 @@ class PrepareStopSign(State):
 
 class StopSign(State):
     def execute(self):
-        print("FSM Behavior State: Stop Sign")
+        msg_logger.debug("FSM Behavior State: Stop Sign")
 
     def reset_state(self):
         return 0
@@ -881,7 +882,7 @@ class StopSign(State):
 
 class PrepareYieldSign(State):
     def execute(self):
-        print("FSM Behavior State: Preparing for Yield Sign")
+        msg_logger.debug("FSM Behavior State: Preparing for Yield Sign")
 
     def reset_state(self):
         return 0
@@ -889,7 +890,7 @@ class PrepareYieldSign(State):
 
 class YieldSign(State):
     def execute(self):
-        print("FSM Behavior State: Yield Sign")
+        msg_logger.debug("FSM Behavior State: Yield Sign")
 
     def reset_state(self):
         return 0
@@ -904,7 +905,7 @@ class IdentifyTargetLaneAndVehiclesOnTargetLane(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Identifying target lane and vehicles on target lane")
+        msg_logger.debug("FSM Situation State: Identifying target lane and vehicles on target lane")
         # identify target lanelet
         if self.FSM_state.behavior_state_dynamic == 'PrepareLaneChangeRight':
             self.FSM_state.lane_change_target_lanelet_id = self.BM_state.current_lanelet.adj_right
@@ -931,12 +932,12 @@ class IdentifyFreeSpaceOnTargetLaneForLaneChange(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Identifying free space on target lane")
+        msg_logger.debug("FSM Situation State: Identifying free space on target lane")
         time1 = time.time()
         # if target lane is empty withing search radius
         if not self.FSM_state.obstacles_on_target_lanelet:
             self.FSM_state.free_space_on_target_lanelet = True
-            print('\n*Free Space: Target Lane Empty\n')
+            msg_logger.debug('\n*Free Space: Target Lane Empty\n')
         else:
             self.FSM_state.free_space_offset = 0
             ego_position_offsets = [0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15]
@@ -945,9 +946,6 @@ class IdentifyFreeSpaceOnTargetLaneForLaneChange(State):
             for ego_position_offset in ego_position_offsets:
                 free_space_on_target_lanelet = True
                 if self.FSM_state.free_space_offset == 0 and not self.FSM_state.free_space_on_target_lanelet:
-                    print('-----------------------------------------------------------')
-                    if ego_position_offset != 0:
-                        print('\n*Free Space: Ego position offset: \n', ego_position_offset)
                     for obstacle_id in self.FSM_state.obstacles_on_target_lanelet:
                         obstacle = self.FSM_state.obstacles_on_target_lanelet.get(obstacle_id)
                         obstacle_position = obstacle.get('pos_list')[0]
@@ -956,7 +954,7 @@ class IdentifyFreeSpaceOnTargetLaneForLaneChange(State):
                             obstacle_pos_s = self.BM_state.PP_state.cl_ref_coordinate_system.\
                                 convert_to_curvilinear_coords(x=obstacle_position[0], y=obstacle_position[1])[0]
                         except:
-                            print('\n*Free Space: obstacle out of projection domain. obstacle position: \n',
+                            msg_logger.error('\n*Free Space: obstacle out of projection domain. obstacle position: \n',
                                   obstacle_position)
                             continue
                         '''
@@ -969,10 +967,11 @@ class IdentifyFreeSpaceOnTargetLaneForLaneChange(State):
                                                       self.BM_state.vehicle_params.length / 2 -
                                                       self.BM_state.ego_state.velocity / 2 * risk_factor)):
                                 free_space_on_target_lanelet = False
-                                print('\n*Free Space: obstacle behind ego vehicle')
-                                print('*Free Space: obstacle position: ', obstacle_position)
-                                print('*Free Space: obstacle velocity: ', obstacle_velocity)
-                                print('*Free Space: obstacle is not further behind than half the velocity distance\n')
+
+                                msg_logger.debug('\n*Free Space: obstacle behind ego vehicle')
+                                msg_logger.debug('*Free Space: obstacle position: ', obstacle_position)
+                                msg_logger.debug('*Free Space: obstacle velocity: ', obstacle_velocity)
+                                msg_logger.debug('*Free Space: obstacle is not further behind than half the velocity distance\n')
                         # obstacle in front of ego vehicle
                         else:
                             # if not obstacle is further away than half the velocity distance.
@@ -980,25 +979,24 @@ class IdentifyFreeSpaceOnTargetLaneForLaneChange(State):
                                                       self.BM_state.vehicle_params.length +
                                                       self.BM_state.ego_state.velocity / 2 * risk_factor)):
                                 free_space_on_target_lanelet = False
-                                print('\n*Free Space: obstacle in front of ego vehicle')
-                                print('*Free Space: obstacle position: ', obstacle_position)
-                                print('*Free Space: obstacle velocity: ', obstacle_velocity)
-                                print('*Free Space: obstacle is not further away than half the velocity distance\n')
+                                msg_logger.debug('\n*Free Space: obstacle in front of ego vehicle')
+                                msg_logger.debug('*Free Space: obstacle position: ', obstacle_position)
+                                msg_logger.debug('*Free Space: obstacle velocity: ', obstacle_velocity)
+                                msg_logger.debug('*Free Space: obstacle is not further away than half the velocity distance\n')
                 if ego_position_offset == 0:
                     if free_space_on_target_lanelet:
                         self.FSM_state.free_space_on_target_lanelet = True
                         break
                 else:
                     if free_space_on_target_lanelet:
-                        print('\n*Free Space: free space detected with offset: \n', ego_position_offset)
+                        msg_logger.debug('\n*Free Space: free space detected with offset: \n', ego_position_offset)
                         self.FSM_state.free_space_offset = ego_position_offset
                         self.FSM_state.change_velocity_for_lane_change = True
                         break
-                # print('-----------------------------------------------------------')
         if self.FSM_state.free_space_on_target_lanelet:
-            print('\n*Free Space: free space detected\n')
+            msg_logger.debug('\n*Free Space: free space detected\n')
         time2 = time.time()
-        print('Free Space calc time: ', time2-time1)
+        msg_logger.debug('Free Space calc time: ', time2-time1)
 
 
 class IdentifyFreeSpaceOnTargetLaneForLaneMerge(State):
@@ -1007,12 +1005,12 @@ class IdentifyFreeSpaceOnTargetLaneForLaneMerge(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Identifying free space on target lane")
+        msg_logger.debug("FSM Situation State: Identifying free space on target lane")
         time1 = time.time()
         # if target lane is empty withing search radius
         if not self.FSM_state.obstacles_on_target_lanelet:
             self.FSM_state.free_space_on_target_lanelet = True
-            print('\n*Free Space: Target Lane Empty\n')
+            msg_logger.debug('\n*Free Space: Target Lane Empty\n')
         else:
             self.FSM_state.free_space_offset = 0
             ego_position_offsets = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6, -7, 7, -8, 8, -9, 9, -10, 10, -11, 11,
@@ -1022,9 +1020,8 @@ class IdentifyFreeSpaceOnTargetLaneForLaneMerge(State):
             for ego_position_offset in ego_position_offsets:
                 free_space_on_target_lanelet = True
                 if self.FSM_state.free_space_offset == 0 and not self.FSM_state.free_space_on_target_lanelet:
-                    print('-----------------------------------------------------------')
                     if ego_position_offset != 0:
-                        print('\n*Free Space: Ego position offset: \n', ego_position_offset)
+                        msg_logger.debug('\n*Free Space: Ego position offset: \n', ego_position_offset)
                     for obstacle_id in self.FSM_state.obstacles_on_target_lanelet:
                         obstacle = self.FSM_state.obstacles_on_target_lanelet.get(obstacle_id)
                         obstacle_position = obstacle.get('pos_list')[0]
@@ -1033,7 +1030,7 @@ class IdentifyFreeSpaceOnTargetLaneForLaneMerge(State):
                             obstacle_pos_s = self.BM_state.PP_state.cl_ref_coordinate_system.\
                                 convert_to_curvilinear_coords(x=obstacle_position[0], y=obstacle_position[1])[0]
                         except:
-                            print('\n*Free Space: obstacle out of projection domain. obstacle position: \n',
+                            msg_logger.error('\n*Free Space: obstacle out of projection domain. obstacle position: \n',
                                   obstacle_position)
                             continue
                         '''
@@ -1046,10 +1043,10 @@ class IdentifyFreeSpaceOnTargetLaneForLaneMerge(State):
                                                       self.BM_state.vehicle_params.length / 2 -
                                                       self.BM_state.ego_state.velocity / 2 * risk_factor)):
                                 free_space_on_target_lanelet = False
-                                print('\n*Free Space: obstacle behind ego vehicle')
-                                print('*Free Space: obstacle position: ', obstacle_position)
-                                print('*Free Space: obstacle velocity: ', obstacle_velocity)
-                                print('*Free Space: obstacle is not further behind than half the velocity distance\n')
+                                msg_logger.debug('\n*Free Space: obstacle behind ego vehicle')
+                                msg_logger.debug('*Free Space: obstacle position: ', obstacle_position)
+                                msg_logger.debug('*Free Space: obstacle velocity: ', obstacle_velocity)
+                                msg_logger.debug('*Free Space: obstacle is not further behind than half the velocity distance\n')
                         # obstacle in front of ego vehicle
                         else:
                             # if not obstacle is further away than half the velocity distance.
@@ -1057,65 +1054,64 @@ class IdentifyFreeSpaceOnTargetLaneForLaneMerge(State):
                                                       self.BM_state.vehicle_params.length +
                                                       self.BM_state.ego_state.velocity / 2 * risk_factor)):
                                 free_space_on_target_lanelet = False
-                                print('\n*Free Space: obstacle in front of ego vehicle')
-                                print('*Free Space: obstacle position: ', obstacle_position)
-                                print('*Free Space: obstacle velocity: ', obstacle_velocity)
-                                print('*Free Space: obstacle is not further away than half the velocity distance\n')
+                                msg_logger.debug('\n*Free Space: obstacle in front of ego vehicle')
+                                msg_logger.debug('*Free Space: obstacle position: ', obstacle_position)
+                                msg_logger.debug('*Free Space: obstacle velocity: ', obstacle_velocity)
+                                msg_logger.debug('*Free Space: obstacle is not further away than half the velocity distance\n')
                 if ego_position_offset == 0:
                     if free_space_on_target_lanelet:
                         self.FSM_state.free_space_on_target_lanelet = True
                         break
                 else:
                     if free_space_on_target_lanelet:
-                        print('\n*Free Space: free space detected with offset: \n', ego_position_offset)
+                        msg_logger.debug('\n*Free Space: free space detected with offset: \n', ego_position_offset)
                         self.FSM_state.free_space_offset = ego_position_offset
                         self.FSM_state.change_velocity_for_lane_change = True
                         break
-                # print('-----------------------------------------------------------')
         if self.FSM_state.free_space_on_target_lanelet:
-            print('\n*Free Space: free space detected\n')
+            msg_logger.debug('\n*Free Space: free space detected\n')
         time2 = time.time()
-        print('Free Space calc time: ', time2-time1)
+        msg_logger.debug('Free Space calc time: ', time2-time1)
 
 
 class PreparationsDone(State):
     def execute(self):
-        print("FSM Situation State: Preparations Done")
+        msg_logger.debug("FSM Situation State: Preparations Done")
 
 
 class InitiateLaneChange(State):
     def execute(self):
-        print("FSM Situation State: Initiating lane change")
+        msg_logger.debug("FSM Situation State: Initiating lane change")
 
 
 class EgoVehicleBetweenTwoLanes(State):
     def execute(self):
-        print("FSM Situation State: Vehicle crossing lanes")
+        msg_logger.debug("FSM Situation State: Vehicle crossing lanes")
 
 
 class LaneChangeComplete(State):
     def execute(self):
-        print("FSM Situation State: Lane change complete")
+        msg_logger.debug("FSM Situation State: Lane change complete")
 
 
 class BehaviorStateComplete(State):
     def execute(self):
-        print("FSM Situation State: Behavior State complete")
+        msg_logger.debug("FSM Situation State: Behavior State complete")
 
 
 class EstimateMergingLaneLengthAndEmergencyStopPoint(State):
     def execute(self):
-        print("FSM Situation State: Estimating merging lane length and setting emergency stop point")
+        msg_logger.debug("FSM Situation State: Estimating merging lane length and setting emergency stop point")
 
 
 class InitiateLaneMerge(State):
     def execute(self):
-        print("FSM Situation State: Initiating lane merge")
+        msg_logger.debug("FSM Situation State: Initiating lane merge")
 
 
 class InitiateRoadExit(State):
     def execute(self):
-        print("FSM Situation State: Preparations Done")
+        msg_logger.debug("FSM Situation State: Preparations Done")
 
 
 class ObservingTrafficLight(State):
@@ -1124,7 +1120,7 @@ class ObservingTrafficLight(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Observing Traffic Light")
+        msg_logger.debug("FSM Situation State: Observing Traffic Light")
 
 
 class SlowingDown(State):
@@ -1134,7 +1130,7 @@ class SlowingDown(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Slowing Down Car")
+        msg_logger.debug("FSM Situation State: Slowing Down Car")
         self.FSM_state.slowing_car_for_traffic_light = True
         self.VP_state.dist_to_tlna = self.BM_state.current_static_goal.stop_point_s - self.BM_state.nav_position_s - \
                                    self.BM_state.vehicle_params.length
@@ -1148,8 +1144,7 @@ class SlowingDown(State):
                 self.VP_state.stop_distance = self.VP_state.dist_preceding_veh - \
                                               self.BM_state.vehicle_params.length - \
                                               self.VP_state.closest_preceding_vehicle.get('shape').get('length')
-
-        print("FSM distance to stopping line is: ", self.VP_state.dist_to_tl)
+        msg_logger.debug("FSM distance to stopping line is: ", self.VP_state.dist_to_tl)
 
 
 class GreenLight(State):
@@ -1158,7 +1153,7 @@ class GreenLight(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Green Light")
+        msg_logger.debug("FSM Situation State: Green Light")
         self.FSM_state.slowing_car_for_traffic_light = False
 
 
@@ -1169,7 +1164,7 @@ class Stopping(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Stopping the Car")
+        msg_logger.debug("FSM Situation State: Stopping the Car")
         self.FSM_state.slowing_car_for_traffic_light = True
         self.VP_state.dist_to_tl = self.BM_state.current_static_goal.stop_point_s - self.BM_state.nav_position_s - \
                                    self.BM_state.vehicle_params.length
@@ -1184,7 +1179,7 @@ class Stopping(State):
                                               self.BM_state.vehicle_params.length - \
                                               self.VP_state.closest_preceding_vehicle.get('shape').get('length')
 
-        print("FSM distance to stopping line is: ", self.VP_state.dist_to_tl)
+        msg_logger.debug("FSM distance to stopping line is: ", self.VP_state.dist_to_tl)
 
 
 class WaitingForGreenLight(State):
@@ -1193,7 +1188,7 @@ class WaitingForGreenLight(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Waiting for Green Light")
+        msg_logger.debug("FSM Situation State: Waiting for Green Light")
 
 
 class ContinueDriving(State):
@@ -1202,7 +1197,7 @@ class ContinueDriving(State):
         self.FSM_state = BM_state.FSM_state
 
     def execute(self):
-        print("FSM Situation State: Continue driving")
+        msg_logger.debug("FSM Situation State: Continue driving")
         self.FSM_state.slowing_car_for_traffic_light = False
         self.FSM_state.waiting_for_green_light = False
 
@@ -1217,4 +1212,4 @@ class Transition(object):
         self.to_state = to_state
 
     def execute(self):
-        print("FSM Transitioning to: ", self.to_state)
+        msg_logger.debug("FSM Transitioning to: ", self.to_state)
