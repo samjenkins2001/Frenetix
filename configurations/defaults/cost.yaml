@@ -1,5 +1,5 @@
-params:
-  cluster0:
+cost_weights:
+
     Acceleration: 0.0
     Jerk: 0.00
     Lateral Jerk: 0.1

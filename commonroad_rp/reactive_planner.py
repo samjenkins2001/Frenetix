@@ -114,14 +114,14 @@ class ReactivePlanner(object):
         self._desired_d = 0.
         self.max_seen_costs = 1
 
-        # **************************
-        # Handler import
-        # **************************
+        # *****************************
+        # C++ Trajectory Handler Import
+        # *****************************
 
         self.handler: TrajectoryHandler = TrajectoryHandler(dt=config.planning.dt)
-        self.params = OmegaConf.to_object(config.cost.params)
+        self.cost_weights = OmegaConf.to_object(config.cost.cost_weights)
         self.coordinate_system: CoordinateSystemWrapper
-        self.set_handler_constant_functions()
+        self.trajectory_handler_set_constant_functions()
         # **************************
         # Extensions Initialization
         # **************************
@@ -164,7 +164,7 @@ class ReactivePlanner(object):
         self.use_occ_model = config.occlusion.use_occlusion_module
         self.logger = DataLoggingCosts(path_logs=log_path,
                                        save_all_traj=self.save_all_traj or self.use_amazing_visualizer,
-                                       cost_params=config.cost.params.cluster0)
+                                       cost_params=config.cost.cost_weights)
         self._draw_traj_set = config.debug.draw_traj_set
         self._kinematic_debug = config.debug.kinematic_debug
 
@@ -188,8 +188,8 @@ class ReactivePlanner(object):
 
         # check whether reachable sets have to be calculated for responsibility
         if (
-                'R' in config.cost.params.cluster0
-                and config.cost.params.cluster0['R'] > 0
+                'R' in self.cost_weights
+                and self.cost_weights['R'] > 0
         ):
             self.responsibility = True
             self.reach_set = reachable_set.ReachSet(
@@ -349,59 +349,63 @@ class ReactivePlanner(object):
         self.cost_function = cost_function
         self.logger.set_logging_header(cost_function.PartialCostFunctionMapping)
 
-    def set_handler_constant_functions(self):
-        self.handler.add_feasability_function(CheckYawRateConstraint(deltaMax=self.vehicle_params.delta_max, wheelbase=self.vehicle_params.wheelbase))
-        self.handler.add_feasability_function(CheckAccelerationConstraint(switchingVelocity=self.vehicle_params.v_switch, maxAcceleration=self.vehicle_params.a_max))
-        self.handler.add_feasability_function(CheckCurvatureConstraint(deltaMax=self.vehicle_params.delta_max, wheelbase=self.vehicle_params.wheelbase))
-        self.handler.add_feasability_function(CheckCurvatureRateConstraint(wheelbase=self.vehicle_params.wheelbase, velocityDeltaMax=self.vehicle_params.v_delta_max))
+    def trajectory_handler_set_constant_functions(self):
+        self.handler.add_feasability_function(CheckYawRateConstraint(deltaMax=self.vehicle_params.delta_max,
+                                                                     wheelbase=self.vehicle_params.wheelbase))
+        self.handler.add_feasability_function(CheckAccelerationConstraint(switchingVelocity=self.vehicle_params.v_switch,
+                                                                          maxAcceleration=self.vehicle_params.a_max))
+        self.handler.add_feasability_function(CheckCurvatureConstraint(deltaMax=self.vehicle_params.delta_max,
+                                                                       wheelbase=self.vehicle_params.wheelbase))
+        self.handler.add_feasability_function(CheckCurvatureRateConstraint(wheelbase=self.vehicle_params.wheelbase,
+                                                                           velocityDeltaMax=self.vehicle_params.v_delta_max))
 
         name = "Acceleration"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateAccelerationCost(name, self.params["cluster0"][name]))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateAccelerationCost(name, self.cost_weights[name]))
 
         name = "Jerk"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateJerkCost(name, self.params["cluster0"][name]))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateJerkCost(name, self.cost_weights[name]))
 
         name = "Lateral Jerk"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateLateralJerkCost(name, self.params["cluster0"][name]))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateLateralJerkCost(name, self.cost_weights[name]))
 
         name = "Longitudinal Jerk"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateLongitudinalJerkCost(name, self.params["cluster0"][name]))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateLongitudinalJerkCost(name, self.cost_weights[name]))
 
         name = "Orientation Offset"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateOrientationOffsetCost(name, self.params["cluster0"][name]))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateOrientationOffsetCost(name, self.cost_weights[name]))
 
         name = "Path Length"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             msg_logger.info("Path Length not implemented yet")
 
         name = "Lane Center Offset"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateLaneCenterOffsetCost(name, self.params["cluster0"][name]))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateLaneCenterOffsetCost(name, self.cost_weights[name]))
 
         name = "Velocity Costs"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             msg_logger.info("Velocity Costs not implemented yet")
 
         name = "Distance to Reference Path"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateDistanceToReferencePathCost(name, self.params["cluster0"][name]))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateDistanceToReferencePathCost(name, self.cost_weights[name]))
 
-    def set_handler_changing_functions(self):
+    def trajectory_handler_set_changing_functions(self):
 
         self.handler.add_function(FillCoordinates(lowVelocityMode=self._LOW_VEL_MODE,
                                                   initialOrientation=self.x_0.orientation,
                                                   coordinateSystem=self.coordinate_system))
         name = "Prediction"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.params["cluster0"][name], self.predictionsForCpp))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.cost_weights[name], self.predictionsForCpp))
 
         name = "Distance to Obstacles"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             obstacle_positions = np.zeros((len(self.scenario.obstacles), 2))
             for i, obstacle in enumerate(self.scenario.obstacles):
                 state = obstacle.state_at_time(self.x_0.time_step)
@@ -409,11 +413,11 @@ class ReactivePlanner(object):
                     obstacle_positions[i, 0] = state.position[0]
                     obstacle_positions[i, 1] = state.position[1]
 
-            self.handler.add_cost_function(CalculateDistanceToObstacleCost(name, self.params["cluster0"][name], obstacle_positions))
+            self.handler.add_cost_function(CalculateDistanceToObstacleCost(name, self.cost_weights[name], obstacle_positions))
 
         name = "Velocity Offset"
-        if name in self.params["cluster0"].keys() and self.params["cluster0"][name] > 0:
-            self.handler.add_cost_function(CalculateVelocityOffsetCost(name, self.params["cluster0"][name], self._desired_speed))
+        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
+            self.handler.add_cost_function(CalculateVelocityOffsetCost(name, self.cost_weights[name], self._desired_speed))
 
     def set_reference_path(self, reference_path: np.ndarray):
         """
@@ -624,7 +628,7 @@ class ReactivePlanner(object):
         # **************************************
         # Initialization of Cpp Frenet Functions
         # **************************************
-        self.set_handler_changing_functions()
+        self.trajectory_handler_set_changing_functions()
         initial_state = TrajectorySample(x0=self.x_0.position[0],
                                          y0=self.x_0.position[1],
                                          orientation0=self.x_0.orientation,
