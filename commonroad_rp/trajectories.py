@@ -508,7 +508,6 @@ class TrajectoryBundle:
         self._is_sorted_all = False
         self._multiproc = multiproc
         self._num_workers = num_workers
-        self.cluster = None
 
     @property
     def trajectories(self) -> List[TrajectorySample]:
@@ -526,13 +525,13 @@ class TrajectoryBundle:
         """
         self._trajectory_bundle = trajectories
 
-    def _calc_prediction(self, trajectories: List[TrajectorySample], index: int, queue_prediction=None, queue_responsibility=None):
+    def _calc_prediction(self, trajectories: List[TrajectorySample]):
         prediction_cost_list, responsibility_cost_list = self._cost_function.calc_prediction(trajectories)
-        queue_prediction.put((index, prediction_cost_list))
-        queue_responsibility.put((index, responsibility_cost_list))
+        return prediction_cost_list, responsibility_cost_list
 
-    def _calc_cost(self, trajectories: List[TrajectorySample], list_predictions, list_responsibilities, cluster_name=None, queue_1=None):
-        self._cost_function.calc_cost(trajectories, list_predictions, list_responsibilities, cluster_name)
+    def _calc_cost(self, trajectories: List[TrajectorySample], queue_1=None):
+        list_predictions, list_responsibilities = self._calc_prediction(trajectories)
+        self._cost_function.calc_cost(trajectories, list_predictions, list_responsibilities)
         queue_1.put(trajectories)
 
     def sort(self, occlusion_module=None):
@@ -548,45 +547,13 @@ class TrajectoryBundle:
                         chunk_size = math.ceil(len(self._trajectory_bundle) / self._num_workers)
                         chunks = [self._trajectory_bundle[ii * chunk_size: min(len(self._trajectory_bundle),
                                   (ii + 1) * chunk_size)] for ii in range(0, self._num_workers)]
+
+                        queue_1 = multiprocessing.Queue()
                         list_processes = []
                         trajectories_proc = []
 
-                        # first calculate the prediction cost, which needed for cluster assignment
-                        # setup lists
-                        list_predictions = ([[] for pred in repeat(None, self._num_workers)])
-                        list_responsibilities = ([[] for resp in repeat(None, self._num_workers)])
-
-                        queue_1 = multiprocessing.Queue()
-                        queue_prediction = multiprocessing.Queue()
-                        queue_responsibility = multiprocessing.Queue()
-
                         for i, chunk in enumerate(chunks):
-                            p = Process(target=self._calc_prediction, args=(chunk, i, queue_prediction, queue_responsibility))
-                            list_processes.append(p)
-                            p.start()
-                        for p in list_processes:
-                            p.join()
-                        # # get return values from queue
-                        for p in enumerate(list_processes):
-                            pred = (queue_prediction.get())
-                            list_predictions[pred[0]] = pred[1]
-                            resp = (queue_responsibility.get())
-                            list_responsibilities[resp[0]] = resp[1]
-
-                        if self._cost_function.use_clusters:
-                            # get cluster assignment based on prediction cost
-                            flattened_pred_cost = np.concatenate(list_predictions).flat
-                            cluster = self._cost_function.cluster_prediction.evaluate(self._trajectory_bundle, flattened_pred_cost)
-                            cluster_name = self._cost_function.get_cluster_name_by_index(cluster)
-                            self.cluster = int(cluster_name[-1])  # currently limited to 10 clusters
-                        else:
-                            cluster_name = "cluster0"
-                            self.cluster = int(0)
-
-                        # calculate costs based on cluster
-                        list_processes = []
-                        for i, chunk in enumerate(chunks):
-                            p = Process(target=self._calc_cost, args=(chunk, list_predictions[i], list_responsibilities[i], cluster_name, queue_1))
+                            p = Process(target=self._calc_cost, args=(chunk, queue_1))
                             list_processes.append(p)
                             p.start()
                         # # get return values from queue

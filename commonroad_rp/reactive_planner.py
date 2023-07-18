@@ -15,6 +15,7 @@ import logging
 import multiprocessing
 from risk_assessment.risk_costs import calc_risk
 from multiprocessing.context import Process
+from omegaconf import OmegaConf
 
 # commonroad-io
 from commonroad.common.validity import *
@@ -35,9 +36,9 @@ from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajec
 from commonroad_rp.parameter import TimeSampling, VelocitySampling, PositionSampling
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
-from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle, smooth_ref_path
+from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from commonroad_rp.utility import reachable_set
-from commonroad_rp.state import ReactivePlannerState, shift_orientation
+from commonroad_rp.state import ReactivePlannerState
 
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 from cr_scenario_handler.utils.configuration import Configuration
@@ -111,6 +112,7 @@ class ReactivePlanner(object):
         self._desired_speed = None
         self._desired_d = 0.
         self.max_seen_costs = 1
+        self.cost_weights = OmegaConf.to_object(config.cost.cost_weights)
 
         # **************************
         # Extensions Initialization
@@ -178,8 +180,8 @@ class ReactivePlanner(object):
 
         # check whether reachable sets have to be calculated for responsibility
         if (
-                'R' in config.cost.params.cluster0
-                and config.cost.params.cluster0['R'] > 0
+                'R' in self.cost_weights
+                and self.cost_weights['R'] > 0
         ):
             self.responsibility = True
             self.reach_set = reachable_set.ReachSet(
@@ -642,7 +644,7 @@ class ReactivePlanner(object):
         cvlnTraj = Trajectory(self.x_0.time_step, cl_list)
 
         # correct orientations of cartesian output trajectory
-        cartTraj_corrected = shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
+        cartTraj_corrected = self.shift_orientation(cartTraj, interval_start=self.x_0.orientation - np.pi,
                                                     interval_end=self.x_0.orientation + np.pi)
 
         return cartTraj_corrected, cvlnTraj, lon_list, lat_list
@@ -705,7 +707,6 @@ class ReactivePlanner(object):
         # initialize optimal trajectory dummy
         optimal_trajectory = None
         trajectory_pair = None
-        cluster_ = None
         t0 = time.time()
 
         # initial index of sampling set to use
@@ -731,7 +732,7 @@ class ReactivePlanner(object):
 
             self.logger.trajectory_number = self.x_0.time_step
 
-            optimal_trajectory, cluster_ = self._get_optimal_trajectory(bundle, self.predictions, i)
+            optimal_trajectory = self._get_optimal_trajectory(bundle, self.predictions, i)
             trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
 
             # create CommonRoad Obstacle for the ego Vehicle
@@ -767,10 +768,10 @@ class ReactivePlanner(object):
             self.logger.log(optimal_trajectory, infeasible_kinematics=self.infeasible_count_kinematics,
                             percentage_kinematics=self.infeasible_kinematics_percentage,
                             infeasible_collision=self.infeasible_count_collision, planning_time=planning_time,
-                            cluster=cluster_, ego_vehicle=self.ego_vehicle_history[-1])
+                            ego_vehicle=self.ego_vehicle_history[-1])
             self.logger.log_predicition(self.predictions)
         if self.save_all_traj or self.use_amazing_visualizer:
-            self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step, cluster=cluster_)
+            self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step)
 
         # **************************
         # Check Cost Status
@@ -1222,7 +1223,7 @@ class ReactivePlanner(object):
             return optimal_trajectory
 
         else:
-            return optimal_trajectory, trajectory_bundle.cluster
+            return optimal_trajectory
 
     def trajectory_collision_check(self, feasible_trajectories):
         """
@@ -1366,4 +1367,12 @@ class ReactivePlanner(object):
         )
         trajectory._ego_risk = ego_risk
         trajectory._obst_risk = obst_risk
+        return trajectory
+
+    def shift_orientation(self, trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
+        for state in trajectory.state_list:
+            while state.orientation < interval_start:
+                state.orientation += 2 * np.pi
+            while state.orientation > interval_end:
+                state.orientation -= 2 * np.pi
         return trajectory

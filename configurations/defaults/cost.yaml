@@ -1,5 +1,5 @@
-params:
-  cluster0:
+cost_weights:
+
     A: 0.0
     J: 0.00
     Jlat: 1.
@@ -19,91 +19,6 @@ params:
     Occ_PM: 0 # Occlusion Phantom Module (phantom pedestrian harm)
     Occ_UM: 0 # Occlusion Uncertainty Module (distance to uncertainty map)
     Occ_VE: 0 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
-
-  cluster1:
-    A: 0.0
-    J: 0.00
-    Jlat: 0.01
-    Jlon: 0.01
-    O: 1.0
-    L: 1.0
-
-    LC: 10.0
-    V: 0.1
-    VC: 0.1
-    DR: 10
-    DO: 20
-
-    P: 500
-    R: 0
-
-  cluster2:
-    A: 0.0
-    J: 0.00
-    Jlat: 0.01
-    Jlon: 0.01
-    O: 1.0
-    L: 1.0
-
-    LC: 10.0
-    V: 0.1
-    VC: 0.1
-    DR: 10
-    DO: 20
-
-    P: 500
-    R: 0
-
-  cluster3:
-    A: 0.0
-    J: 0.00
-    Jlat: 0.01
-    Jlon: 0.01
-    O: 1.0
-    L: 1.0
-
-    LC: 10.0
-    V: 0.1
-    VC: 0.1
-    DR: 10
-    DO: 20
-
-    P: 500
-    R: 0
-
-  cluster4:
-    A: 0.0
-    J: 0.00
-    Jlat: 0.01
-    Jlon: 0.01
-    O: 1.0
-    L: 1.0
-
-    LC: 10.0
-    V: 0.1
-    VC: 0.1
-    DR: 10
-    DO: 20
-
-    P: 500
-    R: 0
-
-  cluster5:
-    A: 0.0
-    J: 0.00
-    Jlat: 0.01
-    Jlon: 0.01
-    O: 1.0
-    L: 1.0
-
-    LC: 10.0
-    V: 0.1
-    VC: 0.1
-    DR: 10
-    DO: 20
-
-    P: 500
-    R: 0
 
 normalizers:
   means: [ 7.05110264e-03,  7.18838630e+00,  2.84390826e-01,  3.62645397e-01 ,1.02147705e+00, -3.33536304e+01]

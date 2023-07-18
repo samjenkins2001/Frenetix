@@ -114,9 +114,9 @@ class CoordinateSystem:
         self._ref_theta = np.unwrap(compute_orientation_from_polyline(self.reference))
         self._ref_curv_d = np.gradient(self._ref_curv, self._ref_pos)
         self._ref_curv_dd = np.gradient(self._ref_curv_d, self._ref_pos)
-        plt.clf()
-        plt.plot(self._ref_pos[50:-50], self._ref_curv_d[50:-50])
-        plt.savefig('curv_window.png')
+        # plt.clf()
+        # plt.plot(self._ref_pos[50:-50], self._ref_curv_d[50:-50])
+        # plt.savefig('curv_window.png')
 
     @property
     def reference(self) -> np.ndarray:

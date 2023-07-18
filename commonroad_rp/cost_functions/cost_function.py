@@ -104,14 +104,8 @@ class AdaptableCostFunction(CostFunction):
         self.cluster_prediction = None
 
         self.vehicle_params = rp.vehicle_params
-        self.params = OmegaConf.to_object(configuration.cost.params)
+        self.cost_weights = OmegaConf.to_object(configuration.cost.cost_weights)
         self.save_unweighted_costs = configuration.debug.save_unweighted_costs
-        self.use_clusters = configuration.planning.use_clusters
-        if self.use_clusters:
-            self.cluster_mapping = {}
-            for i in range(configuration.planning.nr_clusters):
-                self.cluster_mapping[i] = "cluster"+str(i)
-            self.cluster_prediction = ClusterBasedCostFunction(self.rp, self.configuration)
 
         self.PartialCostFunctionMapping = {
             PartialCostFunction.A: cost_functions.acceleration_cost,
@@ -139,10 +133,9 @@ class AdaptableCostFunction(CostFunction):
 
     def delete_irrelevant_costs(self):
         irrelevant_costs = []
-        for category in list(self.params.keys()):
-            for costs in list(self.params[category].keys()):
-                if self.params[category][costs] == 0:
-                    irrelevant_costs.append(costs)
+        for category in list(self.cost_weights.keys()):
+            if self.cost_weights[category] == 0:
+                irrelevant_costs.append(category)
 
         for idx, name in enumerate(list(self.PartialCostFunctionMapping.keys())):
             if str(name).split('.')[1] in irrelevant_costs:
@@ -219,7 +212,7 @@ class AdaptableCostFunction(CostFunction):
         return prediction_cost_list, responsibility_cost_list
 
     # calculate all costs (except prediction) and weigh them
-    def calc_cost(self,  trajectories: List[TrajectorySample], prediction_cost_list, responsibility_cost_list, scenario="cluster0"):
+    def calc_cost(self,  trajectories: List[TrajectorySample], prediction_cost_list, responsibility_cost_list):
 
         for i, trajectory in enumerate(trajectories):
             costlist = np.zeros(len(self.PartialCostFunctionMapping) + 2)
@@ -228,17 +221,17 @@ class AdaptableCostFunction(CostFunction):
             for num, function in enumerate(self.PartialCostFunctionMapping):
                 costlist[num] = self.PartialCostFunctionMapping[function](trajectory, self.rp,
                                                                           self.scenario, self.desired_speed)
-                costlist_weighted[num] = self.params[scenario][function.value] * costlist[num]
+                costlist_weighted[num] = self.cost_weights[function.value] * costlist[num]
 
             # add prediction lost to list
             costlist[-2] = prediction_cost_list[i]
-            costlist_weighted[-2] = prediction_cost_list[i] * self.params[scenario]["P"]
+            costlist_weighted[-2] = prediction_cost_list[i] * self.cost_weights["P"]
 
             if any(responsibility_cost_list) > 0:
-                if responsibility_cost_list[i] * self.params[scenario]["R"] > prediction_cost_list[i] * self.params[scenario]["P"]:
+                if responsibility_cost_list[i] * self.cost_weights["R"] > prediction_cost_list[i] * self.cost_weights["P"]:
                     costlist_weighted[-1] = costlist_weighted[-2] * 0.8
                 else:
-                    costlist_weighted[-1] = responsibility_cost_list[i] * self.params[scenario]["R"]
+                    costlist_weighted[-1] = responsibility_cost_list[i] * self.cost_weights["R"]
 
                 costlist[-1] = responsibility_cost_list[i]
             else:
