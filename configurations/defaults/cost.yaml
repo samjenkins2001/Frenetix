@@ -13,7 +13,7 @@ cost_weights:
     DR: 1
     DO: 0
 
-    P: 0.1
+    P: 10
     R: 0
 
     Occ_PM: 0 # Occlusion Phantom Module (phantom pedestrian harm)

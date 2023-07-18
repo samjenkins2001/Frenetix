@@ -14,13 +14,13 @@ plot_window_dyn: 30
 # draw obstacles with vehicle icons
 draw_icons: True
 # draw sampled trajectory set
-draw_traj_set: True
+draw_traj_set: False
 
 kinematic_debug: True
 
 # Messages Logging
 # Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
-msg_log_mode: INFO
+msg_log_mode: NOTSET
 
 # use multiprocessing True/False
 multiproc: True
