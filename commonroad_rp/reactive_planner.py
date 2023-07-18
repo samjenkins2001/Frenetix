@@ -745,7 +745,7 @@ class ReactivePlanner(object):
 
             if self.behavior:
                 if self.behavior.flags["waiting_for_green_light"]:
-                    optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
+                    optimal_trajectory = self._compute_standstill_trajectory()
 
             msg_logger.debug('Rejected {} infeasible trajectories due to kinematics'.format(
                 self.infeasible_count_kinematics))
@@ -759,7 +759,7 @@ class ReactivePlanner(object):
         if optimal_trajectory is None and self.x_0.velocity <= 0.1:
             msg_logger.warning('Planning standstill for the current scenario')
             self.logger.trajectory_number = self.x_0.time_step
-            optimal_trajectory = self._compute_standstill_trajectory(self.x_0, x_0_lon, x_0_lat)
+            optimal_trajectory = self._compute_standstill_trajectory()
 
         # **************************
         # Logging
