@@ -41,7 +41,7 @@ from commonroad_rp.parameter import TimeSampling, VelocitySampling, PositionSamp
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
-from commonroad_rp.utility import reachable_set
+
 from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.prediction_helpers import collision_checker_prediction
 
@@ -50,7 +50,6 @@ from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 from cr_scenario_handler.utils.configuration import Configuration
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
 
-from commonroad_rp.utility.responsibility import assign_responsibility_by_action_space
 from commonroad_rp.utility import helper_functions as hf
 
 from commonroad_rp.utility.load_json import (
@@ -100,6 +99,7 @@ class ReactivePlanner(object):
         self.scenario = scenario
         self.planning_problem = planning_problem
         self.predictions = None
+        self.reach_set = None
         self.behavior = None
         self.set_new_ref_path = None
         self.cost_function = None
@@ -181,23 +181,6 @@ class ReactivePlanner(object):
         except:
             raise RuntimeError("Road Boundary can not be created")
 
-        # check whether reachable sets have to be calculated for responsibility
-        if (
-                'R' in self.cost_weights
-                and self.cost_weights['R'] > 0
-        ):
-            self.responsibility = True
-            self.reach_set = reachable_set.ReachSet(
-                scenario=self.scenario,
-                ego_id=24,
-                ego_length=config.vehicle.length,
-                ego_width=config.vehicle.width,
-                work_dir=work_dir
-            )
-        else:
-            self.responsibility = False
-            self.reach_set = None
-
     @property
     def goal_checker(self):
         """Return the goal checker."""
@@ -234,8 +217,8 @@ class ReactivePlanner(object):
     def update_externals(self, scenario: Scenario = None, reference_path: np.ndarray = None,
                          planning_problem: PlanningProblem = None, goal_area: GoalRegion = None,
                          x_0: ReactivePlannerState = None, x_cl: Optional[Tuple[List, List]] = None,
-                         cost_function=None,  occlusion_module=None, desired_velocity: float = None,
-                         predictions=None, behavior=None):
+                         cost_function=None, occlusion_module=None, desired_velocity: float = None,
+                         predictions=None, reach_set=None, behavior=None):
         """
         Sets all external information in reactive planner
         :param scenario: Commonroad scenario
@@ -248,6 +231,7 @@ class ReactivePlanner(object):
         :param occlusion_module: occlusion module setup
         :param desired_velocity: desired velocity in mps
         :param predictions: external calculated predictions of other obstacles
+        :param reach_set: external calculated reach_sets
         :param behavior: behavior planner setup
         """
         if scenario is not None:
@@ -269,6 +253,8 @@ class ReactivePlanner(object):
             self.set_desired_velocity(desired_velocity, x_0.velocity)
         if predictions is not None:
             self.set_predictions(predictions)
+        if reach_set is not None:
+            self.set_reach_set(reach_set)
         if behavior is not None:
             self.set_behavior(behavior)
 
@@ -279,6 +265,9 @@ class ReactivePlanner(object):
 
     def set_predictions(self, predictions: dict):
         self.predictions = predictions
+
+    def set_reach_set(self, reach_set):
+        self.reach_set = reach_set
 
     def set_x_0(self, x_0: ReactivePlannerState):
         # set Cartesian initial state
@@ -465,14 +454,6 @@ class ReactivePlanner(object):
         Plans an optimal trajectory
         :return: Optimal trajectory as tuple
         """
-
-        # Assign responsibility to predictions
-        if self.responsibility:
-            self.predictions = assign_responsibility_by_action_space(
-                self.scenario, self.x_0, self.predictions
-            )
-            # calculate reachable sets
-            self.reach_set.calc_reach_sets(self.x_0, list(self.predictions.keys()))
 
         msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(self.x_cl[0], self.x_cl[1]))
         msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))

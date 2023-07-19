@@ -78,6 +78,7 @@ def run_planner(config, log_path, mod_path):
     behavior = None
     behavior_modul = None
     predictions = None
+    reach_set = None
     visible_area = None
     occlusion_map = None
     occlusion_module = None
@@ -103,10 +104,13 @@ def run_planner(config, log_path, mod_path):
                                         config=config)
         reference_path = behavior_modul.reference_path
 
-    # **************************
-    # Load Prediction
-    # **************************
+    # *****************************
+    # Load Prediction and Reach Set
+    # *****************************
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
+
+    if 'R' in config.cost.cost_weights and config.cost.cost_weights['R'] > 0:
+        reach_set = ph.load_reachset(scenario, config, mod_path)
 
     # **************************
     # Initialize Occlusion Module
@@ -129,11 +133,13 @@ def run_planner(config, log_path, mod_path):
 
         current_count = len(planner.record_state_list) - 1
 
-        # **************************
-        # Cycle Prediction
-        # **************************
+        # *******************************
+        # Cycle Prediction and Reach Sets
+        # *******************************
         if config.prediction.mode:
             predictions, visible_area = ph.step_prediction(scenario, predictor, config, x_0, occlusion_module)
+            if 'R' in config.cost.cost_weights and config.cost.cost_weights['R'] > 0:
+                reach_set = ph.step_reach_set(reach_set, scenario, x_0, predictions)
 
         # **************************
         # Cycle Behavior Planner
