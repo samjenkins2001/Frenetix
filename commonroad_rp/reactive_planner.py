@@ -560,6 +560,7 @@ class ReactivePlanner(object):
         try:
             s, d = self._co.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
         except ValueError:
+            msg_logger.critical("Initial state could not be transformed.")
             raise ValueError("Initial state could not be transformed.")
 
         # factor for interpolation
@@ -574,10 +575,9 @@ class ReactivePlanner(object):
 
         # compute reference curvature
         kr = (self._co.ref_curv[s_idx + 1] - self._co.ref_curv[s_idx]) * s_lambda + self._co.ref_curv[
-                    s_idx]
+            s_idx]
         # compute reference curvature change
-        kr_d = (self._co.ref_curv_d[s_idx + 1] - self._co.ref_curv_d[s_idx]) * s_lambda + \
-                        self._co.ref_curv_d[s_idx]
+        kr_d = (self._co.ref_curv_d[s_idx + 1] - self._co.ref_curv_d[s_idx]) * s_lambda + self._co.ref_curv_d[s_idx]
 
         # compute initial ego curvature from initial steering angle
         kappa_0 = np.tan(x_0.steering_angle) / self.vehicle_params.wheelbase
@@ -602,7 +602,7 @@ class ReactivePlanner(object):
         # compute d dot (d_velocity) and d dot dot (d_acceleration)
         if self._LOW_VEL_MODE:
             # in LOW_VEL_MODE: d_velocity and d_acceleration are derivatives w.r.t arclength (s)
-            d_velocity= d_p
+            d_velocity = d_p
             d_acceleration = d_pp
         else:
             # in HIGH VEL MODE: d_velocity and d_acceleration are derivatives w.r.t time
@@ -961,21 +961,28 @@ class ReactivePlanner(object):
                         oneKrD * tanTheta * (kappa_gl[i] * oneKrD / cosTheta - k_r) - (
                         k_r_d * d[i] + k_r * dp))
 
-                # CHECK KINEMATIC CONSTRAINTS (remove infeasible trajectories)
-                # velocity constraint
+                # **************************
+                # Velocity constraint
+                # **************************
                 if v[i] < -_EPS:
                     feasible = False
                     infeasible_count_kinematics_traj[4] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
-                # curvature constraint
+
+                # **************************
+                # Curvature constraint
+                # **************************
                 kappa_max = np.tan(self.vehicle_params.delta_max) / self.vehicle_params.wheelbase
                 if abs(kappa_gl[i]) > kappa_max:
                     feasible = False
                     infeasible_count_kinematics_traj[5] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
-                # yaw rate (orientation change) constraint
+
+                # **************************
+                # Yaw rate constraint
+                # **************************
                 yaw_rate = (theta_gl[i] - theta_gl[i - 1]) / self.dT if i > 0 else 0.
                 theta_dot_max = kappa_max * v[i]
                 if abs(round(yaw_rate, 5)) > theta_dot_max:
@@ -983,8 +990,10 @@ class ReactivePlanner(object):
                     infeasible_count_kinematics_traj[6] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
-                # curvature rate constraint
-                # TODO: chck if kappa_gl[i-1] ??
+
+                # **************************
+                # Curvature rate constraint
+                # **************************
                 steering_angle = np.arctan2(self.vehicle_params.wheelbase * kappa_gl[i], 1.0)
                 kappa_dot_max = self.vehicle_params.v_delta_max / (self.vehicle_params.wheelbase *
                                                                    math.cos(steering_angle) ** 2)
@@ -994,7 +1003,10 @@ class ReactivePlanner(object):
                     infeasible_count_kinematics_traj[7] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
                         break
-                # acceleration constraint (considering switching velocity, see vehicle models documentation)
+
+                # **************************
+                # Acceleration rate constraint
+                # **************************
                 v_switch = self.vehicle_params.v_switch
                 a_max = self.vehicle_params.a_max * v_switch / v[i] if v[i] > v_switch else self.vehicle_params.a_max
                 a_min = -self.vehicle_params.a_max
@@ -1217,9 +1229,7 @@ class ReactivePlanner(object):
         msg_logger.debug("x_0 is {}".format(x_0))
         msg_logger.debug("x_0_lon is {}".format(x_0_lon))
         msg_logger.debug("x_0_lon is {}".format(type(x_0_lon)))
-        for i in x_0_lon:
-            msg_logger.debug("The element {} of format {} is a real number? {}".format(i, type(i), is_real_number(i)))
-        msg_logger.debug("x_0_lat is {}".format(x_0_lat))
+
         # create lon and lat polynomial
         traj_lon = QuarticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lon),
                                      x_d=np.array([0, 0]))
@@ -1233,9 +1243,11 @@ class ReactivePlanner(object):
         p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat, unique_id=0)
 
         # create Cartesian trajectory sample
+        a = np.repeat(0.0, self.N)
+        a[1] = - self.x_0.velocity / self.dT
         p.cartesian = CartesianSample(np.repeat(x_0.position[0], self.N), np.repeat(x_0.position[1], self.N),
-                                      np.repeat(x_0.orientation, self.N), np.repeat(0, self.N),
-                                      np.repeat(0, self.N), np.repeat(kappa_0, self.N), np.repeat(0, self.N),
+                                      np.repeat(x_0.orientation, self.N), np.repeat(0.0, self.N),
+                                      a, np.repeat(kappa_0, self.N), np.repeat(0.0, self.N),
                                       current_time_step=self.N)
 
         # create Curvilinear trajectory sample
