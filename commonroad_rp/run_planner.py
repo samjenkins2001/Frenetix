@@ -81,6 +81,7 @@ def run_planner(config, log_path, mod_path):
     visible_area = None
     occlusion_map = None
     occlusion_module = None
+    desired_velocity = None
 
     # **************************
     # Convert Initial State
@@ -91,12 +92,6 @@ def run_planner(config, log_path, mod_path):
     # *************************************
     # Load Behavior Planner
     # *************************************
-    if hasattr(planning_problem.goal.state_list[0], 'velocity'):
-        desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[
-            0].velocity.end) / 2
-    else:
-        desired_velocity = x_0.velocity + 5
-
     if not config.behavior.use_behavior_planner:
         route_planner = RoutePlanner(scenario, planning_problem)
         reference_path = route_planner.plan_routes().retrieve_first_route().reference_path

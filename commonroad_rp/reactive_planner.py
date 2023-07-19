@@ -26,6 +26,8 @@ from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.trajectory import Trajectory
 from commonroad.scenario.state import CustomState, InputState
 from commonroad.scenario.scenario import Scenario
+from commonroad.planning.planning_problem import PlanningProblem
+from commonroad.planning.planning_problem import GoalRegion
 
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
@@ -229,39 +231,46 @@ class ReactivePlanner(object):
         """Number of kinematically infeasible trajectories"""
         return self._infeasible_count_kinematics
 
-    def update_externals(self, x_0: ReactivePlannerState=None, x_cl: Optional[Tuple[List, List]]=None,
-                         scenario: Scenario=None, goal_area=None, planning_problem=None,
-                         cost_function=None, reference_path: np.ndarray=None, occlusion_module=None,
-                         desired_velocity: float = None, predictions=None, behavior=None):
-        if x_0 is not None:
-            self.x_0 = x_0
-
-            # Check for low velocity mode
-            if self.x_0.velocity < self._low_vel_mode_threshold:
-                self._LOW_VEL_MODE = True
-            else:
-                self._LOW_VEL_MODE = False
-
-        if x_cl is not None:
-            self.x_cl = x_cl
+    def update_externals(self, scenario: Scenario = None, reference_path: np.ndarray = None,
+                         planning_problem: PlanningProblem = None, goal_area: GoalRegion = None,
+                         x_0: ReactivePlannerState = None, x_cl: Optional[Tuple[List, List]] = None,
+                         cost_function=None,  occlusion_module=None, desired_velocity: float = None,
+                         predictions=None, behavior=None):
+        """
+        Sets all external information in reactive planner
+        :param scenario: Commonroad scenario
+        :param reference_path: reference path as polyline
+        :param planning_problem: reference path as polyline
+        :param goal_area: commonroad goal area
+        :param x_0: current ego vehicle state in global coordinate system
+        :param x_cl: current ego vehicle state in curvilinear coordinate system
+        :param cost_function: current used cost function
+        :param occlusion_module: occlusion module setup
+        :param desired_velocity: desired velocity in mps
+        :param predictions: external calculated predictions of other obstacles
+        :param behavior: behavior planner setup
+        """
         if scenario is not None:
             self.set_scenario(scenario)
-        if goal_area is not None:
-            self.set_goal_area(goal_area)
+        if reference_path is not None:
+            self.set_reference_path(reference_path)
         if planning_problem is not None:
             self.set_planning_problem(planning_problem)
+        if goal_area is not None:
+            self.set_goal_area(goal_area)
+        if x_0 is not None:
+            self.set_x_0(x_0)
+            self.set_x_cl(x_cl)
         if cost_function is not None:
             self.set_cost_function(cost_function)
         if occlusion_module is not None:
             self.set_occlusion_module(occlusion_module)
-        if reference_path is not None:
-            self.set_reference_path(reference_path)
         if desired_velocity is not None:
             self.set_desired_velocity(desired_velocity, x_0.velocity)
         if predictions is not None:
-            self.predictions = predictions
+            self.set_predictions(predictions)
         if behavior is not None:
-            self.behavior = behavior
+            self.set_behavior(behavior)
 
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""
@@ -274,10 +283,18 @@ class ReactivePlanner(object):
     def set_x_0(self, x_0: ReactivePlannerState):
         # set Cartesian initial state
         self.x_0 = x_0
+        if self.x_0.velocity < self._low_vel_mode_threshold:
+            self._LOW_VEL_MODE = True
+        else:
+            self._LOW_VEL_MODE = False
 
     def set_x_cl(self, x_cl):
-        # set Curvlinear initial state
-        self.x_cl = x_cl
+        # set curvilinear initial state
+        if self.x_cl is not None and not self.set_new_ref_path:
+            self.x_cl = x_cl
+        else:
+            self.x_cl = self._compute_initial_states(self.x_0)
+            self.set_new_ref_path = False
 
     def set_ego_vehicle_state(self, current_ego_vehicle):
         self.ego_vehicle_history.append(current_ego_vehicle)
@@ -325,17 +342,17 @@ class ReactivePlanner(object):
             self._co: CoordinateSystem = coordinate_system
             self.set_new_ref_path = True
 
-    def set_goal_area(self, goal_area):
+    def set_goal_area(self, goal_area: GoalRegion):
         """
         Sets the planning problem
-        :param planning_problem: PlanningProblem
+        :param goal_area: Goal Area of Planning Problem
         """
         self.goal_area = goal_area
 
     def set_occlusion_module(self, occ_module):
         self.occlusion_module = occ_module
 
-    def set_planning_problem(self, planning_problem):
+    def set_planning_problem(self, planning_problem: PlanningProblem):
         """
         Sets the planning problem
         :param planning_problem: PlanningProblem
@@ -457,14 +474,7 @@ class ReactivePlanner(object):
             # calculate reachable sets
             self.reach_set.calc_reach_sets(self.x_0, list(self.predictions.keys()))
 
-        # compute curvilinear initial states
-        if self.x_cl is not None and not self.set_new_ref_path:
-            x_0_lon, x_0_lat = self.x_cl
-        else:
-            x_0_lon, x_0_lat = self._compute_initial_states(self.x_0)
-            self.set_new_ref_path = False
-
-        msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
+        msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(self.x_cl[0], self.x_cl[1]))
         msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
 
         # initialize optimal trajectory dummy
@@ -485,11 +495,11 @@ class ReactivePlanner(object):
             if self.behavior:
                 if self.behavior.flags["stopping_for_traffic_light"]:
                     stop_point = [self.behavior.BM_state.VP_state.stop_distance, 0]
-                    bundle = self._create_stopping_trajectory(self.x_0, x_0_lon, x_0_lat, stop_point, self.cost_function)
+                    bundle = self._create_stopping_trajectory(self.x_0, self.x_cl[0], self.x_cl[1], stop_point, self.cost_function)
                 else:
-                    bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
+                    bundle = self._create_trajectory_bundle(self.x_cl[0], self.x_cl[1], self.cost_function, samp_level=i)
             else:
-                bundle = self._create_trajectory_bundle(x_0_lon, x_0_lat, self.cost_function, samp_level=i)
+                bundle = self._create_trajectory_bundle(self.x_cl[0], self.x_cl[1], self.cost_function, samp_level=i)
 
             # get optimal trajectory
 
