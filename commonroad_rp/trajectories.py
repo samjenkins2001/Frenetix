@@ -343,17 +343,17 @@ class TrajectorySample(Sample):
     """
 
     def __init__(self, horizon: float, dt: float, trajectory_long: PolynomialTrajectory,
-                 trajectory_lat: PolynomialTrajectory, unique_id: int):
+                 trajectory_lat: PolynomialTrajectory, uniqueId: int, costMap: dict):
         self.horizon = horizon
         self.dt = dt
         assert isinstance(trajectory_long,
                           PolynomialTrajectory), '<TrajectorySample/init>: Provided longitudinal trajectory ' \
-                                                 'is not valid! trajectory = {}'.format(
+                                                 'is not feasible! trajectory = {}'.format(
             trajectory_long)
         self._trajectory_long = trajectory_long
         assert isinstance(trajectory_lat,
                           PolynomialTrajectory), '<TrajectorySample/init>: Provided lateral trajectory ' \
-                                                 'is not valid! trajectory = {}'.format(
+                                                 'is not feasible! trajectory = {}'.format(
             trajectory_lat)
         self._trajectory_lat = trajectory_lat
 
@@ -365,14 +365,15 @@ class TrajectorySample(Sample):
         self._occupancy: DynamicObstacle
         self._ext_cartesian = None
         self._ext_curvilinear = None
-        self.valid = None
+        self.feasible = None
         self._ego_risk = None
         self._obst_risk = None
         self.boundary_harm = None
         self._coll_detected = None
         self.actual_traj_length = None
 
-        self._unique_id = unique_id
+        self.uniqueId = uniqueId
+        self.costMap = {x: [0, 0] for x in costMap}
 
     @property
     def trajectory_long(self) -> PolynomialTrajectory:
@@ -398,14 +399,14 @@ class TrajectorySample(Sample):
     def trajectory_lat(self, trajectory_lat):
         pass
 
-    def set_costs(self, cost, cost_list):#, cost_function):
+    def set_costs(self, cost, cost_list, cost_list_weighted, cost_names):
         """
         Evaluated cost of the trajectory sample
         :return: The cost of the trajectory sample
         """
         self._cost = cost
-        self._cost_list = cost_list
-        # self._cost_function = cost_function
+        for idx, names in enumerate(cost_names):
+            self.costMap[names] = [cost_list[idx], cost_list_weighted[idx]]
 
     @property
     def cost(self) -> float:
@@ -422,15 +423,6 @@ class TrajectorySample(Sample):
         :return: The cost list of the trajectory sample
         """
         return self._cost_list
-
-    # @cost.setter
-    # def cost(self, cost_function):
-    #     """
-    #     Sets the cost function for evaluating the costs of the polynomial trajectory
-    #     :param cost_function: The cost function for computing the costs
-    #     """
-    #     self._cost, self._cost_list = cost_function.evaluate(self)
-    #     self._cost_function = cost_function
 
     @property
     def curvilinear(self) -> CurviLinearSample:
@@ -473,8 +465,8 @@ class TrajectorySample(Sample):
         """
         return self.cartesian.length()
 
-    def set_valid_status(self, sts: bool):
-        self.valid = sts
+    def set_feasible_status(self, sts: bool):
+        self.feasible = sts
 
     def enlarge(self, dt: float):
         """
@@ -499,7 +491,7 @@ class TrajectoryBundle:
         assert isinstance(trajectories, list) and all([isinstance(t, TrajectorySample) for t in trajectories]), \
             '<TrajectoryBundle/init>: ' \
             'Provided list of trajectory samples is not ' \
-            'valid! List = {}'.format(trajectories)
+            'feasible! List = {}'.format(trajectories)
 
         self.trajectories: List[TrajectorySample] = trajectories
         # self.trajectories_all: List[TrajectorySample] = trajectories
@@ -525,13 +517,8 @@ class TrajectoryBundle:
         """
         self._trajectory_bundle = trajectories
 
-    def _calc_prediction(self, trajectories: List[TrajectorySample]):
-        prediction_cost_list, responsibility_cost_list = self._cost_function.calc_prediction(trajectories)
-        return prediction_cost_list, responsibility_cost_list
-
     def _calc_cost(self, trajectories: List[TrajectorySample], queue_1=None):
-        list_predictions, list_responsibilities = self._calc_prediction(trajectories)
-        self._cost_function.calc_cost(trajectories, list_predictions, list_responsibilities)
+        self._cost_function.calc_cost(trajectories)
         queue_1.put(trajectories)
 
     def sort(self, occlusion_module=None):

@@ -3,18 +3,15 @@ import sys
 import numpy as np
 import json
 from pathlib import Path
-from datetime import datetime
 import logging
 from cr_scenario_handler.utils.configuration import Configuration
-
-from commonroad_rp.trajectories import TrajectorySample
 
 
 class DataLoggingCosts:
     # ----------------------------------------------------------------------------------------------------------
     # CONSTRUCTOR ----------------------------------------------------------------------------------------------
     # ----------------------------------------------------------------------------------------------------------
-    def __init__(self, path_logs: str, header_only: bool = False, save_all_traj: bool = False) -> None:
+    def __init__(self, path_logs: str, header_only: bool = False, save_all_traj: bool = False, cost_params: dict = None) -> None:
         """"""
 
         self.save_all_traj = save_all_traj
@@ -22,13 +19,17 @@ class DataLoggingCosts:
         self.header = None
         self.trajectories_header = None
         self.prediction_header = None
+        self.collision_header = None
+
         self.path_logs = path_logs
         self._cost_list_length = None
+        self.cost_names_list = None
 
         log_file_name = "logs.csv"
         prediction_file_name = "predictions.csv"
         collision_file_name = "collision.csv"
         self.trajectories_file_name = "trajectories.csv"
+
         if header_only:
             return
         self.trajectory_number = 0
@@ -46,7 +47,7 @@ class DataLoggingCosts:
         Path(os.path.dirname(self.__log_path)).mkdir(
             parents=True, exist_ok=True)
 
-        self.set_logging_header()
+        self.set_logging_header(cost_params)
 
     # ----------------------------------------------------------------------------------------------------------
     # CLASS METHODS --------------------------------------------------------------------------------------------
@@ -55,8 +56,11 @@ class DataLoggingCosts:
 
         cost_names = str()
         if cost_function_names:
-            for names in cost_function_names.keys():
-                cost_names += cost_function_names[names].__name__ + ";"
+            self.cost_names_list = list(cost_function_names.keys())
+            self.cost_names_list.sort()
+            self._cost_list_length = len(self.cost_names_list)
+            for names in self.cost_names_list:
+                cost_names += names + "_cost;"
 
         self.header = (
             "trajectory_number;"
@@ -88,9 +92,6 @@ class DataLoggingCosts:
             "costs_cumulative_weighted;"
             +
             cost_names
-            +
-            "prediction_cost;"
-            "responsibility_cost;"
         )
         self.trajectories_header = (
             "time_step;"
@@ -110,9 +111,6 @@ class DataLoggingCosts:
             "costs_cumulative_weighted;"
             +
             cost_names
-            +
-            "prediction_cost;"
-            "responsibility_cost;"
         )
 
         self.prediction_header = (
@@ -143,9 +141,8 @@ class DataLoggingCosts:
 
         if trajectory is not None:
 
-            cartesian = trajectory._cartesian
-            cost_list = trajectory._cost_list
-            self._cost_list_length = len(cost_list)
+            cartesian = trajectory.cartesian
+            cost_list_names = list(trajectory.costMap.keys())
 
             # log time
             new_line += ";" + json.dumps(str(planning_time), default=default)
@@ -174,19 +171,16 @@ class DataLoggingCosts:
 
             # # log frenet coordinates (distance to reference path)
             new_line += ";" + \
-                json.dumps(str(trajectory._curvilinear.s[0]), default=default)
+                json.dumps(str(trajectory.curvilinear.s[0]), default=default)
             new_line += ";" + \
-                json.dumps(str(trajectory._curvilinear.d[0]), default=default)
+                json.dumps(str(trajectory.curvilinear.d[0]), default=default)
 
             # log risk values number
             new_line += ";" + json.dumps(str(trajectory._ego_risk), default=default)
             new_line += ";" + json.dumps(str(trajectory._obst_risk), default=default)
 
-            # log costs
-            new_line += ";" + json.dumps(str(trajectory._cost), default=default)
-            # log costs
-            for cost in cost_list:
-                new_line += ";" + json.dumps(str(cost), default=default)
+            new_line = self.log_costs_of_single_trajectory(trajectory, new_line, cost_list_names)
+
         else:
             # log time
             new_line += ";" + json.dumps(str(planning_time), default=default)
@@ -263,20 +257,21 @@ class DataLoggingCosts:
     def log_all_trajectories(self, all_trajectories, time_step):
         i = 0
         for trajectory in all_trajectories:
-            self.log_trajectory(trajectory, i, time_step, trajectory.valid)
+            self.log_trajectory(trajectory, i, time_step, trajectory.feasible)
             i += 1
 
-    def log_trajectory(self, trajectory: TrajectorySample, trajectory_number: int, time_step, feasible: bool):
+    def log_trajectory(self, trajectory, trajectory_number: int, time_step, feasible: bool):
         new_line = "\n" + str(time_step)
         new_line += ";" + str(trajectory_number)
-        new_line += ";" + str(trajectory._unique_id)
+        new_line += ";" + str(trajectory.uniqueId)
         new_line += ";" + str(feasible)
-        new_line += ";" + str(trajectory.horizon)
+        new_line += ";" + str(round(trajectory.sampling_parameters[1], 3))
         new_line += ";" + str(trajectory.dt)
 
-        cartesian = trajectory._cartesian
-        cost_list = trajectory._cost_list
-        new_line += ";" + str(trajectory.actual_traj_length)
+        cartesian = trajectory.cartesian
+        cost_list_names = list(trajectory.costMap.keys())
+
+        new_line += ";" + str(int(round(trajectory.sampling_parameters[1], 3)/trajectory.dt))
         # log position
         new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
         new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)
@@ -287,32 +282,26 @@ class DataLoggingCosts:
 
         # log frenet coordinates (distance to reference path)
         new_line += ";" + \
-            json.dumps(str(trajectory._curvilinear.s[0]), default=default)
+            json.dumps(str(trajectory.curvilinear.s[0]), default=default)
         new_line += ";" + \
-            json.dumps(str(trajectory._curvilinear.d[0]), default=default)
-
-        # log x, y, yaw
-        # new_line += ";" + \
-        #     json.dumps(trajectory.x, default=default)
-        # new_line += ";" + \
-        #     json.dumps(trajectory.y, default=default)
-        # new_line += ";" + \
-        #     json.dumps(trajectory.yaw, default=default)
-
-        # log _trajectory_long and _trajectory_lat
-        # new_line += ";" + \
-        #     json.dumps(trajectory._trajectory_long.__dict__, default=default)
-        # new_line += ";" + \
-        #     json.dumps(trajectory._trajectory_lat.__dict__, default=default)
-
-        # log costs
-        new_line += ";" + json.dumps(str(trajectory._cost), default=default)
-        for cost in cost_list:
-            new_line += ";" + json.dumps(str(cost), default=default)
+            json.dumps(str(trajectory.curvilinear.d[0]), default=default)
 
         with open(self.__trajectories_log_path, "a") as fh:
             fh.write(new_line)
 
+    def log_costs_of_single_trajectory(self, trajectory, new_line, cost_list_names):
+
+        # log costs
+        new_line += ";" + json.dumps(str(trajectory.cost), default=default)
+
+        # log costs
+        for cost_template in self.cost_names_list:
+            if cost_template in cost_list_names:
+                new_line += ";" + json.dumps(str(trajectory.costMap[cost_template][1]), default=default)
+            else:
+                new_line += ";" + json.dumps(str(0), default=default)
+
+        return new_line
 
 def default(obj):
     # handle numpy arrays when converting to json

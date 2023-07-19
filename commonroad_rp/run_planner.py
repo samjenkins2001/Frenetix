@@ -22,7 +22,7 @@ from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
-from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
+
 from commonroad_rp.utility import helper_functions as hf
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.geometry.shape import Rectangle
@@ -122,8 +122,6 @@ def run_planner(config, log_path, mod_path):
     # Set External Planner Setups
     # **************************
     planner.update_externals(reference_path=reference_path)
-    cost_function = AdaptableCostFunction(rp=planner, configuration=config)
-    planner.update_externals(cost_function=cost_function)
 
     # **************************
     # Run Planner Cycle

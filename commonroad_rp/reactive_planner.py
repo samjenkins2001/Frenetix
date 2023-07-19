@@ -45,7 +45,7 @@ from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, inte
 from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.prediction_helpers import collision_checker_prediction
 
-
+from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 from cr_scenario_handler.utils.configuration import Configuration
 from commonroad_rp.utility.logging_helpers import DataLoggingCosts
@@ -74,6 +74,7 @@ class ReactivePlanner(object):
         : param config: Configuration object holding all planner-relevant configurations
         """
         # Set horizon variables
+        self.config = config
         self.horizon = config.planning.planning_horizon
         self.dT = config.planning.dt
         self.N = int(config.planning.planning_horizon / config.planning.dt)
@@ -96,15 +97,17 @@ class ReactivePlanner(object):
         self._LOW_VEL_MODE = False
 
         # Scenario
-        self.scenario = scenario
+        self._co: Optional[CoordinateSystem] = None
+        self._cc: Optional[pycrcc.CollisionChecker] = None
+        self.scenario = None
+        self.road_boundary = None
+        self.set_scenario(scenario)
         self.planning_problem = planning_problem
         self.predictions = None
         self.reach_set = None
         self.behavior = None
         self.set_new_ref_path = None
         self.cost_function = None
-        self._co: Optional[CoordinateSystem] = None
-        self._cc: Optional[pycrcc.CollisionChecker] = None
         self.goal_status = False
         self.full_goal_status = None
         self.goal_area = hf.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
@@ -125,7 +128,6 @@ class ReactivePlanner(object):
         else:
             self.use_prediction = False
 
-        self.set_collision_checker(self.scenario)
         self._goal_checker = GoalReachedChecker(planning_problem)
 
         # **************************
@@ -159,7 +161,8 @@ class ReactivePlanner(object):
         self.optimal_trajectory = None
         self.use_occ_model = config.occlusion.use_occlusion_module
         self.logger = DataLoggingCosts(path_logs=log_path,
-                                       save_all_traj=self.save_all_traj or self.use_amazing_visualizer)
+                                       save_all_traj=self.save_all_traj or self.use_amazing_visualizer,
+                                       cost_params=config.cost.cost_weights)
         self._draw_traj_set = config.debug.draw_traj_set
         self._kinematic_debug = config.debug.kinematic_debug
 
@@ -169,17 +172,11 @@ class ReactivePlanner(object):
         self.params_harm = load_harm_parameter_json(work_dir)
         self.params_risk = load_risk_json(work_dir)
 
-        try:
-            (
-                _,
-                self.road_boundary,
-            ) = create_road_boundary_obstacle(
-                scenario=self.scenario,
-                method="aligned_triangulation",
-                axis=2,
-            )
-        except:
-            raise RuntimeError("Road Boundary can not be created")
+        # **************************
+        # Cost Function Setting
+        # **************************
+        cost_function = AdaptableCostFunction(rp=self, configuration=config)
+        self.set_cost_function(cost_function=cost_function)
 
     @property
     def goal_checker(self):
@@ -262,6 +259,17 @@ class ReactivePlanner(object):
         """Update the scenario to synchronize between agents"""
         self.scenario = scenario
         self.set_collision_checker(scenario)
+        try:
+            (
+                _,
+                self.road_boundary,
+            ) = create_road_boundary_obstacle(
+                scenario=self.scenario,
+                method="aligned_triangulation",
+                axis=2,
+            )
+        except:
+            raise RuntimeError("Road Boundary can not be created")
 
     def set_predictions(self, predictions: dict):
         self.predictions = predictions
@@ -312,7 +320,7 @@ class ReactivePlanner(object):
 
     def set_cost_function(self, cost_function):
         self.cost_function = cost_function
-        self.logger.set_logging_header(cost_function.PartialCostFunctionMapping)
+        self.logger.set_logging_header(self.config.cost.cost_weights)
 
     def set_reference_path(self, reference_path: np.ndarray = None, coordinate_system: CoordinateSystem = None):
         """
@@ -651,7 +659,8 @@ class ReactivePlanner(object):
                             trajectory_lat = QuinticTrajectory(tau_0=0, delta_tau=t, x_0=np.array(x_0_lat),
                                                                x_d=end_state_lat)
                         if trajectory_lat.coeffs is not None:
-                            trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat, len(trajectories))
+                            trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat,
+                                                                 len(trajectories), costMap=self.cost_function.cost_weights)
                             trajectories.append(trajectory_sample)
 
         # perform pre-check and order trajectories according their cost
@@ -732,13 +741,13 @@ class ReactivePlanner(object):
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj or self.use_amazing_visualizer:
             for traj in feasible_trajectories:
-                setattr(traj, 'valid', True)
+                setattr(traj, 'feasible', True)
             for traj in infeasible_trajectories:
-                setattr(traj, 'valid', False)
+                setattr(traj, 'feasible', False)
             trajectory_bundle.trajectories = feasible_trajectories + infeasible_trajectories
             trajectory_bundle.sort(occlusion_module=self.occlusion_module)
             self.all_traj = trajectory_bundle.trajectories
-            trajectory_bundle.trajectories = list(filter(lambda x: x.valid is True, trajectory_bundle.trajectories))
+            trajectory_bundle.trajectories = list(filter(lambda x: x.feasible is True, trajectory_bundle.trajectories))
         else:
             # set feasible trajectories in bundle
             trajectory_bundle.trajectories = feasible_trajectories
@@ -1067,7 +1076,7 @@ class ReactivePlanner(object):
 
     def trajectory_collision_check(self, feasible_trajectories):
         """
-        Checks valid trajectories for collisions with static obstacles
+        Checks feasible trajectories for collisions with static obstacles
         :param feasible_trajectories: feasible trajectories list
         :return trajectory: optimal feasible trajectory or None
         """
@@ -1079,7 +1088,7 @@ class ReactivePlanner(object):
             # get collision_object
             coll_obj = self.create_coll_object(occupancy, self.vehicle_params, self.x_0)
 
-            # TODO: Check kinematic checks in cpp. no valid traj available
+            # TODO: Check kinematic checks in cpp. no feasible traj available
             if self.use_prediction:
                 collision_detected = collision_checker_prediction(
                     predictions=self.predictions,
@@ -1231,7 +1240,8 @@ class ReactivePlanner(object):
         kappa_0 = np.tan(x_0.steering_angle) / self.vehicle_params.wheelbase
 
         # create Trajectory sample
-        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat, unique_id=0)
+        p = TrajectorySample(self.horizon, self.dT, traj_lon, traj_lat, uniqueId=0,
+                             costMap=self.cost_function.cost_weights)
 
         # create Cartesian trajectory sample
         a = np.repeat(0.0, self.N)
@@ -1274,7 +1284,7 @@ class ReactivePlanner(object):
                                                x_d=end_state_lat)
             if trajectory_lat.coeffs is not None:
                 trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat,
-                                                     len(trajectories))
+                                                     len(trajectories), costMap=self.config.cost.cost_weights)
                 trajectories.append(trajectory_sample)
 
         # perform pre-check and order trajectories according their cost
