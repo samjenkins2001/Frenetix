@@ -345,39 +345,31 @@ class ReactivePlanner(object):
         self.handler.add_feasability_function(CheckCurvatureRateConstraint(wheelbase=self.vehicle_params.wheelbase,
                                                                            velocityDeltaMax=self.vehicle_params.v_delta_max))
 
-        name = "Acceleration"
+        name = "acceleration"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateAccelerationCost(name, self.cost_weights[name]))
 
-        name = "Jerk"
+        name = "jerk"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateJerkCost(name, self.cost_weights[name]))
 
-        name = "Lateral Jerk"
+        name = "lateral_jerk"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateLateralJerkCost(name, self.cost_weights[name]))
 
-        name = "Longitudinal Jerk"
+        name = "longitudinal_jerk"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateLongitudinalJerkCost(name, self.cost_weights[name]))
 
-        name = "Orientation Offset"
+        name = "orientation_offset"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateOrientationOffsetCost(name, self.cost_weights[name]))
 
-        name = "Path Length"
-        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            msg_logger.info("Path Length not implemented yet")
-
-        name = "Lane Center Offset"
+        name = "lane_center_offset"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateLaneCenterOffsetCost(name, self.cost_weights[name]))
 
-        name = "Velocity Costs"
-        if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            msg_logger.info("Velocity Costs not implemented yet")
-
-        name = "Distance to Reference Path"
+        name = "distance_to_reference_path"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateDistanceToReferencePathCost(name, self.cost_weights[name]))
 
@@ -386,11 +378,11 @@ class ReactivePlanner(object):
         self.handler.add_function(FillCoordinates(lowVelocityMode=self._LOW_VEL_MODE,
                                                   initialOrientation=self.x_0.orientation,
                                                   coordinateSystem=self.coordinate_system))
-        name = "Prediction"
+        name = "prediction"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.cost_weights[name], self.predictionsForCpp))
 
-        name = "Distance to Obstacles"
+        name = "distance_to_obstacles"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             obstacle_positions = np.zeros((len(self.scenario.obstacles), 2))
             for i, obstacle in enumerate(self.scenario.obstacles):
@@ -401,7 +393,7 @@ class ReactivePlanner(object):
 
             self.handler.add_cost_function(CalculateDistanceToObstacleCost(name, self.cost_weights[name], obstacle_positions))
 
-        name = "Velocity Offset"
+        name = "velocity_offset"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateVelocityOffsetCost(name, self.cost_weights[name], self._desired_speed))
 

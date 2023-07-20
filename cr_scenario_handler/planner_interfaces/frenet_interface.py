@@ -12,7 +12,7 @@ from commonroad.scenario.trajectory import Trajectory
 from commonroad_dc import pycrcc
 
 from cr_scenario_handler.utils.configuration import Configuration
-from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
+from commonroad_rp.reactive_planner_cpp import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
 
 from commonroad_route_planner.route_planner import RoutePlanner
@@ -67,12 +67,8 @@ class FrenetPlannerInterface(PlannerInterface):
             self.ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
         else:
             # Load behavior planner
-            self.behavior_module = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
-                                                  init_sc_path=os.path.join(config.general.path_scenarios,
-                                                                            config.general.name_scenario),
-
-                                                  init_ego_state=self.x_0, dt=scenario.dt,
-                                                  vehicle_parameters=config.vehicle)  # testing
+            self.behavior_module = BehaviorModule(scenario=self.scenario, planning_problem=planning_problem,
+                                                  init_ego_state=self.x_0, dt=self.scenario.dt, config=config)
             self.ref_path = self.behavior_module.reference_path
 
         self.planner.set_reference_path(self.ref_path)
@@ -83,10 +79,6 @@ class FrenetPlannerInterface(PlannerInterface):
         )
         self.planner.set_goal_area(goal_area)
         self.planner.set_planning_problem(planning_problem)
-
-        # set cost function
-        # self.cost_function = AdaptableCostFunction(rp=self.planner, configuration=config)
-        # self.planner.set_cost_function(self.cost_function)
 
     def get_all_traj(self):
         """Return the sampled trajectory bundle for plotting purposes."""
