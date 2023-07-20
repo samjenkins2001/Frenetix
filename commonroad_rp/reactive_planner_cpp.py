@@ -212,7 +212,7 @@ class ReactivePlanner(object):
     def update_externals(self, scenario: Scenario = None, reference_path: np.ndarray = None,
                          planning_problem: PlanningProblem = None, goal_area: GoalRegion = None,
                          x_0: ReactivePlannerState = None, x_cl: Optional[Tuple[List, List]] = None,
-                         cost_function=None, occlusion_module=None, desired_velocity: float = None,
+                         cost_weights=None, occlusion_module=None, desired_velocity: float = None,
                          predictions=None, reach_set=None, behavior=None):
         """
         Sets all external information in reactive planner
@@ -222,7 +222,7 @@ class ReactivePlanner(object):
         :param goal_area: commonroad goal area
         :param x_0: current ego vehicle state in global coordinate system
         :param x_cl: current ego vehicle state in curvilinear coordinate system
-        :param cost_function: current used cost function
+        :param cost_weights: current used cost weights
         :param occlusion_module: occlusion module setup
         :param desired_velocity: desired velocity in mps
         :param predictions: external calculated predictions of other obstacles
@@ -240,8 +240,8 @@ class ReactivePlanner(object):
         if x_0 is not None:
             self.set_x_0(x_0)
             # self.set_x_cl(x_cl)
-        if cost_function is not None:
-            self.set_cost_function(cost_function)
+        if cost_weights is not None:
+            self.set_cost_function(cost_weights)
         if occlusion_module is not None:
             self.set_occlusion_module(occlusion_module)
         if desired_velocity is not None:
@@ -331,8 +331,10 @@ class ReactivePlanner(object):
                                  steering_angle_speed=steering_angle_speed)
         self.record_input_list.append(input_state)
 
-    def set_cost_function(self, cost_function):
-        self.cost_function = cost_function
+    def set_cost_function(self, cost_weights):
+        self.config.cost.cost_weights = cost_weights
+        self.trajectory_handler_set_constant_functions()
+        self.trajectory_handler_set_changing_functions()
         self.logger.set_logging_header(self.config.cost.cost_weights)
 
     def trajectory_handler_set_constant_functions(self):
@@ -402,7 +404,7 @@ class ReactivePlanner(object):
         Automatically creates a curvilinear coordinate system from a given reference path
         :param reference_path: reference_path as polyline
         """
-
+        # TODO: now we smooth 2 times because of the python implementation.
         reference_path = smooth_ref_path(reference_path)
         self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(reference_path)
         self._co: CoordinateSystem = CoordinateSystem(reference_path)
