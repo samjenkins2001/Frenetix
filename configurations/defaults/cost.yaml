@@ -8,12 +8,12 @@ cost_weights:
     path_length: 0.0
 
     lane_center_offset: 0.0
-    velocity_offset: 0.2
+    velocity_offset: 0.05
     velocity: 0.
-    distance_to_reference_path: 2
+    distance_to_reference_path: 1
     distance_to_obstacles: 0
 
-    prediction: 20000
+    prediction: 500000
     responsibility: 0
 
     Occ_PM: 0 # Occlusion Phantom Module (phantom pedestrian harm)

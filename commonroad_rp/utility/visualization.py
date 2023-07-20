@@ -165,7 +165,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         rnd.ax.legend(handles, labels, loc="upper right", title="Occlusion")
 
     # visualize sampled trajectory bundle
-    step = 1  # draw every trajectory (step=2 would draw every second trajectory)
+    step = int(len(traj_set)/100) if int(len(traj_set)/100) > 2 else 1
     if traj_set is not None:
         for i in range(0, len(traj_set), step):
             color = 'blue'
