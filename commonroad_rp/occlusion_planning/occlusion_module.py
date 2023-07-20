@@ -1,3 +1,10 @@
+__author__ = "Korbinian Moller, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
+
 """
 This module is the main module of the Occlusion calculation of the reactive planner.
 All submodules are started and managed from here

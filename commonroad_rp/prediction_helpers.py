@@ -1,4 +1,9 @@
-#!/user/bin/env python
+__author__ = "Maximilian Geisslinger, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
 
 """Helper functions to adjust the prediction to the needs of the frenét planner."""
 

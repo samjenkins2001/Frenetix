@@ -1,6 +1,6 @@
 __author__ = "Rainer Trauth, Gerald Würsching, Christian Pek"
 __credits__ = ["BMW Group CAR@TUM, interACT"]
-__version__ = "0.5"
+__version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"

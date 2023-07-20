@@ -1,10 +1,8 @@
-__author__ = "Gerald Würsching"
-__copyright__ = "TUM Cyber-Physical Systems Group"
-__version__ = "0.5"
-__maintainer__ = "Gerald Würsching"
-__email__ = "commonroad@lists.lrz.de"
+__author__ = "Rainer Trauth, Gerald Würsching"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
-
 
 # standard imports
 from typing import List, Union

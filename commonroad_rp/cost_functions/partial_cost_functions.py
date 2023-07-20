@@ -1,10 +1,9 @@
-__author__ = "Alexander Hobmeier"
-__copyright__ = ""
-__credits__ = []
-__version__ = ""
-__maintainer__ = "Alexander Hobmeier"
-__email__ = "commonroad@lists.lrz.de"
-__status__ = ""
+__author__ = "Alexander Hobmeier, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
 
 import numpy as np
 import commonroad_rp.trajectories
