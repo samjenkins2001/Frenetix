@@ -24,9 +24,10 @@ if __name__ == '__main__':
     log_path = "./logs/"+scenario_path.split("/")[-1]
 
     start_multiagent = False
+    use_cpp = True
     
     if not start_multiagent:
-        run_planner(config, log_path, mod_path)
+        run_planner(config, log_path, mod_path, use_cpp)
     else:
         # Works only with wale-net. Ground Truth Prediction not possible!
         simulation = Simulation(config, log_path, mod_path)

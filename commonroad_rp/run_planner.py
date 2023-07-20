@@ -17,7 +17,8 @@ from cr_scenario_handler.utils.collision_report import coll_report
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner
+from commonroad_rp.reactive_planner import ReactivePlanner as ReactivePlannerPython
+from commonroad_rp.reactive_planner_cpp import ReactivePlanner as ReactivePlannerCpp
 from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
@@ -35,7 +36,7 @@ from behavior_planner.behavior_module import BehaviorModule
 from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
 
 
-def run_planner(config, log_path, mod_path):
+def run_planner(config, log_path, mod_path, use_cpp):
 
     DT = config.planning.dt  # planning time step
 
@@ -63,7 +64,9 @@ def run_planner(config, log_path, mod_path):
     # *************************************
     # Initialize Reactive Planner
     # *************************************
-    planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
+
+    planner = ReactivePlannerCpp(config, scenario, planning_problem, log_path, mod_path) if use_cpp else \
+              ReactivePlannerPython(config, scenario, planning_problem, log_path, mod_path)
 
     # **************************
     # Run Variables

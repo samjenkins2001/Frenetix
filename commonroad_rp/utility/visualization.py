@@ -16,12 +16,10 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import imageio.v3 as iio
-from PIL import Image
 
 # commonroad-io
 from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.obstacle import DynamicObstacle
-from commonroad.scenario.trajectory import Trajectory
 from commonroad_rp.state import ReactivePlannerState
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams, StaticObstacleParams
@@ -32,7 +30,6 @@ from commonroad.visualization.draw_params import MPDrawParams
 from commonroad_dc import pycrcc
 
 # commonroad-rp
-from commonroad_rp.trajectories import TrajectorySample
 from cr_scenario_handler.utils.configuration import Configuration
 
 
@@ -80,9 +77,9 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
 
 def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
                                   timestep: int, config: Configuration, log_path: str,
-                                  traj_set: List[TrajectorySample] = None, optimal_traj: Trajectory = None,
-                                  ref_path: np.ndarray = None, rnd: MPRenderer = None, predictions: dict = None,
-                                  plot_window: int = None, visible_area=None, cluster=None, occlusion_map=None):
+                                  traj_set=None, optimal_traj = None, ref_path: np.ndarray = None,
+                                  rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
+                                  visible_area=None, cluster=None, occlusion_map=None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -172,8 +169,8 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     if traj_set is not None:
         for i in range(0, len(traj_set), step):
             color = 'blue'
-            plt.plot(traj_set[i].cartesian.x[:traj_set[i].actual_traj_length],
-                     traj_set[i].cartesian.y[:traj_set[i].actual_traj_length],
+            plt.plot(traj_set[i].cartesian.x,
+                     traj_set[i].cartesian.y,
                      color=color, zorder=20, linewidth=0.2, alpha=1.0)
 
     # visualize predictions

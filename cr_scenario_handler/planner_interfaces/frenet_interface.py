@@ -1,19 +1,17 @@
 import os
 import traceback
 from copy import deepcopy
-import numpy as np
 from typing import List
-
+import numpy as np
 
 from commonroad.scenario.scenario import Scenario
-from commonroad.scenario.trajectory import Trajectory
 from commonroad.scenario.obstacle import DynamicObstacle
 from commonroad.planning.planning_problem import PlanningProblem
+from commonroad.scenario.trajectory import Trajectory
 
 from commonroad_dc import pycrcc
 
 from cr_scenario_handler.utils.configuration import Configuration
-from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
 
@@ -87,8 +85,8 @@ class FrenetPlannerInterface(PlannerInterface):
         self.planner.set_planning_problem(planning_problem)
 
         # set cost function
-        self.cost_function = AdaptableCostFunction(rp=self.planner, configuration=config)
-        self.planner.set_cost_function(self.cost_function)
+        # self.cost_function = AdaptableCostFunction(rp=self.planner, configuration=config)
+        # self.planner.set_cost_function(self.cost_function)
 
     def get_all_traj(self):
         """Return the sampled trajectory bundle for plotting purposes."""
@@ -187,30 +185,8 @@ class FrenetPlannerInterface(PlannerInterface):
         """
         self.scenario = scenario
         self.predictions = predictions
+        self.planner.update_externals(x_0=self.x_0, x_cl=self.x_cl, scenario=scenario, predictions=predictions)
 
-        self.planner.set_scenario(scenario)
-        self.planner.set_predictions(predictions)
-
-        self.planner.set_x_0(self.x_0)
-        self.planner.set_x_cl(self.x_cl)
-
-    def plan(self):
-        """ Execute one planing step.
-
-        update_planner has to be called before this function.
-        Plans the trajectory for the next time step, updates the
-        internal state of the FrenetInterface, and shifts the trajectory
-        to the global representation.
-
-        :return: error, trajectory
-            where error is:
-                0: If an optimal trajectory has been found.
-                1: Otherwise.
-            and trajectory is:
-                A Trajectory object containing the planned trajectory,
-                    using the vehicle center for the position: If error == 0
-                None: Otherwise
-        """
         if not self.use_behavior_planner:
             # set desired velocity
             self.desired_velocity = hf.calculate_desired_velocity(self.scenario, self.planning_problem,
@@ -229,6 +205,23 @@ class FrenetPlannerInterface(PlannerInterface):
 
             """--------------------------------------- End Testing ------------------------------------------"""
 
+    def plan(self):
+        """ Execute one planing step.
+
+        update_planner has to be called before this function.
+        Plans the trajectory for the next time step, updates the
+        internal state of the FrenetInterface, and shifts the trajectory
+        to the global representation.
+
+        :return: error, trajectory
+            where error is:
+                0: If an optimal trajectory has been found.
+                1: Otherwise.
+            and trajectory is:
+                A Trajectory object containing the planned trajectory,
+                    using the vehicle center for the position: If error == 0
+                None: Otherwise
+        """
         # plan trajectory
         optimal = self.planner.plan()
 
@@ -260,3 +253,4 @@ class FrenetPlannerInterface(PlannerInterface):
         shifted_trajectory = Trajectory(shifted_state_list[0].time_step,
                                         shifted_state_list)
         return 0, shifted_trajectory
+
