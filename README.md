@@ -1,7 +1,7 @@
 # Reactive Planner
 
 Currently, this project generates solutions to trajectory planning problems given in the [CommonRoad](https://commonroad.in.tum.de/) scenario format.
-The trajectories are generated according to the sampling-based approach in [1][2].
+The trajectories are generated according to the sampling-based approach in [1][2]. The Repo provides a python-based and a C++-accelerated Reactive Planner implementation.
 
 ## Getting Started
 These instructions should help you to install the trajectory planner and use it for development and testing purposes.
@@ -12,7 +12,7 @@ For the python installation, we suggest the usage of Virtual Environment with Py
 For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
 
 ### Installation
-1. Make sure that the following dependencies are installed on your system:
+1. Make sure that the following dependencies are installed on your system for the C++ implementation:
    * [Eigen3](https://eigen.tuxfamily.org/dox/) 
      * On Ubuntu: `sudo apt-get install libeigen3-dev`
    * [Boost](https://www.boost.org/)
@@ -34,7 +34,9 @@ For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
     *  unzip the artifact with `unzip artifacts.zip`
     *  install the wheel with `pip install frenetPlannerHelper*.whl`
 
-6. Run the planner with `python3 main.py`
+6. Setup in main.py the configuration regarding multiagent or if C++ should be used. Multiagent will always use C++.
+
+7. Run the planner with `python3 main.py`
 
 ### Run Code
 * An example script `run_planner.py` is provided, which plans intended trajectories for motion planning. Adjust path to select the scenario you want to execute.
