@@ -5,14 +5,13 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
-
 from abc import ABC, abstractmethod
-from enum import Enum
 from typing import List
+import numpy as np
 
 from omegaconf import OmegaConf
 from commonroad_rp.trajectories import TrajectorySample
-from commonroad_rp.cost_functions.partial_cost_functions import *
+import commonroad_rp.cost_functions.partial_cost_functions as cost_functions
 
 
 class CostFunction(ABC):
@@ -53,15 +52,16 @@ class AdaptableCostFunction(CostFunction):
         self.save_unweighted_costs = configuration.debug.save_unweighted_costs
         self.cost_weights_names = None
 
-        self.delete_irrelevant_costs()
-
-    def delete_irrelevant_costs(self):
         for category in list(self.cost_weights.keys()):
             if self.cost_weights[category] == 0:
                 del self.cost_weights[category]
         names = list(self.cost_weights.keys())
         names.sort()
         self.cost_weights_names = names
+
+        self.functions = dict()
+        for num, function in enumerate(self.cost_weights_names):
+            self.functions[function] = getattr(cost_functions, str(function) + "_costs")
 
     def update_state(self, scenario, rp, predictions, reachset):
         self.scenario = scenario
@@ -82,9 +82,8 @@ class AdaptableCostFunction(CostFunction):
             costlist_weighted = np.zeros(len(self.cost_weights))
 
             for num, function in enumerate(self.cost_weights_names):
-                function_iteration = globals()[function + "_costs"]
-                costlist[num] = function_iteration(trajectory=trajectory, planner=self.rp,
-                                                      scenario=self.scenario, desired_speed=self.desired_speed)
+                costlist[num] = self.functions[function](trajectory=trajectory, planner=self.rp,
+                                                         scenario=self.scenario, desired_speed=self.desired_speed)
                 costlist_weighted[num] = self.cost_weights[function] * costlist[num]
 
             total_cost = np.sum(costlist_weighted)
