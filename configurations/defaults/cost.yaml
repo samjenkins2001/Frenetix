@@ -13,7 +13,7 @@ cost_weights:
     distance_to_reference_path: 1
     distance_to_obstacles: 0
 
-    prediction: 500000
+    prediction: 500
     responsibility: 0
 
     Occ_PM: 0 # Occlusion Phantom Module (phantom pedestrian harm)

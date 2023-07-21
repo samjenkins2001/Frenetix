@@ -169,33 +169,31 @@ class CartesianSample(Sample):
         steps = self.length() - self.current_time_step
 
         # create time index
-        # t = np.arange(1, steps + 1, 1) * dt
+        t = np.arange(1, steps + 1, 1) * dt
         # enlarge acceleration values
-        #self.a[self.current_time_step:] = np.repeat(self.a[last_time_step], steps)
-        self.a[self.current_time_step:] = np.repeat(0, steps)
+        self.a[self.current_time_step:] = np.repeat(self.a[last_time_step], steps)
+
         # enlarge velocities by considering acceleration
         # TODO remove a?
-        # v_temp = self.v[last_time_step] + t * self.a[-1]
+        v_temp = self.v[last_time_step] + t * self.a[-1]
         # remove negative velocities
-        # v_temp = v_temp * np.greater_equal(v_temp, 0)
-        self.v[self.current_time_step:] = self.v[self.current_time_step-1]
+        v_temp = v_temp * np.greater_equal(v_temp, 0)
+        self.v[self.current_time_step:] = v_temp
 
-        # enlarge orientations
         for i in range(last_time_step + 1, last_time_step + steps):
             radians1 = math.atan2(self.y[i] - self.y[i-1], self.x[i] - self.x[i-1])
             radians2 = math.atan2(self.y[i+1] - self.y[i], self.x[i+1] - self.x[i])
             self.theta[i] = (radians1 + radians2) / 2
         self.theta[-1] = (self.theta[-2]-self.theta[-3]) + self.theta[-2]
 
-        # self.theta[self.current_time_step:] = np.repeat(self.theta[last_time_step], steps)
         # enlarge curvatures
         self.kappa[self.current_time_step:] = np.repeat(self.kappa[last_time_step], steps)
         # enlarge curvature changes
         self.kappa_dot[self.current_time_step:] = np.repeat(self.kappa_dot[last_time_step], steps)
 
         # enlarge positions
-        #self.x[self.current_time_step:] = self.x[last_time_step] + np.cumsum(dt * v_temp * math.cos(self.theta[last_time_step]))
-        #self.y[self.current_time_step:] = self.y[last_time_step] + np.cumsum(dt * v_temp * math.sin(self.theta[last_time_step]))
+        # self.x[self.current_time_step:] = self.x[last_time_step] + np.cumsum(dt * v_temp * math.cos(self.theta[last_time_step]))
+        # self.y[self.current_time_step:] = self.y[last_time_step] + np.cumsum(dt * v_temp * math.sin(self.theta[last_time_step]))
         self.current_time_step = self.length()
 
 

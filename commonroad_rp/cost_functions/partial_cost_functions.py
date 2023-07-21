@@ -342,13 +342,13 @@ def dist_to_nearest_point(center_vertices: np.ndarray, pos: np.array) -> float:
 def prediction_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                      planner=None, scenario=None, desired_speed: float=0):
 
-    # prediction_costs_raw = get_collision_probability_fast(
-    #     traj=trajectory,
-    #     predictions=self.predictions,
-    #     vehicle_params=self.vehicle_params
-    # )
-    prediction_costs_raw = get_inv_mahalanobis_dist(traj=trajectory, predictions=planner.predictions,
-                                                    vehicle_params=planner.vehicle_params)
+    prediction_costs_raw = get_collision_probability_fast(
+        traj=trajectory,
+        predictions=planner.predictions,
+        vehicle_params=planner.vehicle_params
+    )
+    # prediction_costs_raw = get_inv_mahalanobis_dist(traj=trajectory, predictions=planner.predictions,
+    #                                                 vehicle_params=planner.vehicle_params)
 
     pred_costs = 0
     for key in prediction_costs_raw:

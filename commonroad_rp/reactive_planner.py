@@ -737,7 +737,7 @@ class ReactivePlanner(object):
         self._infeasible_count_kinematics[0] = len(trajectory_bundle.trajectories) - len(feasible_trajectories)
         self.infeasible_kinematics_percentage = float(len(feasible_trajectories)/
                                                       len(trajectory_bundle.trajectories)) * 100
-
+        # print(self.infeasible_kinematics_percentage)
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj or self.use_amazing_visualizer:
             for traj in feasible_trajectories:
@@ -802,12 +802,12 @@ class ReactivePlanner(object):
             traj_len = len(t)
 
             # initialize long. (s) and lat. (d) state vectors
-            s = np.zeros(traj_len)
-            s_velocity = np.zeros(traj_len)
-            s_acceleration = np.zeros(traj_len)
-            d = np.zeros(traj_len)
-            d_velocity = np.zeros(traj_len)
-            d_acceleration = np.zeros(traj_len)
+            s = np.zeros(self.N + 1)
+            s_velocity = np.zeros(self.N + 1)
+            s_acceleration = np.zeros(self.N + 1)
+            d = np.zeros(self.N + 1)
+            d_velocity = np.zeros(self.N + 1)
+            d_acceleration = np.zeros(self.N + 1)
 
             # compute longitudinal position, velocity, acceleration from trajectory sample
             s[:traj_len] = trajectory.trajectory_long.calc_position(t, t2, t3, t4, t5)  # lon pos
@@ -840,17 +840,17 @@ class ReactivePlanner(object):
 
             # Initialize trajectory state vectors
             # (Global) Cartesian positions x, y
-            x = np.zeros(traj_len)
-            y = np.zeros(traj_len)
+            x = np.zeros(self.N + 1)
+            y = np.zeros(self.N + 1)
             # (Global) Cartesian velocity v and acceleration a
-            v = np.zeros(traj_len)
-            a = np.zeros(traj_len)
+            v = np.zeros(self.N + 1)
+            a = np.zeros(self.N + 1)
             # Orientation theta: Cartesian (gl) and Curvilinear (cl)
-            theta_gl = np.zeros(traj_len)
-            theta_cl = np.zeros(traj_len)
+            theta_gl = np.zeros(self.N + 1)
+            theta_cl = np.zeros(self.N + 1)
             # Curvature kappa : Cartesian (gl) and Curvilinear (cl)
-            kappa_gl = np.zeros(traj_len)
-            kappa_cl = np.zeros(traj_len)
+            kappa_gl = np.zeros(self.N + 1)
+            kappa_cl = np.zeros(self.N + 1)
 
             # Initialize Feasibility boolean
             feasible = True
@@ -1019,9 +1019,9 @@ class ReactivePlanner(object):
             # if selected polynomial trajectory is feasible, store it's Cartesian and Curvilinear trajectory
             if feasible or self._draw_traj_set:
                 # Extend Trajectory to get same lenth
-                # t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
-                # s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
-                # d[traj_len:] = d[traj_len-1]
+                t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
+                s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
+                d[traj_len:] = d[traj_len-1]
                 for i in range(0, len(s)):
                     # compute (global) Cartesian position
                     pos: np.ndarray = self._co.convert_to_cartesian_coords(s[i], d[i])
@@ -1049,9 +1049,9 @@ class ReactivePlanner(object):
                     trajectory.actual_traj_length = traj_len
                     # check if trajectories planning horizon is shorter than expected and extend if necessary
                     # shrt = trajectory.cartesian.current_time_step
-                    # if self.N + 1 > trajectory.cartesian.current_time_step:
+                    if self.N + 1 > trajectory.cartesian.current_time_step:
                     # trajectory = hf.shrink_trajectory(trajectory, shrt)
-                    # trajectory.enlarge(self.dT)
+                        trajectory.enlarge(self.dT)
                     # assert self.N + 1 == trajectory.cartesian.current_time_step == len(trajectory.cartesian.x) == \
                     #       len(trajectory.cartesian.y) == len(trajectory.cartesian.theta), \
                     #       '<ReactivePlanner/kinematics>:  Lenghts of state variables is not equal.'
