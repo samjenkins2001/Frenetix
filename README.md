@@ -39,9 +39,10 @@ For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
 7. Run the planner with `python3 main.py`
 
 ### Run Code
-* An example script `run_planner.py` is provided, which plans intended trajectories for motion planning. Adjust path to select the scenario you want to execute.
-* Change the configurations if you want to run a scenario with a different setup under `configurations/defaults/...` 
-* If you want to execute a multiagent-simulation, please start `run_multiagent.py` 
+* An example script `main.py` is provided.
+* To choose whether to run with a single agent or as a multi-agent simulation, set the `start_multiagent` flag in `main.py`.
+* To select the C++ or the Python-implementation of the planner, set the `use_cpp` flag in `main.py`.
+  Please note that multi-agent simulations always use C++.
 
 ## Literature
 [1] Werling M., et al. *Optimal trajectory generation for dynamic street scenarios in a frenet frame*. In: IEEE International Conference on Robotics and Automation, Anchorage, Alaska, 987–993.

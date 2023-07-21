@@ -227,26 +227,17 @@ class FrenetPlannerInterface(PlannerInterface):
             # Could not plan feasible trajectory
             return 1, None
 
-        # correct orientation angle
-        new_trajectory = self.planner.shift_orientation(optimal[0], interval_start=self.x_0.orientation - np.pi,
-                                                        interval_end=self.x_0.orientation + np.pi)
-
-        # get next state from state list of planned trajectory
-        new_state = new_trajectory.state_list[1]
-        new_state.time_step = self.x_0.time_step + 1
+        # record the new state for planner-internal logging
+        self.planner.record_state_and_input(optimal[0].state_list[1])
 
         # update init state and curvilinear state
-        self.x_0 = deepcopy(new_state)
+        self.x_0 = deepcopy(self.planner.record_state_list[-1])
         self.x_cl = (optimal[2][1], optimal[3][1])
 
         # Shift the state list to the center of the vehicle
         shifted_state_list = []
-        for x in new_trajectory.state_list:
-            shifted_state_list.append(
-                x.translate_rotate(np.array([self.config.vehicle.wb_rear_axle * np.cos(x.orientation),
-                                             self.config.vehicle.wb_rear_axle * np.sin(x.orientation)]),
-                                   0.0)
-            )
+        for x in optimal[0].state_list:
+            shifted_state_list.append(x.shift_positions_to_center(self.config.vehicle.wb_rear_axle))
 
         shifted_trajectory = Trajectory(shifted_state_list[0].time_step,
                                         shifted_state_list)
