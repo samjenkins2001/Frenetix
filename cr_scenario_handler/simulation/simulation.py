@@ -245,7 +245,7 @@ class Simulation:
 
             # create planning problem
             final_state = obstacle.prediction.trajectory.final_state
-            goal_state = CustomState(time_step=Interval(final_state.time_step - 5, final_state.time_step + 5),
+            goal_state = CustomState(time_step=Interval(final_state.time_step - 50, final_state.time_step + 50),
                                      position=Circle(1.5, final_state.position),
                                      velocity=Interval(final_state.velocity - 2, final_state.velocity + 2),
                                      orientation=AngleInterval(final_state.orientation - 0.349,
