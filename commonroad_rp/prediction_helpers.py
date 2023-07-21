@@ -30,9 +30,6 @@ from commonroad_rp.utility.responsibility import assign_responsibility_by_action
 # get logger
 msg_logger = logging.getLogger("Message_logger")
 
-# get logger
-msg_logger = logging.getLogger("Message_logger")
-
 
 def load_prediction(scenario, mode, config):
     if mode == "walenet":

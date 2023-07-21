@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import imageio.v3 as iio
-from PIL import Image
 
 # commonroad-io
 from commonroad.scenario.scenario import Scenario
@@ -86,10 +85,17 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     :param ego: Ego vehicle as CommonRoad DynamicObstacle object
     :param pos: positions of planned trajectory [(nx2) np.ndarray]
     :param timestep: current time step of scenario to plot
+    :param log_path: Log path where to save the plots
     :param config: Configuration object for plot/save settings
     :param traj_set: List of sampled trajectories (optional)
+    :param optimal_traj: Optimal Trajectory selected
     :param ref_path: Reference path for planner as polyline [(nx2) np.ndarray] (optional)
     :param rnd: MPRenderer object (optional: if none is passed, the function creates a new renderer object; otherwise it
+    :param predictions: Predictions used to run the planner
+    :param plot_window: Window size to plot (optional)
+    :param visible_area: Visible Area for plotting (optional)
+    :param cluster: cluster number in this time step (optional)
+    :param occlusion_map: Occlusion map information to plot (optional)
     will visualize on the existing object)
     :param save_path: Path to save plot as .png (optional)
     """
@@ -133,8 +139,8 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     rnd.render()
 
     # visualize optimal trajectory
-    rnd.ax.plot(traj_set[0].cartesian.x,
-                traj_set[0].cartesian.y,
+    rnd.ax.plot([i.position[0] for i in optimal_traj.state_list],
+                [i.position[1] for i in optimal_traj.state_list],
                 color='k', marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
 
     # draw visible sensor area

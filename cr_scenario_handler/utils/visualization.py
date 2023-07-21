@@ -9,6 +9,9 @@ import os
 from typing import List, Union, Dict
 
 import matplotlib
+from commonroad.geometry.shape import Rectangle
+from commonroad.prediction.prediction import TrajectoryPrediction
+from commonroad.scenario.trajectory import Trajectory
 from matplotlib import pyplot as plt
 import imageio.v3 as iio
 import numpy as np

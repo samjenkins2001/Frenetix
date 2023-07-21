@@ -6,6 +6,7 @@ __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
 # python packages
+import math
 import time
 
 import numpy as np
@@ -17,7 +18,6 @@ from risk_assessment.utils.logistic_regression_symmetrical import get_protected_
 from multiprocessing.context import Process
 from omegaconf import OmegaConf
 
-import copy
 # commonroad-io
 from commonroad.common.validity import *
 from commonroad.geometry.shape import Rectangle
@@ -57,13 +57,8 @@ from commonroad_rp.utility.load_json import (
     load_risk_json
 )
 
-from commonroad_rp.sampling_matrix import generate_sampling_matrix
-from omegaconf import OmegaConf
-
-from frenetPlannerHelper.trajectory_functions.feasability_functions import *
-from frenetPlannerHelper.trajectory_functions.cost_functions import *
-from frenetPlannerHelper.trajectory_functions import FillCoordinates, ComputeInitialState
-from frenetPlannerHelper import *
+# precision value
+_EPS = 1e-5
 
 # get logger
 msg_logger = logging.getLogger("Message_logger")
@@ -125,14 +120,6 @@ class ReactivePlanner(object):
         self.max_seen_costs = 1
         self.cost_weights = OmegaConf.to_object(config.cost.cost_weights)
 
-        # *****************************
-        # C++ Trajectory Handler Import
-        # *****************************
-
-        self.handler: TrajectoryHandler = TrajectoryHandler(dt=config.planning.dt)
-        self.cost_weights = OmegaConf.to_object(config.cost.cost_weights)
-        self.coordinate_system: CoordinateSystemWrapper
-        self.trajectory_handler_set_constant_functions()
         # **************************
         # Extensions Initialization
         # **************************
@@ -205,6 +192,10 @@ class ReactivePlanner(object):
     @property
     def collision_checker(self) -> pycrcc.CollisionChecker:
         return self._cc
+
+    @property
+    def coordinate_system(self) -> CoordinateSystem:
+        return self._co
 
     @property
     def reference_path(self):
@@ -441,6 +432,7 @@ class ReactivePlanner(object):
             self._cc: pycrcc.CollisionChecker = collision_checker
 
     def set_risk_costs(self, trajectory):
+
         ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict, ego_risk, obst_risk = calc_risk(
             traj=trajectory,
             ego_state=self.x_0,
@@ -1225,9 +1217,8 @@ class ReactivePlanner(object):
 
     def _compute_standstill_trajectory(self) -> TrajectorySample:
         """
-        Checks valid trajectories for collisions with static obstacles
-        :param feasible_trajectories: feasible trajectories list
-        :return trajectory: optimal feasible trajectory or None
+        Computes a standstill trajectory if the vehicle is already at velocity 0
+        :return: The TrajectorySample for a standstill trajectory
         """
         # current planner initial state
         x_0 = self.x_0
@@ -1303,7 +1294,7 @@ class ReactivePlanner(object):
         msg_logger.debug(' %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
         return trajectory_bundle
 
-    def convert_state_list_to_commonroad_object(self, state_list, obstacle_id: int = 42):
+    def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState], obstacle_id: int = 42):
         """
         Converts a CR trajectory to a CR dynamic obstacle with given dimensions
         :param state_list: trajectory state list of reactive planner
@@ -1405,3 +1396,4 @@ class ReactivePlanner(object):
             while state.orientation > interval_end:
                 state.orientation -= 2 * np.pi
         return trajectory
+
