@@ -1,28 +1,24 @@
 cost_weights:
 
-    Acceleration: 0.0
-    Jerk: 0.00
-    Lateral Jerk: 0.1
-    Longitudinal Jerk: 0.1
-    Orientation Offset: 0.0
-    Path Length: 0.0
+    acceleration: 0.0
+    jerk: 0.00
+    lateral_jerk: 0.1
+    longitudinal_jerk: 0.1
+    orientation_offset: 0.0
+    path_length: 0.0
 
-    Lane Center Offset: 0.0
-    Velocity Offset: 0.2
-    Velocity Costs: 0.
-    Distance to Reference Path: 2
-    Distance to Obstacles: 0
+    lane_center_offset: 0.0
+    velocity_offset: 0.05
+    velocity: 0.
+    distance_to_reference_path: 1
+    distance_to_obstacles: 0
 
-    Prediction: 20000
-    Responsibility: 0
+    prediction: 500000
+    responsibility: 0
 
     Occ_PM: 0 # Occlusion Phantom Module (phantom pedestrian harm)
     Occ_UM: 0 # Occlusion Uncertainty Module (distance to uncertainty map)
     Occ_VE: 0 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
-
-normalizers:
-  means: [ 7.05110264e-03,  7.18838630e+00,  2.84390826e-01,  3.62645397e-01 ,1.02147705e+00, -3.33536304e+01]
-  stds: [ 1.63990427,  3.89871366,  0.60811677,  0.63062033,  1.58396939, 94.37201066]
 
 #names:
 #  A: Acceleration

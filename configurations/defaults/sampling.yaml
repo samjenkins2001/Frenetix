@@ -6,9 +6,9 @@ v_min: 0 # is calculated with current velodity & acc limits
 v_max: 0
 
 # lateral sampling interval
-d_min: -3
-d_max: 3
+d_min: -2.5
+d_max: 2.5
 
 # sampling density minimum and maximum
-sampling_min: 1
-sampling_max: 2
+sampling_min: 2
+sampling_max: 3

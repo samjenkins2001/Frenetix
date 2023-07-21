@@ -1,4 +1,9 @@
-#!/user/bin/env python
+__author__ = "Maximilian Geisslinger, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
 
 """Helper functions to adjust the prediction to the needs of the frenét planner."""
 
@@ -19,6 +24,11 @@ from commonroad_rp.utility.helper_functions import create_tvobstacle, distance, 
 from prediction import WaleNet
 from commonroad_rp.utility.sensor_model import get_visible_objects
 from commonroad_prediction.prediction_module import PredictionModule
+from commonroad_rp.utility import reachable_set
+from commonroad_rp.utility.responsibility import assign_responsibility_by_action_space
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 # get logger
 msg_logger = logging.getLogger("Message_logger")
@@ -35,6 +45,17 @@ def load_prediction(scenario, mode, config):
         predictor = None
 
     return predictor
+
+
+def load_reachset(scenario, config, params_path):
+    reach_set = reachable_set.ReachSet(
+        scenario=scenario,
+        ego_id=24,
+        ego_length=config.vehicle.length,
+        ego_width=config.vehicle.width,
+        work_dir=params_path
+    )
+    return reach_set
 
 
 def step_prediction(scenario, predictor, config, ego_state, occlusion_module=None, ego_id=42):
@@ -65,6 +86,12 @@ def step_prediction(scenario, predictor, config, ego_state, occlusion_module=Non
                                                     config.prediction.cone_safety_dist)
 
     return predictions, visible_area
+
+
+def step_reach_set(reach_set, scenario, x_0, predictions):
+    predictions = assign_responsibility_by_action_space(scenario, x_0, predictions)
+    reach_set.calc_reach_sets(x_0, list(predictions.keys()))
+    return reach_set
 
 
 def get_obstacles_in_radius(scenario, ego_id: int, ego_state, radius: float):

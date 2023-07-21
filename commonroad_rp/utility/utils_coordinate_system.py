@@ -8,8 +8,8 @@ __status__ = "Alpha"
 
 from copy import deepcopy
 import numpy as np
-from scipy.interpolate import UnivariateSpline
-
+from scipy.interpolate import UnivariateSpline, splprep, splev
+import matplotlib.pyplot as plt
 from commonroad_dc.pycrccosy import CurvilinearCoordinateSystem
 from commonroad_dc.geometry.util import compute_pathlength_from_polyline,compute_curvature_from_polyline, \
     compute_orientation_from_polyline, resample_polyline, chaikins_corner_cutting
@@ -21,13 +21,24 @@ def smooth_ref_path(reference: np.ndarray):
     _, idx = np.unique(reference, axis=0, return_index=True)
     reference = reference[np.sort(idx)]
 
-    smoothing_factor = 10
-    tt = np.linspace(0, 1, len(reference[:, 0]))
-    bs_x = UnivariateSpline(x=tt, y=reference[:, 0], s=smoothing_factor)
-    bs_y = UnivariateSpline(x=tt, y=reference[:, 1], s=smoothing_factor)
-    x_smooth = bs_x(tt)
-    y_smooth = bs_y(tt)
-    reference = np.column_stack((x_smooth, y_smooth))
+    # smoothing_factor = 10
+    # tt = np.linspace(0, 1, len(reference[:, 0]))
+    # bs_x = UnivariateSpline(x=tt, y=reference[:, 0], s=smoothing_factor)
+    # bs_y = UnivariateSpline(x=tt, y=reference[:, 1], s=smoothing_factor)
+    # x_smooth = bs_x(tt)
+    # y_smooth = bs_y(tt)
+    # reference = np.column_stack((x_smooth, y_smooth))
+
+    tck, u = splprep(reference.T, u=None, k=3, s=0.3)
+    u_new = np.linspace(u.min(), u.max(), 300)
+    x_new, y_new = splev(u_new, tck, der=0)
+    ref_path = np.array([x_new, y_new]).transpose()
+    reference = resample_polyline(ref_path, 1)
+
+    # remove duplicated vertices in reference path
+    _, idx = np.unique(reference, axis=0, return_index=True)
+    reference = reference[np.sort(idx)]
+
     return reference
 
 
@@ -89,8 +100,7 @@ class CoordinateSystem:
                                           'CurvilinearCoordinateSystem object.'
             # set reference and create ccosy from given reference
 
-            # remove duplicated vertices in reference path
-            self.reference = reference
+            self.reference = smooth_ref_path(reference)
         else:
             assert ccosy is not None, '<CoordinateSystem>: Please provide a reference path OR a ' \
                                           'CurvilinearCoordinateSystem object.'
@@ -103,6 +113,9 @@ class CoordinateSystem:
         self._ref_theta = np.unwrap(compute_orientation_from_polyline(self.reference))
         self._ref_curv_d = np.gradient(self._ref_curv, self._ref_pos)
         self._ref_curv_dd = np.gradient(self._ref_curv_d, self._ref_pos)
+        # plt.clf()
+        # plt.plot(self._ref_pos[50:-50], self._ref_curv_d[50:-50])
+        # plt.savefig('curv_window.png')
 
     @property
     def reference(self) -> np.ndarray:

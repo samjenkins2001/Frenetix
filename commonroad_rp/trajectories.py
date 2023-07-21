@@ -343,17 +343,17 @@ class TrajectorySample(Sample):
     """
 
     def __init__(self, horizon: float, dt: float, trajectory_long: PolynomialTrajectory,
-                 trajectory_lat: PolynomialTrajectory, unique_id: int):
+                 trajectory_lat: PolynomialTrajectory, uniqueId: int, costMap: dict):
         self.horizon = horizon
         self.dt = dt
         assert isinstance(trajectory_long,
                           PolynomialTrajectory), '<TrajectorySample/init>: Provided longitudinal trajectory ' \
-                                                 'is not valid! trajectory = {}'.format(
+                                                 'is not feasible! trajectory = {}'.format(
             trajectory_long)
         self._trajectory_long = trajectory_long
         assert isinstance(trajectory_lat,
                           PolynomialTrajectory), '<TrajectorySample/init>: Provided lateral trajectory ' \
-                                                 'is not valid! trajectory = {}'.format(
+                                                 'is not feasible! trajectory = {}'.format(
             trajectory_lat)
         self._trajectory_lat = trajectory_lat
 
@@ -365,14 +365,15 @@ class TrajectorySample(Sample):
         self._occupancy: DynamicObstacle
         self._ext_cartesian = None
         self._ext_curvilinear = None
-        self.valid = None
+        self.feasible = None
         self._ego_risk = None
         self._obst_risk = None
         self.boundary_harm = None
         self._coll_detected = None
         self.actual_traj_length = None
 
-        self._unique_id = unique_id
+        self.uniqueId = uniqueId
+        self.costMap = {x: [0, 0] for x in costMap}
 
     @property
     def trajectory_long(self) -> PolynomialTrajectory:
@@ -398,14 +399,14 @@ class TrajectorySample(Sample):
     def trajectory_lat(self, trajectory_lat):
         pass
 
-    def set_costs(self, cost, cost_list):#, cost_function):
+    def set_costs(self, cost, cost_list, cost_list_weighted, cost_names):
         """
         Evaluated cost of the trajectory sample
         :return: The cost of the trajectory sample
         """
         self._cost = cost
-        self._cost_list = cost_list
-        # self._cost_function = cost_function
+        for idx, names in enumerate(cost_names):
+            self.costMap[names] = [cost_list[idx], cost_list_weighted[idx]]
 
     @property
     def cost(self) -> float:
@@ -422,15 +423,6 @@ class TrajectorySample(Sample):
         :return: The cost list of the trajectory sample
         """
         return self._cost_list
-
-    # @cost.setter
-    # def cost(self, cost_function):
-    #     """
-    #     Sets the cost function for evaluating the costs of the polynomial trajectory
-    #     :param cost_function: The cost function for computing the costs
-    #     """
-    #     self._cost, self._cost_list = cost_function.evaluate(self)
-    #     self._cost_function = cost_function
 
     @property
     def curvilinear(self) -> CurviLinearSample:
@@ -473,8 +465,8 @@ class TrajectorySample(Sample):
         """
         return self.cartesian.length()
 
-    def set_valid_status(self, sts: bool):
-        self.valid = sts
+    def set_feasible_status(self, sts: bool):
+        self.feasible = sts
 
     def enlarge(self, dt: float):
         """
@@ -499,7 +491,7 @@ class TrajectoryBundle:
         assert isinstance(trajectories, list) and all([isinstance(t, TrajectorySample) for t in trajectories]), \
             '<TrajectoryBundle/init>: ' \
             'Provided list of trajectory samples is not ' \
-            'valid! List = {}'.format(trajectories)
+            'feasible! List = {}'.format(trajectories)
 
         self.trajectories: List[TrajectorySample] = trajectories
         # self.trajectories_all: List[TrajectorySample] = trajectories
@@ -508,7 +500,6 @@ class TrajectoryBundle:
         self._is_sorted_all = False
         self._multiproc = multiproc
         self._num_workers = num_workers
-        self.cluster = None
 
     @property
     def trajectories(self) -> List[TrajectorySample]:
@@ -526,13 +517,8 @@ class TrajectoryBundle:
         """
         self._trajectory_bundle = trajectories
 
-    def _calc_prediction(self, trajectories: List[TrajectorySample], index: int, queue_prediction=None, queue_responsibility=None):
-        prediction_cost_list, responsibility_cost_list = self._cost_function.calc_prediction(trajectories)
-        queue_prediction.put((index, prediction_cost_list))
-        queue_responsibility.put((index, responsibility_cost_list))
-
-    def _calc_cost(self, trajectories: List[TrajectorySample], list_predictions, list_responsibilities, cluster_name=None, queue_1=None):
-        self._cost_function.calc_cost(trajectories, list_predictions, list_responsibilities, cluster_name)
+    def _calc_cost(self, trajectories: List[TrajectorySample], queue_1=None):
+        self._cost_function.calc_cost(trajectories)
         queue_1.put(trajectories)
 
     def sort(self, occlusion_module=None):
@@ -548,45 +534,13 @@ class TrajectoryBundle:
                         chunk_size = math.ceil(len(self._trajectory_bundle) / self._num_workers)
                         chunks = [self._trajectory_bundle[ii * chunk_size: min(len(self._trajectory_bundle),
                                   (ii + 1) * chunk_size)] for ii in range(0, self._num_workers)]
+
+                        queue_1 = multiprocessing.Queue()
                         list_processes = []
                         trajectories_proc = []
 
-                        # first calculate the prediction cost, which needed for cluster assignment
-                        # setup lists
-                        list_predictions = ([[] for pred in repeat(None, self._num_workers)])
-                        list_responsibilities = ([[] for resp in repeat(None, self._num_workers)])
-
-                        queue_1 = multiprocessing.Queue()
-                        queue_prediction = multiprocessing.Queue()
-                        queue_responsibility = multiprocessing.Queue()
-
                         for i, chunk in enumerate(chunks):
-                            p = Process(target=self._calc_prediction, args=(chunk, i, queue_prediction, queue_responsibility))
-                            list_processes.append(p)
-                            p.start()
-                        for p in list_processes:
-                            p.join()
-                        # # get return values from queue
-                        for p in enumerate(list_processes):
-                            pred = (queue_prediction.get())
-                            list_predictions[pred[0]] = pred[1]
-                            resp = (queue_responsibility.get())
-                            list_responsibilities[resp[0]] = resp[1]
-
-                        if self._cost_function.use_clusters:
-                            # get cluster assignment based on prediction cost
-                            flattened_pred_cost = np.concatenate(list_predictions).flat
-                            cluster = self._cost_function.cluster_prediction.evaluate(self._trajectory_bundle, flattened_pred_cost)
-                            cluster_name = self._cost_function.get_cluster_name_by_index(cluster)
-                            self.cluster = int(cluster_name[-1])  # currently limited to 10 clusters
-                        else:
-                            cluster_name = "cluster0"
-                            self.cluster = int(0)
-
-                        # calculate costs based on cluster
-                        list_processes = []
-                        for i, chunk in enumerate(chunks):
-                            p = Process(target=self._calc_cost, args=(chunk, list_predictions[i], list_responsibilities[i], cluster_name, queue_1))
+                            p = Process(target=self._calc_cost, args=(chunk, queue_1))
                             list_processes.append(p)
                             p.start()
                         # # get return values from queue

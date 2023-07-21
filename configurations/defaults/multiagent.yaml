@@ -19,7 +19,7 @@ select_agents_randomly: True
 show_all_individual_plots: False
 show_specific_individual_plots: []
 save_all_individual_plots: False
-save_specific_individual_plots: [60000]
+save_specific_individual_plots: []
 save_all_individual_gifs: False
 save_specific_individual_gifs: []
 

@@ -1,10 +1,9 @@
-__author__ = "Alexander Hobmeier"
-__copyright__ = "TUM Cyber-Physical Systems Group"
-__credits__ = []
-__version__ = ""
-__maintainer__ = "Alexander Hobmeier"
-__email__ = "commonroad@lists.lrz.de"
-__status__ = ""
+__author__ = "Alexander Hobmeier, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
 
 import numpy as np
 import commonroad_rp.trajectories
@@ -16,9 +15,14 @@ from shapely.geometry import LineString, Point
 from commonroad_rp.utility.helper_functions import distance
 from commonroad_rp.utility import helper_functions as hf
 from scipy.spatial.distance import cdist
+from risk_assessment.collision_probability import (
+    get_collision_probability_fast, get_inv_mahalanobis_dist
+)
+from risk_assessment.risk_costs import get_responsibility_cost
+from risk_assessment.risk_costs import calc_risk
 
 
-def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def acceleration_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                       planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the acceleration cost for the given trajectory.
@@ -30,7 +34,7 @@ def acceleration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     return cost
 
 
-def jerk_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def jerk_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
               planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the jerk cost for the given trajectory.
@@ -43,7 +47,7 @@ def jerk_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     return cost
 
 
-def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def lateral_jerk_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                   planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the lateral jerk cost for the given trajectory.
@@ -52,7 +56,7 @@ def jerk_lat_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     return cost
 
 
-def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def longitudinal_jerk_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                   planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the lateral jerk cost for the given trajectory.
@@ -61,7 +65,7 @@ def jerk_lon_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     return cost
 
 
-def steering_angle_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def steering_angle_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                         planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the steering angle cost for the given trajectory.
@@ -69,7 +73,7 @@ def steering_angle_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     raise NotImplementedError
 
 
-def steering_rate_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def steering_rate_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                        planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the steering rate cost for the given trajectory.
@@ -77,7 +81,7 @@ def steering_rate_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     raise NotImplementedError
 
 
-def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def yaw_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
              planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the yaw cost for the given trajectory.
@@ -85,7 +89,7 @@ def yaw_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     raise NotImplementedError
 
 
-def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def lane_center_offset_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                             planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculate the average distance of the trajectory to the center line of a lane.
@@ -114,7 +118,7 @@ def lane_center_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
     return dist / len(trajectory.cartesian.x)
 
 
-def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def velocity_offset_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                          planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Velocity Offset cost.
@@ -127,7 +131,7 @@ def velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample
     return float(cost)
 
 
-def longitudinal_velocity_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def longitudinal_velocity_offset_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                                       planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Velocity Offset cost.
@@ -135,7 +139,7 @@ def longitudinal_velocity_offset_cost(trajectory: commonroad_rp.trajectories.Tra
     raise NotImplementedError
 
 
-def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def orientation_offset_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                             planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Orientation Offset cost.
@@ -148,7 +152,7 @@ def orientation_offset_cost(trajectory: commonroad_rp.trajectories.TrajectorySam
     return cost
 
 
-def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def distance_to_reference_path_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                                     planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Distance to Reference Path costs.
@@ -166,7 +170,7 @@ def distance_to_reference_path_cost(trajectory: commonroad_rp.trajectories.Traje
     return float(cost)
 
 
-def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def distance_to_obstacles_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                                planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the Distance to Obstacle cost.
@@ -183,7 +187,7 @@ def distance_to_obstacles_cost(trajectory: commonroad_rp.trajectories.Trajectory
     return float(cost)
 
 
-def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def path_length_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                      planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the path length cost for the given trajectory.
@@ -193,7 +197,7 @@ def path_length_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     return cost
 
 
-def time_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def time_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
               planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the time cost for the given trajectory.
@@ -201,12 +205,12 @@ def time_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
     raise NotImplementedError
 
 
-def inverse_duration_cost(trajectory: commonroad_rp.trajectories.TrajectorySample,
+def inverse_duration_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
                           planner=None, scenario=None, desired_speed: float=0) -> float:
     """
     Calculates the inverse time cost for the given trajectory.
     """
-    return 1 / time_cost(trajectory)
+    return 1 / time_costs(trajectory)
 
 
 def velocity_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
@@ -333,3 +337,52 @@ def dist_to_nearest_point(center_vertices: np.ndarray, pos: np.array) -> float:
     nearest_point = linestring.interpolate(project)
 
     return distance(pos, np.array([nearest_point.x, nearest_point.y]))
+
+
+def prediction_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                     planner=None, scenario=None, desired_speed: float=0):
+
+    # prediction_costs_raw = get_collision_probability_fast(
+    #     traj=trajectory,
+    #     predictions=self.predictions,
+    #     vehicle_params=self.vehicle_params
+    # )
+    prediction_costs_raw = get_inv_mahalanobis_dist(traj=trajectory, predictions=planner.predictions,
+                                                    vehicle_params=planner.vehicle_params)
+
+    pred_costs = 0
+    for key in prediction_costs_raw:
+        pred_costs += np.sum(prediction_costs_raw[key])
+
+    return pred_costs
+
+
+def responsibility_costs(trajectory: commonroad_rp.trajectories.TrajectorySample,
+                     planner=None, scenario=None, desired_speed: float=0):
+    if planner.predictions is not None and planner.reachset is not None:
+        ego_risk_dict, obst_risk_dict, ego_harm_dict, obst_harm_dict, ego_risk, obst_risk = calc_risk(
+            traj=trajectory,
+            ego_state=planner.rp.x_0,
+            predictions=planner.predictions,
+            scenario=planner.scenario,
+            ego_id=24,
+            vehicle_params=planner.vehicle_params,
+            road_boundary=planner.rp.road_boundary,
+            params_harm=planner.rp.params_harm,
+            params_risk=planner.rp.params_risk,
+        )
+        trajectory._ego_risk = ego_risk
+        trajectory._obst_risk = obst_risk
+
+        responsibility_cost, bool_contain_cache = get_responsibility_cost(
+            scenario=planner.scenario,
+            traj=trajectory,
+            ego_state=planner.rp.x_0,
+            obst_risk_max=obst_risk_dict,
+            predictions=planner.predictions,
+            reach_set=planner.rp.reach_set
+        )
+    else:
+        responsibility_cost = 0.0
+
+    return responsibility_cost

@@ -17,11 +17,13 @@ from cr_scenario_handler.utils.collision_report import coll_report
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner
+from commonroad_rp.reactive_planner import ReactivePlanner as ReactivePlannerPython
+from commonroad_rp.reactive_planner_cpp import ReactivePlanner as ReactivePlannerCpp
 from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
     plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
+
 from commonroad_rp.utility import helper_functions as hf
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.geometry.shape import Rectangle
@@ -34,7 +36,7 @@ from behavior_planner.behavior_module import BehaviorModule
 from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
 
 
-def run_planner(config, log_path, mod_path):
+def run_planner(config, log_path, mod_path, use_cpp):
 
     DT = config.planning.dt  # planning time step
 
@@ -59,14 +61,12 @@ def run_planner(config, log_path, mod_path):
         problem_init_state.acceleration = 0.
     x_0 = deepcopy(problem_init_state)
 
-    goal_area = hf.get_goal_area_shape_group(
-       planning_problem=planning_problem, scenario=scenario
-    )
-
     # *************************************
     # Initialize Reactive Planner
     # *************************************
-    planner = ReactivePlanner(config, scenario, planning_problem, log_path, mod_path)
+
+    planner = ReactivePlannerCpp(config, scenario, planning_problem, log_path, mod_path) if use_cpp else \
+              ReactivePlannerPython(config, scenario, planning_problem, log_path, mod_path)
 
     # **************************
     # Run Variables
@@ -81,9 +81,11 @@ def run_planner(config, log_path, mod_path):
     behavior = None
     behavior_modul = None
     predictions = None
+    reach_set = None
     visible_area = None
     occlusion_map = None
     occlusion_module = None
+    desired_velocity = None
 
     # **************************
     # Convert Initial State
@@ -94,12 +96,6 @@ def run_planner(config, log_path, mod_path):
     # *************************************
     # Load Behavior Planner
     # *************************************
-    if hasattr(planning_problem.goal.state_list[0], 'velocity'):
-        desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[
-            0].velocity.end) / 2
-    else:
-        desired_velocity = x_0.velocity + 5
-
     if not config.behavior.use_behavior_planner:
         route_planner = RoutePlanner(scenario, planning_problem)
         reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
@@ -111,10 +107,13 @@ def run_planner(config, log_path, mod_path):
                                         config=config)
         reference_path = behavior_modul.reference_path
 
-    # **************************
-    # Load Prediction
-    # **************************
+    # *****************************
+    # Load Prediction and Reach Set
+    # *****************************
     predictor = ph.load_prediction(scenario, config.prediction.mode, config)
+
+    if 'R' in config.cost.cost_weights and config.cost.cost_weights['R'] > 0:
+        reach_set = ph.load_reachset(scenario, config, mod_path)
 
     # **************************
     # Initialize Occlusion Module
@@ -125,8 +124,7 @@ def run_planner(config, log_path, mod_path):
     # **************************
     # Set External Planner Setups
     # **************************
-    planner.update_externals(goal_area=goal_area, planning_problem=planning_problem, occlusion_module=occlusion_module,
-                             reference_path=reference_path)
+    planner.update_externals(reference_path=reference_path)
 
     # **************************
     # Run Planner Cycle
@@ -136,11 +134,13 @@ def run_planner(config, log_path, mod_path):
 
         current_count = len(planner.record_state_list) - 1
 
-        # **************************
-        # Cycle Prediction
-        # **************************
+        # *******************************
+        # Cycle Prediction and Reach Sets
+        # *******************************
         if config.prediction.mode:
             predictions, visible_area = ph.step_prediction(scenario, predictor, config, x_0, occlusion_module)
+            if 'R' in config.cost.cost_weights and config.cost.cost_weights['R'] > 0:
+                reach_set = ph.step_reach_set(reach_set, scenario, x_0, predictions)
 
         # **************************
         # Cycle Behavior Planner
@@ -195,7 +195,7 @@ def run_planner(config, log_path, mod_path):
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
             visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.ego_vehicle_history[-1],
-                                          traj_set=list(planner.handler.get_sorted_trajectories()), optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
+                                          traj_set=planner.all_traj, optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
                                           config=config, predictions=predictions,
                                           plot_window=config.debug.plot_window_dyn,
                                           log_path=log_path, visible_area=visible_area, occlusion_map=occlusion_map)

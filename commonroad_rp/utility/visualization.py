@@ -1,10 +1,8 @@
-__author__ = "Gerald Würsching"
-__copyright__ = "TUM Cyber-Physical Systems Group"
-__version__ = "0.5"
-__maintainer__ = "Gerald Würsching"
-__email__ = "commonroad@lists.lrz.de"
+__author__ = "Rainer Trauth, Gerald Würsching"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
-
 
 # standard imports
 from typing import List, Union
@@ -31,7 +29,6 @@ from commonroad.visualization.draw_params import MPDrawParams
 from commonroad_dc import pycrcc
 
 # commonroad-rp
-from frenetPlannerHelper import TrajectorySample
 from cr_scenario_handler.utils.configuration import Configuration
 
 
@@ -160,13 +157,12 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         rnd.ax.legend(handles, labels, loc="upper right", title="Occlusion")
 
     # visualize sampled trajectory bundle
-    step = 1  # draw every trajectory (step=2 would draw every second trajectory)
+    step = int(len(traj_set)/100) if int(len(traj_set)/100) > 2 else 1
     if traj_set is not None:
         for i in range(0, len(traj_set), step):
             color = 'blue'
-            horizon = traj_set[i].sampling_parameters[1]-traj_set[i].sampling_parameters[0]
-            plt.plot(traj_set[i].cartesian.x[0:int(horizon*10)],
-                     traj_set[i].cartesian.y[0:int(horizon*10)],
+            plt.plot(traj_set[i].cartesian.x,
+                     traj_set[i].cartesian.y,
                      color=color, zorder=20, linewidth=0.2, alpha=1.0)
 
     # visualize predictions

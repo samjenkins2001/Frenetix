@@ -1,5 +1,7 @@
 import os
 import sys
+
+from commonroad_rp.run_planner import run_planner
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 
@@ -22,5 +24,12 @@ if __name__ == '__main__':
     config = ConfigurationBuilder.build_configuration(scenario_path+".xml")
     log_path = "./logs/"+scenario_path.split("/")[-1]
 
-    simulation = Simulation(config, log_path, mod_path)
-    simulation.run_simulation()
+    start_multiagent = False
+    use_cpp = True
+    
+    if not start_multiagent:
+        run_planner(config, log_path, mod_path, use_cpp)
+    else:
+        # Works only with wale-net. Ground Truth Prediction not possible!
+        simulation = Simulation(config, log_path, mod_path)
+        simulation.run_simulation()

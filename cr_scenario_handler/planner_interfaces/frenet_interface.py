@@ -1,4 +1,10 @@
-import os
+__author__ = "Maximilian Streubel, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
+
 import traceback
 from copy import deepcopy
 from typing import List
@@ -12,7 +18,7 @@ from commonroad.scenario.trajectory import Trajectory
 from commonroad_dc import pycrcc
 
 from cr_scenario_handler.utils.configuration import Configuration
-from commonroad_rp.reactive_planner import ReactivePlanner, ReactivePlannerState
+from commonroad_rp.reactive_planner_cpp import ReactivePlanner, ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
 
 from commonroad_route_planner.route_planner import RoutePlanner
@@ -67,12 +73,8 @@ class FrenetPlannerInterface(PlannerInterface):
             self.ref_path = route_planner.plan_routes().retrieve_first_route().reference_path
         else:
             # Load behavior planner
-            self.behavior_module = BehaviorModule(proj_path=os.path.join(mod_path, "behavior_planner"),
-                                                  init_sc_path=os.path.join(config.general.path_scenarios,
-                                                                            config.general.name_scenario),
-
-                                                  init_ego_state=self.x_0, dt=scenario.dt,
-                                                  vehicle_parameters=config.vehicle)  # testing
+            self.behavior_module = BehaviorModule(scenario=self.scenario, planning_problem=planning_problem,
+                                                  init_ego_state=self.x_0, dt=self.scenario.dt, config=config)
             self.ref_path = self.behavior_module.reference_path
 
         self.planner.set_reference_path(self.ref_path)
@@ -183,23 +185,6 @@ class FrenetPlannerInterface(PlannerInterface):
         self.predictions = predictions
         self.planner.update_externals(x_0=self.x_0, x_cl=self.x_cl, scenario=scenario, predictions=predictions)
 
-    def plan(self):
-        """ Execute one planing step.
-
-        update_planner has to be called before this function.
-        Plans the trajectory for the next time step, updates the
-        internal state of the FrenetInterface, and shifts the trajectory
-        to the global representation.
-
-        :return: error, trajectory
-            where error is:
-                0: If an optimal trajectory has been found.
-                1: Otherwise.
-            and trajectory is:
-                A Trajectory object containing the planned trajectory,
-                    using the vehicle center for the position: If error == 0
-                None: Otherwise
-        """
         if not self.use_behavior_planner:
             # set desired velocity
             self.desired_velocity = hf.calculate_desired_velocity(self.scenario, self.planning_problem,
@@ -218,6 +203,23 @@ class FrenetPlannerInterface(PlannerInterface):
 
             """--------------------------------------- End Testing ------------------------------------------"""
 
+    def plan(self):
+        """ Execute one planing step.
+
+        update_planner has to be called before this function.
+        Plans the trajectory for the next time step, updates the
+        internal state of the FrenetInterface, and shifts the trajectory
+        to the global representation.
+
+        :return: error, trajectory
+            where error is:
+                0: If an optimal trajectory has been found.
+                1: Otherwise.
+            and trajectory is:
+                A Trajectory object containing the planned trajectory,
+                    using the vehicle center for the position: If error == 0
+                None: Otherwise
+        """
         # plan trajectory
         optimal = self.planner.plan()
 

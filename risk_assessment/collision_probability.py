@@ -280,14 +280,14 @@ def get_inv_mahalanobis_dist(traj, predictions: dict, vehicle_params, safety_mar
         inv_dist = []
         for i in range(1, len(traj.cartesian.x)):
             if i < len(mean_list):
-                u = [traj.cartesian.x[i], traj.cartesian.x[i]]
-                v = mean_list[i - 1]
-                iv = inv_cov_list[i - 1]
+                u = np.array([traj.cartesian.x[i], traj.cartesian.y[i]])
+                v = np.array(mean_list[i - 1])
+                iv = np.array(inv_cov_list[i - 1])
                 # 1e-4 is regression param to be similar to collision probability
-                inv_dist.append(1e-4 / mahalanobis(u, v, iv))
+                inv_dist.append(1.0 / mahalanobis(u, v, iv) ** 2)
             else:
                 inv_dist.append(0.0)
-        collision_prob_dict[obstacle_id] = inv_dist
+        collision_prob_dict[obstacle_id] = np.array(inv_dist)
 
     return collision_prob_dict
 

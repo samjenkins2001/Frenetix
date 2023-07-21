@@ -1,3 +1,10 @@
+__author__ = "Maximilian Geisslinger, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
+
 import os
 from datetime import datetime
 import subprocess
@@ -19,7 +26,14 @@ import commonroad_dc.pycrcc as pycrcc
 msg_logger = logging.getLogger("Message_logger")
 
 
-def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_velocity) -> float:
+def calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity=None) -> float:
+
+    if desired_velocity is None:
+        if hasattr(planning_problem.goal.state_list[0], 'velocity'):
+            desired_velocity = (planning_problem.goal.state_list[0].velocity.start + planning_problem.goal.state_list[
+                0].velocity.end) / 2
+        else:
+            desired_velocity = x_0.velocity + 5
     try:
         # if the goal is not reached yet, try to reach it
         # get the center points of the possible goal positions
@@ -40,23 +54,23 @@ def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_ve
                 goal_centers.append(planning_problem.goal.state_list[0].position.center)
         # if it is a survival scenario with no goal areas, no velocity can be proposed
         elif hasattr(planning_problem.goal.state_list[0], "time_step"):
-            if state.time_step > planning_problem.goal.state_list[0].time_step.end:
+            if x_0.time_step > planning_problem.goal.state_list[0].time_step.end:
                 return 0.0
             else:
-                return state.velocity
+                return x_0.velocity
         else:
             return 0.0
 
         distances = []
         for goal_center in goal_centers:
-            distances.append(distance(goal_center, state.position))
+            distances.append(distance(goal_center, x_0.position))
 
         # calculate the average distance to the goal positions
         avg_dist = np.mean(distances)
 
         _, max_remaining_time_steps = calc_remaining_time_steps(
             planning_problem=planning_problem,
-            ego_state_time=state.time_step,
+            ego_state_time=x_0.time_step,
             t=0.0,
             dt=DT,
         )
@@ -72,9 +86,9 @@ def calculate_desired_velocity(scenario, planning_problem, state, DT, desired_ve
         msg_logger.warning("Could not calculate desired velocity")
         desired_velocity_new = desired_velocity
 
-    if np.abs(desired_velocity - desired_velocity_new) > 5 or np.abs(state.velocity - desired_velocity_new) > 5:
-        if np.abs(state.velocity - desired_velocity_new) > 5:
-            desired_velocity = state.velocity + 1
+    if np.abs(desired_velocity - desired_velocity_new) > 5 or np.abs(x_0.velocity - desired_velocity_new) > 5:
+        if np.abs(x_0.velocity - desired_velocity_new) > 5:
+            desired_velocity = x_0.velocity + 1
         if desired_velocity_new > desired_velocity:
             desired_velocity_new = desired_velocity + 2
         else:
