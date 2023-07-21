@@ -793,10 +793,10 @@ class ReactivePlanner(object):
         for trajectory in trajectories:
             # create time array and precompute time interval information
             t = np.arange(0, np.round(trajectory.trajectory_long.delta_tau + trajectory.dt, 5), trajectory.dt)
-            t2 = np.square(t)
-            t3 = t2 * t
-            t4 = np.square(t2)
-            t5 = t4 * t
+            t2 = np.round(np.power(t, 2), 10)
+            t3 = np.round(np.power(t, 3), 10)
+            t4 = np.round(np.power(t, 4), 10)
+            t5 = np.round(np.power(t, 5), 10)
 
             # length of the trajectory sample (i.e., number of time steps. can be smaller than planning horizon)
             traj_len = len(t)
@@ -939,8 +939,7 @@ class ReactivePlanner(object):
                             self._co.ref_theta[s_idx + 1])
 
                 # Interpolate curvature of reference path k_r at current position
-                k_r = (self._co.ref_curv[s_idx + 1] - self._co.ref_curv[s_idx]) * s_lambda + self._co.ref_curv[
-                    s_idx]
+                k_r = (self._co.ref_curv[s_idx + 1] - self._co.ref_curv[s_idx]) * s_lambda + self._co.ref_curv[s_idx]
                 # Interpolate curvature rate of reference path k_r_d at current position
                 k_r_d = (self._co.ref_curv_d[s_idx + 1] - self._co.ref_curv_d[s_idx]) * s_lambda + \
                         self._co.ref_curv_d[s_idx]
@@ -949,16 +948,18 @@ class ReactivePlanner(object):
                 oneKrD = (1 - k_r * d[i])
                 cosTheta = math.cos(theta_cl[i])
                 tanTheta = np.tan(theta_cl[i])
-                kappa_gl[i] = (dpp + (k_r * dp + k_r_d * d[i]) * tanTheta) * cosTheta * (cosTheta / oneKrD) ** 2 + (
-                        cosTheta / oneKrD) * k_r
+
+                kappa_gl[i] = (dpp + (k_r * dp + k_r_d * d[i]) * tanTheta) * cosTheta * ((cosTheta / oneKrD) ** 2) + \
+                              (cosTheta / oneKrD) * k_r
+
                 kappa_cl[i] = kappa_gl[i] - k_r
 
                 # compute (global) Cartesian velocity
                 v[i] = s_velocity[i] * (oneKrD / (math.cos(theta_cl[i])))
 
                 # compute (global) Cartesian acceleration
-                a[i] = s_acceleration[i] * oneKrD / cosTheta + ((s_velocity[i] ** 2) / cosTheta) * (
-                        oneKrD * tanTheta * (kappa_gl[i] * oneKrD / cosTheta - k_r) - (
+                a[i] = s_acceleration[i] * (oneKrD / cosTheta) + ((s_velocity[i] ** 2) / cosTheta) * (
+                        oneKrD * tanTheta * (kappa_gl[i] * (oneKrD / cosTheta) - k_r) - (
                         k_r_d * d[i] + k_r * dp))
 
                 # **************************
@@ -994,11 +995,11 @@ class ReactivePlanner(object):
                 # **************************
                 # Curvature rate constraint
                 # **************************
-                steering_angle = np.arctan2(self.vehicle_params.wheelbase * kappa_gl[i], 1.0)
-                kappa_dot_max = self.vehicle_params.v_delta_max / (self.vehicle_params.wheelbase *
-                                                                   math.cos(steering_angle) ** 2)
+                # steering_angle = np.arctan2(self.vehicle_params.wheelbase * kappa_gl[i], 1.0)
+                # kappa_dot_max = self.vehicle_params.v_delta_max / (self.vehicle_params.wheelbase *
+                #                                                    math.cos(steering_angle) ** 2)
                 kappa_dot = (kappa_gl[i] - kappa_gl[i - 1]) / self.dT if i > 0 else 0.
-                if abs(kappa_dot) > kappa_dot_max:
+                if abs(kappa_dot) > 0.4:
                     feasible = False
                     infeasible_count_kinematics_traj[7] = 1
                     if not self._draw_traj_set and not self._kinematic_debug:
@@ -1047,14 +1048,10 @@ class ReactivePlanner(object):
                                                                current_time_step=traj_len)
 
                     trajectory.actual_traj_length = traj_len
+
                     # check if trajectories planning horizon is shorter than expected and extend if necessary
-                    # shrt = trajectory.cartesian.current_time_step
                     if self.N + 1 > trajectory.cartesian.current_time_step:
-                    # trajectory = hf.shrink_trajectory(trajectory, shrt)
                         trajectory.enlarge(self.dT)
-                    # assert self.N + 1 == trajectory.cartesian.current_time_step == len(trajectory.cartesian.x) == \
-                    #       len(trajectory.cartesian.y) == len(trajectory.cartesian.theta), \
-                    #       '<ReactivePlanner/kinematics>:  Lenghts of state variables is not equal.'
 
                 if feasible:
                     feasible_trajectories.append(trajectory)
