@@ -24,7 +24,7 @@ if __name__ == '__main__':
     config = ConfigurationBuilder.build_configuration(scenario_path+".xml")
     log_path = "./logs/"+scenario_path.split("/")[-1]
 
-    start_multiagent = False
+    start_multiagent = True
     use_cpp = True
     
     if not start_multiagent:

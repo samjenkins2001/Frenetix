@@ -592,8 +592,11 @@ class ReactivePlanner(object):
 
             self.handler.reset_Trajectories()
             self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
-            self.handler.evaluate_all_current_functions_concurrent(True)
-            #self.handler.evaluate_all_current_functions(True)
+
+            if not self.config.debug.multiproc or self.config.multiagent.multiprocessing:
+                self.handler.evaluate_all_current_functions(True)
+            else:
+                self.handler.evaluate_all_current_functions_concurrent(True)
 
             feasible_trajectories = []
             infeasible_trajectories = []
