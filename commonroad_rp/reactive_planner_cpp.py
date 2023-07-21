@@ -196,10 +196,6 @@ class ReactivePlanner(object):
         return self._cc
 
     @property
-    def reference_path(self):
-        return self._co.reference
-
-    @property
     def infeasible_count_collision(self):
         """Number of colliding trajectories"""
         return self._infeasible_count_collision
@@ -297,14 +293,6 @@ class ReactivePlanner(object):
             self._LOW_VEL_MODE = True
         else:
             self._LOW_VEL_MODE = False
-
-    def set_x_cl(self, x_cl):
-        # set curvilinear initial state
-        if self.x_cl is not None and not self.set_new_ref_path:
-            self.x_cl = x_cl
-        else:
-            self.x_cl = self._compute_initial_states(self.x_0)
-            self.set_new_ref_path = False
 
     def set_ego_vehicle_state(self, current_ego_vehicle):
         self.ego_vehicle_history.append(current_ego_vehicle)
@@ -681,75 +669,6 @@ class ReactivePlanner(object):
 
         return trajectory_pair
 
-    def _compute_initial_states(self, x_0: ReactivePlannerState) -> (np.ndarray, np.ndarray):
-        """
-        Computes the curvilinear initial states for the polynomial planner based on a Cartesian CommonRoad state
-        :param x_0: The CommonRoad state object representing the initial state of the vehicle
-        :return: A tuple containing the initial longitudinal and lateral states (lon,lat)
-        """
-        # compute curvilinear position
-        try:
-            s, d = self._co.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
-        except ValueError:
-            msg_logger.critical("Initial state could not be transformed.")
-            raise ValueError("Initial state could not be transformed.")
-
-        # factor for interpolation
-        s_idx = np.argmax(self._co.ref_pos > s) - 1
-        s_lambda = (s - self._co.ref_pos[s_idx]) / (
-                self._co.ref_pos[s_idx + 1] - self._co.ref_pos[s_idx])
-
-        # compute orientation in curvilinear coordinate frame
-        ref_theta = np.unwrap(self._co.ref_theta)
-        theta_cl = x_0.orientation - interpolate_angle(s, self._co.ref_pos[s_idx], self._co.ref_pos[s_idx + 1],
-                                                       ref_theta[s_idx], ref_theta[s_idx + 1])
-
-        # compute reference curvature
-        kr = (self._co.ref_curv[s_idx + 1] - self._co.ref_curv[s_idx]) * s_lambda + self._co.ref_curv[
-            s_idx]
-        # compute reference curvature change
-        kr_d = (self._co.ref_curv_d[s_idx + 1] - self._co.ref_curv_d[s_idx]) * s_lambda + self._co.ref_curv_d[s_idx]
-
-        # compute initial ego curvature from initial steering angle
-        kappa_0 = np.tan(x_0.steering_angle) / self.vehicle_params.wheelbase
-
-        # compute d' and d'' -> derivation after arclength (s): see Eq. (A.3) and (A.5) in Diss. Werling
-        d_p = (1 - kr * d) * np.tan(theta_cl)
-        d_pp = -(kr_d * d + kr * d_p) * np.tan(theta_cl) + ((1 - kr * d) / (math.cos(theta_cl) ** 2)) * (
-                kappa_0 * (1 - kr * d) / math.cos(theta_cl) - kr)
-
-        # compute s dot (s_velocity) and s dot dot (s_acceleration) -> derivation after time
-        s_velocity = x_0.velocity * math.cos(theta_cl) / (1 - kr * d)
-        if s_velocity < 0:
-            raise Exception("Initial state or reference incorrect! Curvilinear velocity is negative which indicates"
-                            "that the ego vehicle is not driving in the same direction as specified by the reference")
-
-        s_acceleration = x_0.acceleration
-        s_acceleration -= (s_velocity ** 2 / math.cos(theta_cl)) * (
-                (1 - kr * d) * np.tan(theta_cl) * (kappa_0 * (1 - kr * d) / (math.cos(theta_cl)) - kr) -
-                (kr_d * d + kr * d_p))
-        s_acceleration /= ((1 - kr * d) / (math.cos(theta_cl)))
-
-        # compute d dot (d_velocity) and d dot dot (d_acceleration)
-        if self._LOW_VEL_MODE:
-            # in LOW_VEL_MODE: d_velocity and d_acceleration are derivatives w.r.t arclength (s)
-            d_velocity = d_p
-            d_acceleration = d_pp
-        else:
-            # in HIGH VEL MODE: d_velocity and d_acceleration are derivatives w.r.t time
-            d_velocity = x_0.velocity * math.sin(theta_cl)
-            d_acceleration = s_acceleration * d_p + s_velocity ** 2 * d_pp
-
-        x_0_lon: List[float] = [s, s_velocity, s_acceleration]
-        x_0_lat: List[float] = [d, d_velocity, d_acceleration]
-
-        msg_logger.debug("Starting planning with: \n#################")
-        msg_logger.debug(f'Initial state for planning is {x_0}')
-        msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
-        msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
-
-        return x_0_lon, x_0_lat
-
     def trajectory_collision_check(self, feasible_trajectories):
         """
         Checks valid trajectories for collisions with static obstacles
@@ -952,15 +871,15 @@ class ReactivePlanner(object):
                     for x in self.reference_path:
                         if self.goal_checker.goal.state_list[0].position.contains_point(x):
                             goal_position.append(x)
-                    s_goal_1, d_goal_1 = self._co.convert_to_curvilinear_coords(goal_position[0][0],
-                                                                                goal_position[0][1])
-                    s_goal_2, d_goal_2 = self._co.convert_to_curvilinear_coords(goal_position[-2][0],
-                                                                                goal_position[-2][1])
+                    s_goal_1, d_goal_1 = self.coordinate_system.system.convert_to_curvilinear_coords(goal_position[0][0],
+                                                                                                     goal_position[0][1])
+                    s_goal_2, d_goal_2 = self.coordinate_system.system.convert_to_curvilinear_coords(goal_position[-2][0],
+                                                                                                     goal_position[-2][1])
                     s_goal = min(s_goal_1, s_goal_2)
-                    s_start, d_start = self._co.convert_to_curvilinear_coords(
+                    s_start, d_start = self.coordinate_system.system.convert_to_curvilinear_coords(
                         self.planning_problem.initial_state.position[0],
                         self.planning_problem.initial_state.position[1])
-                    s_current, d_current = self._co.convert_to_curvilinear_coords(self.x_0.position[0],
+                    s_current, d_current = self.coordinate_system.system.convert_to_curvilinear_coords(self.x_0.position[0],
                                                                                   self.x_0.position[1])
                     progress = ((s_current - s_start) / (s_goal - s_start))
                 elif "time_step" in self.goal_checker.goal.state_list[0].attributes:
