@@ -160,14 +160,15 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
             color = colors[agent_list[i].obstacle_id % len(colors)]
 
         # visualize sampled trajectory bundle
-        step = 1  # draw every trajectory (step=2 would draw every second trajectory)
-        if traj_set_list is not None:
+        if traj_set_list is not None and len(traj_set_list) > 0:
             # visualize optimal trajectory
             rnd.ax.plot(traj_set_list[i][0].cartesian.x,
                         traj_set_list[i][0].cartesian.y,
                         color=darkcolor,
                         marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
 
+            # Plot sampled trajectories. Select at most 100 trajectories from the bundle for plotting.
+            step = int(len(traj_set_list[i]) / 100) if int(len(traj_set_list[i]) / 100) > 2 else 1
             for j in range(0, len(traj_set_list[i]), step):
                 plt.plot(traj_set_list[i][j].cartesian.x,
                          traj_set_list[i][j].cartesian.y,

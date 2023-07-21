@@ -99,7 +99,7 @@ class AgentBatch (Process):
                         Updated dummy obstacles for all agents in the scenario.
                 5. outdated_agent_list: List[int] received from in_queue:
                         List of IDs of agents that have to be updated during synchronization.
-                If global plotting is enabled:
+                If global plotting is enabled (currently not supported):
                     6. plotting_data: Tuple(List[trajectory bundle], List[reference path])
                                 sent to out_queue:
                             Lists of trajectory bundles and reference paths for all agents in the batch.
@@ -141,10 +141,12 @@ class AgentBatch (Process):
             for agent in self.running_agent_list:
                 agent.update_scenario(outdated_agent_id_list, self.dummy_obstacle_list)
 
-            # Send data for global plotting
+            # Send data for global plotting.
+            # TODO: Sending trajectory bundles between processes is currently unsupported.
             if self.config.debug.show_plots or self.config.debug.save_plots:
-                self.out_queue.put(([a.planner.get_all_traj() for a in self.running_agent_list
-                                     if a.planning_problem.initial_state.time_step <= self.current_timestep],
+                self.out_queue.put((# a.planner.get_all_traj() for a in self.running_agent_list
+                                    #                         if a.planning_problem.initial_state.time_step <= self.current_timestep
+                                    [],
                                     [a.planner.get_ref_path() for a in self.running_agent_list
                                      if a.planning_problem.initial_state.time_step <= self.current_timestep]))
 
