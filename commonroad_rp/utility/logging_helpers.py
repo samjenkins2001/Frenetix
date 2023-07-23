@@ -60,7 +60,7 @@ class DataLoggingCosts:
             self.cost_names_list.sort()
             self._cost_list_length = len(self.cost_names_list)
             for names in self.cost_names_list:
-                cost_names += names + "_cost;"
+                cost_names += names.replace(" ", "_") + '_cost;'
 
         self.header = (
             "trajectory_number;"
@@ -91,7 +91,7 @@ class DataLoggingCosts:
             "obst_risk;"
             "costs_cumulative_weighted;"
             +
-            cost_names
+            cost_names.strip(";")
         )
         self.trajectories_header = (
             "time_step;"
@@ -108,10 +108,19 @@ class DataLoggingCosts:
             "accelerations_mps2;"
             "s_position_m;"
             "d_position_m;"
+            "ego_risk;"
+            "obst_risk;"
             "costs_cumulative_weighted;"
             +
             cost_names
-        )
+            +
+            "inf_kin_yaw_rate;"
+            "inf_kin_acceleration;"
+            "inf_kin_max_curvature;"
+            # "inf_kin_max_curvature_rate;"
+        ).strip(";")
+
+
 
         self.prediction_header = (
             "trajectory_number;"
@@ -154,7 +163,10 @@ class DataLoggingCosts:
             # optimaltrajectory available
             new_line += ";True"
             # log infeasible
-            new_line += ";" + json.dumps(str(percentage_kinematics), default=default)
+            if percentage_kinematics is not None:
+                new_line += ";" + json.dumps(str(percentage_kinematics), default=default)
+            else:
+                new_line += ";"
 
             for kin in infeasible_kinematics:
                 new_line += ";" + json.dumps(str(kin), default=default)
@@ -176,8 +188,11 @@ class DataLoggingCosts:
                 json.dumps(str(trajectory.curvilinear.d[0]), default=default)
 
             # log risk values number
-            new_line += ";" + json.dumps(str(trajectory._ego_risk), default=default)
-            new_line += ";" + json.dumps(str(trajectory._obst_risk), default=default)
+            if trajectory._ego_risk is not None and trajectory._obst_risk is not None:
+                new_line += ";" + json.dumps(str(trajectory._ego_risk), default=default)
+                new_line += ";" + json.dumps(str(trajectory._obst_risk), default=default)
+            else:
+                new_line += ";;"
 
             new_line = self.log_costs_of_single_trajectory(trajectory, new_line, cost_list_names)
 
@@ -285,6 +300,21 @@ class DataLoggingCosts:
             json.dumps(str(trajectory.curvilinear.s[0]), default=default)
         new_line += ";" + \
             json.dumps(str(trajectory.curvilinear.d[0]), default=default)
+
+        # log risk values number
+        if trajectory._ego_risk is not None and trajectory._obst_risk is not None:
+            new_line += ";" + json.dumps(str(trajectory._ego_risk), default=default)
+            new_line += ";" + json.dumps(str(trajectory._obst_risk), default=default)
+        else:
+            new_line += ";;"
+
+        new_line = self.log_costs_of_single_trajectory(trajectory, new_line, cost_list_names)
+
+        for k, v in trajectory.feasabilityMap.items():
+            new_line += ";" + \
+                json.dumps(str(v), default=default)
+
+
 
         with open(self.__trajectories_log_path, "a") as fh:
             fh.write(new_line)
