@@ -393,9 +393,9 @@ class ReactivePlanner(object):
         :param reference_path: reference_path as polyline
         """
         # TODO: now we smooth 2 times because of the python implementation.
-        reference_path = smooth_ref_path(reference_path)
-        self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(reference_path)
-        self._co: CoordinateSystem = CoordinateSystem(reference_path)
+        self.reference_path = smooth_ref_path(reference_path)
+        self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(self.reference_path)
+        self._co: CoordinateSystem = CoordinateSystem(self.reference_path)
         self.set_new_ref_path = True
 
     def set_goal_area(self, goal_area: GoalRegion):
