@@ -26,7 +26,6 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
     s0_range (np.array or int): Array of possible values for the start longitudinal position, or a single integer.
     ss0_range (np.array or int): Array of possible values for the start longitudinal velocity, or a single integer.
     sss0_range (np.array or int): Array of possible values for the start longitudinal acceleration, or a single integer.
-    s1_range (np.array or int): Array of possible values for the end longitudinal position, or a single integer.
     ss1_range (np.array or int): Array of possible values for the end longitudinal velocity, or a single integer.
     sss1_range (np.array or int): Array of possible values for the end longitudinal acceleration, or a single integer.
     d0_range (np.array or int): Array of possible values for the start lateral position, or a single integer.
