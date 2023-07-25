@@ -21,20 +21,20 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
     e.g. t0_range=[0, 1, 2], t1_range=[3, 4, 5], etc. to impede errors due to wrong order of arguments.
 
     Args:
-    t0_range (np.array or int): Array of possible values for the starting time, or a single integer.
-    t1_range (np.array or int): Array of possible values for the end time, or a single integer.
-    s0_range (np.array or int): Array of possible values for the start longitudinal position, or a single integer.
-    ss0_range (np.array or int): Array of possible values for the start longitudinal velocity, or a single integer.
-    sss0_range (np.array or int): Array of possible values for the start longitudinal acceleration, or a single integer.
-    ss1_range (np.array or int): Array of possible values for the end longitudinal velocity, or a single integer.
-    sss1_range (np.array or int): Array of possible values for the end longitudinal acceleration, or a single integer.
-    d0_range (np.array or int): Array of possible values for the start lateral position, or a single integer.
-    dd0_range (np.array or int): Array of possible values for the start lateral velocity, or a single integer.
-    ddd0_range (np.array or int): Array of possible values for the start lateral acceleration, or a single integer.
-    d1_range (np.array or int): Array of possible values for the end lateral position, or a single integer.
-    dd1_range (np.array or int): Array of possible values for the end lateral velocity, or a single integer.
-    ddd1_range (np.array or int): Array of possible values for the end lateral acceleration, or a single integer.
-    debug_mode (boolean): If True, print the number of sampled trajectories. default: True
+    00: t0_range (np.array or int): Array of possible values for the starting time, or a single integer.
+    01: t1_range (np.array or int): Array of possible values for the end time, or a single integer.
+    02: s0_range (np.array or int): Array of possible values for the start longitudinal position, or a single integer.
+    03: ss0_range (np.array or int): Array of possible values for the start longitudinal velocity, or a single integer.
+    04: sss0_range (np.array or int): Array of possible values for the start longitudinal acceleration, or a single integer.
+    05: ss1_range (np.array or int): Array of possible values for the end longitudinal velocity, or a single integer.
+    06: sss1_range (np.array or int): Array of possible values for the end longitudinal acceleration, or a single integer.
+    07: d0_range (np.array or int): Array of possible values for the start lateral position, or a single integer.
+    08: dd0_range (np.array or int): Array of possible values for the start lateral velocity, or a single integer.
+    09: ddd0_range (np.array or int): Array of possible values for the start lateral acceleration, or a single integer.
+    10: d1_range (np.array or int): Array of possible values for the end lateral position, or a single integer.
+    11: dd1_range (np.array or int): Array of possible values for the end lateral velocity, or a single integer.
+    12: ddd1_range (np.array or int): Array of possible values for the end lateral acceleration, or a single integer.
+    13: debug_mode (boolean): If True, print the number of sampled trajectories. default: True
 
     Returns:
     np.array: 2D array (matrix) where each row is a different combination of parameters.
