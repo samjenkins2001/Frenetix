@@ -9,7 +9,6 @@ __status__ = "Alpha"
 from copy import deepcopy
 import numpy as np
 from scipy.interpolate import UnivariateSpline, splprep, splev
-import matplotlib.pyplot as plt
 from commonroad_dc.pycrccosy import CurvilinearCoordinateSystem
 from commonroad_dc.geometry.util import compute_pathlength_from_polyline,compute_curvature_from_polyline, \
     compute_orientation_from_polyline, resample_polyline, chaikins_corner_cutting
