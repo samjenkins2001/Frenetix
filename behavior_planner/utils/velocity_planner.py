@@ -71,8 +71,8 @@ class VelocityPlanner(object):
             if self.FSM_state.change_velocity_for_lane_change:
                 self.VP_state.desired_velocity = \
                     self.BM_state.ego_state.velocity + self.FSM_state.free_space_offset * 0.75
-                msg_logger.debug("BP slowing vehicle for lane change maneuver, recommended velocity is: ",
-                      self.VP_state.desired_velocity, "\n")
+                msg_logger.debug("BP slowing vehicle for lane change maneuver, recommended velocity is: " +
+                                 str(self.VP_state.desired_velocity))
                 self.FSM_state.change_velocity_for_lane_change = False
 
             # no strong acceleration while preparing lane changes
@@ -80,8 +80,8 @@ class VelocityPlanner(object):
                     or self.FSM_state.behavior_state_dynamic == 'PrepareLaneChangeRight':
                 if self.VP_state.desired_velocity > self.BM_state.ego_state.velocity * 1.05:
                     self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 1.05
-                    msg_logger.debug("BP no strong vehicle acceleration while lane change maneuvers, recommended velocity is: ",
-                          self.VP_state.desired_velocity, "\n")
+                    msg_logger.debug("BP no strong vehicle acceleration while lane change maneuvers, "
+                                     "recommended velocity is: " + str(self.VP_state.desired_velocity))
 
             # stopping for traffic light
             # if self.FSM_state.slowing_car_for_traffic_light:
@@ -90,12 +90,12 @@ class VelocityPlanner(object):
             # prevent large velocity jumps
             if self.BM_state.ego_state.velocity > 8.333:
                 if self.VP_state.desired_velocity > self.BM_state.ego_state.velocity * 1.33:
-                    msg_logger.debug("BP planner velocity too high, recommended velocity is: ",
-                          self.BM_state.ego_state.velocity * 1.33, "\n")
+                    msg_logger.debug("BP planner velocity too high, recommended velocity is: " +
+                                     str(self.BM_state.ego_state.velocity * 1.33))
                     self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 1.33
                 elif self.VP_state.desired_velocity < self.BM_state.ego_state.velocity * 0.67:
-                    msg_logger.debug("BP planner velocity too low, recommended velocity is: ",
-                          self.BM_state.ego_state.velocity * 0.67, "\n")
+                    msg_logger.debug("BP planner velocity too low, recommended velocity is: " +
+                                     str(self.BM_state.ego_state.velocity * 0.67))
                     self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 0.67
 
     def _get_goal_velocity(self):
@@ -123,7 +123,7 @@ class VelocityPlanner(object):
 
     def _calc_safety_distance(self):
         """Calculate the minimum safety distance to a preceding vehicle (TTC)"""
-        a_max_ego = self.BM_state.vehicle_params.a_max
+        a_max_ego = self.BM_state.config.vehicle.a_max
         a_max_lead = a_max_ego
         delta = 0.3
         v_lead = self.VP_state.vel_preceding_veh
@@ -133,10 +133,10 @@ class VelocityPlanner(object):
 
         d_safe_2 = ((v_lead**2) / (-2*a_max_lead)) - ((v_ego**2) / (-2*a_max_ego)) + v_ego*delta
         if d_safe_2 > 0:
-            self.VP_state.safety_dist = d_safe_2 + self.BM_state.vehicle_params.length / 2 + \
+            self.VP_state.safety_dist = d_safe_2 + self.BM_state.config.vehicle.length / 2 + \
                                         self.VP_state.closest_preceding_vehicle.get('shape').get('length') / 2
         else:
-            self.VP_state.safety_dist = self.BM_state.vehicle_params.length * 1.5
+            self.VP_state.safety_dist = self.BM_state.config.vehicle.length * 1.5
 
     def _calc_ttc(self):
         """Calculate Time To Collision velocity (TTC)"""

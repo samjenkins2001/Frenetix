@@ -1212,4 +1212,4 @@ class Transition(object):
         self.to_state = to_state
 
     def execute(self):
-        msg_logger.debug("FSM Transitioning to: ", self.to_state)
+        msg_logger.debug("FSM Transitioning to: " + str(self.to_state))

@@ -128,17 +128,17 @@ class BehaviorModule(object):
         self.behavior_input.flags = self.flags
 
 
-        msg_logger.debug("\nVP velocity mode: ", self.VP_state.velocity_mode)
-        msg_logger.debug("VP TTC velocity: ", self.VP_state.TTC)
-        msg_logger.debug("VP MAX velocity: ", self.VP_state.MAX)
+        msg_logger.debug("VP velocity mode: " + str(self.VP_state.velocity_mode))
+        msg_logger.debug("VP TTC velocity: " + str(self.VP_state.TTC))
+        msg_logger.debug("VP MAX velocity: " + str(self.VP_state.MAX))
         if self.VP_state.closest_preceding_vehicle is not None:
-            msg_logger.debug("VP position of preceding vehicle: ", self.VP_state.closest_preceding_vehicle.get('pos_list')[0])
-        msg_logger.debug("VP velocity of preceding vehicle: ", self.VP_state.vel_preceding_veh)
-        msg_logger.debug("VP distance to preceding vehicle: ", self.VP_state.dist_preceding_veh)
-        msg_logger.debug("VP safety distance to preceding vehicle: ", self.VP_state.safety_dist)
-        msg_logger.debug("VP recommended velocity: ", self.VP_state.goal_velocity)
-        msg_logger.debug("BP recommended desired velocity: ", self.desired_velocity)
-        msg_logger.debug("current ego velocity: ", self.BM_state.ego_state.velocity, "\n")
+            msg_logger.debug("VP position of preceding vehicle: " + str(self.VP_state.closest_preceding_vehicle.get('pos_list')[0]))
+        msg_logger.debug("VP velocity of preceding vehicle: " + str(self.VP_state.vel_preceding_veh))
+        msg_logger.debug("VP distance to preceding vehicle: " + str(self.VP_state.dist_preceding_veh))
+        msg_logger.debug("VP safety distance to preceding vehicle: " + str(self.VP_state.safety_dist))
+        msg_logger.debug("VP recommended velocity: " + str(self.VP_state.goal_velocity))
+        msg_logger.debug("BP recommended desired velocity: " + str(self.desired_velocity))
+        msg_logger.debug("current ego velocity: " + str(self.BM_state.ego_state.velocity))
 
         return self.behavior_input
 

@@ -611,7 +611,6 @@ class ReactivePlanner(object):
         x_0_lon: List[float] = [s, s_velocity, s_acceleration]
         x_0_lat: List[float] = [d, d_velocity, d_acceleration]
 
-        msg_logger.debug("Starting planning with: \n#################")
         msg_logger.debug(f'Initial state for planning is {x_0}')
         msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
         msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
