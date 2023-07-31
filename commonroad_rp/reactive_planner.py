@@ -451,17 +451,8 @@ class ReactivePlanner(object):
             self.cost_function.update_state(scenario=self.scenario, rp=self,
                                             predictions=self.predictions, reachset=self.reach_set)
 
-            # sample trajectory bundle
-            if self.behavior:
-                if self.behavior.flags["stopping_for_traffic_light"]:
-                    stop_point = [self.behavior.BM_state.VP_state.stop_distance, 0]
-                    bundle = self._create_stopping_trajectory(self.x_0, self.x_cl[0], self.x_cl[1], stop_point, self.cost_function)
-                else:
-                    bundle = self._create_trajectory_bundle(self.x_cl[0], self.x_cl[1], self.cost_function, samp_level=i)
-            else:
-                bundle = self._create_trajectory_bundle(self.x_cl[0], self.x_cl[1], self.cost_function, samp_level=i)
-
-            # get optimal trajectory
+            # TODO: Stopping Mode (set all traj beyond specified S coordinate to invalid)
+            bundle = self._create_trajectory_bundle(self.x_cl[0], self.x_cl[1], self.cost_function, samp_level=i)
 
             self.logger.trajectory_number = self.x_0.time_step
 
@@ -1231,7 +1222,7 @@ class ReactivePlanner(object):
                                           sss=np.repeat(x_0_lon[2], self.N), current_time_step=self.N)
         return p
 
-    def _create_stopping_trajectory(self, x_0, x_0_lon, x_0_lat, stop_point, cost_function):
+    def _create_end_point_trajectory_bundle(self, x_0, x_0_lon, x_0_lat, stop_point_s, cost_function, samp_level):
         msg_logger.debug('sampling stopping trajectory at stop line')
         # reset cost statistic
         self._min_cost = 10 ** 9
@@ -1239,26 +1230,41 @@ class ReactivePlanner(object):
 
         trajectories = list()
 
-        # Longitudinal sampling for all possible velocities
-        end_state_lon = np.array([x_0_lon[0] + stop_point[0], 0.0, 0.0])
-        trajectory_long = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.array(x_0_lon),
-                                            x_d=end_state_lon)
+        self.sampling_handler.set_s_sampling((x_0_lon[0]+stop_point_s)/2, stop_point_s)
 
-        # Sample lateral end states (add x_0_lat to sampled states)
-        if trajectory_long.coeffs is not None:
-            end_state_lat = np.array([stop_point[1], 0.0, 0.0])
-            trajectory_lat = QuinticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.array(x_0_lat),
-                                               x_d=end_state_lat)
-            if trajectory_lat.coeffs is not None:
-                trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat,
-                                                     len(trajectories), costMap=self.config.cost.cost_weights)
-                trajectories.append(trajectory_sample)
+        for t in self.sampling_handler.t_sampling.to_range(samp_level):
+            # Longitudinal sampling for all possible velocities
+            for s in self.sampling_handler.s_sampling.to_range(samp_level):
+                end_state_lon = np.array([s, 0.0, 0.0])
+                trajectory_long = QuinticTrajectory(tau_0=0, delta_tau=t, x_0=np.array(x_0_lon), x_d=end_state_lon)
+
+                # Sample lateral end states (add x_0_lat to sampled states)
+                if trajectory_long.coeffs is not None:
+                    for d in self.sampling_handler.d_sampling.to_range(samp_level).union({x_0_lat[0]}):
+                        end_state_lat = np.array([d, 0.0, 0.0])
+                        # SWITCHING TO POSITION DOMAIN FOR LATERAL TRAJECTORY PLANNING
+                        if self._LOW_VEL_MODE:
+                            s_lon_goal = trajectory_long.evaluate_state_at_tau(t)[0] - x_0_lon[0]
+                            if s_lon_goal <= 0:
+                                s_lon_goal = t
+                            trajectory_lat = QuinticTrajectory(tau_0=0, delta_tau=s_lon_goal, x_0=np.array(x_0_lat),
+                                                               x_d=end_state_lat)
+
+                        # Switch to sampling over t for high velocities
+                        else:
+                            trajectory_lat = QuinticTrajectory(tau_0=0, delta_tau=t, x_0=np.array(x_0_lat),
+                                                               x_d=end_state_lat)
+                        if trajectory_lat.coeffs is not None:
+                            trajectory_sample = TrajectorySample(self.horizon, self.dT, trajectory_long, trajectory_lat,
+                                                                 len(trajectories), costMap=self.cost_function.cost_weights)
+                            trajectories.append(trajectory_sample)
 
         # perform pre-check and order trajectories according their cost
         trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
                                              multiproc=self._multiproc, num_workers=self._num_workers)
         self._total_count = len(trajectory_bundle._trajectory_bundle)
-        msg_logger.debug(' %s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
+        msg_logger.debug('%s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
+
         return trajectory_bundle
 
     def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState], obstacle_id: int = 42):

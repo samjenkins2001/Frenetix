@@ -19,6 +19,7 @@ class SamplingHandler:
                  delta_d_max: float):
         self.dt = dt
         self.max_sampling_number = max_sampling_number
+        self.s_sampling_mode = False
 
         self.t_min = t_min
         self.horizon = horizon
@@ -70,7 +71,7 @@ class SamplingHandler:
         """
         Sets sample parameters of lateral offset
         """
-        self.d_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.max_sampling_number)
+        self.s_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.max_sampling_number)
 
 
 def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_range, ss1_range, sss1_range, d0_range,
