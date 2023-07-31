@@ -1,3 +1,10 @@
+__author__ = "Luca Troncone, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
+
 import numpy as np
 from shapely.geometry import LineString, Point
 
