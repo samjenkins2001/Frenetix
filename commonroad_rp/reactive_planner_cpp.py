@@ -32,9 +32,9 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, trajectories_collision_static_obstacles
 
 # commonroad_rp imports
-from commonroad_rp.parameter import TimeSampling, VelocitySampling, PositionSampling
+from commonroad_rp.sampling_matrix import SamplingHandler, generate_sampling_matrix
 
-from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path, interpolate_angle
+from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path
 
 from commonroad_rp.state import ReactivePlannerState
 
@@ -51,7 +51,6 @@ from commonroad_rp.utility.load_json import (
     load_risk_json
 )
 
-from commonroad_rp.sampling_matrix import generate_sampling_matrix
 from omegaconf import OmegaConf
 
 from frenetPlannerHelper.trajectory_functions.feasability_functions import *
@@ -153,12 +152,9 @@ class ReactivePlanner(object):
         # Set Sampling Parameters#
         self._sampling_min = config.sampling.sampling_min
         self._sampling_max = config.sampling.sampling_max
-        self._sampling_d = None
-        self._sampling_t = None
-        self._sampling_v = None
-        self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt,
-                                       config.planning.planning_horizon)
+        self.sampling_handler = SamplingHandler(dt=self.dT, max_sampling_number=config.sampling.sampling_max,
+                                                t_min=config.sampling.t_min, horizon=self.horizon,
+                                                delta_d_max=config.sampling.d_max, delta_d_min=config.sampling.d_min)
 
         # *****************************
         # Debug & Logger Initialization
@@ -415,32 +411,15 @@ class ReactivePlanner(object):
         """
         self.planning_problem = planning_problem
 
-    def set_t_sampling_parameters(self, t_min, dt, horizon):
+    def set_sampling_parameters(self, t_min: float, horizon: float, delta_d_min: float, delta_d_max: float):
         """
         Sets sample parameters of time horizon
         :param t_min: minimum of sampled time horizon
-        :param dt: length of each sampled step
         :param horizon: sampled time horizon
+        :param delta_d_min: min lateral sampling
+        :param delta_d_max: max lateral sampling
         """
-        self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
-        self.N = int(round(horizon / dt))
-        self.horizon = horizon
-
-    def set_d_sampling_parameters(self, delta_d_min, delta_d_max):
-        """
-        Sets sample parameters of lateral offset
-        :param delta_d_min: lateral distance lower than reference
-        :param delta_d_max: lateral distance higher than reference
-        """
-        self._sampling_d = PositionSampling(delta_d_min, delta_d_max, self._sampling_max)
-
-    def set_v_sampling_parameters(self, v_min, v_max):
-        """
-        Sets sample parameters of sampled velocity interval
-        :param v_min: minimal velocity sample bound
-        :param v_max: maximal velocity sample bound
-        """
-        self._sampling_v = VelocitySampling(v_min, v_max, self._sampling_max)
+        self.sampling_handler.update_static_params(t_min, horizon, delta_d_min, delta_d_max)
 
     def set_desired_velocity(self, desired_velocity: float, current_speed: float = None, stopping: bool = False,
                              v_limit: float = 36):
@@ -458,7 +437,7 @@ class ReactivePlanner(object):
         max_v = min(min(current_speed + (self.vehicle_params.a_max / 7.0) * self.horizon, v_limit),
                     self.vehicle_params.v_max)
 
-        self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_max)
+        self.sampling_handler.set_v_sampling(min_v, max_v)
 
         msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
@@ -507,15 +486,6 @@ class ReactivePlanner(object):
         trajectory._obst_risk = obst_risk
         return trajectory
 
-    def _get_no_of_samples(self, samp_level: int) -> int:
-        """
-        Returns the number of samples for a given sampling level
-        :param samp_level: The sampling level
-        :return: Number of trajectory samples for given sampling level
-        """
-        return len(self._sampling_v.to_range(samp_level)) * len(self._sampling_d.to_range(samp_level)) * len(
-            self._sampling_t.to_range(samp_level))
-
     def plan(self) -> tuple:
         """
         Plans an optimal trajectory
@@ -542,10 +512,8 @@ class ReactivePlanner(object):
         x_0_lat = [initial_state.curvilinear.d, initial_state.curvilinear.d_dot, initial_state.curvilinear.d_ddot]
         x_0_lon = [initial_state.curvilinear.s, initial_state.curvilinear.s_dot, initial_state.curvilinear.s_ddot]
 
-        msg_logger.debug("<ReactivePlanner>: Starting planning with: \n#################")
         msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
         msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
-        msg_logger.debug("#################")
 
         msg_logger.debug('<Reactive Planner>: initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
         msg_logger.debug('<Reactive Planner>: desired velocity is {} m/s'.format(self._desired_speed))
@@ -560,9 +528,9 @@ class ReactivePlanner(object):
             # *************************************
             # Create & Evaluate Trajectories in Cpp
             # *************************************
-            t1_range = np.array(list(self._sampling_t.to_range(samp_level)))
-            ss1_range = np.array(list(self._sampling_v.to_range(samp_level)))
-            d1_range = np.array(list(self._sampling_d.to_range(samp_level).union(x_0_lat[0])))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level)))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level)))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union(x_0_lat[0])))
 
             sampling_matrix = generate_sampling_matrix(t0_range=0.0,
                                                        t1_range=t1_range,

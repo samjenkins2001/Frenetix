@@ -37,7 +37,7 @@ from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajec
                                                                           trajectories_collision_static_obstacles
 
 # commonroad_rp imports
-from commonroad_rp.parameter import TimeSampling, VelocitySampling, PositionSampling
+from commonroad_rp.sampling_matrix import SamplingHandler
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
@@ -145,12 +145,9 @@ class ReactivePlanner(object):
         # Set Sampling Parameters#
         self._sampling_min = config.sampling.sampling_min
         self._sampling_max = config.sampling.sampling_max
-        self._sampling_d = None
-        self._sampling_t = None
-        self._sampling_v = None
-        self.set_d_sampling_parameters(config.sampling.d_min, config.sampling.d_max)
-        self.set_t_sampling_parameters(config.sampling.t_min, config.planning.dt,
-                                       config.planning.planning_horizon)
+        self.sampling_handler = SamplingHandler(dt=self.dT, max_sampling_number=config.sampling.sampling_max,
+                                                t_min=config.sampling.t_min, horizon=self.horizon,
+                                                delta_d_max=config.sampling.d_max, delta_d_min=config.sampling.d_min)
 
         # *****************************
         # Debug & Logger Initialization
@@ -356,32 +353,15 @@ class ReactivePlanner(object):
         """
         self.planning_problem = planning_problem
 
-    def set_t_sampling_parameters(self, t_min, dt, horizon):
+    def set_sampling_parameters(self, t_min: float, horizon: float, delta_d_min: float, delta_d_max: float):
         """
         Sets sample parameters of time horizon
         :param t_min: minimum of sampled time horizon
-        :param dt: length of each sampled step
         :param horizon: sampled time horizon
+        :param delta_d_min: min lateral sampling
+        :param delta_d_max: max lateral sampling
         """
-        self._sampling_t = TimeSampling(t_min, horizon, self._sampling_max, dt)
-        self.N = int(round(horizon / dt))
-        self.horizon = horizon
-
-    def set_d_sampling_parameters(self, delta_d_min, delta_d_max):
-        """
-        Sets sample parameters of lateral offset
-        :param delta_d_min: lateral distance lower than reference
-        :param delta_d_max: lateral distance higher than reference
-        """
-        self._sampling_d = PositionSampling(delta_d_min, delta_d_max, self._sampling_max)
-
-    def set_v_sampling_parameters(self, v_min, v_max):
-        """
-        Sets sample parameters of sampled velocity interval
-        :param v_min: minimal velocity sample bound
-        :param v_max: maximal velocity sample bound
-        """
-        self._sampling_v = VelocitySampling(v_min, v_max, self._sampling_max)
+        self.sampling_handler.update_static_params(t_min, horizon, delta_d_min, delta_d_max)
 
     def set_desired_velocity(self, desired_velocity: float, current_speed: float = None, stopping: bool = False,
                              v_limit: float = 36):
@@ -399,7 +379,7 @@ class ReactivePlanner(object):
         max_v = min(min(current_speed + (self.vehicle_params.a_max / 7.0) * self.horizon, v_limit),
                     self.vehicle_params.v_max)
 
-        self._sampling_v = VelocitySampling(min_v, max_v, self._sampling_max)
+        self.sampling_handler.set_v_sampling(min_v, max_v)
 
         msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
@@ -447,15 +427,6 @@ class ReactivePlanner(object):
         trajectory._ego_risk = ego_risk
         trajectory._obst_risk = obst_risk
         return trajectory
-
-    def _get_no_of_samples(self, samp_level: int) -> int:
-        """
-        Returns the number of samples for a given sampling level
-        :param samp_level: The sampling level
-        :return: Number of trajectory samples for given sampling level
-        """
-        return len(self._sampling_v.to_range(samp_level)) * len(self._sampling_d.to_range(samp_level)) * len(
-            self._sampling_t.to_range(samp_level))
 
     def plan(self) -> tuple:
         """
@@ -634,16 +605,16 @@ class ReactivePlanner(object):
         self._max_cost = 0
 
         trajectories = list()
-        for t in self._sampling_t.to_range(samp_level):
+        for t in self.sampling_handler.t_sampling.to_range(samp_level):
             # Longitudinal sampling for all possible velocities
-            for v in self._sampling_v.to_range(samp_level):
+            for v in self.sampling_handler.v_sampling.to_range(samp_level):
                 # end_state_lon = np.array([t * v + x_0_lon[0], v, 0.0])
                 # trajectory_long = QuinticTrajectory(tau_0=0, delta_tau=t, x_0=np.array(x_0_lon), x_d=end_state_lon)
                 trajectory_long = QuarticTrajectory(tau_0=0, delta_tau=t, x_0=np.array(x_0_lon), x_d=np.array([v, 0]))
 
                 # Sample lateral end states (add x_0_lat to sampled states)
                 if trajectory_long.coeffs is not None:
-                    for d in self._sampling_d.to_range(samp_level).union({x_0_lat[0]}):
+                    for d in self.sampling_handler.d_sampling.to_range(samp_level).union({x_0_lat[0]}):
                         end_state_lat = np.array([d, 0.0, 0.0])
                         # SWITCHING TO POSITION DOMAIN FOR LATERAL TRAJECTORY PLANNING
                         if self._LOW_VEL_MODE:
