@@ -148,6 +148,7 @@ class ReactivePlanner(object):
         self.sampling_handler = SamplingHandler(dt=self.dT, max_sampling_number=config.sampling.sampling_max,
                                                 t_min=config.sampling.t_min, horizon=self.horizon,
                                                 delta_d_max=config.sampling.d_max, delta_d_min=config.sampling.d_min)
+        self.stopping_s = None
 
         # *****************************
         # Debug & Logger Initialization
@@ -244,7 +245,7 @@ class ReactivePlanner(object):
         if occlusion_module is not None:
             self.set_occlusion_module(occlusion_module)
         if desired_velocity is not None:
-            self.set_desired_velocity(desired_velocity, x_0.velocity)
+            self.set_desired_velocity(desired_velocity, x_0.velocity, self.stopping_s)
         if predictions is not None:
             self.set_predictions(predictions)
         if reach_set is not None:
@@ -363,7 +364,14 @@ class ReactivePlanner(object):
         """
         self.sampling_handler.update_static_params(t_min, horizon, delta_d_min, delta_d_max)
 
-    def set_desired_velocity(self, desired_velocity: float, current_speed: float = None, stopping: bool = False,
+    def set_stopping_point(self, stop_s_coordinate):
+        """
+        Sets sample parameters of time horizon
+        :param t_min: minimum of sampled time horizon
+        """
+        self.stopping_s = stop_s_coordinate
+
+    def set_desired_velocity(self, desired_velocity: float, current_speed: float = None, stopping: float = False,
                              v_limit: float = 36):
         """
         Sets desired velocity and calculates velocity for each sample
@@ -452,6 +460,8 @@ class ReactivePlanner(object):
                                             predictions=self.predictions, reachset=self.reach_set)
 
             # TODO: Stopping Mode (set all traj beyond specified S coordinate to invalid)
+
+            # bundle = self._create_end_point_trajectory_bundle(self.x_cl[0], self.x_cl[1], self.x_cl[0][0]+20, self.cost_function, samp_level=i)
             bundle = self._create_trajectory_bundle(self.x_cl[0], self.x_cl[1], self.cost_function, samp_level=i)
 
             self.logger.trajectory_number = self.x_0.time_step
@@ -982,7 +992,7 @@ class ReactivePlanner(object):
             if feasible or self._draw_traj_set:
                 # Extend Trajectory to get same lenth
                 t_ext = np.arange(1, len(s) - traj_len + 1, 1) * trajectory.dt
-                s[traj_len:] = s[traj_len-1] + t_ext * v[traj_len-1]
+                s[traj_len:] = s[traj_len-1] + t_ext * s_velocity[traj_len-1]
                 d[traj_len:] = d[traj_len-1]
                 for i in range(0, len(s)):
                     # compute (global) Cartesian position
@@ -1222,7 +1232,7 @@ class ReactivePlanner(object):
                                           sss=np.repeat(x_0_lon[2], self.N), current_time_step=self.N)
         return p
 
-    def _create_end_point_trajectory_bundle(self, x_0, x_0_lon, x_0_lat, stop_point_s, cost_function, samp_level):
+    def _create_end_point_trajectory_bundle(self, x_0_lon, x_0_lat, stop_point_s, cost_function, samp_level):
         msg_logger.debug('sampling stopping trajectory at stop line')
         # reset cost statistic
         self._min_cost = 10 ** 9
