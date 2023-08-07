@@ -280,6 +280,7 @@ class ReactivePlanner(object):
         self.x_0 = x_0
         if self.x_0.velocity < self._low_vel_mode_threshold:
             self._LOW_VEL_MODE = True
+            msg_logger.debug("Plan Timestep in Low-Velocity Mode!")
         else:
             self._LOW_VEL_MODE = False
 
@@ -778,8 +779,8 @@ class ReactivePlanner(object):
             s_acceleration[:traj_len] = trajectory.trajectory_long.calc_acceleration(t, t2, t3)  # lon acceleration
 
             # s-enlargement of t-sampled trajectories
-            for ii in range(traj_len, self.N + 1):
-                s[ii] = s[ii-1] + trajectory.dt * s_velocity[traj_len-1]
+            for ext in range(traj_len, self.N + 1):
+                s[ext] = s[ext-1] + trajectory.dt * s_velocity[traj_len-1]
             s_velocity[traj_len:] = s_velocity[traj_len - 1]
             s_acceleration[traj_len:] = 0.0
 
