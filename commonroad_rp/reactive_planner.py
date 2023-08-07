@@ -700,8 +700,8 @@ class ReactivePlanner(object):
             self.occlusion_module.occ_uncertainty_map_evaluator.evaluate_trajectories(feasible_trajectories)
 
         msg_logger.debug('Kinematic check of %s trajectories done' % len(trajectory_bundle.trajectories))
+        msg_logger.debug('Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
 
-        # print(self.infeasible_kinematics_percentage)
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj or self.use_amazing_visualizer:
             trajectory_bundle.trajectories = trajectories_all
