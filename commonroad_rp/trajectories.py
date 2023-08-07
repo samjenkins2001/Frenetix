@@ -364,6 +364,7 @@ class TrajectorySample(Sample):
         self._ext_cartesian = None
         self._ext_curvilinear = None
         self.feasible = None
+        self.valid = None
         self._ego_risk = None
         self._obst_risk = None
         self.boundary_harm = None

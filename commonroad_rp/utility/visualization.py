@@ -163,8 +163,8 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         rnd.ax.legend(handles, labels, loc="upper right", title="Occlusion")
 
     # visualize sampled trajectory bundle
-    step = int(len(traj_set)/100) if int(len(traj_set)/100) > 2 else 1
     if traj_set is not None:
+        step = int(len(traj_set) / 100) if int(len(traj_set) / 100) > 2 else 1
         for i in range(0, len(traj_set), step):
             color = 'blue'
             plt.plot(traj_set[i].cartesian.x,

@@ -20,7 +20,7 @@ kinematic_debug: True
 
 # Messages Logging
 # Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
-msg_log_mode: NOTSET
+msg_log_mode: INFO
 
 # use multiprocessing True/False
 multiproc: True
