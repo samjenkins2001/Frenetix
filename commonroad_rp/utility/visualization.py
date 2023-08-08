@@ -11,6 +11,7 @@ import os
 # third party
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import imageio.v3 as iio
@@ -20,10 +21,10 @@ from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.obstacle import DynamicObstacle
 from commonroad_rp.state import ReactivePlannerState
 from commonroad.planning.planning_problem import PlanningProblem
-from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams, StaticObstacleParams
+from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams
 from commonroad.geometry.shape import Rectangle
 from commonroad.visualization.draw_params import MPDrawParams
-
+from commonroad_rp.utility.helper_functions import green_to_red_colormap
 # commonroad_dc
 from commonroad_dc import pycrcc
 
@@ -141,7 +142,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     # visualize optimal trajectory
     rnd.ax.plot([i.position[0] for i in optimal_traj.state_list],
                 [i.position[1] for i in optimal_traj.state_list],
-                color='k', marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
+                color='k', marker='x', markersize=1.5, zorder=21, linewidth=2.0, label='optimal trajectory')
 
     # draw visible sensor area
     if visible_area is not None:
@@ -164,12 +165,24 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # visualize sampled trajectory bundle
     if traj_set is not None:
+        valid_traj = [obj for obj in traj_set if obj.valid is True and obj.feasible is True]
+        norm = matplotlib.colors.Normalize(
+            vmin=min([valid_traj[i].cost for i in range(len(valid_traj))]),
+            vmax=max([valid_traj[i].cost for i in range(len(valid_traj))]),
+            clip=True,
+        )
+        mapper = cm.ScalarMappable(norm=norm, cmap=green_to_red_colormap())
         step = int(len(traj_set) / 100) if int(len(traj_set) / 100) > 2 else 1
         for i in range(0, len(traj_set), step):
-            color = 'blue'
-            plt.plot(traj_set[i].cartesian.x,
-                     traj_set[i].cartesian.y,
-                     color=color, zorder=20, linewidth=0.2, alpha=1.0)
+            if not traj_set[i].feasible and traj_set[i].valid:
+                plt.plot(traj_set[i].cartesian.x,
+                         traj_set[i].cartesian.y,
+                         color="#808080", zorder=19, linewidth=0.8, alpha=0.4, picker=False)
+            else:
+                color = mapper.to_rgba(traj_set[i].cost)
+                plt.plot(traj_set[i].cartesian.x,
+                         traj_set[i].cartesian.y,
+                         color=color, zorder=20, linewidth=2.0, alpha=1.0, picker=False)
 
     # visualize predictions
     if predictions is not None:

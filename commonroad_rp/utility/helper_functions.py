@@ -14,6 +14,7 @@ import math
 import ruamel.yaml as yaml
 import pickle
 import yaml as yml
+import matplotlib.colors as colors
 import numpy as np
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import (
     create_collision_object,
@@ -511,5 +512,33 @@ def rotate_glob_loc(global_matrix, rot_angle, matrix=True):
         return np.matmul(mat_temp, rot_mat.T)
 
     return mat_temp
+
+
+def green_to_red_colormap():
+    """Define a colormap that fades from green to red."""
+    # This dictionary defines the colormap
+    cdict = {
+        "red": (
+            (0.0, 0.0, 0.0),  # no red at 0
+            (0.5, 1.0, 1.0),  # all channels set to 1.0 at 0.5 to create white
+            (1.0, 0.8, 0.8),
+        ),  # set to 0.8 so its not too bright at 1
+        "green": (
+            (0.0, 0.8, 0.8),  # set to 0.8 so its not too bright at 0
+            (0.5, 1.0, 1.0),  # all channels set to 1.0 at 0.5 to create white
+            (1.0, 0.0, 0.0),
+        ),  # no green at 1
+        "blue": (
+            (0.0, 0.0, 0.0),  # no blue at 0
+            (0.5, 1.0, 1.0),  # all channels set to 1.0 at 0.5 to create white
+            (1.0, 0.0, 0.0),
+        ),  # no blue at 1
+    }
+
+    # Create the colormap using the dictionary
+    GnRd = colors.LinearSegmentedColormap("GnRd", cdict)
+
+    return GnRd
+
 
 # EOF
