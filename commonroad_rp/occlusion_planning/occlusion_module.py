@@ -15,6 +15,7 @@ Date: 27.04.2023
 
 # imports
 import numpy as np
+import logging
 from shapely.geometry import LineString, Polygon
 from shapely.ops import unary_union
 from functools import reduce
@@ -29,6 +30,9 @@ from commonroad_rp.occlusion_planning.evaluation_modules.visibility_estimator im
 from commonroad_rp.occlusion_planning.evaluation_modules.uncertainty_map_evaluator import OccUncertaintyMapEvaluator
 from commonroad_rp.occlusion_planning.evaluation_modules.phantom_module import OccPhantomModule
 
+# get logger
+msg_logger = logging.getLogger("Message_logger")
+
 
 class OcclusionModule:
     def __init__(self, scenario, config, ref_path, log_path, planner):
@@ -37,10 +41,9 @@ class OcclusionModule:
         self.cr_scenario = scenario
         self.scenario_id = scenario.scenario_id
         self.occ_config = config.occlusion
-        self.cost_config = OmegaConf.to_object(config.cost.params)
+        self.cost_config = OmegaConf.to_object(config.cost.external_cost_weights)
         self.log_path = log_path
         self.predictions = None
-        self.debug_mode = config.debug.debug_mode
         self.plot = config.occlusion.show_occlusion_plot
         if config.occlusion.scope == "sensor_radius":
             self.scope = config.prediction.sensor_radius
@@ -66,8 +69,7 @@ class OcclusionModule:
         self.occ_occluded_area = OccArea(area_type="occluded")
 
         # initialize the uncertainty map which contains information about occluded areas and their history
-        self.occ_uncertainty_map = OccUncertaintyMap(debug_mode=config.debug.debug_mode,
-                                                     occ_visible_area=self.occ_visible_area,
+        self.occ_uncertainty_map = OccUncertaintyMap(occ_visible_area=self.occ_visible_area,
                                                      occ_occluded_area=self.occ_occluded_area)
 
         # if results of the occlusion module shall be plotted, an occlusion plot is initialized
@@ -86,8 +88,7 @@ class OcclusionModule:
                                                    occ_visible_area=self.occ_visible_area,
                                                    occ_plot=self.occ_plot,
                                                    params_risk=planner.params_risk,
-                                                   params_harm=planner.params_harm,
-                                                   debug_mode=self.debug_mode)
+                                                   params_harm=planner.params_harm)
 
         # initialize the uncertainty map evaluator which evaluates trajectories in the uncertainty map
         self.occ_uncertainty_map_evaluator = OccUncertaintyMapEvaluator(self.vis_module, self.occ_uncertainty_map,
@@ -168,10 +169,11 @@ class OcclusionModule:
                                                 'cov_list': cov_list,
                                                 'shape': pred['shape']}
 
-    def calc_costs(self, trajectories=None, scenario="cluster0", plot=False):
+    def calc_costs(self, trajectories=None, plot=False):
         # quit if error
         if trajectories is None or len(trajectories) == 0:
-            raise ValueError('Trajectory list is empty')
+            msg_logger.debug("No feasible or available trajectory!")
+            return
 
         # evaluate phantom module if activated
         if self.occ_config.use_phantom_module:
@@ -210,9 +212,9 @@ class OcclusionModule:
         cost_list = np.array([phantom_costs, uncertainty_costs, vis_est_costs]).T
 
         # load weights from config and store in numpy array for multiplication
-        weights = np.array([self.cost_config[scenario]["Occ_PM"],
-                            self.cost_config[scenario]["Occ_UM"],
-                            self.cost_config[scenario]["Occ_VE"]])
+        weights = np.array([self.cost_config["occ_pm"],
+                            self.cost_config["occ_um"],
+                            self.cost_config["occ_ve"]])
 
         # calc weighted cost list
         cost_list_weighted = cost_list * weights.reshape(1, -1)
@@ -227,11 +229,8 @@ class OcclusionModule:
 
         # calc new costs (traj cost + occlusion cost)
         for i, traj in enumerate(trajectories):
-            traj_cost = traj.cost + total_cost[i]
-            traj_cost_list = traj.cost_list
-
             # update trajectory costs
-            traj.set_costs(traj_cost, np.append(traj_cost_list, cost_list_weighted[i]))
+            traj.set_occlusion_costs(total_cost[i], cost_list[i], cost_list_weighted[i])
 
         # try to add phantom pedestrian to commonroad scenario -- for evaluation --
         # has to be done at the end of a timestep

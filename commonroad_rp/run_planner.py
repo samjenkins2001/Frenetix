@@ -124,7 +124,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
     # **************************
     # Set External Planner Setups
     # **************************
-    planner.update_externals(reference_path=reference_path)
+    planner.update_externals(reference_path=reference_path, occlusion_module=occlusion_module)
 
     # **************************
     # Run Planner Cycle

@@ -1,4 +1,4 @@
-use_occlusion_module: False
+use_occlusion_module: False # Does only work in python version
 scope: 30 # "sensor_radius" uses sensor radius from prediction or custom number
 
 # visibility estimation
@@ -10,10 +10,11 @@ use_uncertainty_map_evaluator: True
 # phantom pedestrians
 use_phantom_module: True
 visualize_collision: False # visualize collision
+create_real_pedestrians: [] # Scenario1[33] Scenario2[62, 102] Scenario3[9, 25] Scenario4[68, 150]
 
 # show/save occlusion debug plots
-show_occlusion_plot: False
-interactive_plot: False
+show_occlusion_plot: True # create Occlusion Plots and save them
+interactive_plot: False # Show Plot during runtime - might be slow
 plot_backend: "TkAgg" # Qt5Agg or TkAgg
 save_plot: True
 use_fast_plot: False # only calculated areas are shown, not the discretized dots

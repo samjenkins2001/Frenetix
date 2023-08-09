@@ -18,7 +18,7 @@ def calc_risk(
     vehicle_params,
     params_harm,
     params_risk,
-    road_boundary,
+    road_boundary=None,
     reach_set=None,
     exec_timer=None,
 ):

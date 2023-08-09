@@ -16,9 +16,10 @@ cost_weights:
     prediction: 500
     responsibility: 0
 
-    Occ_PM: 0 # Occlusion Phantom Module (phantom pedestrian harm)
-    Occ_UM: 0 # Occlusion Uncertainty Module (distance to uncertainty map)
-    Occ_VE: 0 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
+external_cost_weights:
+    occ_pm: 1 # Occlusion Phantom Module (phantom pedestrian harm)
+    occ_um: 1 # Occlusion Uncertainty Module (distance to uncertainty map)
+    occ_ve: 1 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
 
 #names:
 #  A: Acceleration

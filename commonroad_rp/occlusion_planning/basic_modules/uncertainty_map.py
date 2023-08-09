@@ -8,11 +8,15 @@ Date: 17.04.2023
 
 # imports
 import numpy as np
+import logging
 import commonroad_rp.occlusion_planning.utils.occ_helper_functions as ohf
+
+# get logger
+msg_logger = logging.getLogger("Message_logger")
 
 
 class OccUncertaintyMap:
-    def __init__(self, debug_mode=0, occ_visible_area=None, occ_occluded_area=None):
+    def __init__(self, occ_visible_area=None, occ_occluded_area=None):
         self.occ_visible_area = occ_visible_area
         self.occ_occluded_area = occ_occluded_area
         self._np_init_len = 3
@@ -21,7 +25,6 @@ class OccUncertaintyMap:
         self.error = False
         self.map_detail = None
         self.map = None
-        self.debug_mode = debug_mode
         self.log = []
 
     def step(self):
@@ -34,9 +37,8 @@ class OccUncertaintyMap:
             self._initialize(points_visible, points_occluded)
         else:
             if points_visible is None:
-                if self.debug_mode >= 2:
-                    print("No visible area available, Occlusion map will be increased by 1")
-                    self._increase_map()
+                msg_logger.debug("No visible area available, Occlusion map will be increased by 1")
+                self._increase_map()
             else:
                 self._update(points_visible, points_occluded)
 
@@ -113,10 +115,9 @@ class OccUncertaintyMap:
         # (visible)
 
         if np_visible is None:
-            if self.debug_mode >= 2:
-                print("No visible area available, Occlusion cannot be initialized!")
-                self.error = True
-                return
+            msg_logger.debug("No visible area available, Occlusion cannot be initialized!")
+            self.error = True
+            return
 
         np_visible = np.c_[np_visible, np.zeros(np_visible.shape[0]), np.ones(np_visible.shape[0])]
         np_occluded = np.c_[np_occluded, np.ones(np_occluded.shape[0]) * self._threshold_high,

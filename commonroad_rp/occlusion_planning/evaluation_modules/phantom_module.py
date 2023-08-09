@@ -7,6 +7,7 @@ Date: 29.05.2023
 
 # imports
 import numpy as np
+import logging
 from scipy.spatial import distance
 from scipy.interpolate import interp1d
 from shapely.geometry import Point, LineString
@@ -22,12 +23,14 @@ from risk_assessment.risk_costs import calc_risk
 from risk_assessment.helpers.collision_helper_function import create_tvobstacle
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectories_collision_dynamic_obstacles
 
+# get logger
+msg_logger = logging.getLogger("Message_logger")
+
 
 class OccPhantomModule:
     def __init__(self, config=None, occ_scenario=None, vis_module=None,
-                 occ_visible_area=None, occ_plot=None, params_risk=None, params_harm=None, debug_mode=0):
+                 occ_visible_area=None, occ_plot=None, params_risk=None, params_harm=None):
         self.config = config.occlusion
-        self.debug_mode = debug_mode
         self.ego_vehicle_params = config.vehicle
         self.occ_scenario = occ_scenario
         self.vis_module = vis_module
@@ -83,9 +86,9 @@ class OccPhantomModule:
         harm, risk, count_invalid_trajectories = self._calc_harm(trajectories, max_harm)
 
         # debug message
-        if self.debug_mode >= 2:
-            print('<ReactivePlanner>: Rejected {} infeasible trajectories due to phantom pedestrian harm'
-                  .format(count_invalid_trajectories))
+
+        msg_logger.debug('Rejected {} infeasible trajectories due to phantom pedestrian harm'
+                         .format(count_invalid_trajectories))
 
         # calc_costs
         self.costs = np.array(self._calc_costs(trajectories, harm, risk))
@@ -128,9 +131,7 @@ class OccPhantomModule:
             if self.occ_plot is not None:
                 self.occ_plot.plot_trajectories(trajectory)
 
-            # print information
-            if self.debug_mode >= 2:
-                print('<Phantom Module>: accepted: Harm {} -- risk {} -- cost {} in optimal trajectory in timestep {}'
+            msg_logger.debug('Accepted: Harm {} -- risk {} -- cost {} in optimal trajectory in timestep {}'
                       .format(self.max_accepted_harm, self.max_accepted_risk,
                               trajectory.cost_list[-3], self.vis_module.time_step))
 
@@ -260,7 +261,7 @@ class OccPhantomModule:
         for traj in trajectories:
 
             # calc risk and harm
-            ego_risk_max, obst_risk_max, ego_harm_max, obst_harm_max, ego_risk, obst_risk, obst_harm_occ = \
+            ego_risk_max, obst_risk_max, ego_harm_max, obst_harm_max, ego_risk, obst_risk = \
                 calc_risk(scenario=self,
                           traj=traj,
                           predictions=self.cr_predictions,

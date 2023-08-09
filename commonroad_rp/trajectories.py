@@ -407,6 +407,16 @@ class TrajectorySample(Sample):
         for idx, names in enumerate(cost_names):
             self.costMap[names] = [cost_list[idx], cost_list_weighted[idx]]
 
+    def set_occlusion_costs(self, cost, cost_list, cost_list_weighted):
+        """
+        Evaluated cost of the trajectory sample
+        :return: The cost of the trajectory sample
+        """
+        self._cost += cost
+        self.costMap["occ_pm"] = [cost_list[0], cost_list_weighted[0]]
+        self.costMap["occ_um"] = [cost_list[1], cost_list_weighted[1]]
+        self.costMap["occ_ve"] = [cost_list[2], cost_list_weighted[2]]
+
     @property
     def cost(self) -> float:
         """
