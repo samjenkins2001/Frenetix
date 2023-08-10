@@ -323,13 +323,13 @@ class ReactivePlanner(object):
 
     def trajectory_handler_set_constant_functions(self):
         self.handler.add_feasability_function(CheckYawRateConstraint(deltaMax=self.vehicle_params.delta_max,
-                                                                     wheelbase=self.vehicle_params.wheelbase))
+                                                                     wheelbase=self.vehicle_params.wheelbase, wholeTrajectory=False))
         self.handler.add_feasability_function(CheckAccelerationConstraint(switchingVelocity=self.vehicle_params.v_switch,
-                                                                          maxAcceleration=self.vehicle_params.a_max))
+                                                                          maxAcceleration=self.vehicle_params.a_max, wholeTrajectory=False))
         self.handler.add_feasability_function(CheckCurvatureConstraint(deltaMax=self.vehicle_params.delta_max,
-                                                                       wheelbase=self.vehicle_params.wheelbase))
+                                                                       wheelbase=self.vehicle_params.wheelbase, wholeTrajectory=False))
         self.handler.add_feasability_function(CheckCurvatureRateConstraint(wheelbase=self.vehicle_params.wheelbase,
-                                                                           velocityDeltaMax=self.vehicle_params.v_delta_max))
+                                                                           velocityDeltaMax=self.vehicle_params.v_delta_max, wholeTrajectory=False))
 
         name = "acceleration"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
@@ -363,7 +363,8 @@ class ReactivePlanner(object):
 
         self.handler.add_function(FillCoordinates(lowVelocityMode=self._LOW_VEL_MODE,
                                                   initialOrientation=self.x_0.orientation,
-                                                  coordinateSystem=self.coordinate_system))
+                                                  coordinateSystem=self.coordinate_system,
+                                                  horizon=4))
         name = "prediction"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.cost_weights[name], self.predictionsForCpp))
@@ -560,9 +561,10 @@ class ReactivePlanner(object):
                 # check if trajectory is feasible
                 if trajectory.feasible:
                     feasible_trajectories.append(trajectory)
-                else:
+                elif trajectory.valid:
                     infeasible_trajectories.append(trajectory)
-
+            # print size of feasible trajectories and infeasible trajectories
+            msg_logger.info('<Reactive Planner>: Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
             # for visualization store all trajectories with validity level based on kinematic validity
             if self._draw_traj_set or self.save_all_traj or self.use_amazing_visualizer:
                 trajectories = feasible_trajectories + infeasible_trajectories
