@@ -6,8 +6,8 @@ calc_visible_area: True
 sensor_radius: 80
 
 # Cone Angle and Safety Dist for Cone Angle
-cone_angle: 0
-cone_safety_dist: 3
+cone_angle: 20
+cone_safety_dist: 2
 
 # Lanebased Params
 pred_horizon_in_s: 3

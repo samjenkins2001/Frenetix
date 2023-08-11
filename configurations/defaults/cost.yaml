@@ -8,18 +8,18 @@ cost_weights:
     path_length: 0.0
 
     lane_center_offset: 0.0
-    velocity_offset: 0.05
+    velocity_offset: 0.5
     velocity: 0.
     distance_to_reference_path: 1
     distance_to_obstacles: 0
 
-    prediction: 500
+    prediction: 3
     responsibility: 0
 
 external_cost_weights:
-    occ_pm: 1 # Occlusion Phantom Module (phantom pedestrian harm)
-    occ_um: 1 # Occlusion Uncertainty Module (distance to uncertainty map)
-    occ_ve: 1 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
+    occ_pm: 0 # Occlusion Phantom Module (phantom pedestrian harm)
+    occ_um: 0 # Occlusion Uncertainty Module (distance to uncertainty map)
+    occ_ve: 0 # Occlusion Visibility Estimator (lateral adaption to increase visible area)
 
 #names:
 #  A: Acceleration
