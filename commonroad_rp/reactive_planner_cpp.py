@@ -183,9 +183,9 @@ class ReactivePlanner(object):
 
     def _check_valid_settings(self):
         """Checks validity of provided dt and horizon"""
-        assert is_positive(self.dT), '<ReactivePlanner>: provided dt is not correct! dt = {}'.format(self.dT)
-        assert is_positive(self.N) and is_natural_number(self.N), '<ReactivePlanner>: N is not correct!'
-        assert is_positive(self.horizon), '<ReactivePlanner>: provided t_h is not correct! dt = {}'.format(self.horizon)
+        assert is_positive(self.dT), 'provided dt is not correct! dt = {}'.format(self.dT)
+        assert is_positive(self.N) and is_natural_number(self.N), 'N is not correct!'
+        assert is_positive(self.horizon), 'provided t_h is not correct! dt = {}'.format(self.horizon)
 
     @property
     def collision_checker(self) -> pycrcc.CollisionChecker:
@@ -364,7 +364,7 @@ class ReactivePlanner(object):
         self.handler.add_function(FillCoordinates(lowVelocityMode=self._LOW_VEL_MODE,
                                                   initialOrientation=self.x_0.orientation,
                                                   coordinateSystem=self.coordinate_system,
-                                                  horizon=4))
+                                                  horizon=int(self.config.planning.planning_horizon)))
         name = "prediction"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.cost_weights[name], self.predictionsForCpp))
@@ -493,6 +493,8 @@ class ReactivePlanner(object):
         :return: Optimal trajectory as tuple
         """
         self._infeasible_count_kinematics = np.zeros(10)
+        self._infeasible_count_collision = 0
+        self.infeasible_kinematics_percentage = 0
         # **************************************
         # Initialization of Cpp Frenet Functions
         # **************************************
@@ -563,8 +565,13 @@ class ReactivePlanner(object):
                     feasible_trajectories.append(trajectory)
                 elif trajectory.valid:
                     infeasible_trajectories.append(trajectory)
+
+            self.infeasible_kinematics_percentage = float(len(feasible_trajectories)
+                                                    / (len(feasible_trajectories) + len(infeasible_trajectories))) * 100
             # print size of feasible trajectories and infeasible trajectories
             msg_logger.info('<Reactive Planner>: Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
+            msg_logger.debug(
+                'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
             # for visualization store all trajectories with validity level based on kinematic validity
             if self._draw_traj_set or self.save_all_traj or self.use_amazing_visualizer:
                 trajectories = feasible_trajectories + infeasible_trajectories
@@ -587,9 +594,9 @@ class ReactivePlanner(object):
 
             self.transfer_infeasible_logging_information(infeasible_trajectories)
 
-            msg_logger.debug('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
+            msg_logger.debug('Rejected {} infeasible trajectories due to kinematics'.format(
                 self.infeasible_count_kinematics))
-            msg_logger.debug('<ReactivePlanner>: Rejected {} infeasible trajectories due to collisions'.format(
+            msg_logger.debug('Rejected {} infeasible trajectories due to collisions'.format(
                 self.infeasible_count_collision))
 
             # increase sampling level (i.e., density) if no optimal trajectory could be found
