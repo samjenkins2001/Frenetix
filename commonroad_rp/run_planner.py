@@ -138,7 +138,8 @@ def run_planner(config, log_path, mod_path, use_cpp):
         # Cycle Prediction and Reach Sets
         # *******************************
         if config.prediction.mode:
-            predictions, visible_area = ph.step_prediction(scenario, predictor, config, x_0, occlusion_module)
+            predictions, visible_area = ph.step_prediction(scenario, predictor, config, planner.ego_vehicle_history[-1],
+                                                           occlusion_module)
             if 'responsibility' in config.cost.cost_weights and config.cost.cost_weights['responsibility'] > 0:
                 reach_set = ph.step_reach_set(reach_set, scenario, x_0, predictions)
 
@@ -220,11 +221,11 @@ def run_planner(config, log_path, mod_path, use_cpp):
     # End of Cycle
     # ******************************************************************************
 
-    msg_logger.debug(planner.goal_message)
+    msg_logger.info(planner.goal_message)
     if planner.full_goal_status:
-        msg_logger.debug("\n", planner.full_goal_status)
+        msg_logger.info("\n", planner.full_goal_status)
     if not planner.goal_status and current_count >= max_time_steps_scenario:
-        msg_logger.debug("Scenario Aborted! Maximum Time Step Reached!")
+        msg_logger.info("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory
     plot_final_trajectory(scenario, planning_problem, planner.record_state_list, config, log_path)

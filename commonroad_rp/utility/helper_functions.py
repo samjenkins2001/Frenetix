@@ -439,7 +439,7 @@ def ignore_vehicles_in_cone_angle(predictions, ego_pose, veh_length, cone_angle,
     return bool: True if vehicle is ignored, i.e. inside cone
     """
 
-    ego_pose = np.array([ego_pose.position[0], ego_pose.position[1], ego_pose.orientation])
+    ego_pose = np.array([ego_pose.initial_state.position[0], ego_pose.initial_state.position[1], ego_pose.initial_state.orientation])
     cone_angle = cone_angle / 180 * np.pi
     ignore_pred_list = list()
 

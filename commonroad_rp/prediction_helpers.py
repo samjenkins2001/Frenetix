@@ -108,13 +108,13 @@ def get_obstacles_in_radius(scenario, ego_id: int, ego_state, radius: float):
     for obstacle in scenario.obstacles:
         # do not consider the ego vehicle
         if obstacle.obstacle_id != ego_id:
-            occ = obstacle.occupancy_at_time(ego_state.time_step)
+            occ = obstacle.occupancy_at_time(ego_state.initial_state.time_step)
             # if the obstacle is not in the lanelet network at the given time, its occupancy is None
             if occ is not None:
                 # calculate the distance between the two obstacles
                 dist = distance(
-                    pos1=ego_state.position,
-                    pos2=obstacle.occupancy_at_time(ego_state.time_step).shape.center,
+                    pos1=ego_state.initial_state.position,
+                    pos2=obstacle.occupancy_at_time(ego_state.initial_state.time_step).shape.center,
                 )
                 # add obstacles that are close enough
                 if dist < radius:
@@ -383,8 +383,8 @@ def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None,
             else:
                 visible_obstacles, visible_area = get_visible_objects(
                    scenario=scenario,
-                   ego_pos=ego_state.position,
-                   time_step=ego_state.time_step,
+                   ego_pos=ego_state.initial_state.position,
+                   time_step=ego_state.initial_state.time_step,
                    sensor_radius=config.prediction.sensor_radius,
                    ego_id=ego_id,
                 )
@@ -418,7 +418,7 @@ def main_prediction(predictor, scenario, visible_obstacles, ego_state, DT, t_lis
 
     # get prediction for dynamic obstacles
     predictions = predictor.step(
-        time_step=ego_state.time_step,
+        time_step=ego_state.initial_state.time_step,
         obstacle_id_list=dyn_visible_obstacles,
         scenario=scenario,
     )
