@@ -28,11 +28,11 @@ def smooth_ref_path(reference: np.ndarray):
     # y_smooth = bs_y(tt)
     # reference = np.column_stack((x_smooth, y_smooth))
 
-    tck, u = splprep(reference.T, u=None, k=3, s=0.3)
-    u_new = np.linspace(u.min(), u.max(), 300)
+    tck, u = splprep(reference.T, u=None, k=3, s=0.0)
+    u_new = np.linspace(u.min(), u.max(), 200)
     x_new, y_new = splev(u_new, tck, der=0)
     ref_path = np.array([x_new, y_new]).transpose()
-    reference = resample_polyline(ref_path, 1)
+    reference = resample_polyline(ref_path, 2)
 
     # remove duplicated vertices in reference path
     _, idx = np.unique(reference, axis=0, return_index=True)
