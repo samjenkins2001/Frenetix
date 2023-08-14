@@ -49,8 +49,49 @@ def run_planner(config, log_path, mod_path, use_cpp):
     # *************************************
     # Open CommonRoad scenario
     # *************************************
+    is_interactive = False
+    if os.path.isfile(config.general.name_scenario):
+        scenario, planning_problem, planning_problem_set = load_scenario_and_planning_problem(config)
+    elif os.path.isdir(config.general.name_scenario.split(".")[-2]):
+        is_interactive = True
 
-    scenario, planning_problem, planning_problem_set = load_scenario_and_planning_problem(config)
+        # imports needed for sumo interactive scenarios
+        from simulation.simulations import load_sumo_configuration
+        from commonroad.common.file_reader import CommonRoadFileReader
+        from sumocr.maps.sumo_scenario import ScenarioWrapper
+        from sumocr.interface.sumo_simulation import SumoSimulation
+        from commonroad.prediction.prediction import TrajectoryPrediction
+        from commonroad.scenario.trajectory import Trajectory
+
+        # lead sumo config
+        interactive_scenario_path = config.general.name_scenario.split(".")[-2]
+        sumo_conf = load_sumo_configuration(interactive_scenario_path)
+        scenario_file = os.path.join(interactive_scenario_path, f"{sumo_conf.scenario_name}.cr.xml")
+
+        # load scenario and planning problem
+        scenario, planning_problem_set = CommonRoadFileReader(scenario_file).open()
+        planning_problem = list(planning_problem_set.planning_problem_dict.values())[0]
+
+        # inititalise sumo
+        scenario_wrapper = ScenarioWrapper()
+        scenario_wrapper.sumo_cfg_file = os.path.join(interactive_scenario_path, f"{sumo_conf.scenario_name}.sumo.cfg")
+        scenario_wrapper.initial_scenario = scenario
+
+        scenario_wrapper.get_rou_file()  # applies corrections to route file if necessary
+        sumo_sim = SumoSimulation()
+
+        # initialize simulation
+        sumo_sim.initialize(sumo_conf, scenario_wrapper, None)
+
+        ego_vehicles = sumo_sim.ego_vehicles
+        ego_vehicle_sumo_object = list(ego_vehicles.values())[0]
+        scenario = sumo_sim.commonroad_scenario_at_time_step(0)
+        # initialise state list to save past states of interactive obstacles
+        obstacle_state_list = {}
+        for obstacle in scenario.dynamic_obstacles:
+            obstacle_state_list[obstacle.obstacle_id] = []
+    else:
+        raise ValueError("Scenario path " + str(config.general.name_scenario) + " is invalid")
 
     # *************************************
     # Init and Goal State
@@ -134,6 +175,23 @@ def run_planner(config, log_path, mod_path, use_cpp):
 
         current_count = len(planner.record_state_list) - 1
 
+        if is_interactive:
+            # retrieve the CommonRoad scenario at the current time step
+            scenario = sumo_sim.commonroad_scenario_at_time_step(sumo_sim.current_time_step)
+            for obstacle in scenario.obstacles:
+                # create prediction object for each obstacle for the Prediction to work
+                # save current state in state list
+                if obstacle.obstacle_id in obstacle_state_list.keys():
+                    obstacle_state_list[obstacle.obstacle_id].append(obstacle.initial_state)
+                else:
+                    obstacle_state_list[obstacle.obstacle_id] = [obstacle.initial_state]
+                # create prediction
+                obst_traj = Trajectory(obstacle_state_list[obstacle.obstacle_id][0].time_step,
+                                       obstacle_state_list[obstacle.obstacle_id])
+                obstacle.prediction = TrajectoryPrediction(obst_traj, obstacle.obstacle_shape)
+                obstacle.prediction.final_time_step = max_time_steps_scenario
+            planner.update_externals(scenario=scenario)
+
         # *******************************
         # Cycle Prediction and Reach Sets
         # *******************************
@@ -148,7 +206,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
         # **************************
         if not config.behavior.use_behavior_planner:
             # set desired velocity
-            desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity)
+            desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity=desired_velocity)
         else:
             behavior = behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
             desired_velocity = behavior_modul.desired_velocity
@@ -190,6 +248,14 @@ def run_planner(config, log_path, mod_path, use_cpp):
         x_cl = (optimal[2][1], optimal[3][1])
 
         msg_logger.info(f"current time step: {current_count}")
+
+        if is_interactive and ego_vehicles.__len__() > 0:
+            # add next planned state to the planned trajectory of the scenario to influence the interactive obstacles
+            next_state = optimal[0].state_list[1]
+            next_state.time_step = 1
+            ego_vehicle_sumo_object.set_planned_trajectory([next_state])
+            # simulate the next step for the interactive obstacles
+            sumo_sim.simulate_step()
 
         # **************************
         # Visualize Scenario
@@ -241,7 +307,9 @@ def run_planner(config, log_path, mod_path, use_cpp):
         from commonroad.common.solution import CommonRoadSolutionWriter
         from commonroad_dc.feasibility.solution_checker import valid_solution
 
-        # create full solution trajectory
+        if is_interactive:
+            for i in range(len(planner.record_state_list)):
+                planner.record_state_list[i].time_step = i
         ego_solution_trajectory = create_full_solution_trajectory(config, planner.record_state_list)
 
         # plot full ego vehicle trajectory

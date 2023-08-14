@@ -24,10 +24,10 @@ if __name__ == '__main__':
     use_cpp = False
     evaluation_pipeline = False
 
-    scenario_name = "ZAM_Tjunction-1_100_T-1.xml"
+    scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
 
-    scenario_files = [f for f in listdir(scenario_folder) if isfile(join(scenario_folder, f))]
+    scenario_files = [f.split(".")[-2] for f in listdir(scenario_folder) if isfile(join(scenario_folder, f))]
     random.shuffle(scenario_files)
 
     number_of_runs = len(scenario_files) if evaluation_pipeline else 1
@@ -37,7 +37,7 @@ if __name__ == '__main__':
         scenario_path = os.path.join(scenario_folder, scenario_files[runs]) if evaluation_pipeline \
             else os.path.join(scenario_folder, scenario_name)
 
-        config = ConfigurationBuilder.build_configuration(scenario_path.split(".")[-2] + ".xml")
+        config = ConfigurationBuilder.build_configuration(scenario_path + ".xml")
         log_path = "./logs/"+scenario_path.split("/")[-1]
 
         if not start_multiagent:
