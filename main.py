@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 from os import listdir
 from os.path import isfile, join
@@ -27,6 +28,8 @@ if __name__ == '__main__':
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
 
     scenario_files = [f for f in listdir(scenario_folder) if isfile(join(scenario_folder, f))]
+    random.shuffle(scenario_files)
+
     number_of_runs = len(scenario_files) if evaluation_pipeline else 1
 
     for runs in range(0, number_of_runs):
