@@ -492,7 +492,7 @@ class ReactivePlanner(object):
         Plans an optimal trajectory
         :return: Optimal trajectory as tuple
         """
-
+        self._infeasible_count_kinematics = np.zeros(10)
         # **************************************
         # Initialization of Cpp Frenet Functions
         # **************************************
