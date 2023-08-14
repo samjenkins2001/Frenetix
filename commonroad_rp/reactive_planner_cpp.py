@@ -585,6 +585,8 @@ class ReactivePlanner(object):
             if optimal_trajectory is not None and self.log_risk:
                 optimal_trajectory = self.set_risk_costs(optimal_trajectory)
 
+            self.transfer_infeasible_logging_information(infeasible_trajectories)
+
             msg_logger.debug('<ReactivePlanner>: Rejected {} infeasible trajectories due to kinematics'.format(
                 self.infeasible_count_kinematics))
             msg_logger.debug('<ReactivePlanner>: Rejected {} infeasible trajectories due to collisions'.format(
@@ -883,3 +885,22 @@ class ReactivePlanner(object):
                 state.orientation -= 2 * np.pi
         return trajectory
 
+    def transfer_infeasible_logging_information(self, infeasible_trajectories):
+
+        feas_list = [i.feasabilityMap['Curvature Constraint'] for i in infeasible_trajectories]
+        acc_feas = [int(1) if num > 0 else int(0) for num in feas_list]
+        self.infeasible_count_kinematics[5] = int(sum(acc_feas))
+
+        feas_list = [i.feasabilityMap['Yaw rate Constraint'] for i in infeasible_trajectories]
+        acc_feas = [int(1) if num > 0 else int(0) for num in feas_list]
+        self.infeasible_count_kinematics[6] = int(sum(acc_feas))
+
+        feas_list = [i.feasabilityMap['Curvature Rate Constraint'] for i in infeasible_trajectories]
+        acc_feas = [int(1) if num > 0 else int(0) for num in feas_list]
+        self.infeasible_count_kinematics[7] = int(sum(acc_feas))
+
+        feas_list = [i.feasabilityMap['Acceleration Constraint'] for i in infeasible_trajectories]
+        acc_feas = [int(1) if num > 0 else int(0) for num in feas_list]
+        self.infeasible_count_kinematics[8] = int(sum(acc_feas))
+
+        self.infeasible_count_kinematics[0] = int(sum(self.infeasible_count_kinematics))
