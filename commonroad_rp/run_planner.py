@@ -261,11 +261,12 @@ def run_planner(config, log_path, mod_path, use_cpp):
         # Visualize Scenario
         # **************************
         if config.debug.show_plots or config.debug.save_plots:
-            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem, ego=planner.ego_vehicle_history[-1],
-                                          traj_set=planner.all_traj, optimal_traj=optimal[0], ref_path=reference_path, timestep=current_count,
-                                          config=config, predictions=predictions,
-                                          plot_window=config.debug.plot_window_dyn,
-                                          log_path=log_path, visible_area=visible_area, occlusion_map=occlusion_map)
+            visualize_planner_at_timestep(scenario=scenario, planning_problem=planning_problem,
+                                          ego=planner.ego_vehicle_history[-1], traj_set=planner.all_traj,
+                                          optimal_traj=optimal[0], ref_path=planner.reference_path,
+                                          timestep=current_count, config=config, predictions=planner.predictions,
+                                          plot_window=config.debug.plot_window_dyn, log_path=log_path,
+                                          visible_area=visible_area, occlusion_map=occlusion_map)
 
         # **************************
         # Check Collision
