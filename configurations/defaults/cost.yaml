@@ -2,18 +2,18 @@ cost_weights:
 
     acceleration: 0.0
     jerk: 0.00
-    lateral_jerk: 0.1
-    longitudinal_jerk: 0.1
+    lateral_jerk: 0.5
+    longitudinal_jerk: 0.5
     orientation_offset: 0.0
     path_length: 0.0
 
     lane_center_offset: 0.0
-    velocity_offset: 0.5
+    velocity_offset: 0.1
     velocity: 0.
-    distance_to_reference_path: 3
+    distance_to_reference_path: 5
     distance_to_obstacles: 0
 
-    prediction: 3
+    prediction: 5
     responsibility: 0
 
 external_cost_weights:

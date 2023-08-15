@@ -2,7 +2,7 @@
 mode: "walenet"  # "walenet" or "lanebased" or "ground_truth" or None
 
 # Sensor Radius in Meter and Occlusion Area
-calc_visible_area: True
+calc_visible_area: False
 sensor_radius: 80
 
 # Cone Angle and Safety Dist for Cone Angle

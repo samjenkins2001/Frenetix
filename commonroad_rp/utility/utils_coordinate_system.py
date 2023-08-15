@@ -26,15 +26,14 @@ def smooth_ref_path(reference: np.ndarray):
     tck, u = splprep(reference.T, u=None, k=3, s=0.3)
     u_new = np.linspace(u.min(), u.max(), 1000)
     x_new, y_new = splev(u_new, tck, der=0)
-    ref_path = np.array([x_new, y_new]).transpose()
-    reference = resample_polyline(ref_path, 1)
+    reference = np.array([x_new, y_new]).transpose()
+    reference = resample_polyline(reference, 1)
 
     # remove duplicated vertices in reference path
     _, idx = np.unique(reference, axis=0, return_index=True)
     reference = reference[np.sort(idx)]
 
     return reference
-
 
 
 def interpolate_angle(x: float, x1: float, x2: float, y1: float, y2: float) -> float:
@@ -109,7 +108,7 @@ class CoordinateSystem:
         self._ref_curv_d = np.gradient(self._ref_curv, self._ref_pos)
         self._ref_curv_dd = np.gradient(self._ref_curv_d, self._ref_pos)
         # plt.clf()
-        # plt.plot(self._ref_pos[100:200], self._ref_curv_d[100:200])
+        # plt.plot(self._ref_pos[50:-50], self._ref_curv_d[50:-50])
         # plt.savefig('curv_window.png')
 
     @property
