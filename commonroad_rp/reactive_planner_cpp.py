@@ -10,6 +10,7 @@ import math
 import time
 
 import numpy as np
+import copy
 from typing import List, Optional, Tuple
 import logging
 from risk_assessment.risk_costs import calc_risk
@@ -103,6 +104,7 @@ class ReactivePlanner(object):
         self.planning_problem = planning_problem
         self.predictions = None
         self.reach_set = None
+        self.reference_path = None
         self.predictionsForCpp = {}
         self.behavior = None
         self.set_new_ref_path = None
@@ -124,7 +126,7 @@ class ReactivePlanner(object):
 
         self.handler: TrajectoryHandler = TrajectoryHandler(dt=config.planning.dt)
         self.cost_weights = OmegaConf.to_object(config.cost.cost_weights)
-        self.coordinate_system: CoordinateSystemWrapper
+        self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper
         self.trajectory_handler_set_constant_functions()
         # **************************
         # Extensions Initialization
@@ -389,9 +391,9 @@ class ReactivePlanner(object):
         Automatically creates a curvilinear coordinate system from a given reference path
         :param reference_path: reference_path as polyline
         """
-        # TODO: now we smooth 2 times because of the python implementation.
+
         self.reference_path = smooth_ref_path(reference_path)
-        self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(self.reference_path)
+        self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(copy.deepcopy(self.reference_path))
         self._co: CoordinateSystem = CoordinateSystem(self.reference_path)
         self.set_new_ref_path = True
 
