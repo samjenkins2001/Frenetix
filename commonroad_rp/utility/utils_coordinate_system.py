@@ -9,22 +9,27 @@ __status__ = "Alpha"
 from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import UnivariateSpline, splprep, splev
+from scipy.interpolate import splprep, splev
 from commonroad_dc.pycrccosy import CurvilinearCoordinateSystem
-from commonroad_dc.geometry.util import compute_pathlength_from_polyline,compute_curvature_from_polyline, \
+from commonroad_dc.geometry.util import compute_pathlength_from_polyline, compute_curvature_from_polyline, \
     compute_orientation_from_polyline, resample_polyline, chaikins_corner_cutting
-
 from commonroad.common.util import make_valid_orientation
 
 
 def smooth_ref_path(reference: np.ndarray):
     _, idx = np.unique(reference, axis=0, return_index=True)
     reference = reference[np.sort(idx)]
-    t = 100
-    reference = reference[::t]
 
-    tck, u = splprep(reference.T, u=None, k=3, s=0.3)
-    u_new = np.linspace(u.min(), u.max(), 1000)
+    distances = np.sqrt(np.sum((reference[50:-50:2]-reference[51:-49:2])**2, axis=1))
+    dist_sum_in_m = np.round(np.sum(distances), 3)
+    average_dist_in_m = np.round(np.average(distances), 3)
+
+    t = int(7 / average_dist_in_m)  # 5 meters distance per point
+    reference = reference[::t]
+    spline_discretization = int(3 * dist_sum_in_m)  # 2 = 0.5 m distances between points
+
+    tck, u = splprep(reference.T, u=None, k=3, s=0.0)
+    u_new = np.linspace(u.min(), u.max(), spline_discretization)
     x_new, y_new = splev(u_new, tck, der=0)
     reference = np.array([x_new, y_new]).transpose()
     reference = resample_polyline(reference, 1)

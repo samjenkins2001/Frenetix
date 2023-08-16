@@ -21,7 +21,7 @@ stack_path = os.path.dirname(os.path.dirname(
 if __name__ == '__main__':
 
     start_multiagent = False
-    use_cpp = False
+    use_cpp = True
     evaluation_pipeline = False
 
     scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name

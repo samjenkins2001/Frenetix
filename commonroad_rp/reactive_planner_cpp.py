@@ -520,8 +520,8 @@ class ReactivePlanner(object):
         msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
         msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
 
-        msg_logger.debug('<Reactive Planner>: initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
-        msg_logger.debug('<Reactive Planner>: desired velocity is {} m/s'.format(self._desired_speed))
+        msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
+        msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
 
         # Initialization of while loop
         optimal_trajectory = None

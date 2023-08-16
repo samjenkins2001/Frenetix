@@ -177,7 +177,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         for val in valid_traj:
             color = mapper.to_rgba(val.cost)
             plt.plot(val.cartesian.x, val.cartesian.y,
-                     color=color, zorder=20, linewidth=2.0, alpha=1.0, picker=False)
+                     color=color, zorder=20, linewidth=1.5, alpha=1.0, picker=False)
         for ival in range(0, len(invalid_traj), step):
             plt.plot(invalid_traj[ival].cartesian.x, invalid_traj[ival].cartesian.y,
                      color="#808080", zorder=19, linewidth=0.8, alpha=0.4, picker=False)
