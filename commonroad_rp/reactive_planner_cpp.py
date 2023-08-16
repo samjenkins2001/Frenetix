@@ -442,7 +442,7 @@ class ReactivePlanner(object):
 
         self.sampling_handler.set_v_sampling(min_v, max_v)
 
-        msg_logger.debug('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
+        msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
     def set_collision_checker(self, scenario: Scenario = None, collision_checker: pycrcc.CollisionChecker = None):
         """

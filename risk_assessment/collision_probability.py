@@ -286,7 +286,7 @@ def get_inv_mahalanobis_dist(traj, predictions: dict, vehicle_params, safety_mar
                 # 1e-4 is regression param to be similar to collision probability
                 delta = u - v
                 mahalanobis_squared = delta.T @ iv @ delta
-                inv_dist.append(1.0 / mahalanobis_squared)
+                inv_dist.append(1.0 / (mahalanobis_squared ** 2))
             else:
                 inv_dist.append(0.0)
         collision_prob_dict[obstacle_id] = np.array(inv_dist)

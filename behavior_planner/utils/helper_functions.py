@@ -309,7 +309,7 @@ def compute_straight_reference_path(lanelet_network, list_ids_lanelets):
         else:
             reference_path = np.concatenate((reference_path, lanelet.center_vertices), axis=0)
 
-    reference_path = resample_polyline(reference_path, 2)
+    reference_path = resample_polyline(reference_path, 1)
     return reference_path
 
 

@@ -6,7 +6,7 @@ __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
 import behavior_planner.utils.helper_functions as hf
-from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem
+from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path
 
 from itertools import zip_longest
 import numpy as np
@@ -483,8 +483,7 @@ class ReferencePath(object):
         new_path = new_path[self.BM_state.future_factor + cut_idx_new + number_vertices_lane_change:, :]
         # create final reference path
         reference_path = np.concatenate((old_path, new_path), axis=0)
-        reference_path_smooth = hf.smooth_reference_path(reference_path)
-        self.reference_path = reference_path_smooth
+        self.reference_path = smooth_ref_path(reference_path)
 
 
 class StaticGoal(object):
