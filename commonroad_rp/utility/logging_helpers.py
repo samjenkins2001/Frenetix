@@ -344,11 +344,12 @@ def messages_logger_initialization(config: Configuration, log_path) -> logging.L
     stream_handler.setLevel(loglevel)
 
     # create stream formatter
-    stream_formatter = logging.Formatter("%(levelname)-8s [ReactivePlanner]: %(message)s")
+    stream_formatter = logging.Formatter("%(levelname)-8s [%(filename)s]: %(message)s")
     stream_handler.setFormatter(stream_formatter)
 
     # add handlers
     msg_logger.addHandler(file_handler)
     msg_logger.addHandler(stream_handler)
+    msg_logger.propagate = False
 
     return msg_logger

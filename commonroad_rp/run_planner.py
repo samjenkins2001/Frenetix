@@ -35,6 +35,8 @@ from behavior_planner.behavior_module import BehaviorModule
 
 from commonroad_rp.occlusion_planning.occlusion_module import OcclusionModule
 
+msg_logger = logging.getLogger("Message_logger")
+
 
 def run_planner(config, log_path, mod_path, use_cpp):
 
@@ -44,7 +46,6 @@ def run_planner(config, log_path, mod_path, use_cpp):
     # Message Logger of Run
     # *************************************
     messages_logger_initialization(config, log_path)
-    msg_logger = logging.getLogger("Message_logger")
 
     # *************************************
     # Open CommonRoad scenario
