@@ -168,16 +168,16 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         valid_traj = [obj for obj in traj_set if obj.valid is True and obj.feasible is True]
         invalid_traj = [obj for obj in traj_set if obj.valid is False or obj.feasible is False]
         norm = matplotlib.colors.Normalize(
-            vmin=min([valid_traj[i].cost for i in range(len(valid_traj))]),
-            vmax=max([valid_traj[i].cost for i in range(len(valid_traj))]),
+            vmin=0,
+            vmax=len(valid_traj),
             clip=True,
         )
         mapper = cm.ScalarMappable(norm=norm, cmap=green_to_red_colormap())
         step = int(len(invalid_traj) / 100) if int(len(invalid_traj) / 100) > 2 else 1
-        for val in valid_traj:
-            color = mapper.to_rgba(val.cost)
+        for idx, val in enumerate(valid_traj):
+            color = mapper.to_rgba(idx)
             plt.plot(val.cartesian.x, val.cartesian.y,
-                     color=color, zorder=20, linewidth=1.5, alpha=1.0, picker=False)
+                     color=color, zorder=20, linewidth=1.0, alpha=1.0, picker=False)
         for ival in range(0, len(invalid_traj), step):
             plt.plot(invalid_traj[ival].cartesian.x, invalid_traj[ival].cartesian.y,
                      color="#808080", zorder=19, linewidth=0.8, alpha=0.4, picker=False)
