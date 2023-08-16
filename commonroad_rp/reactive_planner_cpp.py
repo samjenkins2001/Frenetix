@@ -442,7 +442,7 @@ class ReactivePlanner(object):
 
         self.sampling_handler.set_v_sampling(min_v, max_v)
 
-        msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
+        msg_logger.debug('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
     def set_collision_checker(self, scenario: Scenario = None, collision_checker: pycrcc.CollisionChecker = None):
         """
@@ -571,7 +571,7 @@ class ReactivePlanner(object):
             self.infeasible_kinematics_percentage = float(len(feasible_trajectories)
                                                     / (len(feasible_trajectories) + len(infeasible_trajectories))) * 100
             # print size of feasible trajectories and infeasible trajectories
-            msg_logger.info('<Reactive Planner>: Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
+            msg_logger.debug('Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
             msg_logger.debug(
                 'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
             # for visualization store all trajectories with validity level based on kinematic validity
