@@ -40,7 +40,7 @@ from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajec
 from commonroad_rp.sampling_matrix import SamplingHandler
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
-from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle
+from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle, smooth_ref_path
 
 from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.prediction_helpers import collision_checker_prediction
@@ -328,6 +328,7 @@ class ReactivePlanner(object):
         :param reference_path: reference path as polyline
         :param coordinate_system: given CoordinateSystem object which is used by the planner
         """
+        reference_path = smooth_ref_path(reference_path)
         if coordinate_system is None:
             assert reference_path is not None, '<set reference path>: Please provide a reference path OR a ' \
                                                'CoordinateSystem object to the planner.'
