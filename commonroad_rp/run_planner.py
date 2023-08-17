@@ -133,7 +133,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
     # Convert Initial State
     # **************************
     x_0 = ReactivePlannerState.create_from_initial_state(x_0, config.vehicle.wheelbase, config.vehicle.wb_rear_axle)
-    planner.record_state_and_input(x_0)
+    planner.record_state_and_input(x_0, ego_vehicle)
 
     # *************************************
     # Load Behavior Planner
@@ -242,7 +242,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
         msg_logger.info(f"***Total Planning Time: \t\t{planning_times[-1]:.5f} s")
 
         # record state and input
-        planner.record_state_and_input(optimal[0].state_list[1])
+        planner.record_state_and_input(optimal[0].state_list[1], planner.ego_vehicle_history[-1])
 
         # update init state and curvilinear state
         x_0 = deepcopy(planner.record_state_list[-1])
@@ -296,7 +296,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
         msg_logger.info("Scenario Aborted! Maximum Time Step Reached!")
 
     # plot  final ego vehicle trajectory
-    plot_final_trajectory(scenario, planning_problem, planner.record_state_list, config, log_path)
+    plot_final_trajectory(scenario, planning_problem, planner.record_state_list_solution, config, log_path)
 
     # make gif
     if config.debug.gif:
@@ -310,9 +310,9 @@ def run_planner(config, log_path, mod_path, use_cpp):
         from commonroad_dc.feasibility.solution_checker import valid_solution
 
         if is_interactive:
-            for i in range(len(planner.record_state_list)):
+            for i in range(len(planner.record_state_list_solution)):
                 planner.record_state_list[i].time_step = i
-        ego_solution_trajectory = create_full_solution_trajectory(config, planner.record_state_list)
+        ego_solution_trajectory = create_full_solution_trajectory(config, planner.record_state_list_solution)
 
         # plot full ego vehicle trajectory
         plot_final_trajectory(scenario, planning_problem, ego_solution_trajectory.state_list, config, log_path)

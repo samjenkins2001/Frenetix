@@ -19,7 +19,7 @@ import imageio.v3 as iio
 # commonroad-io
 from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.obstacle import DynamicObstacle
-from commonroad_rp.state import ReactivePlannerState
+from commonroad.scenario.state import KSState
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.visualization.mp_renderer import MPRenderer, DynamicObstacleParams, ShapeParams
 from commonroad.geometry.shape import Rectangle
@@ -218,7 +218,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
         plt.pause(0.0001)
 
 
-def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[ReactivePlannerState],
+def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[KSState],
                           config: Configuration, log_path: str, ref_path: np.ndarray = None):
     """
     Function plots occupancies for a given CommonRoad trajectory (of the ego vehicle)

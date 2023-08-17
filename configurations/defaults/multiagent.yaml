@@ -23,5 +23,5 @@ save_specific_individual_plots: []
 save_all_individual_gifs: False
 save_specific_individual_gifs: []
 
-multiprocessing: True
+multiprocessing: False
 num_procs: 4

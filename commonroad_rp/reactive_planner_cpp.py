@@ -21,7 +21,7 @@ from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.trajectory import Trajectory
-from commonroad.scenario.state import CustomState, InputState
+from commonroad.scenario.state import CustomState, InputState, KSState
 from commonroad.scenario.scenario import Scenario
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.planning.planning_problem import GoalRegion
@@ -90,6 +90,7 @@ class ReactivePlanner(object):
         self.x_cl: Optional[Tuple[List, List]] = None
 
         self.record_state_list: List[ReactivePlannerState] = list()
+        self.record_state_list_solution: List[KSState] = list()
         self.record_input_list: List[InputState] = list()
 
         self.ego_vehicle_history = list()
@@ -298,11 +299,23 @@ class ReactivePlanner(object):
     def set_behavior(self, behavior):
         self.behavior = behavior
 
-    def record_state_and_input(self, state: ReactivePlannerState):
+    def record_state_and_input(self, state: ReactivePlannerState, ego_vehicle):
         """
         Adds state to list of recorded states
         Adds control inputs to list of recorded inputs
         """
+        if state.time_step == 0:
+            new_ks_state = KSState(time_step=state.time_step, position=ego_vehicle.initial_state.position,
+                               steering_angle=state.steering_angle, velocity=ego_vehicle.initial_state.velocity,
+                               orientation=ego_vehicle.initial_state.orientation)
+        else:
+            new_ks_state = KSState(time_step=state.time_step, position=ego_vehicle.prediction.trajectory.state_list[1].position,
+                               steering_angle=state.steering_angle, velocity=ego_vehicle.prediction.trajectory.state_list[1].velocity,
+                               orientation=ego_vehicle.prediction.trajectory.state_list[1].orientation)
+
+        # append state to state list
+        self.record_state_list_solution.append(new_ks_state)
+
         # append state to state list
         self.record_state_list.append(state)
 
@@ -554,7 +567,8 @@ class ReactivePlanner(object):
             self.handler.reset_Trajectories()
             self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
 
-            if not self.config.debug.multiproc or self.config.multiagent.multiprocessing:
+            if not self.config.debug.multiproc or (self.config.multiagent.multiprocessing and
+                                                   self.config.multiagent.use_multiagent):
                 self.handler.evaluate_all_current_functions(True)
             else:
                 self.handler.evaluate_all_current_functions_concurrent(True)
