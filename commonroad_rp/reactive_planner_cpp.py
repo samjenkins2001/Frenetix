@@ -436,7 +436,7 @@ class ReactivePlanner(object):
         """
         self._desired_speed = desired_velocity
 
-        min_v = max(0.01, current_speed - 0.75 * self.vehicle_params.a_max * self.horizon)
+        min_v = max(0.01, current_speed - 0.5 * self.vehicle_params.a_max * self.horizon)
         max_v = min(min(current_speed + (self.vehicle_params.a_max / 7.0) * self.horizon, v_limit),
                     self.vehicle_params.v_max)
 
@@ -614,6 +614,7 @@ class ReactivePlanner(object):
             for traje in feasible_trajectories:
                 self.set_risk_costs(traje)
             sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk, reverse=False)
+            msg_logger.warning("No optimal trajectory available. Select lowest risk trajectory!")
             optimal_trajectory = sort_risk[0]
 
         # ******************************************

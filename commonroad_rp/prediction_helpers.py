@@ -67,11 +67,11 @@ def step_prediction(scenario, predictor, config, ego_state, occlusion_module=Non
                                          [float(config.planning.planning_horizon)])
 
     elif config.prediction.mode == "lanebased":
-        predictions = predictor.main_prediction(ego_state, config.prediction.sensor_radius,
+        predictions = predictor.main_prediction(ego_state.initial_state, config.prediction.sensor_radius,
                                                 [float(config.planning.planning_horizon)])
 
     elif config.prediction.mode == "ground_truth":
-        predictions = get_ground_truth_prediction(visible_obstacles, scenario, ego_state.time_step,
+        predictions = get_ground_truth_prediction(visible_obstacles, scenario, ego_state.initial_state.time_step,
                                                   int(config.prediction.pred_horizon_in_s/config.planning.dt))
     else:
         predictions = None
@@ -229,7 +229,7 @@ def collision_checker_prediction(
     # check every obstacle in the predictions
     for obstacle in scenario.obstacles:  #list(predictions.keys()):
         obstacle_id = obstacle.obstacle_id
-        if obstacle_id not in predictions or obstacle.state_at_time(ego_state.time_step).velocity > 3:
+        if obstacle_id not in predictions or obstacle.state_at_time(ego_state.time_step).velocity > 1:
             continue
         # check if the obstacle is not a rectangle (only shape with attribute length)
         if not hasattr(scenario.obstacle_by_id(obstacle_id).obstacle_shape, 'length'):
@@ -241,7 +241,12 @@ def collision_checker_prediction(
             width = predictions[obstacle_id]['shape']['width']
 
             # only check for collision as long as both trajectories (frenét trajectory and prediction) are visible
-            pred_traj = predictions[obstacle_id]['pos_list']
+            if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
+                pred_traj = np.reshape(np.repeat(predictions[obstacle_id]['pos_list'][0],
+                                                 len((predictions[obstacle_id]['pos_list']))),
+                                       (len((predictions[obstacle_id]['pos_list'])), 2), order='F')
+            else:
+                pred_traj = predictions[obstacle_id]['pos_list']
             pred_length = min(len(frenet_traj.cartesian.x), len(pred_traj))
             if pred_length == 0:
                 continue
@@ -249,7 +254,11 @@ def collision_checker_prediction(
             # get x, y and orientation of the prediction
             x = pred_traj[:, 0][0:pred_length]
             y = pred_traj[:, 1][0:pred_length]
-            pred_orientation = predictions[obstacle_id]['orientation_list']
+            if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
+                pred_orientation = np.repeat(predictions[obstacle_id]['orientation_list'],
+                                             len((predictions[obstacle_id]['orientation_list'])))
+            else:
+                pred_orientation = predictions[obstacle_id]['orientation_list']
 
             # create a time variant collision object for the predicted vehicle
             traj = [[x[i], y[i], pred_orientation[i]] for i in range(pred_length)]
