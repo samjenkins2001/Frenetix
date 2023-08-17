@@ -251,6 +251,8 @@ def run_planner(config, log_path, mod_path, use_cpp):
         x_cl = (optimal[2][1], optimal[3][1])
 
         msg_logger.info(f"current time step: {current_count}")
+        msg_logger.info(f"current velocity: {x_0.velocity}")
+        msg_logger.info(f"current target velocity: {desired_velocity}")
 
         if is_interactive and ego_vehicles.__len__() > 0:
             # add next planned state to the planned trajectory of the scenario to influence the interactive obstacles
@@ -325,19 +327,19 @@ def run_planner(config, log_path, mod_path, use_cpp):
         # check feasibility
         # reconstruct inputs (state transition optimizations)
         feasible, reconstructed_inputs = reconstruct_inputs(config, solution.planning_problem_solutions[0])
-        try:
-            # reconstruct states from inputs
-            reconstructed_states = reconstruct_states(config, ego_solution_trajectory.state_list, reconstructed_inputs)
-            # check acceleration correctness
-            check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
-
-            # evaluate
-            plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
-            # CR validity check
-            msg_logger.info("Feasibility Check Result: ")
-            msg_logger.info(valid_solution(scenario, planning_problem_set, solution))
-        except:
-            msg_logger.error("Could not reconstruct states")
+        # try:
+        #     # reconstruct states from inputs
+        reconstructed_states = reconstruct_states(config, ego_solution_trajectory.state_list, reconstructed_inputs)
+        #     # check acceleration correctness
+        check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
+        #
+        #     # evaluate
+        plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
+        #     # CR validity check
+        #     msg_logger.info("Feasibility Check Result: ")
+        #
+        # except:
+        #     msg_logger.error("Could not reconstruct states")
 
         plot_inputs(config, planner.record_input_list, log_path, reconstructed_inputs, plot_bounds=True)
 
@@ -345,3 +347,4 @@ def run_planner(config, log_path, mod_path, use_cpp):
         solutionwriter = CommonRoadSolutionWriter(solution)
         solutionwriter.write_to_file(log_path, "solution.xml", True)
 
+        msg_logger.info(valid_solution(scenario, planning_problem_set, solution))

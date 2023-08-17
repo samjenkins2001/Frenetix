@@ -22,12 +22,16 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
 from commonroad_dc.pycrcc import ShapeGroup
 import commonroad_dc.pycrcc as pycrcc
+from shapely.geometry import Point
+from commonroad.geometry.shape import Polygon
 
 # get logger
 msg_logger = logging.getLogger("Message_logger")
 
 
 def calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity=None) -> float:
+
+    in_goal = False
 
     if desired_velocity is None:
         if hasattr(planning_problem.goal.state_list[0], 'velocity'):
@@ -44,12 +48,18 @@ def calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velo
                 hasattr(planning_problem.goal, "lanelets_of_goal_position")
                 and planning_problem.goal.lanelets_of_goal_position is not None
         ):
+            in_goal = Point(x_0.position).within(scenario.lanelet_network.find_lanelet_by_id(planning_problem.goal.
+                                                                                   lanelets_of_goal_position[0][0]).
+                                                                                    polygon.shapely_object)
             goal_lanelet_ids = planning_problem.goal.lanelets_of_goal_position[0]
             for lanelet_id in goal_lanelet_ids:
                 lanelet = scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
                 n_center_vertices = len(lanelet.center_vertices)
                 goal_centers.append(lanelet.center_vertices[int(n_center_vertices / 2.0)])
         elif hasattr(planning_problem.goal.state_list[0], "position"):
+            if isinstance(planning_problem.goal.state_list[0], Polygon):
+                in_goal = Point(x_0.position).within(planning_problem.goal.state_list[0].shapely_object)
+
             # get lanelet id of the ending lanelet (of goal state), this depends on type of goal state
             if hasattr(planning_problem.goal.state_list[0].position, "center"):
                 goal_centers.append(planning_problem.goal.state_list[0].position.center)
@@ -84,8 +94,12 @@ def calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velo
             desired_velocity_new = planning_problem.goal.state_list[0].velocity.end
 
     except:
-        msg_logger.warning("Could not calculate desired velocity")
+        msg_logger.info("Could not calculate desired velocity")
         desired_velocity_new = desired_velocity
+
+    if in_goal and hasattr(planning_problem.goal.state_list[0], 'velocity'):
+        desired_velocity_new = (max(planning_problem.goal.state_list[0].velocity.start, 0.01) + planning_problem.goal.state_list[
+                0].velocity.end) / 2
 
     if np.abs(desired_velocity - desired_velocity_new) > 5 or np.abs(x_0.velocity - desired_velocity_new) > 5:
         if np.abs(x_0.velocity - desired_velocity_new) > 5:
