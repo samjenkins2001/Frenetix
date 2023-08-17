@@ -79,7 +79,6 @@ class Planner:
         self.x_cl: Optional[Tuple[List, List]] = None
 
         self.record_state_list: List[ReactivePlannerState] = list()
-        self.record_state_list_solution: List[KSState] = list()
         self.record_input_list: List[InputState] = list()
 
         self.ego_vehicle_history = list()
@@ -246,23 +245,11 @@ class Planner:
     def set_behavior(self, behavior):
         self.behavior = behavior
 
-    def record_state_and_input(self, state: ReactivePlannerState, ego_vehicle):
+    def record_state_and_input(self, state: ReactivePlannerState):
         """
         Adds state to list of recorded states
         Adds control inputs to list of recorded inputs
         """
-        if state.time_step == 0:
-            new_ks_state = KSState(time_step=state.time_step, position=ego_vehicle.initial_state.position,
-                                   steering_angle=state.steering_angle, velocity=ego_vehicle.initial_state.velocity,
-                                   orientation=ego_vehicle.initial_state.orientation)
-        else:
-            new_ks_state = KSState(time_step=state.time_step, position=ego_vehicle.prediction.trajectory.state_list[1].position,
-                                   steering_angle=state.steering_angle, velocity=ego_vehicle.prediction.trajectory.state_list[1].velocity,
-                                   orientation=ego_vehicle.prediction.trajectory.state_list[1].orientation)
-
-        # append state to state list
-        self.record_state_list_solution.append(new_ks_state)
-
         # append state to state list
         self.record_state_list.append(state)
 
