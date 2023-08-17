@@ -120,6 +120,7 @@ class Planner:
 
         self.set_collision_checker(self.scenario)
         self._goal_checker = GoalReachedChecker(planning_problem)
+        self._collision_counter = 0
 
         # **************************
         # Statistics Initialization
@@ -205,7 +206,7 @@ class Planner:
             self.set_goal_area(goal_area)
         if x_0 is not None:
             self.set_x_0(x_0)
-            # self.set_x_cl(x_cl)
+            self.set_x_cl(x_cl)
         if cost_weights is not None:
             self.set_cost_function(cost_weights)
         if occlusion_module is not None:

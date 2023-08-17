@@ -10,14 +10,10 @@ import math
 import time
 
 import numpy as np
-from typing import List, Optional, Tuple
+from typing import List
 import logging
 import multiprocessing
 from multiprocessing.context import Process
-
-# commonroad-io
-from commonroad.scenario.scenario import Scenario
-from commonroad.planning.planning_problem import PlanningProblem, GoalRegion
 
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
@@ -26,7 +22,6 @@ import commonroad_dc.pycrcc as pycrcc
 from commonroad_rp.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from commonroad_rp.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle, smooth_ref_path
-from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.cost_functions.cost_function import AdaptableCostFunction
 
 from commonroad_rp.planner import Planner
@@ -67,50 +62,6 @@ class ReactivePlannerPython(Planner):
     @property
     def reference_path(self):
         return self._co.reference
-
-    def update_externals(self, scenario: Scenario = None, reference_path: np.ndarray = None,
-                         planning_problem: PlanningProblem = None, goal_area: GoalRegion = None,
-                         x_0: ReactivePlannerState = None, x_cl: Optional[Tuple[List, List]] = None,
-                         cost_function=None, occlusion_module=None, desired_velocity: float = None,
-                         predictions=None, reach_set=None, behavior=None):
-        """
-        Sets all external information in reactive planner
-        :param scenario: Commonroad scenario
-        :param reference_path: reference path as polyline
-        :param planning_problem: reference path as polyline
-        :param goal_area: commonroad goal area
-        :param x_0: current ego vehicle state in global coordinate system
-        :param x_cl: current ego vehicle state in curvilinear coordinate system
-        :param cost_function: current used cost function
-        :param occlusion_module: occlusion module setup
-        :param desired_velocity: desired velocity in mps
-        :param predictions: external calculated predictions of other obstacles
-        :param reach_set: external calculated reach_sets
-        :param behavior: behavior planner setup
-        """
-        if scenario is not None:
-            self.set_scenario(scenario)
-        if reference_path is not None:
-            self.set_reference_path(reference_path)
-        if planning_problem is not None:
-            self.set_planning_problem(planning_problem)
-        if goal_area is not None:
-            self.set_goal_area(goal_area)
-        if x_0 is not None:
-            self.set_x_0(x_0)
-            self.set_x_cl(x_cl)
-        if cost_function is not None:
-            self.set_cost_function(cost_function)
-        if occlusion_module is not None:
-            self.set_occlusion_module(occlusion_module)
-        if desired_velocity is not None:
-            self.set_desired_velocity(desired_velocity, x_0.velocity, self.stopping_s)
-        if predictions is not None:
-            self.set_predictions(predictions)
-        if reach_set is not None:
-            self.set_reach_set(reach_set)
-        if behavior is not None:
-            self.set_behavior(behavior)
 
     def set_predictions(self, predictions: dict):
         self.predictions = predictions

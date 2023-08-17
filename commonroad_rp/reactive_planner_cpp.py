@@ -9,12 +9,7 @@ __status__ = "Beta"
 import time
 import numpy as np
 import copy
-from typing import List, Optional, Tuple
 import logging
-
-# commonroad-io
-from commonroad.scenario.scenario import Scenario
-from commonroad.planning.planning_problem import PlanningProblem, GoalRegion
 
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
@@ -22,7 +17,6 @@ import commonroad_dc.pycrcc as pycrcc
 # commonroad_rp imports
 from commonroad_rp.sampling_matrix import generate_sampling_matrix
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path
-from commonroad_rp.state import ReactivePlannerState
 
 from frenetPlannerHelper.trajectory_functions.feasability_functions import *
 from frenetPlannerHelper.trajectory_functions.cost_functions import *
@@ -60,50 +54,6 @@ class ReactivePlannerCpp(Planner):
         # Statistics Initialization
         # **************************
         self._infeasible_count_kinematics = np.zeros(10)
-
-    def update_externals(self, scenario: Scenario = None, reference_path: np.ndarray = None,
-                         planning_problem: PlanningProblem = None, goal_area: GoalRegion = None,
-                         x_0: ReactivePlannerState = None, x_cl: Optional[Tuple[List, List]] = None,
-                         cost_weights=None, occlusion_module=None, desired_velocity: float = None,
-                         predictions=None, reach_set=None, behavior=None):
-        """
-        Sets all external information in reactive planner
-        :param scenario: Commonroad scenario
-        :param reference_path: reference path as polyline
-        :param planning_problem: reference path as polyline
-        :param goal_area: commonroad goal area
-        :param x_0: current ego vehicle state in global coordinate system
-        :param x_cl: current ego vehicle state in curvilinear coordinate system
-        :param cost_weights: current used cost weights
-        :param occlusion_module: occlusion module setup
-        :param desired_velocity: desired velocity in mps
-        :param predictions: external calculated predictions of other obstacles
-        :param reach_set: external calculated reach_sets
-        :param behavior: behavior planner setup
-        """
-        if scenario is not None:
-            self.set_scenario(scenario)
-        if reference_path is not None:
-            self.set_reference_path(reference_path)
-        if planning_problem is not None:
-            self.set_planning_problem(planning_problem)
-        if goal_area is not None:
-            self.set_goal_area(goal_area)
-        if x_0 is not None:
-            self.set_x_0(x_0)
-            # self.set_x_cl(x_cl)
-        if cost_weights is not None:
-            self.set_cost_function(cost_weights)
-        if occlusion_module is not None:
-            self.set_occlusion_module(occlusion_module)
-        if desired_velocity is not None:
-            self.set_desired_velocity(desired_velocity, x_0.velocity)
-        if predictions is not None:
-            self.set_predictions(predictions)
-        if reach_set is not None:
-            self.set_reach_set(reach_set)
-        if behavior is not None:
-            self.set_behavior(behavior)
 
     def set_predictions(self, predictions: dict):
         self.predictions = predictions
