@@ -57,7 +57,8 @@ def load_reachset(scenario, config, params_path):
 
 def step_prediction(scenario, predictor, config, ego_state, time_step, occlusion_module=None, ego_id=42):
     if config.prediction.mode:
-        visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config, occlusion_module, ego_id=ego_id)
+        visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, time_step, config,
+                                                                   occlusion_module, ego_id=ego_id)
     else:
         visible_obstacles = None
         visible_area = None
@@ -91,7 +92,7 @@ def step_reach_set(reach_set, scenario, x_0, predictions):
     return reach_set
 
 
-def get_obstacles_in_radius(scenario, ego_id: int, ego_state, radius: float):
+def get_obstacles_in_radius(scenario, ego_id: int, ego_state, time_step: int, radius: float):
     """
     Get all the obstacles that can be found in a given radius.
 
@@ -99,6 +100,7 @@ def get_obstacles_in_radius(scenario, ego_id: int, ego_state, radius: float):
         scenario (Scenario): Considered Scenario.
         ego_id (int): ID of the ego vehicle.
         ego_state (State): State of the ego vehicle.
+        time_step (int) time step
         radius (float): Considered radius.
 
     Returns:
@@ -108,13 +110,13 @@ def get_obstacles_in_radius(scenario, ego_id: int, ego_state, radius: float):
     for obstacle in scenario.obstacles:
         # do not consider the ego vehicle
         if obstacle.obstacle_id != ego_id:
-            occ = obstacle.occupancy_at_time(ego_state.initial_state.time_step)
+            occ = obstacle.occupancy_at_time(time_step)
             # if the obstacle is not in the lanelet network at the given time, its occupancy is None
             if occ is not None:
                 # calculate the distance between the two obstacles
                 dist = distance(
                     pos1=ego_state.initial_state.position,
-                    pos2=obstacle.occupancy_at_time(ego_state.initial_state.time_step).shape.center,
+                    pos2=obstacle.occupancy_at_time(time_step).shape.center,
                 )
                 # add obstacles that are close enough
                 if dist < radius:
@@ -384,16 +386,17 @@ def get_ground_truth_prediction(
     return prediction_result
 
 
-def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None, ego_id=42):
+def prediction_preprocessing(scenario, ego_state, time_step, config, occlusion_module=None, ego_id=42):
     if config.prediction.calc_visible_area:
         try:
             if config.occlusion.use_occlusion_module:
-                visible_obstacles, visible_area = occlusion_module.vis_module.get_visible_area_and_objects(ego_state=ego_state)
+                visible_obstacles, visible_area = occlusion_module.vis_module.get_visible_area_and_objects(
+                                                    time_step=time_step,ego_state=ego_state)
             else:
                 visible_obstacles, visible_area = get_visible_objects(
                    scenario=scenario,
+                   time_step=time_step,
                    ego_pos=ego_state.initial_state.position,
-                   time_step=ego_state.initial_state.time_step,
                    sensor_radius=config.prediction.sensor_radius,
                    ego_id=ego_id,
                 )
@@ -404,6 +407,7 @@ def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None,
                 scenario=scenario,
                 ego_id=ego_id,
                 ego_state=ego_state,
+                time_step=time_step,
                 radius=config.prediction.sensor_radius,
             )
             return visible_obstacles, None
@@ -412,6 +416,7 @@ def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None,
             scenario=scenario,
             ego_id=ego_id,
             ego_state=ego_state,
+            time_step=time_step,
             radius=config.prediction.sensor_radius,
         )
         return visible_obstacles, None

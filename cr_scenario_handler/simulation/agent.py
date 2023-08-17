@@ -194,7 +194,7 @@ class Agent:
         # Process new predictions
         predictions = dict()
         visible_obstacles, visible_area = ph.prediction_preprocessing(
-            self.scenario, self.ego_obstacle_list[-1], self.config, self.id
+            self.scenario, self.ego_obstacle_list[-1], self.current_timestep, self.config, self.id
         )
         for obstacle_id in visible_obstacles:
             # Handle obstacles with higher initial timestep

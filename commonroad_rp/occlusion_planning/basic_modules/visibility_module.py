@@ -22,7 +22,7 @@ class VisibilityModule:
         for obst in self.obstacles:
             obst.update_at_timestep(time_step)
 
-    def get_visible_area_and_objects(self, ego_state=None, debug=True):
+    def get_visible_area_and_objects(self, time_step, ego_state=None, debug=True):
 
         if ego_state is None:
             raise ValueError("Ego state must be provided for the calculation of visible area and visible objects!")
@@ -30,7 +30,7 @@ class VisibilityModule:
         # initialize ego position and current time step
         self.ego_state = ego_state
         self.ego_pos = ego_state.position
-        self.time_step = ego_state.time_step
+        self.time_step = time_step
 
         # initialize list to store visible obstacles
         visible_objects_timestep = []

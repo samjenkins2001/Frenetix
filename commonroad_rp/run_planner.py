@@ -4,8 +4,8 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
-import os
 # standard imports
+import os
 import time
 from copy import deepcopy
 import logging
@@ -16,6 +16,7 @@ from cr_scenario_handler.utils.collision_report import coll_report
 
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
+
 # reactive planner
 from commonroad_rp.reactive_planner import ReactivePlannerPython
 from commonroad_rp.reactive_planner_cpp import ReactivePlannerCpp

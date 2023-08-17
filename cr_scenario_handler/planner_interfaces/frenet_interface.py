@@ -18,7 +18,9 @@ from commonroad.scenario.trajectory import Trajectory
 from commonroad_dc import pycrcc
 
 from cr_scenario_handler.utils.configuration import Configuration
-from commonroad_rp.reactive_planner_cpp import ReactivePlannerCpp, ReactivePlannerState
+
+from commonroad_rp.reactive_planner_cpp import ReactivePlannerCpp
+from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
 
 from commonroad_route_planner.route_planner import RoutePlanner
