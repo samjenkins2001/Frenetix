@@ -17,8 +17,8 @@ from cr_scenario_handler.utils.collision_report import coll_report
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
 # reactive planner
-from commonroad_rp.reactive_planner import ReactivePlanner as ReactivePlannerPython
-from commonroad_rp.reactive_planner_cpp import ReactivePlanner as ReactivePlannerCpp
+from commonroad_rp.reactive_planner import ReactivePlannerPython
+from commonroad_rp.reactive_planner_cpp import ReactivePlannerCpp
 from commonroad_rp.state import ReactivePlannerState
 from commonroad_rp.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
 from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
@@ -198,7 +198,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
         # *******************************
         if config.prediction.mode:
             predictions, visible_area = ph.step_prediction(scenario, predictor, config, planner.ego_vehicle_history[-1],
-                                                           occlusion_module)
+                                                           x_0.time_step, occlusion_module)
             if 'responsibility' in config.cost.cost_weights and config.cost.cost_weights['responsibility'] > 0:
                 reach_set = ph.step_reach_set(reach_set, scenario, x_0, predictions)
 

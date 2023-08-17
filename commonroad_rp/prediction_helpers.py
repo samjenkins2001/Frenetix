@@ -55,7 +55,7 @@ def load_reachset(scenario, config, params_path):
     return reach_set
 
 
-def step_prediction(scenario, predictor, config, ego_state, occlusion_module=None, ego_id=42):
+def step_prediction(scenario, predictor, config, ego_state, time_step, occlusion_module=None, ego_id=42):
     if config.prediction.mode:
         visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, config, occlusion_module, ego_id=ego_id)
     else:
@@ -63,7 +63,7 @@ def step_prediction(scenario, predictor, config, ego_state, occlusion_module=Non
         visible_area = None
 
     if config.prediction.mode == "walenet":
-        predictions = main_prediction(predictor, scenario, visible_obstacles, ego_state, scenario.dt,
+        predictions = main_prediction(predictor, scenario, visible_obstacles, time_step, scenario.dt,
                                          [float(config.planning.planning_horizon)])
 
     elif config.prediction.mode == "lanebased":
@@ -71,7 +71,7 @@ def step_prediction(scenario, predictor, config, ego_state, occlusion_module=Non
                                                 [float(config.planning.planning_horizon)])
 
     elif config.prediction.mode == "ground_truth":
-        predictions = get_ground_truth_prediction(visible_obstacles, scenario, ego_state.initial_state.time_step,
+        predictions = get_ground_truth_prediction(visible_obstacles, scenario, time_step,
                                                   int(config.prediction.pred_horizon_in_s/config.planning.dt))
     else:
         predictions = None
@@ -211,7 +211,7 @@ def get_orientation_velocity_and_shape_of_prediction(
 
 
 def collision_checker_prediction(
-    predictions: dict, scenario, ego_co, frenet_traj, ego_state
+    predictions: dict, scenario, ego_co, frenet_traj, time_step
 ):
     """
     Check predictions for collisions.
@@ -221,7 +221,7 @@ def collision_checker_prediction(
         scenario (Scenario): Considered scenario.
         ego_co (TimeVariantCollisionObject): The collision object of the ego vehicles trajectory.
         frenet_traj (FrenetTrajectory): Considered trajectory.
-        ego_state (State): Current state of the ego vehicle.
+        time_step (State): Current time step
 
     Returns:
         bool: True if the trajectory collides with a prediction.
@@ -229,7 +229,7 @@ def collision_checker_prediction(
     # check every obstacle in the predictions
     for obstacle in scenario.obstacles:  #list(predictions.keys()):
         obstacle_id = obstacle.obstacle_id
-        if obstacle_id not in predictions or obstacle.state_at_time(ego_state.time_step).velocity > 1:
+        if obstacle_id not in predictions or obstacle.state_at_time(time_step).velocity > 1:
             continue
         # check if the obstacle is not a rectangle (only shape with attribute length)
         if not hasattr(scenario.obstacle_by_id(obstacle_id).obstacle_shape, 'length'):
@@ -267,7 +267,7 @@ def collision_checker_prediction(
                 traj_list=traj,
                 box_length=length / 2,
                 box_width=width / 2,
-                start_time_step=ego_state.time_step + 1,
+                start_time_step=time_step + 1,
             )
 
             # preprocess the collision object
@@ -417,7 +417,7 @@ def prediction_preprocessing(scenario, ego_state, config, occlusion_module=None,
         return visible_obstacles, None
 
 
-def main_prediction(predictor, scenario, visible_obstacles, ego_state, DT, t_list):
+def main_prediction(predictor, scenario, visible_obstacles, time_step, DT, t_list):
     # get dynamic and static visible obstacles since predictor can not handle static obstacles
     (
         dyn_visible_obstacles,
@@ -427,7 +427,7 @@ def main_prediction(predictor, scenario, visible_obstacles, ego_state, DT, t_lis
 
     # get prediction for dynamic obstacles
     predictions = predictor.step(
-        time_step=ego_state.initial_state.time_step,
+        time_step=time_step,
         obstacle_id_list=dyn_visible_obstacles,
         scenario=scenario,
     )

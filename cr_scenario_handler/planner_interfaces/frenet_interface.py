@@ -18,7 +18,7 @@ from commonroad.scenario.trajectory import Trajectory
 from commonroad_dc import pycrcc
 
 from cr_scenario_handler.utils.configuration import Configuration
-from commonroad_rp.reactive_planner_cpp import ReactivePlanner, ReactivePlannerState
+from commonroad_rp.reactive_planner_cpp import ReactivePlannerCpp, ReactivePlannerState
 from commonroad_rp.utility import helper_functions as hf
 
 from commonroad_route_planner.route_planner import RoutePlanner
@@ -51,7 +51,7 @@ class FrenetPlannerInterface(PlannerInterface):
         self.mod_path = mod_path
 
         # Initialize planner
-        self.planner = ReactivePlanner(config, scenario, planning_problem,
+        self.planner = ReactivePlannerCpp(config, scenario, planning_problem,
                                        log_path, mod_path)
 
         # Set initial state and curvilinear state
@@ -228,7 +228,7 @@ class FrenetPlannerInterface(PlannerInterface):
             return 1, None
 
         # record the new state for planner-internal logging
-        self.planner.record_state_and_input(optimal[0].state_list[1])
+        self.planner.record_state_and_input(optimal[0].state_list[1], self.planner.ego_vehicle_history[-1])
 
         # update init state and curvilinear state
         self.x_0 = deepcopy(self.planner.record_state_list[-1])

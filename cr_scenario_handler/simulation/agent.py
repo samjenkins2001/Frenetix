@@ -194,7 +194,7 @@ class Agent:
         # Process new predictions
         predictions = dict()
         visible_obstacles, visible_area = ph.prediction_preprocessing(
-            self.scenario, self.record_state_list[-1], self.config, self.id
+            self.scenario, self.ego_obstacle_list[-1], self.config, self.id
         )
         for obstacle_id in visible_obstacles:
             # Handle obstacles with higher initial timestep
@@ -203,7 +203,7 @@ class Agent:
         if self.config.prediction.cone_angle > 0 \
                 and self.config.prediction.mode == "walenet" \
                 or self.config.prediction.mode == "lanebased":
-            predictions = ph.ignore_vehicles_in_cone_angle(predictions, self.record_state_list[-1],
+            predictions = ph.ignore_vehicles_in_cone_angle(predictions, self.ego_obstacle_list[-1],
                                                            self.config.vehicle.length,
                                                            self.config.prediction.cone_angle,
                                                            self.config.prediction.cone_safety_dist)

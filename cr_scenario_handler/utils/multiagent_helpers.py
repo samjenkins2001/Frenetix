@@ -14,7 +14,7 @@ from commonroad_dc import pycrcc
 
 from commonroad_prediction.prediction_module import PredictionModule
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-from commonroad.scenario.state import CustomState, State
+from commonroad.scenario.state import InitialState, State
 
 from commonroad.scenario.scenario import Scenario
 
@@ -49,7 +49,7 @@ def get_predictions(config: Configuration, predictor: PredictionModule,
             # Calculate predictions for all obstacles using WaleNet.
             # The state is only used for accessing the current timestep.
             predictions = ph.main_prediction(predictor, scenario, [obs.obstacle_id for obs in scenario.obstacles],
-                                             CustomState(time_step=current_timestep), scenario.dt,
+                                             current_timestep, scenario.dt,
                                              [float(config.planning.planning_horizon)])
         elif config.prediction.mode == "lanebased":
             print("Lane-based predictions are not supported for multiagent simulations.")

@@ -7,8 +7,6 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 from commonroad_dc.collision.collision_detection.scenario import create_collision_checker_scenario
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
 
-from commonroad_rp.reactive_planner import ReactivePlanner
-
 from commonroad.scenario.scenario import Scenario
 from commonroad.scenario.obstacle import ObstacleRole, DynamicObstacle
 
@@ -23,7 +21,7 @@ from risk_assessment.utils.logistic_regression_symmetrical import \
     get_protected_inj_prob_log_reg_ignore_angle
 
 
-def coll_report(ego_vehicle_list: List[DynamicObstacle], planner: ReactivePlanner,
+def coll_report(ego_vehicle_list: List[DynamicObstacle], planner,
                 scenario: Scenario, planning_problem: PlanningProblem,
                 timestep: int, config: Configuration, collision_report_path: str):
     """Collect and present detailed information about a collision.
