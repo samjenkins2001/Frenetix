@@ -165,21 +165,29 @@ class ReactivePlannerCpp(Planner):
         # Initialization of Cpp Frenet Functions
         # **************************************
         self.trajectory_handler_set_changing_functions()
-        initial_state = TrajectorySample(x0=self.x_0.position[0],
-                                         y0=self.x_0.position[1],
-                                         orientation0=self.x_0.orientation,
-                                         acceleration0=self.x_0.acceleration,
-                                         velocity0=self.x_0.velocity)
+        x_0_lon = None
+        x_0_lat = None
+        if self.x_cl is None:
+            initial_state = TrajectorySample(x0=self.x_0.position[0],
+                                             y0=self.x_0.position[1],
+                                             orientation0=self.x_0.orientation,
+                                             acceleration0=self.x_0.acceleration,
+                                             velocity0=self.x_0.velocity)
 
-        initial_state_computation = ComputeInitialState(coordinateSystem=self.coordinate_system,
-                                                        wheelBase=self.vehicle_params.wheelbase,
-                                                        steeringAngle=self.x_0.steering_angle,
-                                                        lowVelocityMode=self._LOW_VEL_MODE)
+            initial_state_computation = ComputeInitialState(coordinateSystem=self.coordinate_system,
+                                                            wheelBase=self.vehicle_params.wheelbase,
+                                                            steeringAngle=self.x_0.steering_angle,
+                                                            lowVelocityMode=self._LOW_VEL_MODE)
 
-        initial_state_computation.evaluate_trajectory(initial_state)
+            initial_state_computation.evaluate_trajectory(initial_state)
 
-        x_0_lat = [initial_state.curvilinear.d, initial_state.curvilinear.d_dot, initial_state.curvilinear.d_ddot]
-        x_0_lon = [initial_state.curvilinear.s, initial_state.curvilinear.s_dot, initial_state.curvilinear.s_ddot]
+            x_0_lat = [initial_state.curvilinear.d, initial_state.curvilinear.d_dot, initial_state.curvilinear.d_ddot]
+            x_0_lon = [initial_state.curvilinear.s, initial_state.curvilinear.s_dot, initial_state.curvilinear.s_ddot]
+
+        else:
+            x_0_lon = self.x_cl[0]
+            x_0_lat = self.x_cl[1]
+
 
         msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
         msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
@@ -199,7 +207,7 @@ class ReactivePlannerCpp(Planner):
             # *************************************
             t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level)))
             ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level)))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union(x_0_lat[0])))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({x_0_lat[0]})))
 
             sampling_matrix = generate_sampling_matrix(t0_range=0.0,
                                                        t1_range=t1_range,
