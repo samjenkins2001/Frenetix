@@ -329,12 +329,12 @@ def run_planner(config, log_path, mod_path, use_cpp):
         feasible, reconstructed_inputs = reconstruct_inputs(config, solution.planning_problem_solutions[0])
         # try:
         #     # reconstruct states from inputs
-        reconstructed_states = reconstruct_states(config, ego_solution_trajectory.state_list, reconstructed_inputs)
+        # reconstructed_states = reconstruct_states(config, ego_solution_trajectory.state_list, reconstructed_inputs)
         #     # check acceleration correctness
-        check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
+        # check_acceleration(config, ego_solution_trajectory.state_list, plot=True)
         #
         #     # evaluate
-        plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
+        # plot_states(config, ego_solution_trajectory.state_list, log_path, reconstructed_states, plot_bounds=False)
         #     # CR validity check
         #     msg_logger.info("Feasibility Check Result: ")
         #
