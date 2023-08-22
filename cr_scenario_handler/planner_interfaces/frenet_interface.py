@@ -230,7 +230,7 @@ class FrenetPlannerInterface(PlannerInterface):
             return 1, None
 
         # record the new state for planner-internal logging
-        self.planner.record_state_and_input(optimal[0].state_list[1], self.planner.ego_vehicle_history[-1])
+        self.planner.record_state_and_input(optimal[0].state_list[1])
 
         # update init state and curvilinear state
         self.x_0 = deepcopy(self.planner.record_state_list[-1])
