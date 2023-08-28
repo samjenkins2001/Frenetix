@@ -36,6 +36,7 @@ class SamplingHandler:
         self.set_d_sampling()
 
     def update_static_params(self, t_min: float, horizon: float, delta_d_min: float, delta_d_max: float):
+        assert t_min > 0, "t_min cant be <= 0"
         self.t_min = t_min
         self.horizon = horizon
         self.delta_d_min = delta_d_min
