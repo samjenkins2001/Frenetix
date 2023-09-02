@@ -21,7 +21,7 @@ module_path = os.path.dirname(
 sys.path.append(module_path)
 
 from commonroad_rp.utility.helper_functions import create_tvobstacle, distance, ignore_vehicles_in_cone_angle
-from prediction import WaleNet
+from wale_net_lite.wale_net import WaleNet
 from commonroad_rp.utility.sensor_model import get_visible_objects
 from commonroad_prediction.prediction_module import PredictionModule
 from commonroad_rp.utility import reachable_set
@@ -450,13 +450,8 @@ def main_prediction(predictor, scenario, visible_obstacles, time_step, DT, t_lis
     return predictions
 
 
-def load_walenet(scenario, path_config: str = None):
-    if not path_config:
-        path_config = os.path.join("configurations", "walenet_config.json")
-    with open(path_config, "r") as f:
-        online_args = json.load(f)
-
-    predictor = WaleNet(scenario=scenario, online_args=online_args, verbose=False)
+def load_walenet(scenario):
+    predictor = WaleNet(scenario=scenario)
     return predictor
 
 # EOF

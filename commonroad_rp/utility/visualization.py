@@ -34,7 +34,7 @@ from cr_scenario_handler.utils.configuration import Configuration
 
 """Visualization functions for the frenét planner."""
 from commonroad_prediction.visualization import draw_uncertain_predictions as draw_uncertain_predictions_lb
-from prediction.utils.visualization import draw_uncertain_predictions as draw_uncertain_predictions_wale
+from wale_net_lite.visualization import draw_uncertain_predictions as draw_uncertain_predictions_wale
 
 
 def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProblem, cosy=None):

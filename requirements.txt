@@ -14,23 +14,11 @@ ruamel.yaml
 pygeos
 imageio
 shapely>=2.0.1
-wale-net>=3.0.3
+onnxruntime>=1.14
 dash
 plotly
 dash_daq
 dash_bootstrap_components
 dash-ag-grid==2.0.0a1
 commonroad-prediction @ git+https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -24,7 +24,7 @@ from commonroad.geometry.shape import Rectangle
 
 from cr_scenario_handler.utils.configuration import Configuration
 
-from prediction.utils.visualization import draw_uncertain_predictions
+from wale_net_lite.visualization import draw_uncertain_predictions
 
 # Color palette for plotting
 colors = ["#e3af22", "#d6e322", "#96e322", "#55e322", "#22e32f",
