@@ -18,10 +18,10 @@ import commonroad_dc.pycrcc as pycrcc
 from commonroad_rp.sampling_matrix import generate_sampling_matrix
 from commonroad_rp.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path
 
-from frenetPlannerHelper.trajectory_functions.feasability_functions import *
-from frenetPlannerHelper.trajectory_functions.cost_functions import *
-from frenetPlannerHelper.trajectory_functions import FillCoordinates, ComputeInitialState
-from frenetPlannerHelper import *
+import frenetix
+import frenetix.trajectory_functions
+import frenetix.trajectory_functions.feasability_functions as ff
+import frenetix.trajectory_functions.cost_functions as cf
 
 from commonroad_rp.planner import Planner
 
@@ -46,8 +46,8 @@ class ReactivePlannerCpp(Planner):
         # C++ Trajectory Handler Import
         # *****************************
 
-        self.handler: TrajectoryHandler = TrajectoryHandler(dt=self.config.planning.dt)
-        self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper
+        self.handler: frenetix.TrajectoryHandler = frenetix.TrajectoryHandler(dt=self.config.planning.dt)
+        self.coordinate_system: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper
         self.trajectory_handler_set_constant_functions()
 
         # **************************
@@ -68,10 +68,10 @@ class ReactivePlannerCpp(Planner):
                 covariance = np.zeros(shape=(6, 6))
                 covariance[:2, :2] = self.predictions[key]['cov_list'][time_step]
 
-                pwc = PoseWithCovariance(position, orientation, covariance)
+                pwc = frenetix.PoseWithCovariance(position, orientation, covariance)
                 predictedPath.append(pwc)
 
-            self.predictionsForCpp[key] = PredictedObject(key, predictedPath)
+            self.predictionsForCpp[key] = frenetix.PredictedObject(key, predictedPath)
 
     def set_cost_function(self, cost_weights):
         self.config.cost.cost_weights = cost_weights
@@ -80,52 +80,62 @@ class ReactivePlannerCpp(Planner):
         self.logger.set_logging_header(self.config.cost.cost_weights)
 
     def trajectory_handler_set_constant_functions(self):
-        self.handler.add_feasability_function(CheckYawRateConstraint(deltaMax=self.vehicle_params.delta_max,
-                                                                     wheelbase=self.vehicle_params.wheelbase, wholeTrajectory=False))
-        self.handler.add_feasability_function(CheckAccelerationConstraint(switchingVelocity=self.vehicle_params.v_switch,
-                                                                          maxAcceleration=self.vehicle_params.a_max, wholeTrajectory=False))
-        self.handler.add_feasability_function(CheckCurvatureConstraint(deltaMax=self.vehicle_params.delta_max,
-                                                                       wheelbase=self.vehicle_params.wheelbase, wholeTrajectory=False))
-        self.handler.add_feasability_function(CheckCurvatureRateConstraint(wheelbase=self.vehicle_params.wheelbase,
-                                                                           velocityDeltaMax=self.vehicle_params.v_delta_max, wholeTrajectory=False))
+        self.handler.add_feasability_function(ff.CheckYawRateConstraint(deltaMax=self.vehicle_params.delta_max,
+                                                                        wheelbase=self.vehicle_params.wheelbase,
+                                                                        wholeTrajectory=False
+                                                                        ))
+        self.handler.add_feasability_function(ff.CheckAccelerationConstraint(switchingVelocity=self.vehicle_params.v_switch,
+                                                                             maxAcceleration=self.vehicle_params.a_max,
+                                                                             wholeTrajectory=False)
+                                                                             )
+        self.handler.add_feasability_function(ff.CheckCurvatureConstraint(deltaMax=self.vehicle_params.delta_max,
+                                                                          wheelbase=self.vehicle_params.wheelbase,
+                                                                          wholeTrajectory=False
+                                                                          ))
+        self.handler.add_feasability_function(ff.CheckCurvatureRateConstraint(wheelbase=self.vehicle_params.wheelbase,
+                                                                              velocityDeltaMax=self.vehicle_params.v_delta_max,
+                                                                              wholeTrajectory=False
+                                                                              ))
 
         name = "acceleration"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateAccelerationCost(name, self.cost_weights[name]))
+            self.handler.add_cost_function(cf.CalculateAccelerationCost(name, self.cost_weights[name]))
 
         name = "jerk"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateJerkCost(name, self.cost_weights[name]))
+            self.handler.add_cost_function(cf.CalculateJerkCost(name, self.cost_weights[name]))
 
         name = "lateral_jerk"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateLateralJerkCost(name, self.cost_weights[name]))
+            self.handler.add_cost_function(cf.CalculateLateralJerkCost(name, self.cost_weights[name]))
 
         name = "longitudinal_jerk"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateLongitudinalJerkCost(name, self.cost_weights[name]))
+            self.handler.add_cost_function(cf.CalculateLongitudinalJerkCost(name, self.cost_weights[name]))
 
         name = "orientation_offset"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateOrientationOffsetCost(name, self.cost_weights[name]))
+            self.handler.add_cost_function(cf.CalculateOrientationOffsetCost(name, self.cost_weights[name]))
 
         name = "lane_center_offset"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateLaneCenterOffsetCost(name, self.cost_weights[name]))
+            self.handler.add_cost_function(cf.CalculateLaneCenterOffsetCost(name, self.cost_weights[name]))
 
         name = "distance_to_reference_path"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateDistanceToReferencePathCost(name, self.cost_weights[name]))
+            self.handler.add_cost_function(cf.CalculateDistanceToReferencePathCost(name, self.cost_weights[name]))
 
     def trajectory_handler_set_changing_functions(self):
+        self.handler.add_function(frenetix.trajectory_functions.FillCoordinates(
+            lowVelocityMode=self._LOW_VEL_MODE,
+            initialOrientation=self.x_0.orientation,
+            coordinateSystem=self.coordinate_system,
+            horizon=int(self.config.planning.planning_horizon)
+        ))
 
-        self.handler.add_function(FillCoordinates(lowVelocityMode=self._LOW_VEL_MODE,
-                                                  initialOrientation=self.x_0.orientation,
-                                                  coordinateSystem=self.coordinate_system,
-                                                  horizon=int(self.config.planning.planning_horizon)))
         name = "prediction"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateCollisionProbabilityMahalanobis(name, self.cost_weights[name], self.predictionsForCpp))
+            self.handler.add_cost_function(cf.CalculateCollisionProbabilityMahalanobis(name, self.cost_weights[name], self.predictionsForCpp))
 
         name = "distance_to_obstacles"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
@@ -136,11 +146,11 @@ class ReactivePlannerCpp(Planner):
                     obstacle_positions[i, 0] = state.position[0]
                     obstacle_positions[i, 1] = state.position[1]
 
-            self.handler.add_cost_function(CalculateDistanceToObstacleCost(name, self.cost_weights[name], obstacle_positions))
+            self.handler.add_cost_function(cf.CalculateDistanceToObstacleCost(name, self.cost_weights[name], obstacle_positions))
 
         name = "velocity_offset"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(CalculateVelocityOffsetCost(name, self.cost_weights[name], self._desired_speed))
+            self.handler.add_cost_function(cf.CalculateVelocityOffsetCost(name, self.cost_weights[name], self._desired_speed))
 
     def set_reference_path(self, reference_path: np.ndarray):
         """
@@ -149,7 +159,7 @@ class ReactivePlannerCpp(Planner):
         """
 
         self.reference_path = smooth_ref_path(reference_path)
-        self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(copy.deepcopy(self.reference_path))
+        self.coordinate_system: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper(copy.deepcopy(self.reference_path))
         self._co: CoordinateSystem = CoordinateSystem(self.reference_path)
         self.set_new_ref_path = True
         self.logger.sql_logger.write_reference_path(reference_path)
@@ -169,16 +179,20 @@ class ReactivePlannerCpp(Planner):
         x_0_lon = None
         x_0_lat = None
         if self.x_cl is None:
-            initial_state = TrajectorySample(x0=self.x_0.position[0],
-                                             y0=self.x_0.position[1],
-                                             orientation0=self.x_0.orientation,
-                                             acceleration0=self.x_0.acceleration,
-                                             velocity0=self.x_0.velocity)
+            initial_state = frenetix.TrajectorySample(
+                x0=self.x_0.position[0],
+                y0=self.x_0.position[1],
+                orientation0=self.x_0.orientation,
+                acceleration0=self.x_0.acceleration,
+                velocity0=self.x_0.velocity
+            )
 
-            initial_state_computation = ComputeInitialState(coordinateSystem=self.coordinate_system,
-                                                            wheelBase=self.vehicle_params.wheelbase,
-                                                            steeringAngle=self.x_0.steering_angle,
-                                                            lowVelocityMode=self._LOW_VEL_MODE)
+            initial_state_computation = frenetix.trajectory_functions.ComputeInitialState(
+                coordinateSystem=self.coordinate_system,
+                wheelBase=self.vehicle_params.wheelbase,
+                steeringAngle=self.x_0.steering_angle,
+                lowVelocityMode=self._LOW_VEL_MODE
+            )
 
             initial_state_computation.evaluate_trajectory(initial_state)
 
