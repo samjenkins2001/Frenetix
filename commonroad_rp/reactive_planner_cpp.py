@@ -152,6 +152,7 @@ class ReactivePlannerCpp(Planner):
         self.coordinate_system: CoordinateSystemWrapper = CoordinateSystemWrapper(copy.deepcopy(self.reference_path))
         self._co: CoordinateSystem = CoordinateSystem(self.reference_path)
         self.set_new_ref_path = True
+        self.logger.sql_logger.write_reference_path(reference_path)
 
     def plan(self) -> tuple:
         """

@@ -149,9 +149,14 @@ class Planner:
         self.all_traj = None
         self.optimal_trajectory = None
         self.use_occ_model = config.occlusion.use_occlusion_module
-        self.logger = DataLoggingCosts(path_logs=log_path,
-                                       save_all_traj=self.save_all_traj or self.use_amazing_visualizer,
-                                       cost_params=config.cost.cost_weights)
+        self.logger = DataLoggingCosts(
+            config=config,
+            scenario=scenario,
+            planning_problem=planning_problem,
+            path_logs=log_path,
+            save_all_traj=self.save_all_traj or self.use_amazing_visualizer,
+            cost_params=config.cost.cost_weights
+        )
         self._draw_traj_set = config.debug.draw_traj_set
         self._kinematic_debug = config.debug.kinematic_debug
 
