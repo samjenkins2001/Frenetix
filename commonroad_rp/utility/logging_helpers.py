@@ -83,6 +83,8 @@ class DataLoggingCosts:
             "x_positions_m;"
             "y_positions_m;"
             "theta_orientations_rad;"
+            "kappa_rad;"
+            "curvilinear_orientations_rad;"
             "velocities_mps;"
             "accelerations_mps2;"
             "s_position_m;"
@@ -104,6 +106,8 @@ class DataLoggingCosts:
             "x_positions_m;"
             "y_positions_m;"
             "theta_orientations_rad;"
+            "kappa_rad;"
+            "curvilinear_orientations_rad;"
             "velocities_mps;"
             "accelerations_mps2;"
             "s_position_m;"
@@ -177,6 +181,8 @@ class DataLoggingCosts:
             new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
             new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)
             new_line += ";" + json.dumps(str(','.join(map(str, cartesian.theta))), default=default)
+            new_line += ";" + json.dumps(str(','.join(map(str, cartesian.kappa))), default=default)
+            new_line += ";" + json.dumps(str(','.join(map(str, trajectory.curvilinear.theta))), default=default)
             # log velocity & acceleration
             new_line += ";" + json.dumps(str(','.join(map(str, cartesian.v))), default=default)
             new_line += ";" + json.dumps(str(','.join(map(str, cartesian.a))), default=default)
@@ -287,13 +293,20 @@ class DataLoggingCosts:
         cost_list_names = list(trajectory.costMap.keys())
 
         new_line += ";" + str(int(round(trajectory.sampling_parameters[1], 3)/trajectory.dt))
+
+        def float_values(values):
+            value_list = ','.join(map(lambda x: "{:.5e}".format(x), values))
+            return json.dumps(str(value_list), default=default)
+
         # log position
-        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.x))), default=default)
-        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.y))), default=default)
-        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.theta))), default=default)
+        new_line += ";" + float_values(cartesian.x)
+        new_line += ";" + float_values(cartesian.y)
+        new_line += ";" + float_values(cartesian.theta)
+        new_line += ";" + float_values(cartesian.kappa)
+        new_line += ";" + float_values(trajectory.curvilinear.theta)
         # log velocity & acceleration
-        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.v))), default=default)
-        new_line += ";" + json.dumps(str(','.join(map(str, cartesian.a))), default=default)
+        new_line += ";" + float_values(cartesian.v)
+        new_line += ";" + float_values(cartesian.a)
 
         # log frenet coordinates (distance to reference path)
         new_line += ";" + \
