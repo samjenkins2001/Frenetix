@@ -7,18 +7,17 @@ from commonroad_rp.run_planner import run_planner
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 
-if sys.platform == "darwin":
-    os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+def main():
+    if sys.platform == "darwin":
+        os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-mod_path = os.path.dirname(
-    os.path.abspath(__file__)
-)
-sys.path.append(mod_path)
-stack_path = os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__)
-))
-
-if __name__ == '__main__':
+    mod_path = os.path.dirname(
+        os.path.abspath(__file__)
+    )
+    sys.path.append(mod_path)
+    stack_path = os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__)
+    ))
 
     start_multiagent = False
     use_cpp = True
@@ -46,3 +45,7 @@ if __name__ == '__main__':
             # Works only with wale-net. Ground Truth Prediction not possible!
             simulation = Simulation(config, log_path, mod_path)
             simulation.run_simulation()
+
+if __name__ == '__main__':
+    main()
+
