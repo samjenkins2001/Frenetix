@@ -62,7 +62,7 @@ def main():
                 simulation.run_simulation()
         except Exception as e:
             with open('logs/log_failures.csv', 'a', newline='') as f:
-                csv.writer(f).writerow(["CODE ERROR: " + str(e)])
+                csv.writer(f).writerow([log_path.split("/")[-1] + " --> CODE ERROR: " + str(e)])
 
 
 if __name__ == '__main__':
