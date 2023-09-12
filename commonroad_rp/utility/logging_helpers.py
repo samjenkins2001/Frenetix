@@ -633,6 +633,9 @@ def messages_logger_initialization(config: Configuration, log_path) -> logging.L
     # msg logger
     msg_logger = logging.getLogger("Message_logger")
 
+    if msg_logger.handlers:
+        return msg_logger
+
     # Create directories
     if not os.path.exists(log_path):
         os.makedirs(log_path)

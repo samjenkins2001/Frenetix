@@ -1,6 +1,7 @@
 import os
 import random
 import sys
+import csv
 from os import listdir
 from os.path import isfile, join
 from commonroad_rp.run_planner import run_planner
@@ -52,12 +53,16 @@ def main():
         config = ConfigurationBuilder.build_configuration(scenario_path + ".xml")
         log_path = "./logs/"+scenario_path.split("/")[-1]
 
-        if not start_multiagent:
-            run_planner(config, log_path, mod_path, use_cpp)
-        else:
-            # Works only with wale-net. Ground Truth Prediction not possible!
-            simulation = Simulation(config, log_path, mod_path)
-            simulation.run_simulation()
+        try:
+            if not start_multiagent:
+                run_planner(config, log_path, mod_path, use_cpp)
+            else:
+                # Works only with wale-net. Ground Truth Prediction not possible!
+                simulation = Simulation(config, log_path, mod_path)
+                simulation.run_simulation()
+        except Exception as e:
+            with open('logs/log_failures.csv', 'a', newline='') as f:
+                csv.writer(f).writerow(["CODE ERROR: " + str(e)])
 
 
 if __name__ == '__main__':

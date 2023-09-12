@@ -7,7 +7,6 @@ __status__ = "Beta"
 # standard imports
 import os
 import time
-import numpy as np
 from copy import deepcopy
 import logging
 from commonroad_rp.utility.logging_helpers import messages_logger_initialization
