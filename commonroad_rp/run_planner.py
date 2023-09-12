@@ -48,6 +48,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
     # Message Logger of Run
     # *************************************
     messages_logger_initialization(config, log_path)
+    msg_logger.critical("Start Scenario: " + log_path.split("/")[-1])
 
     # *************************************
     # Open CommonRoad scenario
