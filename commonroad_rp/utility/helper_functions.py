@@ -555,4 +555,30 @@ def green_to_red_colormap():
     return GnRd
 
 
+def extend_points(points):
+    """Extend the list of points with additional points in the orientation of the line between the two first points."""
+    p1, p2 = points[0], points[1]
+    delta_x = p2[0] - p1[0]
+    delta_y = p2[1] - p1[1]
+
+    dist = distance(points[0], points[1])
+    num_new_points = int(5/dist)
+
+    new_points = []
+    for i in range(1, num_new_points + 1):
+        new_point = (p1[0] - i * delta_x, p1[1] - i * delta_y)
+        new_points.append(new_point)
+
+    # Stack new_points and points and convert them to a numpy array
+    return np.vstack((new_points[::-1], points))
+
+
+def extend_rep_path(ref_path, init_pos):
+    """This function is needed due to the fact that we have to shift the planning position of the reactive planner
+    to the rear axis. In some scenatios the ref path is not long enough to locate the initial position in curv state"""
+    close_point = min(ref_path, key=lambda point: distance(init_pos, point))
+    if close_point[0] == ref_path[0, 0] and close_point[1] == ref_path[0, 1]:
+        ref_path = extend_points(ref_path)
+    return ref_path
+
 # EOF

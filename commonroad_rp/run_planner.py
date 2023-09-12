@@ -7,6 +7,7 @@ __status__ = "Beta"
 # standard imports
 import os
 import time
+import numpy as np
 from copy import deepcopy
 import logging
 from commonroad_rp.utility.logging_helpers import messages_logger_initialization
@@ -143,6 +144,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
     if not config.behavior.use_behavior_planner:
         route_planner = RoutePlanner(scenario, planning_problem)
         reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
+        reference_path = hf.extend_rep_path(reference_path, x_0.position)
     else:
         behavior_modul = BehaviorModule(scenario=scenario,
                                         planning_problem=planning_problem,
