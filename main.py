@@ -33,7 +33,7 @@ def main():
 
     start_multiagent = False
     use_cpp = True
-    evaluation_pipeline = True
+    evaluation_pipeline = False
     use_specific_scenario_list = False
 
     scenario_name = "DEU_Flensburg-12_1_T-1"  # do not add .xml format to the name

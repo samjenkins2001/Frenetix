@@ -40,7 +40,7 @@ def read_scenario_list(scenario_list_path) -> list:
 
         # Append each line to the list
         for row in reader:
-            scenario_without_xml = row[0].replace('.xml', '')
+            scenario_without_xml = row[0]
             if scenario_without_xml not in scenario_names:
                 scenario_names.append(scenario_without_xml)
 
