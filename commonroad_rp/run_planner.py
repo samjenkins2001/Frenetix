@@ -299,6 +299,11 @@ def run_planner(config, log_path, mod_path, use_cpp):
     if not planner.goal_status and current_count >= max_time_steps_scenario:
         msg_logger.info("Scenario Aborted! Maximum Time Step Reached!")
 
+    if not planner.goal_message == "Scenario Successful!":
+        with open(os.path.join(mod_path, "logs", "log_failures.csv"), 'a') as file:
+            line = str(scenario.scenario_id) + "\n"
+            file.write(line)
+
     # plot  final ego vehicle trajectory
     plot_final_trajectory(scenario, planning_problem, planner.record_state_list, config, log_path)
 
