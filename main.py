@@ -6,6 +6,18 @@ from os.path import isfile, join
 from commonroad_rp.run_planner import run_planner
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
+from cr_scenario_handler.utils.general import read_scenario_list
+
+
+def get_scenario_list(scenario_folder, example_scenarios_list, use_specific_scenario_list):
+    if not use_specific_scenario_list:
+        scenario_files = [f.split(".")[-2] for f in listdir(scenario_folder) if isfile(join(scenario_folder, f))]
+        random.shuffle(scenario_files)
+    else:
+        scenario_files = read_scenario_list(example_scenarios_list)
+        random.shuffle(scenario_files)
+    return scenario_files
+
 
 def main():
     if sys.platform == "darwin":
@@ -22,12 +34,13 @@ def main():
     start_multiagent = False
     use_cpp = True
     evaluation_pipeline = False
+    use_specific_scenario_list = False
 
     scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
+    example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
-    scenario_files = [f.split(".")[-2] for f in listdir(scenario_folder) if isfile(join(scenario_folder, f))]
-    random.shuffle(scenario_files)
+    scenario_files = get_scenario_list(scenario_folder, example_scenarios_list, use_specific_scenario_list)
 
     number_of_runs = len(scenario_files) if evaluation_pipeline else 1
 
@@ -45,6 +58,7 @@ def main():
             # Works only with wale-net. Ground Truth Prediction not possible!
             simulation = Simulation(config, log_path, mod_path)
             simulation.run_simulation()
+
 
 if __name__ == '__main__':
     main()

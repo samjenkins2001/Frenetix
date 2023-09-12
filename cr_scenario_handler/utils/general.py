@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 from commonroad.common.file_reader import CommonRoadFileReader
 
 
@@ -26,3 +27,21 @@ def check_if_obstacle_on_same_position(scenario, init_state):
             if np.linalg.norm(init_pos - obs_pos) < 2:
                 scenario.remove_obstacle(i)
     return scenario
+
+
+def read_scenario_list(scenario_list_path) -> list:
+
+    # Create an empty list to store the lines
+    scenario_names = []
+
+    # Open the CSV and read each line
+    with open(scenario_list_path, 'r') as infile:
+        reader = csv.reader(infile)
+
+        # Append each line to the list
+        for row in reader:
+            scenario_without_xml = row[0].replace('.xml', '')
+            if scenario_without_xml not in scenario_names:
+                scenario_names.append(scenario_without_xml)
+
+    return scenario_names
