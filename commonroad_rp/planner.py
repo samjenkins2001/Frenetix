@@ -308,7 +308,7 @@ class Planner:
         """
         self._desired_speed = desired_velocity
 
-        min_v = max(0.01, current_speed - 0.5 * self.vehicle_params.a_max * self.horizon)
+        min_v = max(0.01, current_speed - 0.75 * self.vehicle_params.a_max * self.horizon)
         max_v = min(min(current_speed + (self.vehicle_params.a_max / 7.0) * self.horizon, v_limit),
                     self.vehicle_params.v_max)
 

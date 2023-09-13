@@ -2,6 +2,7 @@ import os
 import random
 import sys
 import csv
+import traceback
 from os import listdir
 from os.path import isfile, join
 from commonroad_rp.run_planner import run_planner
@@ -37,7 +38,7 @@ def main():
     evaluation_pipeline = False
     use_specific_scenario_list = False
 
-    scenario_name = "DEU_Flensburg-12_1_T-1"  # do not add .xml format to the name
+    scenario_name = "ESP_SantBoideLlobregat-24_2_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
@@ -61,8 +62,10 @@ def main():
                 simulation = Simulation(config, log_path, mod_path)
                 simulation.run_simulation()
         except Exception as e:
+            error_traceback = traceback.format_exc()  # This gets the entire error traceback
             with open('logs/log_failures.csv', 'a', newline='') as f:
-                csv.writer(f).writerow([log_path.split("/")[-1] + " --> CODE ERROR: " + str(e)])
+                csv.writer(f).writerow([log_path.split("/")[-1], " --> CODE ERROR: ", str(e), error_traceback])
+            print(error_traceback)
 
 
 if __name__ == '__main__':

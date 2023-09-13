@@ -24,7 +24,7 @@ def smooth_ref_path(reference: np.ndarray):
     dist_sum_in_m = np.round(np.sum(distances), 3)
     average_dist_in_m = np.round(np.average(distances), 3)
 
-    t = int(1 / average_dist_in_m)  # 5 meters distance per point
+    t = int(6 / average_dist_in_m)  # 5 meters distance per point
     reference = reference[::t]
     spline_discretization = int(1 * dist_sum_in_m)  # 2 = 0.5 m distances between points
 
@@ -113,7 +113,7 @@ class CoordinateSystem:
         self._ref_curv_d = np.gradient(self._ref_curv, self._ref_pos)
         self._ref_curv_dd = np.gradient(self._ref_curv_d, self._ref_pos)
         # plt.clf()
-        # plt.plot(self._ref_pos[50:-50], self._ref_curv_d[50:-50])
+        # plt.plot(self._ref_pos[20:-20], self._ref_curv_d[20:-20])
         # plt.savefig('curv_window.png')
 
     @property
