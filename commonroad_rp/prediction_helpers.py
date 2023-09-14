@@ -149,7 +149,7 @@ def get_dyn_and_stat_obstacles(obstacle_ids: [int], scenario):
 
 
 def get_orientation_velocity_and_shape_of_prediction(
-    predictions: dict, scenario, safety_margin_length=1.0, safety_margin_width=0.5
+    predictions: dict, scenario, safety_margin_length=0.5, safety_margin_width=0.2
 ):
     """
     Extend the prediction by adding information about the orientation, velocity and the shape of the predicted obstacle.
@@ -243,7 +243,7 @@ def collision_checker_prediction(
 
             # only check for collision as long as both trajectories (frenét trajectory and prediction) are visible
             if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
-                pred_traj = np.reshape(np.repeat(predictions[obstacle_id]['pos_list'][0],
+                pred_traj = np.reshape(np.repeat(scenario.obstacle_by_id(obstacle_id).state_at_time(time_step).position,
                                                  len((predictions[obstacle_id]['pos_list']))),
                                        (len((predictions[obstacle_id]['pos_list'])), 2), order='F')
             else:
@@ -256,7 +256,7 @@ def collision_checker_prediction(
             x = pred_traj[:, 0][0:pred_length]
             y = pred_traj[:, 1][0:pred_length]
             if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
-                pred_orientation = np.repeat(predictions[obstacle_id]['orientation_list'],
+                pred_orientation = np.repeat(scenario.obstacle_by_id(obstacle_id).state_at_time(time_step).orientation,
                                              len((predictions[obstacle_id]['orientation_list'])))
             else:
                 pred_orientation = predictions[obstacle_id]['orientation_list']
