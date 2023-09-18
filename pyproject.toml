@@ -45,7 +45,7 @@ commonroad-drivability-checker = "2023.1"
 # For Python >= 3.11
 # commonroad-drivability-checker = {git = "git@gitlab.lrz.de:av2.0/commonroad/commonroad-drivability-checker.git", branch = "development", rev = "c3518accefd7ef38c3c92d8f99656a58ea5c2604"}
 
-frenetix = { git = "git@gitlab.lrz.de:motionplanning1/frenetperformanceplannerfunctions.git", rev = "9b691fa5cf1b94ed97558026676755f5ba25a9f2" }
+frenetix = "^0.1.0rc1"
 
 [tool.poetry.group.amazing_visualizer]
 optional = true

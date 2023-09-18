@@ -578,21 +578,46 @@ woff = ["brotli (>=1.0.1)", "brotlicffi (>=0.8.0)", "zopfli (>=0.1.4)"]
 
 [[package]]
 name = "frenetix"
-version = "0.0.2.dev69+g9b691fa"
-description = ""
+version = "0.1.0rc1"
+description = "C++-accelerated Frenet Trajectory Planning Handler"
 optional = false
-python-versions = "<3.13,>=3.7"
-files = []
-develop = false
+python-versions = "<3.13,>=3.8"
+files = [
+    {file = "frenetix-0.1.0rc1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4feb4edc27f71e61330517f2951163bcac3989a2f64b96d9459ac30458095b6a"},
+    {file = "frenetix-0.1.0rc1-cp310-cp310-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a5062947a5d8d5fc2c19b04077f638b6c00827e0ecf7681fce68ad51b5d8a3f1"},
+    {file = "frenetix-0.1.0rc1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:def858e23a5ba25b02ddc041ae18d34e4e5d597ddc692065f7f5983c34470793"},
+    {file = "frenetix-0.1.0rc1-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:64c680cb9a608c70bc6c76dd25eed0820ca808b89f9be9283af68283240982eb"},
+    {file = "frenetix-0.1.0rc1-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:40c0349d39e48070bfa6cd389d8466fd19b5fc775f10a4ebb2a4757d526ad571"},
+    {file = "frenetix-0.1.0rc1-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:03169abf558e72111fc02168b121dc9f7e3c56b2880dcdec08da0686757ae9f0"},
+    {file = "frenetix-0.1.0rc1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:47b616171e239bfd3a5a1114aa5b3d310c3bc8df835a66e45d48d8344b20b816"},
+    {file = "frenetix-0.1.0rc1-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:c649b3a19d5c09a887b1ed1974ca997014cb45c7a1d71bfccc492147282c244b"},
+    {file = "frenetix-0.1.0rc1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ca187ea8035fa14caf3eb642fbdfcd16043d99fe626354482a5bae05e0857ccf"},
+    {file = "frenetix-0.1.0rc1-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:0615fe8211dc0805bbc6042bfb2b17ffe8a9850c1936d75656e443cb5c84fe20"},
+    {file = "frenetix-0.1.0rc1-cp311-cp311-musllinux_1_1_i686.whl", hash = "sha256:aa5edbc520d25fb80a01fad45990abb3a815f4ace66a82fecff1ba47496e6f94"},
+    {file = "frenetix-0.1.0rc1-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:07845026b43a83b7dec59c8833d178444d3c4a220031db4a2db7edc7a1589b5c"},
+    {file = "frenetix-0.1.0rc1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:55090038af62bdf7debe8bc6accc9a14db5782a09cb01a0cda54c3cef2e76eec"},
+    {file = "frenetix-0.1.0rc1-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:1f17cbb56e130dee521c7aa47068524c7a5393486e96e9139bd91455309a0cd8"},
+    {file = "frenetix-0.1.0rc1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8d851fcf4e7446451a16a751ac33c11d4e852789bb28364bd32605d2e4225f9b"},
+    {file = "frenetix-0.1.0rc1-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:3def8741f9696d41b84bf7c14cccef27eb4bccc8ca73e4b4246636f51a70bdb6"},
+    {file = "frenetix-0.1.0rc1-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:7228722d4e860bd865d1d91e05c36687534167768e2eff13ae45361eefcc8f3d"},
+    {file = "frenetix-0.1.0rc1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:f4e51f4ef2acaf579625c2694b28362352b8a64b4aed5ea320a69b4f81ece27c"},
+    {file = "frenetix-0.1.0rc1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5eb8e3e3bb14bcb4ff162e6dc470d222832f31701e3f306dc0224c5e5fe03480"},
+    {file = "frenetix-0.1.0rc1-cp38-cp38-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:4a9e823f6ebe6b7cee12d8b1eea009d03b141034766ccadf86b91c18000814ac"},
+    {file = "frenetix-0.1.0rc1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6acc45d8d28cfa1ae0f0f9af627d35258102c2648f5581838990ff5c4e2034ce"},
+    {file = "frenetix-0.1.0rc1-cp38-cp38-musllinux_1_1_aarch64.whl", hash = "sha256:a729ddba7797a7cc14e08caf9f15097e2b63db1e68c50a263caf537450e2c81c"},
+    {file = "frenetix-0.1.0rc1-cp38-cp38-musllinux_1_1_i686.whl", hash = "sha256:667fe3368d51daa3688ba33cb095f0fe170c90b82d4f90c259baa81f0ddfda2d"},
+    {file = "frenetix-0.1.0rc1-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:7e41eafefad4d9625f3c8e0db0c7d2417b926776238eebd384c05a8e53aec3b1"},
+    {file = "frenetix-0.1.0rc1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ed92777e057659a93fbb8cbdc90cae52f7ff0532c05e3d8b0f56c20c3b466417"},
+    {file = "frenetix-0.1.0rc1-cp39-cp39-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:ab092d85d9e0268fba702d6be76bf0de8a229f68608759961f8ff8ceaefad797"},
+    {file = "frenetix-0.1.0rc1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a210570881e66e4fcbd71487ae4b58647fdd3220a61dc422d91d0f42a888a1a7"},
+    {file = "frenetix-0.1.0rc1-cp39-cp39-musllinux_1_1_aarch64.whl", hash = "sha256:d31d154ba088886c9e7d17b32230df85cab3e5aac8ac468e12cf8e2533ca4701"},
+    {file = "frenetix-0.1.0rc1-cp39-cp39-musllinux_1_1_i686.whl", hash = "sha256:8e682ed6e69c792df0e462c61de4039976cfd4aeae4c09207d0ac8f0bac52b3a"},
+    {file = "frenetix-0.1.0rc1-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:05d94ed8dd5f32340ea69637dfdda00359b0aa7e87b299dab302cfb8cf9a5f1f"},
+    {file = "frenetix-0.1.0rc1.tar.gz", hash = "sha256:5cd896c16c33660330334c23bd45d70b1b26cf304852a3d4512bf3a91e5119c0"},
+]
 
 [package.dependencies]
 numpy = ">=1.24.3"
-
-[package.source]
-type = "git"
-url = "git@gitlab.lrz.de:motionplanning1/frenetperformanceplannerfunctions.git"
-reference = "9b691fa5cf1b94ed97558026676755f5ba25a9f2"
-resolved_reference = "9b691fa5cf1b94ed97558026676755f5ba25a9f2"
 
 [[package]]
 name = "humanfriendly"
@@ -2146,4 +2171,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "737460658426b5a8c646a06d919854d135e106bd994c82a83d46fda99202eae8"
+content-hash = "1f96507efe029025bbfd6e7be15960e575fbbfe141ce42492bfd89980dfef103"
