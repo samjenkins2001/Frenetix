@@ -60,13 +60,19 @@ class ReactivePlannerCpp(Planner):
         for key in self.predictions.keys():
             predictedPath = []
 
-            for time_step in range(self.predictions[key]['pos_list'].shape[0]):
-                position = np.append(self.predictions[key]['pos_list'][time_step], 0)
+            orientation_list = self.predictions[key]['orientation_list']
+            pos_list = self.predictions[key]['pos_list']
+            cov_list = self.predictions[key]['cov_list']
+
+            for time_step in range(pos_list.shape[0]):
+                position = np.append(pos_list[time_step], [0.0])
+
                 orientation = np.zeros(shape=(4))
-                orientation[2] = np.sin(self.predictions[key]['orientation_list'][time_step] / 2.0)
-                orientation[3] = np.cos(self.predictions[key]['orientation_list'][time_step] / 2.0)
+                orientation[2] = np.sin(orientation_list[time_step] / 2.0)
+                orientation[3] = np.cos(orientation_list[time_step] / 2.0)
+
                 covariance = np.zeros(shape=(6, 6))
-                covariance[:2, :2] = self.predictions[key]['cov_list'][time_step]
+                covariance[:2, :2] = cov_list[time_step]
 
                 pwc = frenetix.PoseWithCovariance(position, orientation, covariance)
                 predictedPath.append(pwc)
