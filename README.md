@@ -29,14 +29,13 @@ For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
     * Clone commonroad scenarios on the same level as commonroad-reactive-planner (not into commonroad-reactive-planner with: 
       * `git clone https://gitlab.lrz.de/tum-cps/commonroad-scenarios.git`
 
-5. Download the latest wheel from the **FrenetPerformancePlannerFunctions**
-    *  Go to the artifacts of the latest pipeline run: https://gitlab.lrz.de/motionplanning1/frenetperformanceplannerfunctions/-/pipelines and download the artifact
-    *  unzip the artifact with `unzip artifacts.zip`
-    *  install the wheel with `pip install frenetPlannerHelper*.whl`
+5. Install `CMake 3.27.4` or higher
 
-6. Setup in main.py the configuration regarding multiagent or if C++ should be used. Multiagent will always use C++.
+6. `pip install git+https://gitlab.lrz.de/motionplanning1/frenetperformanceplannerfunctions.git` or `pip install frenetix`
 
-7. Run the planner with `python3 main.py`
+7. Setup in main.py the configuration regarding multiagent or if C++ should be used. Multiagent will always use C++.
+
+8. Run the planner with `python3 main.py`
 
 ### Run Code
 * An example script `main.py` is provided.

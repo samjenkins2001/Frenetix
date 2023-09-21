@@ -38,7 +38,7 @@ def main():
     evaluation_pipeline = False
     use_specific_scenario_list = False
 
-    scenario_name = "ESP_SantBoideLlobregat-24_2_T-1"  # do not add .xml format to the name
+    scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 

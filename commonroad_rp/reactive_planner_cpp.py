@@ -141,11 +141,11 @@ class ReactivePlannerCpp(Planner):
 
         name = "prediction"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(cf.CalculateCollisionProbabilityMahalanobis(name, self.cost_weights[name], self.predictionsForCpp))
+            # self.handler.add_cost_function(cf.CalculateCollisionProbabilityMahalanobis(name, self.cost_weights[name], self.predictionsForCpp))
 
             # NOTE: Support for CalculateCollisionProbabilityFast is incomplete in Frenetix!
-            #self.handler.add_cost_function(cf.CalculateCollisionProbabilityFast(name, self.cost_weights[name], self.predictionsForCpp,
-            #                                                                    self.vehicle_params.length, self.vehicle_params.width))
+            self.handler.add_cost_function(cf.CalculateCollisionProbabilityFast(name, self.cost_weights[name], self.predictionsForCpp,
+                                                                               self.vehicle_params.length, self.vehicle_params.width))
 
 
         name = "distance_to_obstacles"

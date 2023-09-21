@@ -35,7 +35,7 @@ shapely = "^2.0.1"
 "ruamel.yaml" = "^0.17.32"
 
 commonroad-route-planner = ">=2022.3"
-commonroad-io = ">=2023.2"
+commonroad-io = "==2023.2"
 commonroad-vehicle-models = "^3.0.2"
 commonroad-helper-functions = "^1.0.0"
 commonroad-prediction = {git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction", rev = "436e8a79e7602dd0aa79bec66b33126c45e5c18c"}
