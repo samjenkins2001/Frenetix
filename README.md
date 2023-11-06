@@ -8,14 +8,10 @@ This repository includes a Frenet trajectory planning algorithm in the [CommonRo
 The trajectories are generated according to the sampling-based approach in [1-5] including two different implementations.
 The Repo provides a python-based and a C++-accelerated Motion Planner [Frenetix](https://github.com/TUM-AVS/Frenetix/) implementation.
 
-# Occlusion-aware Motion Planning
-
-To try the Occlusion-Ware module, you can find the following readme script in [/frenetix_motion_planner/occlusion_planning/README.md](https://github.com/TUM-AVS/Frenetix-Motion-Planner/blob/master/frenetix_motion_planner/occlusion_planning/README.md).
-
 # Standard Planner Initialization
 
 ### Requirements
-The software is  developed and tested on recent versions of Linux and OS X. We strongly recommend to use [Ubuntu 22.04](https://ubuntu.com/download/desktop) or higher.
+The software is  developed and tested on recent versions of Linux. We strongly recommend to use [Ubuntu 22.04](https://ubuntu.com/download/desktop) or higher.
 For the python installation, we suggest the usage of Virtual Environment with Python 3.10 or Python 3.9
 For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
 
