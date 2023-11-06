@@ -10,6 +10,7 @@ packages = [
     { include = "cr_scenario_handler" },
     { include = "risk_assessment" },
     { include = "wale_net_lite" },
+    { include = "behavior_planner" },
 ]
 
 [tool.poetry.dependencies]
