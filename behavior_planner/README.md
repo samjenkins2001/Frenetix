@@ -3,12 +3,6 @@
 
 Design a Behavior Planner concept suitable for a frenet based reactive planner to controle driving dynamics and stabilization
 
-
-## Authors
-
-- ```Luca Troncone```
-
-
 ## Documentation
 
 ### BehaviorModule:

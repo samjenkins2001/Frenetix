@@ -22,7 +22,7 @@ from commonroad.planning.planning_problem import PlanningProblem, PlanningProble
 
 # reactive planner
 from cr_scenario_handler.utils.configuration import Configuration
-import commonroad_rp.prediction_helpers as ph
+import frenetix_motion_planner.prediction_helpers as ph
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 
 # scenario handler
@@ -201,8 +201,7 @@ class Agent:
             if obstacle_id in global_predictions.keys():
                 predictions[obstacle_id] = global_predictions[obstacle_id]
         if self.config.prediction.cone_angle > 0 \
-                and self.config.prediction.mode == "walenet" \
-                or self.config.prediction.mode == "lanebased":
+                and self.config.prediction.mode == "walenet":
             predictions = ph.ignore_vehicles_in_cone_angle(predictions, self.ego_obstacle_list[-1],
                                                            self.config.vehicle.length,
                                                            self.config.prediction.cone_angle,

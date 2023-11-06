@@ -1,3 +1,10 @@
+__author__ = "Maximilian Geisslinger, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
+
 """Function to create visualization of collision and according harm."""
 
 import os

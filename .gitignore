@@ -11,9 +11,8 @@ scenarios/
 plots/
 unit_tests/img/
 evals/
-doc/build
-example_scenarios/
+doc/build/
+
 output/
 logs
 venv
-doc

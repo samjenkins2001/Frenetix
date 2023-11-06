@@ -1,11 +1,17 @@
+__author__ = "Maximilian Geisslinger"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
+
 """Functions to get vehicle properties or geometrical parameters."""
 
 from commonroad.scenario.obstacle import ObstacleType
-from commonroad_rp.utility.helper_functions import create_coll_object
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectories_collision_dynamic_obstacles
 import numpy as np
 from risk_assessment.helpers.collision_helper_function import angle_range, create_tvobstacle
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
+
 
 def get_obstacle_mass(obstacle_type, size):
     """

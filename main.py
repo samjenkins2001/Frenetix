@@ -5,7 +5,7 @@ import csv
 import traceback
 from os import listdir
 from os.path import isfile, join
-from commonroad_rp.run_planner import run_planner
+from frenetix_motion_planner.run_planner import run_planner
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 from cr_scenario_handler.utils.general import read_scenario_list
@@ -33,13 +33,31 @@ def main():
         os.path.abspath(__file__)
     ))
 
-    start_multiagent = False
+    # *************************
+    # Set Python or C++ Planner
+    # *************************
     use_cpp = True
+
+    # ****************************************************************************************************
+    # Start Multiagent Problem. Does not work for every Scenario and Setting. Try "ZAM_Tjunction-1_42_T-1"
+    # ****************************************************************************************************
+    start_multiagent = False
+
+    # *********************************************************
+    # Link a Scenario Folder & Start many Scenarios to evaluate
+    # *********************************************************
     evaluation_pipeline = False
+
+    # ******************************************************************************************************
+    # Setup a specific scenario list to evaluate. The scenarios in the list have to be in the example folder
+    # ******************************************************************************************************
     use_specific_scenario_list = False
 
+    # **********************************************************************
+    # If the previous are set to "False", please specify a specific scenario
+    # **********************************************************************
     scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name
-    scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
+    scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")  # Change to CommonRoad scenarios folder if needed.
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
     scenario_files = get_scenario_list(scenario_folder, example_scenarios_list, use_specific_scenario_list)
@@ -51,7 +69,7 @@ def main():
         scenario_path = os.path.join(scenario_folder, scenario_files[runs]) if evaluation_pipeline \
             else os.path.join(scenario_folder, scenario_name)
 
-        config = ConfigurationBuilder.build_configuration(scenario_path + ".xml")
+        config = ConfigurationBuilder.build_configuration(scenario_path + ".xml", dir_config_default='defaults')
         log_path = "./logs/"+scenario_path.split("/")[-1]
 
         try:

@@ -1,3 +1,9 @@
+__author__ = "Maximilian Geisslinger"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
 
 """Reference speed harm actual functions for symmetrical models."""
 

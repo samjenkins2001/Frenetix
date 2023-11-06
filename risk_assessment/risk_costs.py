@@ -1,4 +1,12 @@
+__author__ = "Maximilian Geisslinger, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
+
 """Risk cost function and principles of ethics of risk."""
+import numpy as np
 
 from risk_assessment.harm_estimation import get_harm
 from risk_assessment.collision_probability import (
@@ -6,7 +14,7 @@ from risk_assessment.collision_probability import (
     get_inv_mahalanobis_dist
 )
 from risk_assessment.helpers.timers import ExecTimer
-from commonroad_rp.utility.responsibility import assign_responsibility_by_action_space, calc_responsibility_reach_set
+from frenetix_motion_planner.utility.responsibility import assign_responsibility_by_action_space, calc_responsibility_reach_set
 
 
 def calc_risk(
@@ -81,6 +89,9 @@ def calc_risk(
     ego_harm_max = {}
     obst_harm_max = {}
 
+    # Pedestrian max harm at position of possible collision
+    obst_harm_occ = {}
+
     for key in ego_harm_traj:
         ego_risk_traj[key] = [
             ego_harm_traj[key][t] * coll_prob_dict[key][t]
@@ -90,7 +101,10 @@ def calc_risk(
             obst_harm_traj[key][t] * coll_prob_dict[key][t]
             for t in range(len(obst_harm_traj[key]))
         ]
-
+        if np.max(coll_prob_dict[key]) > 0.001:
+            obst_harm_occ[key] = obst_harm_traj[key][np.argmax(coll_prob_dict[key])]
+        else:
+            obst_harm_occ[key] = 0.0
         # Take max as representative for the whole trajectory
         ego_risk_max[key] = max(ego_risk_traj[key])
         obst_risk_max[key] = max(obst_risk_traj[key])
@@ -99,10 +113,12 @@ def calc_risk(
     try:
         ego_risk = max(list(ego_risk_max.values()))
         obst_risk = max(list(obst_risk_max.values()))
+        obst_harm_occ = max(list(obst_harm_occ.values()))
     except:
         ego_risk = 0
         obst_risk = 0
-    return ego_risk_max, obst_risk_max, ego_harm_max, obst_harm_max, ego_risk, obst_risk
+        obst_harm_occ = 0
+    return ego_risk_max, obst_risk_max, ego_harm_max, obst_harm_max, ego_risk, obst_risk, obst_harm_occ
 
 
 def get_bayesian_costs(ego_risk_max, obst_risk_max, boundary_harm):

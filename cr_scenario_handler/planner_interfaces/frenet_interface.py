@@ -19,9 +19,9 @@ from commonroad_dc import pycrcc
 
 from cr_scenario_handler.utils.configuration import Configuration
 
-from commonroad_rp.reactive_planner_cpp import ReactivePlannerCpp
-from commonroad_rp.state import ReactivePlannerState
-from commonroad_rp.utility import helper_functions as hf
+from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
+from frenetix_motion_planner.state import ReactivePlannerState
+from frenetix_motion_planner.utility import helper_functions as hf
 
 from commonroad_route_planner.route_planner import RoutePlanner
 
@@ -35,7 +35,7 @@ class FrenetPlannerInterface(PlannerInterface):
 
     def __init__(self, config: Configuration, scenario: Scenario,
                  planning_problem: PlanningProblem, log_path: str, mod_path: str):
-        """ Class for using the commonroad_rp Frenet planner with the cr_scenario_handler.
+        """ Class for using the frenetix_motion_planner Frenet planner with the cr_scenario_handler.
 
         Implements the PlannerInterface.
 

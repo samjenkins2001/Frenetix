@@ -14,8 +14,6 @@ from typing import Optional
 from commonroad.scenario.scenario import Scenario
 from commonroad.planning.planning_problem import PlanningProblemSet
 
-from commonroad_prediction.prediction_module import PredictionModule
-
 from cr_scenario_handler.utils.configuration import Configuration
 
 from cr_scenario_handler.simulation.agent import Agent
@@ -152,7 +150,7 @@ class AgentBatch (Process):
 
             self.current_timestep += 1
 
-    def run_sequential(self, log_path: str, predictor: PredictionModule, scenario: Scenario):
+    def run_sequential(self, log_path: str, predictor, scenario: Scenario):
         """ Main function of the agent batch when running without multiprocessing.
 
         For every time step in the simulation, computes the new predictions,

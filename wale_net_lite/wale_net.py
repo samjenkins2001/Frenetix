@@ -1,3 +1,10 @@
+__author__ = "Maximilian Geisslinger, Tobias Markus"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
+
 """
 This is the main script of the predictions software.
 It contains the WaleNet class which should be used to deploy the prediction.
@@ -27,6 +34,7 @@ from .preprocessing import (
 )
 
 import onnxruntime
+
 
 class Prediction(object):
     """General prediction class.

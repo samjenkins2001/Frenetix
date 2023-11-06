@@ -1,16 +1,14 @@
 [tool.poetry]
-name = "commonroad-reactive-planner"
-version = "2023.1"
-description = "Reactive Planner: Sampling-based Frenet Planner"
+name = "frenetix-motion-planner"
+version = "2023.3"
+description = "Frenetix Motion Planner: Sampling-based Frenet Planner"
 authors = ["Institute of Automotive Technology, Technical University of Munich"]
 readme = "README.md"
 
 packages = [
-    { include = "behavior_planner" },
-    { include = "commonroad_rp" },
+    { include = "frenetix_motion_planner" },
     { include = "cr_scenario_handler" },
     { include = "risk_assessment" },
-    { include = "tools" },
     { include = "wale_net_lite" },
 ]
 
@@ -18,11 +16,11 @@ packages = [
 
 # NOTE: commonroad-drivability-checker does not support Python >= 3.11 currently
 # (it will be supported in the next release after 2023.1)
-# python = ">=3.8,<3.13"
+# python = ">=3.9,<3.13"
 
-python = ">=3.8,<3.11"
+python = ">=3.9,<3.11"
 
-matplotlib = "^3.7.1"
+matplotlib = "<=3.7.1"
 networkx = "^3.1"
 numpy = "^1.24.2"
 methodtools = "^0.4.7"
@@ -32,36 +30,25 @@ onnxruntime = "^1.15.1"
 pygeos = "^0.14"
 imageio = "^2.31.2"
 shapely = "^2.0.1"
+wheel = ">=0.37.0"
+pandas = ">=2.0.2"
+triangle = ">=20230923"
 "ruamel.yaml" = "^0.17.32"
 
 commonroad-route-planner = ">=2022.3"
 commonroad-io = "==2023.2"
 commonroad-vehicle-models = "^3.0.2"
 commonroad-helper-functions = "^1.0.0"
-commonroad-prediction = {git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-prediction", rev = "436e8a79e7602dd0aa79bec66b33126c45e5c18c"}
 
 commonroad-drivability-checker = "2023.1"
 
-# For Python >= 3.11
-# commonroad-drivability-checker = {git = "git@gitlab.lrz.de:av2.0/commonroad/commonroad-drivability-checker.git", branch = "development", rev = "c3518accefd7ef38c3c92d8f99656a58ea5c2604"}
-
-frenetix = "^0.1.0rc1"
-
-[tool.poetry.group.amazing_visualizer]
-optional = true
-
-[tool.poetry.group.amazing_visualizer.dependencies]
-dash = "^2.13.0"
-plotly = "^5.16.1"
-dash-daq = "^0.5.0"
-dash-bootstrap-components = "^1.4.2"
-dash-ag-grid = "^2.0.0a1"
+frenetix = ">=0.1.0"
 
 [tool.poetry.group.docs]
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-sphinx = "^2.2.1"
+sphinx = ">=2.2.1"
 
 [tool.poetry.group.dev]
 optional = true

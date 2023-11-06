@@ -12,14 +12,13 @@ from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.trajectory import Trajectory
 from commonroad_dc import pycrcc
 
-from commonroad_prediction.prediction_module import PredictionModule
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-from commonroad.scenario.state import InitialState, State
+from commonroad.scenario.state import State
 
 from commonroad.scenario.scenario import Scenario
 
 from cr_scenario_handler.utils.configuration import Configuration, VehicleConfiguration
-from commonroad_rp import prediction_helpers as ph
+from frenetix_motion_planner import prediction_helpers as ph
 
 
 TIMEOUT = 20
@@ -34,7 +33,7 @@ def get_all_obstacle_ids(scenario: Scenario) -> list:
     return [obs.obstacle_id for obs in scenario.obstacles]
 
 
-def get_predictions(config: Configuration, predictor: PredictionModule,
+def get_predictions(config: Configuration, predictor,
                     scenario: Scenario, current_timestep: int):
     """ Calculate the predictions for all obstacles in the scenario.
 
@@ -51,9 +50,6 @@ def get_predictions(config: Configuration, predictor: PredictionModule,
             predictions = ph.main_prediction(predictor, scenario, [obs.obstacle_id for obs in scenario.obstacles],
                                              current_timestep, scenario.dt,
                                              [float(config.planning.planning_horizon)])
-        elif config.prediction.mode == "lanebased":
-            print("Lane-based predictions are not supported for multiagent simulations.")
-            predictions = None
         else:
             predictions = None
     else:
@@ -85,7 +81,7 @@ def create_tvobstacle(
 ):
     """
     Return a time variant collision object.
-    Clone of commonroad_rp/utils/helper_functions/create_tvobstacle().
+    Clone of frenetix_motion_planner/utils/helper_functions/create_tvobstacle().
 
     Args:
         traj_list ([[float]]): List with the trajectory ([x-position, y-position, orientation]).

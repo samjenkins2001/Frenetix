@@ -1,4 +1,9 @@
-#!/user/bin/env python
+__author__ = "Maximilian Geisslinger, Rainer Trauth"
+__copyright__ = "TUM Institute of Automotive Technology"
+__version__ = "1.0"
+__maintainer__ = "Rainer Trauth"
+__email__ = "rainer.trauth@tum.de"
+__status__ = "Beta"
 
 """Calculate the collision probability of a trajectory and predictions."""
 
