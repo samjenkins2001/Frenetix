@@ -228,8 +228,8 @@ class ReactivePlannerCpp(Planner):
             # *************************************
             # Create & Evaluate Trajectories in Cpp
             # *************************************
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level)))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level)))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level).union({self.N*self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level).union({x_0_lon[1]})))
             d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({x_0_lat[0]})))
 
             sampling_matrix = generate_sampling_matrix(t0_range=0.0,
