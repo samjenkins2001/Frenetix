@@ -74,7 +74,9 @@ def main():
 
         try:
             if not start_multiagent:
-                run_planner(config, log_path, mod_path, use_cpp)
+                #run_planner(config, log_path, mod_path, use_cpp)
+                simulation = Simulation(config, log_path, mod_path)
+                simulation.run_simulation()
             else:
                 # Works only with wale-net. Ground Truth Prediction not possible!
                 simulation = Simulation(config, log_path, mod_path)

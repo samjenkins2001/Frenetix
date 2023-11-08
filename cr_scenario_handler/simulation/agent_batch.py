@@ -145,7 +145,7 @@ class AgentBatch (Process):
                 self.out_queue.put((# a.planner.get_all_traj() for a in self.running_agent_list
                                     #                         if a.planning_problem.initial_state.time_step <= self.current_timestep
                                     [],
-                                    [a.planner.get_ref_path() for a in self.running_agent_list
+                                    [a.planner_interface.get_ref_path() for a in self.running_agent_list
                                      if a.planning_problem.initial_state.time_step <= self.current_timestep]))
 
             self.current_timestep += 1
@@ -209,9 +209,9 @@ class AgentBatch (Process):
                 visualize_multiagent_at_timestep(scenario, self.planning_problem_set,
                                                  self.dummy_obstacle_list, self.current_timestep,
                                                  self.config, log_path,
-                                                 traj_set_list=[a.planner.get_all_traj()
+                                                 traj_set_list=[a.planner_interface.get_all_traj()
                                                                 for a in self.running_agent_list],
-                                                 ref_path_list=[a.planner.get_ref_path()
+                                                 ref_path_list=[a.planner_interface.get_ref_path()
                                                                 for a in self.running_agent_list],
                                                  predictions=predictions,
                                                  plot_window=self.config.debug.plot_window_dyn)

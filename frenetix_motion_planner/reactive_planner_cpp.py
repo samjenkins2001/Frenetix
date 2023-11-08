@@ -34,12 +34,12 @@ class ReactivePlannerCpp(Planner):
     """
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
-    def __init__(self, config, scenario, planning_problem, log_path, work_dir):
+    def __init__(self, config, scenario, planning_problem, log_path, work_dir, agent_id):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
         """
-        super().__init__(config, scenario, planning_problem, log_path, work_dir)
+        super().__init__(config, scenario, planning_problem, log_path, work_dir, agent_id)
 
         self.predictionsForCpp = {}
 
@@ -206,8 +206,8 @@ class ReactivePlannerCpp(Planner):
             x_0_lon = [initial_state.curvilinear.s, initial_state.curvilinear.s_dot, initial_state.curvilinear.s_ddot]
 
         else:
-            x_0_lon = self.x_cl[0]
             x_0_lat = self.x_cl[1]
+            x_0_lon = self.x_cl[0]
 
         msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
         msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
@@ -314,7 +314,7 @@ class ReactivePlannerCpp(Planner):
         # ******************************************
         trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
         if trajectory_pair is not None:
-            current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
+            current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list, self.agent_id)
             self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
 
         # ************************************

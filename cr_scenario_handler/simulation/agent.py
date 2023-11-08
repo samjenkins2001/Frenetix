@@ -81,7 +81,7 @@ class Agent:
                 self.scenario.remove_obstacle(self.scenario.obstacle_by_id(self.id))
 
         # Initialize Planner
-        self.planner = FrenetPlannerInterface(config, scenario, planning_problem, log_path, mod_path)
+        self.planner_interface = FrenetPlannerInterface(config, scenario, planning_problem, log_path, mod_path, self.id)
 
         self.current_timestep = self.planning_problem.initial_state.time_step
         self.max_timestep = int(self.config.general.max_steps *
@@ -91,8 +91,7 @@ class Agent:
         self.initialize_state_list()
 
         # Dummy obstacle for the agent
-        state_list = deepcopy(self.record_state_list)
-        self.ego_obstacle_list.append(trajectory_to_obstacle(state_list, config.vehicle, self.id))
+        self.ego_obstacle_list.append(self.planner_interface.planner.ego_vehicle_history[-1])
 
         # add initial inputs to recorded input list
         self.record_input_list.append(InputState(
@@ -185,7 +184,7 @@ class Agent:
 
         # Check for collisions in previous timestep
         if self.current_timestep > 1 and self.ego_obstacle_list[-1] is not None:
-            crash = self.planner.check_collision(self.ego_obstacle_list, self.current_timestep-1)
+            crash = self.planner_interface.check_collision(self.ego_obstacle_list, self.current_timestep-1)
             if crash:
                 print(f"[Agent {self.id}] Collision Detected!")
                 self.finalize()
@@ -207,13 +206,12 @@ class Agent:
                                                            self.config.prediction.cone_angle,
                                                            self.config.prediction.cone_safety_dist)
 
+        # Execute planner step
+        self.planner_interface.update_planner(self.scenario, predictions)
+
         # START TIMER
         comp_time_start = time.time()
-
-        # Execute planner step
-        self.planner.update_planner(self.scenario, predictions)
-        error, new_trajectory = self.planner.plan()
-
+        error, new_trajectory = self.planner_interface.plan()
         comp_time_end = time.time()
         # END TIMER
 
@@ -227,25 +225,13 @@ class Agent:
         self.planning_times.append(comp_time_end - comp_time_start)
         print(f"[Agent {self.id}] ***Total Planning Time: {self.planning_times[-1]}")
 
-        # get next state from state list of planned trajectory
-        new_state = new_trajectory.state_list[1]
-        new_state.time_step = self.current_timestep + 1
-
         # add input to recorded input list
-        self.record_input_list.append(InputState(
-            acceleration=new_state.acceleration,
-            steering_angle_speed=(new_state.steering_angle - self.record_state_list[-1].steering_angle)
-                                     / self.config.planning.dt,
-            time_step=new_state.time_step
-        ))
+        self.record_input_list.append(self.planner_interface.planner.record_input_list[-1])
         # add new state to recorded state list
-        self.record_state_list.append(new_state)
+        self.record_state_list.append(self.planner_interface.planner.record_state_list[-1])
 
         # commonroad obstacle for synchronization between agents
-        # List of all past and future states.
-        state_list = deepcopy(self.record_state_list)
-        state_list.extend(new_trajectory.state_list[2:])
-        self.ego_obstacle_list.append(trajectory_to_obstacle(state_list, self.config.vehicle, self.id))
+        self.ego_obstacle_list.append(deepcopy(self.planner_interface.planner.ego_vehicle_history[-1]))
 
         # plot own view on scenario
         if self.id in self.config.multiagent.show_specific_individual_plots or \
@@ -257,8 +243,8 @@ class Agent:
                                              agent_list=[self.ego_obstacle_list[-1]],
                                              timestep=self.current_timestep,
                                              config=self.config, log_path=self.log_path,
-                                             traj_set_list=[self.planner.get_all_traj()],
-                                             ref_path_list=[self.planner.get_ref_path()],
+                                             traj_set_list=[self.planner_interface.get_all_traj()],
+                                             ref_path_list=[self.planner_interface.get_ref_path()],
                                              predictions=predictions, visible_area=visible_area,
                                              plot_window=self.config.debug.plot_window_dyn)
 

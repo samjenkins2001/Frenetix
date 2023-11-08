@@ -52,7 +52,7 @@ class Planner:
 
     def __init__(self, config, scenario: Scenario,
                  planning_problem: PlanningProblem,
-                 log_path: str, work_dir: str):
+                 log_path: str, work_dir: str, agent_id: int):
         """Wrappers providing a consistent interface for different planners.
         To be implemented for every specific planner.
 
@@ -62,6 +62,7 @@ class Planner:
         :param log_path: Path the planner's log files will be written to.
         :param work_dir: Working directory for the planner.
         """
+        self.agent_id = agent_id
         self.config = config
         self.horizon = config.planning.planning_horizon
         self.dT = config.planning.dt

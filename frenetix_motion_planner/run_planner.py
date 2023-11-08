@@ -109,7 +109,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
     # Initialize Reactive Planner
     # *************************************
 
-    planner = ReactivePlannerCpp(config, scenario, planning_problem, log_path, mod_path) if use_cpp else \
+    planner = ReactivePlannerCpp(config, scenario, planning_problem, log_path, mod_path, 42) if use_cpp else \
               ReactivePlannerPython(config, scenario, planning_problem, log_path, mod_path)
 
     # **************************
