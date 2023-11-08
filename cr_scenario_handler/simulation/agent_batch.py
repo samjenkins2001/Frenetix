@@ -21,6 +21,8 @@ from cr_scenario_handler.utils.multiagent_helpers import get_predictions, TIMEOU
 from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep, make_gif
 from cr_scenario_handler.utils.multiagent_logging import *
 
+from frenetix_motion_planner.utility.visualization import visualize_planner_at_timestep
+
 
 class AgentBatch (Process):
 
@@ -205,7 +207,7 @@ class AgentBatch (Process):
 
             # Plot current frame
             if (self.config.debug.show_plots or self.config.debug.save_plots) and \
-                    len(self.running_agent_list) > 0:
+                    len(self.running_agent_list) > 0 and self.config.multiagent.use_multiagent:
                 visualize_multiagent_at_timestep(scenario, self.planning_problem_set,
                                                  self.dummy_obstacle_list, self.current_timestep,
                                                  self.config, log_path,
@@ -215,6 +217,16 @@ class AgentBatch (Process):
                                                                 for a in self.running_agent_list],
                                                  predictions=predictions,
                                                  plot_window=self.config.debug.plot_window_dyn)
+            elif (self.config.debug.show_plots or self.config.debug.save_plots) and \
+                    len(self.running_agent_list) == 1 and not self.config.multiagent.use_multiagent:
+                curr_planner = self.running_agent_list[0].planner_interface.planner
+                visualize_planner_at_timestep(scenario=scenario, planning_problem=self.planning_problem_set.
+                                              find_planning_problem_by_id(self.running_agent_list[0].id),
+                                              ego=curr_planner.ego_vehicle_history[-1],
+                                              traj_set=curr_planner.all_traj, optimal_traj=curr_planner.trajectory_pair[0],
+                                              ref_path=curr_planner.reference_path,
+                                              timestep=self.current_timestep, config=self.config, predictions=predictions,
+                                              plot_window=self.config.debug.plot_window_dyn, log_path=log_path)
 
             scenario.add_objects(self.dummy_obstacle_list)
 

@@ -149,6 +149,7 @@ class Planner:
         self.save_all_traj = config.debug.save_all_traj
         self.all_traj = None
         self.optimal_trajectory = None
+        self.trajectory_pair = None
         self.use_occ_model = config.occlusion.use_occlusion_module
         self.logger = DataLoggingCosts(
             config=config,

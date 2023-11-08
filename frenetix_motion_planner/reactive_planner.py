@@ -94,7 +94,6 @@ class ReactivePlannerPython(Planner):
 
         # Initialization of while loop
         optimal_trajectory = None
-        trajectory_pair = None
         t0 = time.time()
 
         # Initial index of sampling set to use
@@ -125,9 +124,9 @@ class ReactivePlannerPython(Planner):
         # ******************************************
         # Update Trajectory Pair & Commonroad Object
         # ******************************************
-        trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
-        if trajectory_pair is not None:
-            current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list)
+        self.trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
+        if self.trajectory_pair is not None:
+            current_ego_vehicle = self.convert_state_list_to_commonroad_object(self.trajectory_pair[0].state_list)
             self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
 
         if optimal_trajectory is None and self.x_0.velocity <= 0.1:
@@ -145,7 +144,7 @@ class ReactivePlannerPython(Planner):
 
         self.plan_postprocessing(optimal_trajectory=optimal_trajectory, planning_time=planning_time)
 
-        return trajectory_pair
+        return self.trajectory_pair
 
     def _create_trajectory_bundle(self, x_0_lon: np.array, x_0_lat: np.array, cost_function, samp_level: int) -> TrajectoryBundle:
         """

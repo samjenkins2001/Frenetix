@@ -312,9 +312,9 @@ class ReactivePlannerCpp(Planner):
         # ******************************************
         # Update Trajectory Pair & Commonroad Object
         # ******************************************
-        trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
-        if trajectory_pair is not None:
-            current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory_pair[0].state_list, self.agent_id)
+        self.trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
+        if self.trajectory_pair is not None:
+            current_ego_vehicle = self.convert_state_list_to_commonroad_object(self.trajectory_pair[0].state_list, self.agent_id)
             self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
 
         # ************************************
@@ -334,7 +334,7 @@ class ReactivePlannerCpp(Planner):
 
         self.plan_postprocessing(optimal_trajectory=optimal_trajectory, planning_time=planning_time)
 
-        return trajectory_pair
+        return self.trajectory_pair
 
     @staticmethod
     def _select_stopping_trajectory(trajectories, sampling_matrix, d_pos):
