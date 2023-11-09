@@ -49,7 +49,8 @@ class ReactivePlannerCpp(Planner):
 
         self.handler: frenetix.TrajectoryHandler = frenetix.TrajectoryHandler(dt=self.config.planning.dt)
         self.coordinate_system: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper
-        self.trajectory_handler_set_constant_functions()
+        self.trajectory_handler_set_constant_cost_functions()
+        self.trajectory_handler_set_constant_feasibility_functions()
 
     def set_predictions(self, predictions: dict):
         self.predictions = predictions
@@ -77,11 +78,12 @@ class ReactivePlannerCpp(Planner):
 
     def set_cost_function(self, cost_weights):
         self.config.cost.cost_weights = cost_weights
-        self.trajectory_handler_set_constant_functions()
+        self.trajectory_handler_set_constant_cost_functions()
+        self.trajectory_handler_set_constant_feasibility_functions()
         self.trajectory_handler_set_changing_functions()
         self.logger.set_logging_header(self.config.cost.cost_weights)
 
-    def trajectory_handler_set_constant_functions(self):
+    def trajectory_handler_set_constant_feasibility_functions(self):
         self.handler.add_feasability_function(ff.CheckYawRateConstraint(deltaMax=self.vehicle_params.delta_max,
                                                                         wheelbase=self.vehicle_params.wheelbase,
                                                                         wholeTrajectory=False
@@ -99,6 +101,7 @@ class ReactivePlannerCpp(Planner):
                                                                               wholeTrajectory=False
                                                                               ))
 
+    def trajectory_handler_set_constant_cost_functions(self):
         name = "acceleration"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(cf.CalculateAccelerationCost(name, self.cost_weights[name]))
