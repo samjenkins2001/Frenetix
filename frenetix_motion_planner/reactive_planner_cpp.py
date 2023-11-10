@@ -60,21 +60,21 @@ class ReactivePlannerCpp(Planner):
             predicted_path: List[frenetix.PoseWithCovariance] = [None] * num_steps
 
             for time_step in range(num_steps):
-                # Directly access the lists from the dictionary
-                position = np.append(pred['pos_list'][time_step], [0.0])
+                # Ensure the position is in float64 format
+                position = np.append(pred['pos_list'][time_step].astype(np.float64), [0.0]).astype(np.float64)
 
                 # Preallocate orientation array and fill in the values
-                orientation = np.zeros(4)
-                orientation[2:] = np.sin(pred['orientation_list'][time_step] / 2.0), np.cos(
-                    pred['orientation_list'][time_step] / 2.0)
+                orientation = np.zeros(4, dtype=np.float64)
+                orientation[2:] = np.array([np.sin(pred['orientation_list'][time_step] / 2.0),
+                                            np.cos(pred['orientation_list'][time_step] / 2.0)], dtype=np.float64)
 
-                # Symmetrize the covariance matrix if necessary
-                covariance = pred['cov_list'][time_step]
+                # Symmetrize the covariance matrix if necessary and convert to float64
+                covariance = pred['cov_list'][time_step].astype(np.float64)
                 if not np.array_equal(covariance, covariance.T):
-                    covariance = (covariance + covariance.T) / 2
+                    covariance = ((covariance + covariance.T) / 2).astype(np.float64)
 
                 # Create the covariance matrix for PoseWithCovariance
-                covariance_matrix = np.zeros((6, 6))
+                covariance_matrix = np.zeros((6, 6), dtype=np.float64)
                 covariance_matrix[:2, :2] = covariance
 
                 # Create PoseWithCovariance object and add to predicted_path
