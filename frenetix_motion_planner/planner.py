@@ -716,7 +716,7 @@ class Planner:
         raise NotImplementedError()
 
     @abstractmethod
-    def set_reference_path(self, reference_path: np.ndarray = None, coordinate_system: CoordinateSystem = None):
+    def set_reference_path(self, *args, **kwargs):
         """Set reference path
         To be implemented for every specific planner.
         """

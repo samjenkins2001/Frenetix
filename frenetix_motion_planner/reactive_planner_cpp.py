@@ -49,7 +49,7 @@ class ReactivePlannerCpp(Planner):
         # *****************************
 
         self.handler: frenetix.TrajectoryHandler = frenetix.TrajectoryHandler(dt=self.config.planning.dt)
-        self.coordinate_system: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper
+        self.coordinate_system: frenetix.CoordinateSystemWrapper
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
 
@@ -198,8 +198,8 @@ class ReactivePlannerCpp(Planner):
         x_0_lat = None
         if self.x_cl is None:
             initial_state = frenetix.TrajectorySample(
-                x0=self.x_0.position[0],
-                y0=self.x_0.position[1],
+                x0=float(self.x_0.position[0]),
+                y0=float(self.x_0.position[1]),
                 orientation0=self.x_0.orientation,
                 acceleration0=self.x_0.acceleration,
                 velocity0=self.x_0.velocity
