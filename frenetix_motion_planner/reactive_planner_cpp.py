@@ -70,10 +70,7 @@ class ReactivePlannerCpp(Planner):
 
                 # Symmetrize the covariance matrix if necessary
                 covariance = pred['cov_list'][time_step]
-                if not np.allclose(covariance, covariance.T,
-                                   atol=1e-8):  # Using a tolerance for floating-point comparison
-                    msg_logger.warning(
-                        f"Covariance matrix at time step {time_step} is not symmetric. Making it symmetric.")
+                if not np.array_equal(covariance, covariance.T):
                     covariance = (covariance + covariance.T) / 2
 
                 # Create the covariance matrix for PoseWithCovariance
