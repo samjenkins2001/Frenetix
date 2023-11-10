@@ -11,6 +11,7 @@ import numpy as np
 import copy
 import logging
 from itertools import product
+from typing import List
 
 # commonroad_dc
 import commonroad_dc.pycrcc as pycrcc
@@ -54,27 +55,37 @@ class ReactivePlannerCpp(Planner):
 
     def set_predictions(self, predictions: dict):
         self.predictions = predictions
-        for key in self.predictions.keys():
-            predictedPath = []
+        for key, pred in self.predictions.items():
+            num_steps = pred['pos_list'].shape[0]
+            predicted_path: List[frenetix.PoseWithCovariance] = [None] * num_steps
 
-            orientation_list = self.predictions[key]['orientation_list']
-            pos_list = self.predictions[key]['pos_list']
-            cov_list = self.predictions[key]['cov_list']
+            for time_step in range(num_steps):
+                # Directly access the lists from the dictionary
+                position = np.append(pred['pos_list'][time_step], [0.0])
 
-            for time_step in range(pos_list.shape[0]):
-                position = np.append(pos_list[time_step], [0.0])
+                # Preallocate orientation array and fill in the values
+                orientation = np.zeros(4)
+                orientation[2:] = np.sin(pred['orientation_list'][time_step] / 2.0), np.cos(
+                    pred['orientation_list'][time_step] / 2.0)
 
-                orientation = np.zeros(shape=(4))
-                orientation[2] = np.sin(orientation_list[time_step] / 2.0)
-                orientation[3] = np.cos(orientation_list[time_step] / 2.0)
+                # Symmetrize the covariance matrix if necessary
+                covariance = pred['cov_list'][time_step]
+                if not np.allclose(covariance, covariance.T,
+                                   atol=1e-8):  # Using a tolerance for floating-point comparison
+                    msg_logger.warning(
+                        f"Covariance matrix at time step {time_step} is not symmetric. Making it symmetric.")
+                    covariance = (covariance + covariance.T) / 2
 
-                covariance = np.zeros(shape=(6, 6))
-                covariance[:2, :2] = cov_list[time_step]
+                # Create the covariance matrix for PoseWithCovariance
+                covariance_matrix = np.zeros((6, 6))
+                covariance_matrix[:2, :2] = covariance
 
-                pwc = frenetix.PoseWithCovariance(position, orientation, covariance)
-                predictedPath.append(pwc)
+                # Create PoseWithCovariance object and add to predicted_path
+                pwc = frenetix.PoseWithCovariance(position, orientation, covariance_matrix)
+                predicted_path[time_step] = pwc
 
-            self.predictionsForCpp[key] = frenetix.PredictedObject(key, predictedPath)
+            # Store the resulting predicted path
+            self.predictionsForCpp[key] = frenetix.PredictedObject(key, predicted_path)
 
     def set_cost_function(self, cost_weights):
         self.config.cost.cost_weights = cost_weights
