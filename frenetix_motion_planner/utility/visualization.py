@@ -77,7 +77,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
                                   timestep: int, config: Configuration, log_path: str,
                                   traj_set=None, optimal_traj = None, ref_path: np.ndarray = None,
                                   rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
-                                  visible_area=None, cluster=None, occlusion_map=None):
+                                  visible_area=None, occlusion_map=None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -94,19 +94,18 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     :param predictions: Predictions used to run the planner
     :param plot_window: Window size to plot (optional)
     :param visible_area: Visible Area for plotting (optional)
-    :param cluster: cluster number in this time step (optional)
     :param occlusion_map: Occlusion map information to plot (optional)
     will visualize on the existing object)
     :param save_path: Path to save plot as .png (optional)
     """
-    # create renderer object (if no existing renderer is passed)
+    # Only create renderer if not passed in
     if rnd is None:
+        # Assuming ego.prediction.trajectory.state_list[0].position returns a constant value
+        ego_start_pos = ego.prediction.trajectory.state_list[0].position
         if plot_window > 0:
-            rnd = MPRenderer(plot_limits=[-plot_window + ego.prediction.trajectory.state_list[0].position[0],
-                                          plot_window + ego.prediction.trajectory.state_list[0].position[0],
-                                          -plot_window + ego.prediction.trajectory.state_list[0].position[1],
-                                          plot_window + ego.prediction.trajectory.state_list[0].position[1]],
-                                          figsize=(10, 10))
+            plot_limits = [-plot_window + ego_start_pos[0], plot_window + ego_start_pos[0],
+                           -plot_window + ego_start_pos[1], plot_window + ego_start_pos[1]]
+            rnd = MPRenderer(plot_limits=plot_limits, figsize=(10, 10))
         else:
             rnd = MPRenderer(figsize=(20, 10))
 
@@ -139,9 +138,8 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     rnd.render()
 
     # visualize optimal trajectory
-    rnd.ax.plot([i.position[0] for i in optimal_traj.state_list],
-                [i.position[1] for i in optimal_traj.state_list],
-                color='k', marker='x', markersize=1.5, zorder=21, linewidth=2.0, label='optimal trajectory')
+    optimal_traj_positions = np.array([(state.position[0], state.position[1]) for state in optimal_traj.state_list])
+    rnd.ax.plot(optimal_traj_positions[:, 0], optimal_traj_positions[:, 1], 'kx-', markersize=1.5, zorder=21, linewidth=2.0)
 
     # draw visible sensor area
     if visible_area is not None:
@@ -172,10 +170,10 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
             clip=True,
         )
         mapper = cm.ScalarMappable(norm=norm, cmap=green_to_red_colormap())
-        step = int(len(invalid_traj) / 100) if int(len(invalid_traj) / 100) > 2 else 1
-        for idx, val in enumerate(valid_traj):
+        step = int(len(invalid_traj) / 50) if int(len(invalid_traj) / 50) > 2 else 1
+        for idx, val in enumerate(reversed(valid_traj)):
             if not val._coll_detected:
-                color = mapper.to_rgba(idx)
+                color = mapper.to_rgba(len(valid_traj) - 1 - idx)
                 plt.plot(val.cartesian.x, val.cartesian.y,
                          color=color, zorder=20, linewidth=1.0, alpha=1.0, picker=False)
             else:
@@ -187,17 +185,18 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # visualize predictions
     if predictions is not None:
+        predictions_copy = predictions
+        if ego.obstacle_id in predictions.keys():
+            predictions_copy = predictions.copy()
+            # Remove the entry with key 60000 from the copy
+            predictions_copy.pop(ego.obstacle_id, None)
         if config.prediction.mode == "walenet":
-            draw_uncertain_predictions_wale(predictions, rnd.ax)
+            draw_uncertain_predictions_wale(predictions_copy, rnd.ax)
 
     # visualize reference path
     if ref_path is not None:
         rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=19, linewidth=0.8,
                     label='reference path')
-
-    if cluster is not None:
-        rnd.ax.text(traj_set[0].cartesian.x[0]+(plot_window + 5),
-                    traj_set[0].cartesian.y[0]+(plot_window + 5), str(cluster), fontsize=40)
 
     # save as .png file
     if config.debug.save_plots:
