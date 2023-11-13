@@ -74,7 +74,7 @@ def main():
     # *********************************************************
     # Link a Scenario Folder & Start many Scenarios to evaluate
     # *********************************************************
-    evaluation_pipeline = True
+    evaluation_pipeline = False
 
     # ******************************************************************************************************
     # Setup a specific scenario list to evaluate. The scenarios in the list have to be in the example folder

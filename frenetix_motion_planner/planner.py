@@ -456,30 +456,38 @@ class Planner:
         :param trajectory: the optimal trajectory
         :return: (CartesianTrajectory, FrenetTrajectory, lon sample, lat sample)
         """
-        # go along state list
-        cart_list = list()
+        # Cache attributes for quicker access
+        cartesian = trajectory.cartesian
+        x_0 = self.x_0
+        dT = self.dT
+        vehicle_params = self.vehicle_params
 
-        for i in range(len(trajectory.cartesian.x)):
-            # create Cartesian state
-            cart_states = dict()
-            cart_states['time_step'] = self.x_0.time_step+i
-            cart_states['position'] = np.array([trajectory.cartesian.x[i], trajectory.cartesian.y[i]])
-            cart_states['orientation'] = trajectory.cartesian.theta[i]
-            cart_states['velocity'] = trajectory.cartesian.v[i]
-            cart_states['acceleration'] = trajectory.cartesian.a[i]
-            if i > 0:
-                cart_states['yaw_rate'] = (trajectory.cartesian.theta[i] - trajectory.cartesian.theta[i-1]) / self.dT
-            else:
-                cart_states['yaw_rate'] = self.x_0.yaw_rate
-            # TODO Check why computation with yaw rate was faulty ??
-            cart_states['steering_angle'] = np.arctan2(self.vehicle_params.wheelbase *
-                                                       trajectory.cartesian.kappa[i], 1.0)
-            cart_list.append(ReactivePlannerState(**cart_states))
+        # Precompute values that are static or can be vectorized
+        time_steps = x_0.time_step + np.arange(len(cartesian.x))
+        positions = np.vstack((cartesian.x, cartesian.y)).T
+        orientations = cartesian.theta
+        velocities = cartesian.v
+        accelerations = cartesian.a
+        yaw_rates = np.gradient(cartesian.theta) / dT
+        yaw_rates[0] = x_0.yaw_rate  # set the first yaw_rate to initial condition
+        steering_angles = np.arctan2(vehicle_params.wheelbase * cartesian.kappa, 1.0)
 
-        # make Cartesian and Curvilinear Trajectory
-        cartTraj = Trajectory(self.x_0.time_step, cart_list)
+        # Use a list comprehension to create ReactivePlannerState instances
+        cart_list = [
+            ReactivePlannerState(
+                time_step=int(time_step),  # Convert numpy int64 to Python int
+                position=position,
+                orientation=orientation,
+                velocity=velocity,
+                acceleration=acceleration,
+                yaw_rate=yaw_rate,
+                steering_angle=steering_angle
+            )
+            for time_step, position, orientation, velocity, acceleration, yaw_rate, steering_angle in zip(
+                time_steps, positions, orientations, velocities, accelerations, yaw_rates, steering_angles)
+        ]
 
-        return cartTraj
+        return Trajectory(x_0.time_step, cart_list)
 
     def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState], obstacle_id: int = 42):
         """
