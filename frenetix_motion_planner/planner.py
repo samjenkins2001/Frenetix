@@ -572,6 +572,8 @@ class Planner:
                 obs = create_collision_object(co)
                 cc_scenario.add_collision_object(obs)
             for co in scenario.dynamic_obstacles:
+                if co.obstacle_id == self.agent_id:
+                    continue
                 tvo = create_collision_object(co)
                 cc_scenario.add_collision_object(tvo)
             _, road_boundary_sg_obb = create_road_boundary_obstacle(scenario)

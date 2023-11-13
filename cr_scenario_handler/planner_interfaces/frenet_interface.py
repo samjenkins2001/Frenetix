@@ -219,7 +219,7 @@ class FrenetPlannerInterface(PlannerInterface):
         # Set Planner Subscriptions
         # **************************
         self.planner.update_externals(x_0=self.x_0, x_cl=self.x_cl, desired_velocity=self.desired_velocity,
-                                      predictions=self.predictions)
+                                      predictions=self.predictions, scenario=self.scenario)
 
     def plan(self):
         """ Execute one planing step.
