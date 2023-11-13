@@ -31,6 +31,7 @@ def run_simulation_wrapper(scenario_info):
 
 def run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp):
     config = ConfigurationBuilder.build_configuration(scenario_path + ".xml", dir_config_default='defaults')
+    simulation = None
     try:
         if not start_multiagent:
             # run_planner(config, log_path, mod_path, use_cpp)
@@ -43,7 +44,8 @@ def run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp)
     except Exception as e:
         error_traceback = traceback.format_exc()  # This gets the entire error traceback
         with open('logs/log_failures.csv', 'a', newline='') as f:
-            csv.writer(f).writerow([log_path.split("/")[-1], " --> CODE ERROR: ", str(e), error_traceback])
+            csv.writer(f).writerow([log_path.split("/")[-1], "In Timestep: ", str(simulation.current_timestep),
+                                    " --> CODE ERROR: ", str(e), error_traceback, "\n\n"])
         print(error_traceback)
 
 
@@ -82,14 +84,15 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
-    scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name
+    scenario_name = "DEU_Flensburg-17_1_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")  # Change to CommonRoad scenarios folder if needed.
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
     scenario_files = get_scenario_list(scenario_folder, example_scenarios_list, use_specific_scenario_list)
 
-    if evaluation_pipeline:
-        with concurrent.futures.ProcessPoolExecutor() as executor:
+    if evaluation_pipeline and not start_multiagent:
+        num_workers = 6  # or any number you choose based on your resources and requirements
+        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Create a list of tuples that will be passed to run_simulation_wrapper
             scenario_info_list = [(scenario_file, mod_path, scenario_folder, start_multiagent, use_cpp)
                                   for scenario_file in scenario_files]

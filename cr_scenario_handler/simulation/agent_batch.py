@@ -281,6 +281,9 @@ class AgentBatch (Process):
                 print(f"[Batch {self.agent_id_list}] Agent {agent.id} terminated: {msg}")
                 # Terminate all agents simultaneously
                 terminated_agent_list.append(agent)
+                with open(os.path.join(agent.mod_path, "logs", "score_overview.csv"), 'a') as file:
+                    line = str(agent.scenario.scenario_id) + ", Timestep: " + str(self.current_timestep) + " --> " + msg + "\n"
+                    file.write(line)
             else:
                 # save dummy obstacle
                 self.dummy_obstacle_list.append(dummy_obstacle)

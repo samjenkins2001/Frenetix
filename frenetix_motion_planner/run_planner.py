@@ -303,7 +303,7 @@ def run_planner(config, log_path, mod_path, use_cpp):
         msg_logger.info("Scenario Aborted! Maximum Time Step Reached!")
 
     if not planner.goal_message == "Scenario Successful!":
-        with open(os.path.join(mod_path, "logs", "log_failures.csv"), 'a') as file:
+        with open(os.path.join(mod_path, "logs", "score_overview.csv"), 'a') as file:
             line = str(scenario.scenario_id) + "\n"
             file.write(line)
 
