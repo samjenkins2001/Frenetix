@@ -3,6 +3,7 @@ import random
 import sys
 import csv
 import traceback
+import concurrent.futures
 from os import listdir
 from os.path import isfile, join
 from frenetix_motion_planner.run_planner import run_planner
@@ -19,6 +20,31 @@ def get_scenario_list(scenario_folder, example_scenarios_list, use_specific_scen
         scenario_files = read_scenario_list(example_scenarios_list)
         random.shuffle(scenario_files)
     return scenario_files
+
+
+def run_simulation_wrapper(scenario_info):
+    scenario_file, mod_path, scenario_folder, start_multiagent, use_cpp = scenario_info
+    scenario_path = os.path.join(scenario_folder, scenario_file)
+    log_path = "./logs/" + scenario_file.split("/")[-1]
+    run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp)
+
+
+def run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp):
+    config = ConfigurationBuilder.build_configuration(scenario_path + ".xml", dir_config_default='defaults')
+    try:
+        if not start_multiagent:
+            # run_planner(config, log_path, mod_path, use_cpp)
+            simulation = Simulation(config, log_path, mod_path)
+            simulation.run_simulation()
+        else:
+            # Works only with wale-net. Ground Truth Prediction not possible!
+            simulation = Simulation(config, log_path, mod_path)
+            simulation.run_simulation()
+    except Exception as e:
+        error_traceback = traceback.format_exc()  # This gets the entire error traceback
+        with open('logs/log_failures.csv', 'a', newline='') as f:
+            csv.writer(f).writerow([log_path.split("/")[-1], " --> CODE ERROR: ", str(e), error_traceback])
+        print(error_traceback)
 
 
 def main():
@@ -46,7 +72,7 @@ def main():
     # *********************************************************
     # Link a Scenario Folder & Start many Scenarios to evaluate
     # *********************************************************
-    evaluation_pipeline = False
+    evaluation_pipeline = True
 
     # ******************************************************************************************************
     # Setup a specific scenario list to evaluate. The scenarios in the list have to be in the example folder
@@ -62,30 +88,18 @@ def main():
 
     scenario_files = get_scenario_list(scenario_folder, example_scenarios_list, use_specific_scenario_list)
 
-    number_of_runs = len(scenario_files) if evaluation_pipeline else 1
+    if evaluation_pipeline:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            # Create a list of tuples that will be passed to run_simulation_wrapper
+            scenario_info_list = [(scenario_file, mod_path, scenario_folder, start_multiagent, use_cpp)
+                                  for scenario_file in scenario_files]
+            results = executor.map(run_simulation_wrapper, scenario_info_list)
 
-    for runs in range(0, number_of_runs):
-
-        scenario_path = os.path.join(scenario_folder, scenario_files[runs]) if evaluation_pipeline \
-            else os.path.join(scenario_folder, scenario_name)
-
-        config = ConfigurationBuilder.build_configuration(scenario_path + ".xml", dir_config_default='defaults')
-        log_path = "./logs/"+scenario_path.split("/")[-1]
-
-        try:
-            if not start_multiagent:
-                # run_planner(config, log_path, mod_path, use_cpp)
-                simulation = Simulation(config, log_path, mod_path)
-                simulation.run_simulation()
-            else:
-                # Works only with wale-net. Ground Truth Prediction not possible!
-                simulation = Simulation(config, log_path, mod_path)
-                simulation.run_simulation()
-        except Exception as e:
-            error_traceback = traceback.format_exc()  # This gets the entire error traceback
-            with open('logs/log_failures.csv', 'a', newline='') as f:
-                csv.writer(f).writerow([log_path.split("/")[-1], " --> CODE ERROR: ", str(e), error_traceback])
-            print(error_traceback)
+    else:
+        # If not in evaluation_pipeline mode, just run one scenario
+        scenario_path = os.path.join(scenario_folder, scenario_name)
+        log_path = "./logs/" + scenario_name
+        run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp)
 
 
 if __name__ == '__main__':
