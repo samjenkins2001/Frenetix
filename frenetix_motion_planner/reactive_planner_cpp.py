@@ -273,6 +273,9 @@ class ReactivePlannerCpp(Planner):
                 elif trajectory.valid:
                     infeasible_trajectories.append(trajectory)
 
+            if len(feasible_trajectories) + len(infeasible_trajectories) < 1:
+                msg_logger.critical("No Valid Trajectories!")
+
             self.infeasible_kinematics_percentage = float(len(feasible_trajectories)
                                                     / (len(feasible_trajectories) + len(infeasible_trajectories))) * 100
 

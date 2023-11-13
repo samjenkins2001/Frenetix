@@ -37,12 +37,12 @@ class ReactivePlannerPython(Planner):
     """
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
-    def __init__(self, config, scenario, planning_problem, log_path, work_dir):
+    def __init__(self, config, scenario, planning_problem, log_path, work_dir, agent_id):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
         """
-        super().__init__(config, scenario, planning_problem, log_path, work_dir)
+        super().__init__(config, scenario, planning_problem, log_path, work_dir, agent_id)
 
         # **************************
         # Cost Function Setting
