@@ -82,7 +82,7 @@ class ReactivePlannerCpp(Planner):
                 predicted_path[time_step] = pwc
 
             # Store the resulting predicted path
-            self.predictionsForCpp[key] = frenetix.PredictedObject(key, predicted_path)
+            self.predictionsForCpp[key] = frenetix.PredictedObject(int(key), predicted_path)
 
     def set_cost_function(self, cost_weights):
         self.config.cost.cost_weights = cost_weights
@@ -258,8 +258,8 @@ class ReactivePlannerCpp(Planner):
             self.handler.reset_Trajectories()
             self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
 
-            if not self.config.debug.multiproc or (self.config.multiagent.multiprocessing and
-                                                   self.config.multiagent.use_multiagent):
+            if not self.config.debug.multiproc or (self.config.multiagent.use_multiagent and
+                                                   not self.config.multiagent.multiprocessing):
                 self.handler.evaluate_all_current_functions(True)
             else:
                 self.handler.evaluate_all_current_functions_concurrent(True)
