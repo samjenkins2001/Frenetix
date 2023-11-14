@@ -34,9 +34,11 @@ def run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp)
     simulation = None
     try:
         if not start_multiagent:
-            # run_planner(config, log_path, mod_path, use_cpp)
-            simulation = Simulation(config, log_path, mod_path)
-            simulation.run_simulation()
+            if not use_cpp:
+                run_planner(config, log_path, mod_path, use_cpp)
+            else:
+                simulation = Simulation(config, log_path, mod_path)
+                simulation.run_simulation()
         else:
             # Works only with wale-net. Ground Truth Prediction not possible!
             simulation = Simulation(config, log_path, mod_path)
@@ -84,7 +86,7 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
-    scenario_name = "DEU_Flensburg-17_1_T-1"  # do not add .xml format to the name
+    scenario_name = "BEL_Putte-7_5_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")  # Change to CommonRoad scenarios folder if needed.
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
@@ -92,6 +94,9 @@ def main():
 
     if evaluation_pipeline and not start_multiagent:
         num_workers = 6  # or any number you choose based on your resources and requirements
+        with open(os.path.join(mod_path, "logs", "score_overview.csv"), 'a') as file:
+            line = "scenario;timestep;result\n"
+            file.write(line)
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Create a list of tuples that will be passed to run_simulation_wrapper
             scenario_info_list = [(scenario_file, mod_path, scenario_folder, start_multiagent, use_cpp)

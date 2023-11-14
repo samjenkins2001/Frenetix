@@ -282,7 +282,7 @@ class AgentBatch (Process):
                 # Terminate all agents simultaneously
                 terminated_agent_list.append(agent)
                 with open(os.path.join(agent.mod_path, "logs", "score_overview.csv"), 'a') as file:
-                    line = str(agent.scenario.scenario_id) + ", Timestep: " + str(self.current_timestep) + " --> " + msg + "\n"
+                    line = str(agent.scenario.scenario_id) + ";" + str(self.current_timestep) + ";" + msg + "\n"
                     file.write(line)
             else:
                 # save dummy obstacle
