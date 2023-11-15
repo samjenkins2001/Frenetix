@@ -1,20 +1,12 @@
-# show/save plots
+# Trajectory Debug Information
 save_all_traj: False
 save_unweighted_costs: False
 log_risk: False # Doesn't work for ground_truth prediction!
-show_plots: False
-save_plots: False
-evaluation: False
-collision_report: True
-gif: False
-# plot vehicle position with x_y distance in meters. 0=Standard Plot
-plot_window_dyn: 30
-# draw obstacles with vehicle icons
-draw_icons: True
-# draw sampled trajectory set
 draw_traj_set: True
-
 kinematic_debug: True
+
+# Collision Report Information
+collision_report: True
 
 # Messages Logging
 # Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL

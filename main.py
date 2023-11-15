@@ -1,48 +1,27 @@
 import os
-import random
 import sys
 import csv
 import traceback
 import concurrent.futures
-from os import listdir
-from os.path import isfile, join
-from frenetix_motion_planner.run_planner import run_planner
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
-from cr_scenario_handler.utils.general import read_scenario_list
-
-
-def get_scenario_list(scenario_folder, example_scenarios_list, use_specific_scenario_list):
-    if not use_specific_scenario_list:
-        scenario_files = [f.split(".")[-2] for f in listdir(scenario_folder) if isfile(join(scenario_folder, f))]
-        random.shuffle(scenario_files)
-    else:
-        scenario_files = read_scenario_list(example_scenarios_list)
-        random.shuffle(scenario_files)
-    return scenario_files
+from cr_scenario_handler.utils.general import get_scenario_list
 
 
 def run_simulation_wrapper(scenario_info):
-    scenario_file, mod_path, scenario_folder, start_multiagent, use_cpp = scenario_info
-    scenario_path = os.path.join(scenario_folder, scenario_file)
-    log_path = "./logs/" + scenario_file.split("/")[-1]
-    run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp)
+    scenario_file, scenario_folder, mod_path, use_cpp = scenario_info
+    run_simulation(scenario_file, scenario_folder, mod_path, use_cpp)
 
 
-def run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp):
-    config = ConfigurationBuilder.build_configuration(scenario_path + ".xml", dir_config_default='defaults')
+def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp):
+    log_path = "./logs/" + scenario_name
+    config_sim = ConfigurationBuilder.build_sim_configuration(scenario_name, scenario_folder, mod_path)
+    config_planner = ConfigurationBuilder.build_frenetplanner_configuration(scenario_name)
+
     simulation = None
     try:
-        if not start_multiagent:
-            if not use_cpp:
-                run_planner(config, log_path, mod_path, use_cpp)
-            else:
-                simulation = Simulation(config, log_path, mod_path)
-                simulation.run_simulation()
-        else:
-            # Works only with wale-net. Ground Truth Prediction not possible!
-            simulation = Simulation(config, log_path, mod_path)
-            simulation.run_simulation()
+        simulation = Simulation(config_sim, config_planner, use_cpp)
+        simulation.run_simulation()
     except Exception as e:
         error_traceback = traceback.format_exc()  # This gets the entire error traceback
         with open('logs/log_failures.csv', 'a', newline='') as f:
@@ -72,6 +51,8 @@ def main():
     # Start Multiagent Problem. Does not work for every Scenario and Setting. Try "ZAM_Tjunction-1_42_T-1"
     # ****************************************************************************************************
     start_multiagent = False
+    if not use_cpp and start_multiagent:
+        raise IOError("Starting Multiagent with python is strongly not recommended!")
 
     # *********************************************************
     # Link a Scenario Folder & Start many Scenarios to evaluate
@@ -87,10 +68,11 @@ def main():
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
     scenario_name = "ZAM_Tjunction-1_180_T-1"  # do not add .xml format to the name
-    scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")  # Change to CommonRoad scenarios folder if needed.
+    scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
-    scenario_files = get_scenario_list(scenario_folder, example_scenarios_list, use_specific_scenario_list)
+    scenario_files = get_scenario_list(scenario_name, scenario_folder, evaluation_pipeline, example_scenarios_list,
+                                       use_specific_scenario_list)
 
     if evaluation_pipeline and not start_multiagent:
         num_workers = 6  # or any number you choose based on your resources and requirements
@@ -99,15 +81,13 @@ def main():
             file.write(line)
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Create a list of tuples that will be passed to run_simulation_wrapper
-            scenario_info_list = [(scenario_file, mod_path, scenario_folder, start_multiagent, use_cpp)
+            scenario_info_list = [(scenario_file, scenario_folder, mod_path, use_cpp)
                                   for scenario_file in scenario_files]
             results = executor.map(run_simulation_wrapper, scenario_info_list)
 
     else:
         # If not in evaluation_pipeline mode, just run one scenario
-        scenario_path = os.path.join(scenario_folder, scenario_name)
-        log_path = "./logs/" + scenario_name
-        run_simulation(scenario_path, mod_path, log_path, start_multiagent, use_cpp)
+        run_simulation(scenario_files[0], scenario_folder, mod_path, use_cpp)
 
 
 if __name__ == '__main__':

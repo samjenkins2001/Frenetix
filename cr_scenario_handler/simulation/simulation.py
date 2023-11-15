@@ -12,6 +12,7 @@ from multiprocessing import Queue
 from queue import Empty
 from typing import Tuple, Optional
 import random
+from omegaconf import OmegaConf
 
 # commonroad-io
 from commonroad.scenario.state import CustomState
@@ -19,7 +20,6 @@ from commonroad.scenario.state import CustomState
 # reactive planner
 from cr_scenario_handler.utils.visualization import make_gif
 from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
-from cr_scenario_handler.utils.configuration import Configuration
 
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.scenario.trajectory import Trajectory
@@ -40,7 +40,7 @@ import cr_scenario_handler.utils.prediction_helpers as ph
 
 class Simulation:
 
-    def __init__(self, config: Configuration, log_path: str, mod_path: str):
+    def __init__(self, config_sim, config_planner, use_cpp: bool = False):
         """ Main class for running a planner on a scenario.
 
         Manages the global configuration, creates and manages agent batches,
@@ -56,9 +56,12 @@ class Simulation:
         """
 
         # Configuration
-        self.config = config
-        self.log_path = log_path
-        self.mod_path = mod_path
+        self.config = config_sim
+        self.config_simulation = config_sim.simulation
+        self.config_visu = config_sim.visualization
+
+        self.log_path = self.config_simulation.log_path
+        self.mod_path = self.config_simulation.mod_path
 
         # Create and preprocess the scenario, find agent IDs and create planning problems
         self.scenario = None
@@ -140,9 +143,9 @@ class Simulation:
 
         batch_list: List[Tuple[AgentBatch, Optional[Queue], Optional[Queue], List[int]]] = []
 
-        if not self.config.multiagent.multiprocessing \
+        if not self.config_simulation.multiprocessing \
                 or len(self.agent_id_list) < 2 \
-                or self.config.multiagent.num_procs < 3:
+                or self.config_simulation.num_procs < 3:
             # Multiprocessing disabled or useless, run single process
             batch_list.append((AgentBatch(self.agent_id_list, self.planning_problem_set, self.scenario,
                                           self.config, self.log_path, self.mod_path,
@@ -153,7 +156,7 @@ class Simulation:
             batch_list = []
 
             # We need at least one agent per batch, and one process for the main simulation
-            num_batches = self.config.multiagent.num_procs - 1
+            num_batches = self.config_simulation.num_procs - 1
             if num_batches > len(self.agent_id_list):
                 num_batches = len(self.agent_id_list)
 
@@ -180,7 +183,7 @@ class Simulation:
         """
 
         # Don't create additional agents if we run single agent
-        if not self.config.multiagent.use_multiagent:
+        if not self.config_simulation.use_multiagent:
             return []
 
         # Find all dynamic obstacles in the scenario
@@ -190,9 +193,9 @@ class Simulation:
         all_obs_ids = list(filter(lambda id: self.scenario.obstacle_by_id(id).obstacle_type in allowed_types,
                              mh.get_all_obstacle_ids(self.scenario)))
 
-        if self.config.multiagent.use_specific_agents:
+        if self.config_simulation.use_specific_agents:
             # Agents were selected by the user
-            agent_id_list = self.config.multiagent.agent_ids
+            agent_id_list = self.config_simulation.agent_ids
             for agent_ids_check in agent_id_list:
                 if agent_ids_check not in all_obs_ids:
                     raise ValueError("Selected Obstacle IDs not existent in Scenario, "
@@ -201,16 +204,16 @@ class Simulation:
         else:
             agent_id_list = all_obs_ids
 
-        if self.config.multiagent.number_of_agents < 0:
+        if self.config_simulation.number_of_agents < 0:
             # Use all obstacles as agents
             return agent_id_list
-        elif self.config.multiagent.number_of_agents < len(agent_id_list):
-            if self.config.multiagent.select_agents_randomly:
+        elif self.config_simulation.number_of_agents < len(agent_id_list):
+            if self.config_simulation.select_agents_randomly:
                 # Choose agents randomly
-                agent_id_list = random.sample(agent_id_list, self.config.multiagent.number_of_agents)
+                agent_id_list = random.sample(agent_id_list, self.config_simulation.number_of_agents)
             else:
                 # Choose the first few obstacles in the scenario
-                agent_id_list = agent_id_list[:self.config.multiagent.number_of_agents]
+                agent_id_list = agent_id_list[:self.config_simulation.number_of_agents]
 
         return agent_id_list
 
