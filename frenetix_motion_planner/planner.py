@@ -27,7 +27,7 @@ from frenetix_motion_planner.trajectories import TrajectorySample
 
 from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from cr_scenario_handler.utils import helper_functions as hf
-from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
+from cr_scenario_handler.utils.goalcheck import GoalReachedChecker, get_goal_area_shape_group
 from cr_scenario_handler.utils.prediction_helpers import collision_checker_prediction
 
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
@@ -99,7 +99,7 @@ class Planner:
         self.cost_function = None
         self.goal_status = False
         self.full_goal_status = None
-        self.goal_area = hf.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
+        self.goal_area = get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
         self.occlusion_module = None
         self.goal_message = "Planner is in time step 0!"
 

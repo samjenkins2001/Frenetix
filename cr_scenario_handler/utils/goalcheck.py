@@ -7,6 +7,60 @@ __status__ = "Beta"
 
 """Provide a class for easy checking if a goal state is reached."""
 import copy
+from commonroad_dc.pycrcc import ShapeGroup
+from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
+
+
+def get_goal_area_shape_group(planning_problem, scenario):
+    """
+    Return a shape group that represents the goal area.
+
+    Args:
+        planning_problem (PlanningProblem): Considered planning problem.
+        scenario (Scenario): Considered scenario.
+
+    Returns:
+        ShapeGroup: Shape group representing the goal area.
+    """
+    # get goal area collision object
+    # the goal area is either given as lanelets
+    if (
+        hasattr(planning_problem.goal, "lanelets_of_goal_position")
+        and planning_problem.goal.lanelets_of_goal_position is not None
+    ):
+        # get the polygons of every lanelet
+        lanelets = []
+        for lanelet_id in planning_problem.goal.lanelets_of_goal_position[0]:
+            lanelets.append(
+                scenario.lanelet_network.find_lanelet_by_id(
+                    lanelet_id
+                ).convert_to_polygon()
+            )
+
+        # create a collision object from these polygons
+        goal_area_polygons = create_collision_object(lanelets)
+        goal_area_co = ShapeGroup()
+        for polygon in goal_area_polygons:
+            goal_area_co.add_shape(polygon)
+
+    # or the goal area is given as positions
+    elif hasattr(planning_problem.goal.state_list[0], "position"):
+        # get the polygons of every goal area
+        goal_areas = []
+        for goal_state in planning_problem.goal.state_list:
+            goal_areas.append(goal_state.position)
+
+        # create a collision object for these polygons
+        goal_area_polygons = create_collision_object(goal_areas)
+        goal_area_co = ShapeGroup()
+        for polygon in goal_area_polygons:
+            goal_area_co.add_shape(polygon)
+
+    # or it is a survival scenario
+    else:
+        goal_area_co = None
+
+    return goal_area_co
 
 
 class GoalReachedChecker:
