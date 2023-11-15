@@ -11,8 +11,16 @@ from copy import deepcopy
 import logging
 from frenetix_motion_planner.utility.logging_helpers import messages_logger_initialization
 
-# commonroad-io
+from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
+from commonroad.geometry.shape import Rectangle
+
+# commonroad scenario handler
 from cr_scenario_handler.utils.collision_report import coll_report
+from cr_scenario_handler.utils.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
+from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, \
+    plot_inputs, create_full_solution_trajectory
+from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
+import cr_scenario_handler.utils.prediction_helpers as ph
 
 # commonroad-route-planner
 from commonroad_route_planner.route_planner import RoutePlanner
@@ -21,20 +29,12 @@ from commonroad_route_planner.route_planner import RoutePlanner
 from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
 from frenetix_motion_planner.state import ReactivePlannerState
-from frenetix_motion_planner.utility.visualization import visualize_planner_at_timestep, plot_final_trajectory, make_gif
-from cr_scenario_handler.utils.evaluation import create_planning_problem_solution, reconstruct_inputs, plot_states, \
-    plot_inputs, reconstruct_states, create_full_solution_trajectory, check_acceleration
-
-from frenetix_motion_planner.utility import helper_functions as hf
-from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-from commonroad.geometry.shape import Rectangle
-
-from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
-
-import frenetix_motion_planner.prediction_helpers as ph
-from behavior_planner.behavior_module import BehaviorModule
+import cr_scenario_handler.utils.helper_functions as hf
 
 from frenetix_motion_planner.occlusion_planning.occlusion_module import OcclusionModule
+
+from behavior_planner.behavior_module import BehaviorModule
+
 
 msg_logger = logging.getLogger("Message_logger")
 

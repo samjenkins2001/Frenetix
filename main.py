@@ -86,7 +86,7 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
-    scenario_name = "BEL_Putte-7_5_T-1"  # do not add .xml format to the name
+    scenario_name = "ZAM_Tjunction-1_180_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")  # Change to CommonRoad scenarios folder if needed.
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 

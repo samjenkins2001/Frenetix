@@ -1,32 +1,60 @@
-__author__ = "Maximilian Geisslinger, Rainer Trauth"
+__author__ = "Rainer Trauth"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
+import logging
 import os
 from datetime import datetime
 import subprocess
-import zipfile
-import logging
 import math
-import ruamel.yaml as yaml
-import pickle
-import yaml as yml
-import matplotlib.colors as colors
+import zipfile
 import numpy as np
+import ruamel.yaml as yaml
+import yaml as yml
+import pickle
+from shapely.geometry import Point
+from commonroad.geometry.shape import Polygon
+from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
+import commonroad_dc.pycrcc as pycrcc
+from commonroad_dc.pycrcc import ShapeGroup
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import (
     create_collision_object,
 )
-from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
-from commonroad_dc.pycrcc import ShapeGroup
-import commonroad_dc.pycrcc as pycrcc
-from shapely.geometry import Point
-from commonroad.geometry.shape import Polygon
 
 # get logger
 msg_logger = logging.getLogger("Message_logger")
+
+
+def calc_remaining_time_steps(
+    ego_state_time: float, t: float, planning_problem, dt: float
+):
+    """
+    Get the minimum and maximum amount of remaining time steps.
+
+    Args:
+        ego_state_time (float): Current time of the state of the ego vehicle.
+        t (float): Checked time.
+        planning_problem (PlanningProblem): Considered planning problem.
+        dt (float): Time step size of the scenario.
+
+    Returns:
+        int: Minimum remaining time steps.
+        int: Maximum remaining time steps.
+    """
+    considered_time_step = int(ego_state_time + t / dt)
+    if hasattr(planning_problem.goal.state_list[0], "time_step"):
+        min_remaining_time = (
+            planning_problem.goal.state_list[0].time_step.start - considered_time_step
+        )
+        max_remaining_time = (
+            planning_problem.goal.state_list[0].time_step.end - considered_time_step
+        )
+        return min_remaining_time, max_remaining_time
+    else:
+        return False
 
 
 def calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velocity=None) -> float:
@@ -112,33 +140,45 @@ def calculate_desired_velocity(scenario, planning_problem, x_0, DT, desired_velo
     return desired_velocity_new
 
 
-def calc_remaining_time_steps(
-    ego_state_time: float, t: float, planning_problem, dt: float
-):
+def extend_points(points):
+    """Extend the list of points with additional points in the orientation of the line between the two first points."""
+    p1, p2 = points[0], points[1]
+    delta_x = p2[0] - p1[0]
+    delta_y = p2[1] - p1[1]
+
+    dist = distance(points[0], points[1])
+    num_new_points = int(5/dist)
+
+    new_points = []
+    for i in range(1, num_new_points + 1):
+        new_point = (p1[0] - i * delta_x, p1[1] - i * delta_y)
+        new_points.append(new_point)
+
+    # Stack new_points and points and convert them to a numpy array
+    return np.vstack((new_points[::-1], points))
+
+
+def extend_rep_path(ref_path, init_pos):
+    """This function is needed due to the fact that we have to shift the planning position of the reactive planner
+    to the rear axis. In some scenatios the ref path is not long enough to locate the initial position in curv state"""
+    close_point = min(ref_path, key=lambda point: distance(init_pos, point))
+    if close_point[0] == ref_path[0, 0] and close_point[1] == ref_path[0, 1]:
+        ref_path = extend_points(ref_path)
+    return ref_path
+
+
+def distance(pos1: np.array, pos2: np.array):
     """
-    Get the minimum and maximum amount of remaining time steps.
+    Return the euclidean distance between 2 points.
 
     Args:
-        ego_state_time (float): Current time of the state of the ego vehicle.
-        t (float): Checked time.
-        planning_problem (PlanningProblem): Considered planning problem.
-        dt (float): Time step size of the scenario.
+        pos1 (np.array): First point.
+        pos2 (np.array): Second point.
 
     Returns:
-        int: Minimum remaining time steps.
-        int: Maximum remaining time steps.
+        float: Distance between point 1 and point 2.
     """
-    considered_time_step = int(ego_state_time + t / dt)
-    if hasattr(planning_problem.goal.state_list[0], "time_step"):
-        min_remaining_time = (
-            planning_problem.goal.state_list[0].time_step.start - considered_time_step
-        )
-        max_remaining_time = (
-            planning_problem.goal.state_list[0].time_step.end - considered_time_step
-        )
-        return min_remaining_time, max_remaining_time
-    else:
-        return False
+    return np.linalg.norm(pos1 - pos2)
 
 
 def create_coll_object(trajectory, vehicle_params, ego_state):
@@ -346,20 +386,6 @@ def get_goal_area_shape_group(planning_problem, scenario):
     return goal_area_co
 
 
-def distance(pos1: np.array, pos2: np.array):
-    """
-    Return the euclidean distance between 2 points.
-
-    Args:
-        pos1 (np.array): First point.
-        pos2 (np.array): Second point.
-
-    Returns:
-        float: Distance between point 1 and point 2.
-    """
-    return np.linalg.norm(pos1 - pos2)
-
-
 def find_lanelet_by_position_and_orientation(lanelet_network, position, orientation):
     """Return the IDs of lanelets within a certain radius calculated from an initial state (position and orientation).
 
@@ -442,143 +468,5 @@ def calculate_angle_between_lines(line_1, line_2):
         angle_degrees = angle_degrees-360
     return angle_degrees
 
-
-def ignore_vehicles_in_cone_angle(predictions, ego_pose, veh_length, cone_angle, cone_safety_dist):
-    """Ignore vehicles behind ego for prediction if inside specific cone.
-
-    Cone is spaned from center of rear-axle (cog - length / 2.0)
-
-    cone_angle = Totel Angle of Cone. 0.5 per side (right, left)
-
-    return bool: True if vehicle is ignored, i.e. inside cone
-    """
-
-    ego_pose = np.array([ego_pose.initial_state.position[0], ego_pose.initial_state.position[1], ego_pose.initial_state.orientation])
-    cone_angle = cone_angle / 180 * np.pi
-    ignore_pred_list = list()
-
-    for i in predictions:
-        ignore_object = True
-        obj_pose = np.array(
-            [predictions[i]['pos_list'][0][0],
-            predictions[i]['pos_list'][0][1], predictions[i]['orientation_list'][0]]
-        )
-
-        # Function not necessary since we already have global coordinates
-        # obj_pose[:2] += rotate_loc_glob(
-        #     np.array([veh_length / 2.0, 0.0]), obj_pose[2], matrix=False
-        # )
-
-        loc_obj_pos = rotate_glob_loc(
-            obj_pose[:2] - ego_pose[:2], ego_pose[2], matrix=False
-        )
-        loc_obj_pos[0] += veh_length / 2.0
-
-        if loc_obj_pos[0] > -cone_safety_dist:
-            ignore_object = False
-
-        obj_angle = pi_range(math.atan2(loc_obj_pos[1], loc_obj_pos[0]) - np.pi)
-
-        if abs(obj_angle) > cone_angle / 2.0:
-            ignore_object = False
-        if ignore_object:
-            ignore_pred_list.append(i)
-
-    if len(ignore_pred_list) > 0:
-        for obj in range(len(ignore_pred_list)):
-            del predictions[ignore_pred_list[obj]]
-
-    return predictions
-
-
-def pi_range(yaw):
-    """Clip yaw to (-pi, +pi]."""
-    if yaw <= -np.pi:
-        yaw += 2 * np.pi
-        return yaw
-    elif yaw > np.pi:
-        yaw -= 2 * np.pi
-        return yaw
-    return yaw
-
-
-def rotate_glob_loc(global_matrix, rot_angle, matrix=True):
-    """
-    helper function to rotate matrices from global to local coordinates (vehicle coordinates)
-
-    Angle Convention:
-    yaw = 0: local x-axis parallel to global y-axis
-    yaw = -np.pi / 2: local x-axis parallel to global x-axis --> should result in np.eye(2)
-
-    rot_mat: Rotation from global to local (x_local = np.matmul(rot_mat, x_global))
-    """
-
-    rot_mat = np.array(
-        [
-            [np.cos(rot_angle), np.sin(rot_angle)],
-            [-np.sin(rot_angle), np.cos(rot_angle)],
-        ]
-    )
-
-    mat_temp = np.matmul(rot_mat, global_matrix)
-
-    if matrix:
-        return np.matmul(mat_temp, rot_mat.T)
-
-    return mat_temp
-
-
-def green_to_red_colormap():
-    """Define a colormap that fades from green to red."""
-    # This dictionary defines the colormap
-    cdict = {
-        "red": (
-            (0.0, 0.0, 0.0),  # no red at 0
-            (0.5, 1.0, 1.0),  # all channels set to 1.0 at 0.5 to create white
-            (1.0, 0.8, 0.8),
-        ),  # set to 0.8 so its not too bright at 1
-        "green": (
-            (0.0, 0.8, 0.8),  # set to 0.8 so its not too bright at 0
-            (0.5, 1.0, 1.0),  # all channels set to 1.0 at 0.5 to create white
-            (1.0, 0.0, 0.0),
-        ),  # no green at 1
-        "blue": (
-            (0.0, 0.0, 0.0),  # no blue at 0
-            (0.5, 1.0, 1.0),  # all channels set to 1.0 at 0.5 to create white
-            (1.0, 0.0, 0.0),
-        ),  # no blue at 1
-    }
-
-    # Create the colormap using the dictionary
-    GnRd = colors.LinearSegmentedColormap("GnRd", cdict)
-
-    return GnRd
-
-
-def extend_points(points):
-    """Extend the list of points with additional points in the orientation of the line between the two first points."""
-    p1, p2 = points[0], points[1]
-    delta_x = p2[0] - p1[0]
-    delta_y = p2[1] - p1[1]
-
-    dist = distance(points[0], points[1])
-    num_new_points = int(5/dist)
-
-    new_points = []
-    for i in range(1, num_new_points + 1):
-        new_point = (p1[0] - i * delta_x, p1[1] - i * delta_y)
-        new_points.append(new_point)
-
-    # Stack new_points and points and convert them to a numpy array
-    return np.vstack((new_points[::-1], points))
-
-
-def extend_rep_path(ref_path, init_pos):
-    """This function is needed due to the fact that we have to shift the planning position of the reactive planner
-    to the rear axis. In some scenatios the ref path is not long enough to locate the initial position in curv state"""
-    close_point = min(ref_path, key=lambda point: distance(init_pos, point))
-    if close_point[0] == ref_path[0, 0] and close_point[1] == ref_path[0, 1]:
-        ref_path = extend_points(ref_path)
-    return ref_path
 
 # EOF

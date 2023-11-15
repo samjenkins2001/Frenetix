@@ -22,12 +22,12 @@ from commonroad.planning.planning_problem import PlanningProblem, PlanningProble
 
 # reactive planner
 from cr_scenario_handler.utils.configuration import Configuration
-import frenetix_motion_planner.prediction_helpers as ph
+import cr_scenario_handler.utils.prediction_helpers as ph
+
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker
 
 # scenario handler
-from cr_scenario_handler.utils.multiagent_helpers import trajectory_to_obstacle
-from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep, make_gif
+import cr_scenario_handler.utils.visualization as viz
 from cr_scenario_handler.utils.evaluation import evaluate
 from cr_scenario_handler.planner_interfaces.frenet_interface import FrenetPlannerInterface
 
@@ -211,7 +211,7 @@ class Agent:
 
         # START TIMER
         comp_time_start = time.time()
-        error, new_trajectory = self.planner_interface.plan()
+        error, new_trajectory, optimal = self.planner_interface.plan()
         comp_time_end = time.time()
         # END TIMER
 
@@ -238,15 +238,16 @@ class Agent:
                 self.config.multiagent.show_all_individual_plots or \
                 self.id in self.config.multiagent.save_specific_individual_plots or \
                 self.config.multiagent.save_all_individual_plots:
-            visualize_multiagent_at_timestep(scenario=self.scenario,
-                                             planning_problem_set=PlanningProblemSet([self.planning_problem]),
-                                             agent_list=[self.ego_obstacle_list[-1]],
-                                             timestep=self.current_timestep,
-                                             config=self.config, log_path=self.log_path,
-                                             traj_set_list=[self.planner_interface.get_all_traj()],
-                                             ref_path_list=[self.planner_interface.get_ref_path()],
-                                             predictions=predictions, visible_area=visible_area,
-                                             plot_window=self.config.debug.plot_window_dyn)
+            viz.visualize_planner_at_timestep(scenario=self.scenario, planning_problem=self.planning_problem,
+                                              ego=self.planner_interface.planner.ego_vehicle_history[-1],
+                                              traj_set=self.planner_interface.planner.all_traj,
+                                              optimal_traj=optimal[0],
+                                              ref_path=self.planner_interface.planner.reference_path,
+                                              timestep=self.current_timestep, config=self.planner_interface.config,
+                                              predictions=predictions,
+                                              plot_window=self.planner_interface.config.debug.plot_window_dyn,
+                                              log_path=self.log_path,
+                                              visible_area=visible_area)
 
         self.current_timestep += 1
         return 0, self.ego_obstacle_list[-1]
@@ -260,7 +261,7 @@ class Agent:
         # make gif
         if self.id in self.config.multiagent.save_specific_individual_gifs or \
                 self.config.multiagent.save_all_individual_gifs:
-            make_gif(self.scenario,
+            viz.make_gif(self.config, self.scenario,
                      range(self.planning_problem.initial_state.time_step,
                            self.current_timestep),
                      self.log_path, duration=0.1)

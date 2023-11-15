@@ -11,25 +11,22 @@ from typing import List
 
 from commonroad.scenario.scenario import Scenario
 from commonroad.planning.planning_problem import PlanningProblem
-from commonroad.scenario.trajectory import Trajectory
 from commonroad.geometry.shape import Rectangle
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 
 from commonroad_dc import pycrcc
 
-from cr_scenario_handler.utils.configuration import Configuration
-
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
 from frenetix_motion_planner.state import ReactivePlannerState
-from frenetix_motion_planner.utility import helper_functions as hf
-
-from commonroad_route_planner.route_planner import RoutePlanner
-
-from behavior_planner.behavior_module import BehaviorModule
 from frenetix_motion_planner.occlusion_planning.occlusion_module import OcclusionModule
 
+from cr_scenario_handler.utils import helper_functions as hf
+from cr_scenario_handler.utils.configuration import Configuration
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 from cr_scenario_handler.utils.collision_report import coll_report
+
+from behavior_planner.behavior_module import BehaviorModule
+from commonroad_route_planner.route_planner import RoutePlanner
 
 
 class FrenetPlannerInterface(PlannerInterface):
@@ -252,5 +249,5 @@ class FrenetPlannerInterface(PlannerInterface):
         self.x_0 = deepcopy(self.planner.record_state_list[-1])
         self.x_cl = (optimal[2][1], optimal[3][1])
 
-        return 0, self.planner.ego_vehicle_history[-1].prediction.trajectory
+        return 0, self.planner.ego_vehicle_history[-1].prediction.trajectory, optimal
 

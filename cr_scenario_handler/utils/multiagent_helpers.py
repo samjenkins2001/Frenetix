@@ -18,7 +18,7 @@ from commonroad.scenario.state import State
 from commonroad.scenario.scenario import Scenario
 
 from cr_scenario_handler.utils.configuration import Configuration, VehicleConfiguration
-from frenetix_motion_planner import prediction_helpers as ph
+from cr_scenario_handler.utils import prediction_helpers as ph
 
 
 TIMEOUT = 20

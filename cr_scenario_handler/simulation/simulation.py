@@ -35,8 +35,7 @@ import cr_scenario_handler.utils.multiagent_helpers as mh
 from cr_scenario_handler.utils.multiagent_helpers import TIMEOUT
 from cr_scenario_handler.utils.multiagent_logging import *
 from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep
-
-import frenetix_motion_planner.prediction_helpers as ph
+import cr_scenario_handler.utils.prediction_helpers as ph
 
 
 class Simulation:

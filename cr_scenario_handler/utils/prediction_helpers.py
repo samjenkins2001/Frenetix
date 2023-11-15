@@ -9,6 +9,7 @@ __status__ = "Beta"
 
 import numpy as np
 import os
+import math
 import sys
 from commonroad.scenario.obstacle import ObstacleRole
 from commonroad_dc.collision.trajectory_queries import trajectory_queries
@@ -19,7 +20,7 @@ module_path = os.path.dirname(
 )
 sys.path.append(module_path)
 
-from frenetix_motion_planner.utility.helper_functions import create_tvobstacle, distance, ignore_vehicles_in_cone_angle
+from cr_scenario_handler.utils.helper_functions import create_tvobstacle, distance
 from wale_net_lite.wale_net import WaleNet
 from frenetix_motion_planner.utility.sensor_model import get_visible_objects
 from frenetix_motion_planner.utility import reachable_set
@@ -443,5 +444,90 @@ def main_prediction(predictor, scenario, visible_obstacles, time_step, DT, t_lis
 def load_walenet(scenario):
     predictor = WaleNet(scenario=scenario)
     return predictor
+
+
+def ignore_vehicles_in_cone_angle(predictions, ego_pose, veh_length, cone_angle, cone_safety_dist):
+    """Ignore vehicles behind ego for prediction if inside specific cone.
+
+    Cone is spaned from center of rear-axle (cog - length / 2.0)
+
+    cone_angle = Totel Angle of Cone. 0.5 per side (right, left)
+
+    return bool: True if vehicle is ignored, i.e. inside cone
+    """
+
+    ego_pose = np.array([ego_pose.initial_state.position[0], ego_pose.initial_state.position[1], ego_pose.initial_state.orientation])
+    cone_angle = cone_angle / 180 * np.pi
+    ignore_pred_list = list()
+
+    for i in predictions:
+        ignore_object = True
+        obj_pose = np.array(
+            [predictions[i]['pos_list'][0][0],
+            predictions[i]['pos_list'][0][1], predictions[i]['orientation_list'][0]]
+        )
+
+        # Function not necessary since we already have global coordinates
+        # obj_pose[:2] += rotate_loc_glob(
+        #     np.array([veh_length / 2.0, 0.0]), obj_pose[2], matrix=False
+        # )
+
+        loc_obj_pos = rotate_glob_loc(
+            obj_pose[:2] - ego_pose[:2], ego_pose[2], matrix=False
+        )
+        loc_obj_pos[0] += veh_length / 2.0
+
+        if loc_obj_pos[0] > -cone_safety_dist:
+            ignore_object = False
+
+        obj_angle = pi_range(math.atan2(loc_obj_pos[1], loc_obj_pos[0]) - np.pi)
+
+        if abs(obj_angle) > cone_angle / 2.0:
+            ignore_object = False
+        if ignore_object:
+            ignore_pred_list.append(i)
+
+    if len(ignore_pred_list) > 0:
+        for obj in range(len(ignore_pred_list)):
+            del predictions[ignore_pred_list[obj]]
+
+    return predictions
+
+
+def rotate_glob_loc(global_matrix, rot_angle, matrix=True):
+    """
+    helper function to rotate matrices from global to local coordinates (vehicle coordinates)
+
+    Angle Convention:
+    yaw = 0: local x-axis parallel to global y-axis
+    yaw = -np.pi / 2: local x-axis parallel to global x-axis --> should result in np.eye(2)
+
+    rot_mat: Rotation from global to local (x_local = np.matmul(rot_mat, x_global))
+    """
+
+    rot_mat = np.array(
+        [
+            [np.cos(rot_angle), np.sin(rot_angle)],
+            [-np.sin(rot_angle), np.cos(rot_angle)],
+        ]
+    )
+
+    mat_temp = np.matmul(rot_mat, global_matrix)
+
+    if matrix:
+        return np.matmul(mat_temp, rot_mat.T)
+
+    return mat_temp
+
+
+def pi_range(yaw):
+    """Clip yaw to (-pi, +pi]."""
+    if yaw <= -np.pi:
+        yaw += 2 * np.pi
+        return yaw
+    elif yaw > np.pi:
+        yaw -= 2 * np.pi
+        return yaw
+    return yaw
 
 # EOF

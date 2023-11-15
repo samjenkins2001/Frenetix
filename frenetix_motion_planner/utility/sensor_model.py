@@ -11,7 +11,6 @@ import os
 import numpy as np
 from commonroad.common.file_reader import CommonRoadFileReader
 from shapely.geometry import Point, Polygon
-import frenetix_motion_planner.utility.helper_functions as hf
 
 
 def get_visible_objects(scenario, time_step, ego_pos, ego_id=42, sensor_radius=50, occlusions=True, wall_buffer=0.0):

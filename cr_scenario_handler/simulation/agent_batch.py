@@ -20,8 +20,7 @@ from cr_scenario_handler.simulation.agent import Agent
 from cr_scenario_handler.utils.multiagent_helpers import get_predictions, TIMEOUT
 from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep, make_gif
 from cr_scenario_handler.utils.multiagent_logging import *
-
-from frenetix_motion_planner.utility.visualization import visualize_planner_at_timestep
+from cr_scenario_handler.utils.visualization import visualize_planner_at_timestep
 
 
 class AgentBatch (Process):
