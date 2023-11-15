@@ -18,7 +18,8 @@ import commonroad_dc.pycrcc as pycrcc
 
 # frenetix_motion_planner imports
 from frenetix_motion_planner.sampling_matrix import generate_sampling_matrix
-from frenetix_motion_planner.utility.utils_coordinate_system import CoordinateSystem, smooth_ref_path
+
+from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, smooth_ref_path
 
 import frenetix
 import frenetix.trajectory_functions

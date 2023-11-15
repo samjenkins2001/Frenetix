@@ -24,7 +24,7 @@ class SearchInterface(PlannerInterface):
         self.planning_problem = planning_problem
         self.log_path = log_path
 
-        name_file_motion_primitives = '../../../commonroad-search/SMP/maneuver_automaton/primitives/V_0.0_20.0_Vstep_2.0_SA_-1.066_1.066_SAstep_0.18_T_0.5_Model_BMW_320i.xml'
+        name_file_motion_primitives = '../commonroad-search/SMP/maneuver_automaton/primitives/V_0.0_20.0_Vstep_2.0_SA_-1.066_1.066_SAstep_0.18_T_0.5_Model_BMW_320i.xml'
         automaton = ManeuverAutomaton.generate_automaton(name_file_motion_primitives)
         self.planner = AStarSearch(scenario, planning_problem, automaton, plot_config=DefaultPlotConfig)
 

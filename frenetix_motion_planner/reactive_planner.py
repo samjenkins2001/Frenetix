@@ -21,7 +21,7 @@ import commonroad_dc.pycrcc as pycrcc
 # frenetix_motion_planner imports
 from frenetix_motion_planner.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from frenetix_motion_planner.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
-from frenetix_motion_planner.utility.utils_coordinate_system import CoordinateSystem, interpolate_angle, smooth_ref_path
+from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, interpolate_angle, smooth_ref_path
 from frenetix_motion_planner.cost_functions.cost_function import AdaptableCostFunction
 
 from frenetix_motion_planner.planner import Planner

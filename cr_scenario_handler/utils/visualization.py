@@ -10,12 +10,10 @@ from typing import List, Union, Dict
 
 import matplotlib
 from matplotlib import pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
-import matplotlib.cm as cm
-
 import imageio.v3 as iio
 import numpy as np
-
+import matplotlib.cm as cm
+import matplotlib.colors as colors
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.state import State, CustomState
 from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
@@ -33,7 +31,7 @@ from cr_scenario_handler.utils.configuration import Configuration
 from wale_net_lite.visualization import draw_uncertain_predictions
 
 # Color palette for plotting
-colors = ["#e3af22", "#d6e322", "#96e322", "#55e322", "#22e32f",
+colors_spec = ["#e3af22", "#d6e322", "#96e322", "#55e322", "#22e32f",
           "#22e36f", "#22e3af", "#22d6e3", "#2296e3", "#2255e3",
           "#2f22e3", "#6f22e3", "#af22e3", "#e322d6", "#e32296"]
 darkcolors = ["#9c0d00", "#8f9c00", "#5b9c00", "#279c00", "#009c0d",
@@ -126,7 +124,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     # draw occlusion map - first version
     if occlusion_map is not None:
-        cmap = LinearSegmentedColormap.from_list('rg', ["r", "y", "g"], N=10)
+        cmap = colors.LinearSegmentedColormap.from_list('rg', ["r", "y", "g"], N=10)
         scatter = rnd.ax.scatter(occlusion_map[:, 1], occlusion_map[:, 2], c=occlusion_map[:, 4], cmap=cmap, zorder=25, s=5)
         handles, labels = scatter.legend_elements(prop="colors", alpha=0.6)
         rnd.ax.legend(handles, labels, loc="upper right", title="Occlusion")
@@ -684,6 +682,6 @@ def green_to_red_colormap():
     }
 
     # Create the colormap using the dictionary
-    GnRd = LinearSegmentedColormap("GnRd", cdict)
+    GnRd = colors.LinearSegmentedColormap("GnRd", cdict)
 
     return GnRd

@@ -21,8 +21,8 @@ module_path = os.path.dirname(
 sys.path.append(module_path)
 
 from cr_scenario_handler.utils.helper_functions import create_tvobstacle, distance
+from cr_scenario_handler.utils.sensor_model import get_visible_objects
 from wale_net_lite.wale_net import WaleNet
-from frenetix_motion_planner.utility.sensor_model import get_visible_objects
 from frenetix_motion_planner.utility import reachable_set
 from frenetix_motion_planner.utility.responsibility import assign_responsibility_by_action_space
 
