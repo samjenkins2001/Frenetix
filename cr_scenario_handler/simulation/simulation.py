@@ -5,33 +5,23 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
-import os
 import time
-import timeit
-import warnings
-from math import ceil, isnan
+import math
 from multiprocessing import Queue
 import psutil
 from queue import Empty
-from typing import Tuple, Optional, List, Union
+from typing import List
 import random
-import logging
 import copy
-import numpy as np
-from commonroad.scenario.scenario import Scenario
+
 # commonroad-io
-
-
 from commonroad.scenario.state import CustomState
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
 import commonroad_dc.pycrcc as pycrcc
+
 # cr-scenario-handler
 import cr_scenario_handler.utils.general as general
 import cr_scenario_handler.utils.prediction_helpers as ph
-# import cr_scenario_handler.utils.multiagent_logging as ml
-import cr_scenario_handler.utils.collision_check as cc
-# from cr_scenario_handler.utils.general import load_scenario_and_planning_problem
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 from cr_scenario_handler.utils.visualization import make_gif
 
@@ -163,7 +153,7 @@ class Simulation:
         multi_agent_id_list = self._select_additional_agents()#scenario, agent_id_list)
 
         # Create PlanningProblems for additional agents
-        multi_agent_planning_problems =self._create_planning_problems_for_agent_obstacles(multi_agent_id_list)
+        multi_agent_planning_problems = self._create_planning_problems_for_agent_obstacles(multi_agent_id_list)
 
         # TODO WARUM?
         # for obs_id in multi_agent_id_list:
@@ -313,22 +303,18 @@ class Simulation:
 
         else:
 
-            # We need at least one agent per batch, and one process for the main simulation
-            num_batches = self._num_procs - 1
-            if num_batches > len(self.agent_id_list):
-                num_batches = len(self.agent_id_list)
+            chunk_size = math.ceil(len(self.agent_id_list) / self._num_procs)
+            chunks = [self.agent_id_list[ii * chunk_size:
+                                         min(len(self.agent_id_list), (ii + 1) * chunk_size)] for ii in
+                                         range(0, self._num_procs)]
 
-            batch_size = ceil(len(self.agent_id_list) / num_batches)
-
-            for i in range(num_batches):
+            for i, chunk in enumerate(chunks):
                 inqueue = Queue()
                 outqueue = Queue()
 
-                batch_list.append(AgentBatch(self.agent_id_list[i * batch_size:(i + 1) * batch_size],
-                                              self.planning_problem_set, self.scenario,
-                                              self.global_timestep,
-                                              self.config, self.log_path, self.mod_path,
-                                              outqueue, inqueue))
+                batch_list.append(AgentBatch(chunk, self.planning_problem_set, self.scenario, self.global_timestep,
+                                             config_planner, self.config, self.msg_logger, self.log_path, self.mod_path,
+                                             outqueue, inqueue))
 
         return batch_list
 
@@ -581,13 +567,9 @@ class Simulation:
                                             plot_window=self.config_visu.plot_window_dyn)
             else:
                 visualize_multiagent_scenario_at_timestep(self.scenario, self.planning_problem_set,
-                                                 self.running_agents_obs,
-                                                 timestep, self.config, self.log_path,
-                                                 # traj_set_list=self.traj_set_list,
-                                                 # ref_path_list=self.ref_path_list,
-                                                 traj_set_dict=self.agent_traj_set_dict,
-                                                 ref_path_dict=self.agent_ref_path_dict,
-                                                 predictions=self.global_predictions,
-                                                 visible_area=None,
-                                                 plot_window=self.config_visu.plot_window_dyn)
+                                                          self.running_agents_obs, timestep, self.config, self.log_path,
+                                                          traj_set_dict=self.agent_traj_set_dict,
+                                                          ref_path_dict=self.agent_ref_path_dict,
+                                                          predictions=self.global_predictions,
+                                                          plot_window=self.config_visu.plot_window_dyn)
 

@@ -17,7 +17,7 @@ path_output: logs/
 ###################################
 
 # Whether to run multi- or single agent.
-use_multiagent: False
+use_multiagent: True
 # If True, the vehicles specified in agent_ids are made agents,
 # otherwise, number_of_agents vehicles are randomly chosen.
 use_specific_agents: False
@@ -34,8 +34,8 @@ select_agents_randomly: True
 # Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
 msg_log_mode: INFO
 
-multiprocessing: False
-num_procs: 4
+multiprocessing: True
+num_procs: 6
 
 
 

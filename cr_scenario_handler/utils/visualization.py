@@ -184,13 +184,13 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
 
 
 def visualize_multiagent_scenario_at_timestep(scenario: Scenario, planning_problem_set: PlanningProblemSet,
-                                     agent_list: List[DynamicObstacle], timestep: int,
-                                     config: Configuration, log_path: str,
-                                     traj_set_list: List[List] = None,
-                                     ref_path_list: List[np.ndarray] = None,
-                                     predictions: dict = None, visible_area=None,
-                                     rnd: MPRenderer = None,
-                                     plot_window: int = None):
+                                              agent_list: List[DynamicObstacle], timestep: int,
+                                              config: Configuration, log_path: str,
+                                              traj_set_list: List[List] = None,
+                                              ref_path_list: List[np.ndarray] = None,
+                                              predictions: dict = None, visible_area=None,
+                                              rnd: MPRenderer = None,
+                                              plot_window: int = None):
     """
     Function to visualize planning result from the reactive planner for a given time step
     for all agents in a multiagent simulation.
