@@ -28,7 +28,7 @@ from frenetix_motion_planner.trajectories import TrajectorySample
 from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from cr_scenario_handler.utils import helper_functions as hf
 from cr_scenario_handler.utils.goalcheck import GoalReachedChecker, get_goal_area_shape_group
-from cr_scenario_handler.utils.prediction_helpers import collision_checker_prediction
+from cr_scenario_handler.utils.collision_check import collision_check_prediction
 
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
 import commonroad_dc.pycrcc as pycrcc
@@ -353,7 +353,7 @@ class Planner:
             # TODO: Check kinematic checks in cpp. no feasible traj available
 
             if self.use_prediction:
-                collision_detected = collision_checker_prediction(
+                collision_detected = collision_check_prediction(
                     predictions=self.predictions,
                     scenario=self.scenario,
                     ego_co=coll_obj,

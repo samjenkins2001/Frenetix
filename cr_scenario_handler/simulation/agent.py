@@ -24,7 +24,7 @@ from commonroad.prediction.prediction import TrajectoryPrediction
 import cr_scenario_handler.utils.prediction_helpers as ph
 import cr_scenario_handler.utils.multiagent_helpers as hf
 import cr_scenario_handler.utils.goalcheck as gc
-from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep, make_gif
+from cr_scenario_handler.utils.visualization import visualize_agent_at_timestep, make_gif
 from cr_scenario_handler.utils.multiagent_helpers import AgentStatus
 import cr_scenario_handler.planner_interfaces as planner_interfaces
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
@@ -118,7 +118,7 @@ class Agent:
                   and name == used_planner][0]
         except:
             raise ModuleNotFoundError(f"No such planner class found in planner_interfaces: {used_planner}")
-        self.planner = planner_interface(agent_id, config_planner, config_sim, scenario, planning_problem,
+        self.planner_interface = planner_interface(agent_id, config_planner, config_sim, scenario, planning_problem,
                                          self.log_path, self.mod_path)
 
         if config_sim.occlusion.use_occlusion_module:
@@ -128,11 +128,11 @@ class Agent:
 
     @property
     def reference_path(self):
-        return self.planner.ref_path
+        return self.planner_interface.ref_path
 
     @property
     def traj_set(self):
-        return self.planner.all_traj
+        return self.planner_interface.all_traj
 
     # def initialize_state_list(self):
     #     """ Initialize the recorded trajectory of the agent.
@@ -235,13 +235,13 @@ class Agent:
                 # **************************
                 # Set Planner Subscriptions
                 # **************************
-                self.planner.update_planner(self.scenario, self.predictions)
+                self.planner_interface.update_planner(self.scenario, self.predictions)
 
                 # **************************
                 # Execute Planner
                 # **************************
                 comp_time_start = time.time()
-                trajectory = self.planner.plan(self.current_timestep)
+                trajectory = self.planner_interface.plan(self.current_timestep)
                 comp_time_end = time.time()
                 # END TIMER
                 self.planning_times.append(comp_time_end - comp_time_start)
@@ -262,7 +262,7 @@ class Agent:
             if self.id in self.config_visu.show_specific_individual_plots or self.config_visu.show_all_individual_plots \
                 or self.id in self.config_visu.save_specific_individual_plots or self.config_visu.save_all_individual_plots:
 
-                visualize_multiagent_at_timestep(self.scenario, self.planning_problem,
+                visualize_agent_at_timestep(self.scenario, self.planning_problem,
                                                  [self.vehicle_history[-1]],
                                                  self.current_timestep, self.config, self.log_path,
                                                  # traj_set_list=self.traj_set_list,

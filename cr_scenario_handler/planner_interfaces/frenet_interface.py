@@ -23,6 +23,7 @@ from frenetix_motion_planner.occlusion_planning.occlusion_module import Occlusio
 
 from cr_scenario_handler.utils import helper_functions as hf
 import cr_scenario_handler.utils.multiagent_logging as lh
+from cr_scenario_handler.utils.utils_coordinate_system import extend_ref_path
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 from cr_scenario_handler.utils.collision_report import coll_report
 
@@ -98,7 +99,7 @@ class FrenetPlannerInterface(PlannerInterface):
         if not self.config_sim.behavior.use_behavior_planner:
             route_planner = RoutePlanner(scenario, planning_problem)
             self.reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
-            self.reference_path = hf.extend_ref_path(self.reference_path, self.x_0.position)
+            self.reference_path = extend_ref_path(self.reference_path, self.x_0.position)
         else:
             raise NotImplementedError
 

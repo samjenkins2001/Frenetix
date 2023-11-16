@@ -1,6 +1,6 @@
 # Global multiagent visualization
 show_plots: False
-save_plots: False
+save_plots: True
 evaluation: False
 
 save_gif: False

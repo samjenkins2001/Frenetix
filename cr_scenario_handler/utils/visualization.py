@@ -42,8 +42,8 @@ lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
                "#7069ff", "#a369ff", "#d569ff", "#ff69f8", "#ff69c5"]
 
 
-def visualize_planner_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
-                                  timestep: int, config: Configuration, log_path: str,
+def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
+                                  timestep: int, config, log_path: str,
                                   traj_set=None, optimal_traj=None, ref_path: np.ndarray = None,
                                   rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
                                   visible_area=None, occlusion_map=None):
@@ -55,7 +55,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     :param pos: positions of planned trajectory [(nx2) np.ndarray]
     :param timestep: current time step of scenario to plot
     :param log_path: Log path where to save the plots
-    :param config: Configuration object for plot/save settings
+    :param config_visu: Configuration object for plot/save settings
     :param traj_set: List of sampled trajectories (optional)
     :param optimal_traj: Optimal Trajectory selected
     :param ref_path: Reference path for planner as polyline [(nx2) np.ndarray] (optional)
@@ -81,7 +81,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
     # set ego vehicle draw params
     ego_params = DynamicObstacleParams()
     ego_params.time_begin = timestep
-    ego_params.draw_icon = config.debug.draw_icons
+    ego_params.draw_icon = config.visualization.draw_icons
     ego_params.show_label = True
     ego_params.vehicle_shape.occupancy.shape.facecolor = "#E37222"
     ego_params.vehicle_shape.occupancy.shape.edgecolor = "#9C4100"
@@ -90,7 +90,7 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
 
     obs_params = MPDrawParams()
     obs_params.dynamic_obstacle.time_begin = timestep
-    obs_params.dynamic_obstacle.draw_icon = config.debug.draw_icons
+    obs_params.dynamic_obstacle.draw_icon = config.visualization.draw_icons
     obs_params.dynamic_obstacle.show_label = True
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#E37222"
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
@@ -168,22 +168,22 @@ def visualize_planner_at_timestep(scenario: Scenario, planning_problem: Planning
                     label='reference path')
 
     # save as .png file
-    if config.debug.save_plots:
+    if config.visualization.save_plots:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
-        if config.debug.gif:
+        if config.visualization.save_gif:
             plt.axis('off')
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300, bbox_inches='tight', pad_inches=0)
         else:
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.svg", format='svg')
 
     # show plot
-    if config.debug.show_plots:
+    if config.visualization.show_plots:
         matplotlib.use("TkAgg")
         plt.pause(0.0001)
 
 
-def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: PlanningProblemSet,
+def visualize_multiagent_scenario_at_timestep(scenario: Scenario, planning_problem_set: PlanningProblemSet,
                                      agent_list: List[DynamicObstacle], timestep: int,
                                      config: Configuration, log_path: str,
                                      traj_set_list: List[List] = None,
@@ -241,7 +241,7 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
     # Set obstacle parameters
     obs_params = MPDrawParams()
     obs_params.dynamic_obstacle.time_begin = timestep
-    obs_params.dynamic_obstacle.draw_icon = config.debug.draw_icons
+    obs_params.dynamic_obstacle.draw_icon = config.visualization.draw_icons
     obs_params.dynamic_obstacle.show_label = True
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#E37222"
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
@@ -258,7 +258,7 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
         # set ego vehicle draw params
         ego_params = DynamicObstacleParams()
         ego_params.time_begin = timestep
-        ego_params.draw_icon = config.debug.draw_icons
+        ego_params.draw_icon = config.visualization.draw_icons
         ego_params.show_label = True
 
         # Use standard colors for single-agent plots
@@ -334,13 +334,13 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
     if (len(agent_list) == 1 and
             (agent_list[0].obstacle_id in config.multiagent.save_specific_individual_plots or
             config.multiagent.save_all_individual_plots)) \
-            or config.debug.save_plots:
+            or config.visualization.save_plots:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
         if (len(agent_list) == 1 and
                 (agent_list[0].obstacle_id in config.multiagent.save_specific_individual_gifs or
                 config.multiagent.save_all_individual_gifs)) \
-                or config.debug.gif:
+                or config.visualization.save_gif:
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep:03d}.png", format='png', dpi=300)
         else:
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep:03d}.svg", format='svg')
@@ -348,7 +348,7 @@ def visualize_multiagent_at_timestep(scenario: Scenario, planning_problem_set: P
     # show plot
     if agent_list[0].obstacle_id in config.multiagent.show_specific_individual_plots \
             or config.multiagent.show_all_individual_plots \
-            or config.debug.show_plots:
+            or config.visualization.show_plots:
         matplotlib.use("TkAgg")
         plt.pause(0.0001)
 
@@ -362,9 +362,9 @@ def make_gif(config: Configuration, scenario: Scenario, time_steps: Union[range,
     :param time_steps list or range of time steps to create the GIF
     :param duration
     """
-    if not config.debug.save_plots:
+    if not config.visualization.save_plots:
         # only create GIF when saving of plots is enabled
-        print("...GIF not created: Enable config.debug.save_plots to generate GIF.")
+        print("...GIF not created: Enable config.visualization.save_plots to generate GIF.")
         pass
     else:
         print("...Generating GIF")
@@ -610,14 +610,14 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
                     label='reference path')
 
     # save as .png file
-    if config.debug.save_plots:
+    if config.visualization.save_plots:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
         plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.svg", format='svg',
                     bbox_inches='tight')
 
     # show plot
-    if config.debug.show_plots:
+    if config.visualization.show_plots:
         matplotlib.use("TkAgg")
         # plt.show(block=False)
         # plt.pause(0.0001)

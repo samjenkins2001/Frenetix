@@ -50,7 +50,7 @@ from cr_scenario_handler.simulation.agent import Agent
 import cr_scenario_handler.utils.multiagent_helpers as hf
 from cr_scenario_handler.utils.multiagent_helpers import TIMEOUT, AgentStatus
 import cr_scenario_handler.utils.multiagent_logging as multi_agent_log
-from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep
+from cr_scenario_handler.utils.visualization import visualize_multiagent_scenario_at_timestep, visualize_agent_at_timestep
 from commonroad_dc.collision.trajectory_queries import trajectory_queries
 # msg_logger = logging.getLogger("Simulation_logger")
 
@@ -386,7 +386,7 @@ class Simulation:
 
             self.global_timestep = self.batch_list[0].global_timestep
             running = self._step_sequential_simulation()
-            self._simulation_visualization(self.global_timestep)
+            self._simulation_visualization_agent(self.global_timestep)
 
     def _run_parallel_simulation(self):
         """Control a simulation running in multiple processes.
@@ -448,7 +448,7 @@ class Simulation:
 
         # Plot previous timestep while batches are busy
         # Remove agents that did not exist in the last timestep
-        self._simulation_visualization(self.global_timestep-1)
+        self._simulation_visualization_agent(self.global_timestep-1)
 
         # Receive simulation step results
         for batch in reversed(self.batch_list):
@@ -566,18 +566,28 @@ class Simulation:
         self.scenario.add_objects(self.running_agents_obs)
         # self._update_scenario()#dummy_obs_dict)#, agents_to_update)
 
-    def _simulation_visualization(self, timestep):
+    def _simulation_visualization_agent(self, timestep):
         if ((self.config_visu.show_plots or self.config_visu.save_plots or self.config_visu.save_gif) and
                 len(self.running_agents_obs) > 0):
-
-            visualize_multiagent_at_timestep(self.scenario, self.planning_problem_set,
-                                             self.running_agents_obs,
-                                             timestep, self.config, self.log_path,
-                                             # traj_set_list=self.traj_set_list,
-                                             # ref_path_list=self.ref_path_list,
-                                             traj_set_dict=self.agent_traj_set_dict,
-                                             ref_path_dict=self.agent_ref_path_dict,
-                                             predictions=self.global_predictions,
-                                             visible_area=None,
-                                             plot_window=self.config_visu.plot_window_dyn)
+            if len(self.running_agents_obs) == 1 and not self.config.simulation.use_multiagent:
+                visualize_agent_at_timestep(self.scenario, self.batch_list[0].running_agent_list[0].planning_problem,
+                                            self.batch_list[0].running_agent_list[0].vehicle_history[-1], timestep,
+                                            self.config, self.log_path,
+                                            traj_set=self.batch_list[0].running_agent_list[0].traj_set,
+                                            optimal_traj=self.batch_list[0].running_agent_list[0].planner_interface.planner.trajectory_pair[0],
+                                            ref_path=self.batch_list[0].running_agent_list[0].planner_interface.reference_path,
+                                            predictions=self.global_predictions,
+                                            visible_area=self.batch_list[0].running_agent_list[0].visible_area,
+                                            plot_window=self.config_visu.plot_window_dyn)
+            else:
+                visualize_multiagent_scenario_at_timestep(self.scenario, self.planning_problem_set,
+                                                 self.running_agents_obs,
+                                                 timestep, self.config, self.log_path,
+                                                 # traj_set_list=self.traj_set_list,
+                                                 # ref_path_list=self.ref_path_list,
+                                                 traj_set_dict=self.agent_traj_set_dict,
+                                                 ref_path_dict=self.agent_ref_path_dict,
+                                                 predictions=self.global_predictions,
+                                                 visible_area=None,
+                                                 plot_window=self.config_visu.plot_window_dyn)
 
