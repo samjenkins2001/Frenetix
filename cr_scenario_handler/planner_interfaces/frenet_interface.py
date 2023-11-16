@@ -98,7 +98,7 @@ class FrenetPlannerInterface(PlannerInterface):
         if not self.config_sim.behavior.use_behavior_planner:
             route_planner = RoutePlanner(scenario, planning_problem)
             self.reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
-            self.reference_path = hf.extend_rep_path(self.reference_path, self.x_0.position)
+            self.reference_path = hf.extend_ref_path(self.reference_path, self.x_0.position)
         else:
             raise NotImplementedError
 

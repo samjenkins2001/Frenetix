@@ -8,12 +8,39 @@ __status__ = "Alpha"
 
 from copy import deepcopy
 import numpy as np
-import matplotlib.pyplot as plt
+import cr_scenario_handler.utils.helper_functions as hf
 from scipy.interpolate import splprep, splev
 from commonroad_dc.pycrccosy import CurvilinearCoordinateSystem
 from commonroad_dc.geometry.util import compute_pathlength_from_polyline, compute_curvature_from_polyline, \
     compute_orientation_from_polyline, resample_polyline, chaikins_corner_cutting
 from commonroad.common.util import make_valid_orientation
+
+
+def extend_points(points):
+    """Extend the list of points with additional points in the orientation of the line between the two first points."""
+    p1, p2 = points[0], points[1]
+    delta_x = p2[0] - p1[0]
+    delta_y = p2[1] - p1[1]
+
+    dist = hf.distance(points[0], points[1])
+    num_new_points = int(5/dist)
+
+    new_points = []
+    for i in range(1, num_new_points + 1):
+        new_point = (p1[0] - i * delta_x, p1[1] - i * delta_y)
+        new_points.append(new_point)
+
+    # Stack new_points and points and convert them to a numpy array
+    return np.vstack((new_points[::-1], points))
+
+
+def extend_ref_path(ref_path, init_pos):
+    """This function is needed due to the fact that we have to shift the planning position of the reactive planner
+    to the rear axis. In some scenatios the ref path is not long enough to locate the initial position in curv state"""
+    close_point = min(ref_path, key=lambda point: hf.distance(init_pos, point))
+    if close_point[0] == ref_path[0, 0] and close_point[1] == ref_path[0, 1]:
+        ref_path = extend_points(ref_path)
+    return ref_path
 
 
 def smooth_ref_path(reference: np.ndarray):
@@ -175,29 +202,3 @@ class CoordinateSystem:
     def convert_to_curvilinear_coords(self, x: float, y: float) -> np.ndarray:
         """convert Cartesian (x,y) point to curviinear (s,d) point"""
         return self._ccosy.convert_to_curvilinear_coords(x, y)
-
-    def plot_reference_states(self):
-        from matplotlib import pyplot as plt
-
-        plt.figure(figsize=(7, 7.5))
-        plt.suptitle("Reference path states")
-
-        # orientation theta
-        plt.subplot(3, 1, 1)
-        plt.plot(self.ref_pos, self.ref_theta, color="k")
-        plt.xlabel("s")
-        plt.ylabel("theta_ref")
-
-        # curvature kappa
-        plt.subplot(3, 1, 2)
-        plt.plot(self.ref_pos, self.ref_curv, color="k")
-        plt.xlabel("s")
-        plt.ylabel("kappa_ref")
-
-        # curvature rate kappa_dot
-        plt.subplot(3, 1, 3)
-        plt.plot(self.ref_pos, self.ref_curv_d, color="k")
-        plt.xlabel("s")
-        plt.ylabel("kappa_dot_ref")
-        plt.tight_layout()
-        plt.show()

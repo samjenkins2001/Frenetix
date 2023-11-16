@@ -98,10 +98,10 @@ class GoalReachedChecker:
                     timing_flag == "exceeded"
                     and all(list(state_status.values()))
                 ):
-                    return True, "Scenario Completet out of Time!", state_status
+                    return True, "Scenario Completed out of Time!", state_status
             elif "position" in state_status:
                 if self.last_position_check and not state_status["position"]:
-                    return True, "Scenario Completet Faster than Target Time!", state_status
+                    return True, "Scenario Completed Faster than Target Time!", state_status
             if "position" in state_status:
                 self.last_position_check = state_status["position"]
             return False, "Scenario is still running!", state_status
