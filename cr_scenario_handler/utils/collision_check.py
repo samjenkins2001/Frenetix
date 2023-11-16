@@ -1,13 +1,11 @@
 import numpy as np
 
-import commonroad_dc.pycrcc as pycrcc
-from commonroad_dc.collision.trajectory_queries import trajectory_queries
 from commonroad.scenario.obstacle import ObstacleRole
-
-from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, \
-                                                                          trajectories_collision_static_obstacles
 from commonroad.prediction.prediction import TrajectoryPrediction, SetBasedPrediction
 
+import commonroad_dc.pycrcc as pycrcc
+from commonroad_dc.collision.trajectory_queries import trajectory_queries
+from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 
 
@@ -28,7 +26,6 @@ def get_scenario_dynamic_obstacles_as_tvo(scenario):
             else:
                 raise Exception('Unknown dynamic obstacle prediction type: ' + str(type(dyn_obst.prediction)))
     return dyn_obstacles_list
-
 
 
 def create_tvobstacle(
@@ -101,6 +98,7 @@ def create_tvobstacle_trajectory(
             pycrcc.RectOBB(box_length, box_width, state.orientation, state.position[0], state.position[1])
         )
     return tv_obstacle
+
 
 def collision_check_prediction(
         predictions: dict, scenario, ego_co, frenet_traj, time_step

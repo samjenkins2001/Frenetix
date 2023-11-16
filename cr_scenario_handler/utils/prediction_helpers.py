@@ -9,7 +9,6 @@ __status__ = "Beta"
 
 import numpy as np
 import os
-import math
 import sys
 from commonroad.scenario.obstacle import ObstacleRole
 from commonroad_dc.collision.trajectory_queries import trajectory_queries
@@ -29,7 +28,7 @@ from frenetix_motion_planner.utility import reachable_set
 from frenetix_motion_planner.utility.responsibility import assign_responsibility_by_action_space
 
 # get logger
-# msg_logger = logging.getLogger("Simulation_logger")
+msg_logger = logging.getLogger("Simulation_logger")
 
 
 def load_prediction(scenario, mode, config=None):
@@ -77,33 +76,6 @@ def get_predictions(config, predictor, scenario: Scenario, current_timestep: int
                                                       int(planning_horizon / scenario.dt))
 
     return predictions
-
-
-def step_prediction(scenario, predictor, config, ego_state, time_step, occlusion_module=None, ego_id=42):
-    if config.prediction.mode:
-        visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, time_step, config,
-                                                                   occlusion_module, ego_id=ego_id)
-    else:
-        visible_obstacles = None
-        visible_area = None
-
-    if config.prediction.mode == "walenet":
-        predictions = main_prediction(predictor, scenario, visible_obstacles, time_step, scenario.dt,
-                                         [float(config.planning.planning_horizon)])
-
-    elif config.prediction.mode == "ground_truth":
-        predictions = get_ground_truth_prediction(visible_obstacles, scenario, time_step,
-                                                  int(config.prediction.pred_horizon_in_s/config.planning.dt))
-    else:
-        predictions = None
-
-    # ignore Predictions in Cone Angle
-    if config.prediction.cone_angle > 0 and config.prediction.mode == "walenet":
-        predictions = ignore_vehicles_in_cone_angle(predictions, ego_state, config.vehicle.length,
-                                                    config.prediction.cone_angle,
-                                                    config.prediction.cone_safety_dist)
-
-    return predictions, visible_area
 
 
 def step_reach_set(reach_set, scenario, x_0, predictions):
@@ -199,90 +171,90 @@ def get_orientation_velocity_and_shape_of_prediction(
     return predictions
 
 
-def collision_checker_prediction(
-    predictions: dict, scenario, ego_co, frenet_traj, time_step
-):
-    """
-    Check predictions for collisions.
-
-    Args:
-        predictions (dict): Dictionary with the predictions of the obstacles.
-        scenario (Scenario): Considered scenario.
-        ego_co (TimeVariantCollisionObject): The collision object of the ego vehicles trajectory.
-        frenet_traj (FrenetTrajectory): Considered trajectory.
-        time_step (State): Current time step
-
-    Returns:
-        bool: True if the trajectory collides with a prediction.
-    """
-    # check every obstacle in the predictions
-    for obstacle in scenario.obstacles:  #list(predictions.keys()):
-        obstacle_id = obstacle.obstacle_id
-        if obstacle_id not in predictions or obstacle.state_at_time(time_step).velocity > 2:
-            continue
-        # check if the obstacle is not a rectangle (only shape with attribute length)
-        if not hasattr(scenario.obstacle_by_id(obstacle_id).obstacle_shape, 'length'):
-            raise Warning('Collision Checker can only handle rectangular obstacles.')
-        else:
-
-            # get dimensions of the obstacle
-            length = predictions[obstacle_id]['shape']['length']
-            width = predictions[obstacle_id]['shape']['width']
-
-            # only check for collision as long as both trajectories (frenét trajectory and prediction) are visible
-            if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
-                pred_traj = np.reshape(np.repeat(scenario.obstacle_by_id(obstacle_id).state_at_time(time_step).position,
-                                                 len((predictions[obstacle_id]['pos_list']))),
-                                       (len((predictions[obstacle_id]['pos_list'])), 2), order='F')
-            else:
-                pred_traj = predictions[obstacle_id]['pos_list']
-            pred_length = min(len(frenet_traj.cartesian.x), len(pred_traj))
-            if pred_length == 0:
-                continue
-
-            # get x, y and orientation of the prediction
-            x = pred_traj[:, 0][0:pred_length]
-            y = pred_traj[:, 1][0:pred_length]
-            if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
-                pred_orientation = np.repeat(scenario.obstacle_by_id(obstacle_id).state_at_time(time_step).orientation,
-                                             len((predictions[obstacle_id]['orientation_list'])))
-            else:
-                pred_orientation = predictions[obstacle_id]['orientation_list']
-
-            # create a time variant collision object for the predicted vehicle
-            traj = [[x[i], y[i], pred_orientation[i]] for i in range(pred_length)]
-
-            prediction_collision_object_raw = hf.create_tvobstacle(
-                traj_list=traj,
-                box_length=length / 2,
-                box_width=width / 2,
-                start_time_step=time_step + 1,
-            )
-
-            # preprocess the collision object
-            # if the preprocessing fails, use the raw trajectory
-            (
-                prediction_collision_object,
-                err,
-            ) = trajectory_queries.trajectory_preprocess_obb_sum(
-                prediction_collision_object_raw
-            )
-            if err:
-                prediction_collision_object = prediction_collision_object_raw
-
-            # check for collision between the trajectory of the ego obstacle and the predicted obstacle
-            collision_at = trajectory_queries.trajectories_collision_dynamic_obstacles(
-                trajectories=[ego_co],
-                dynamic_obstacles=[prediction_collision_object],
-                method='grid',
-                num_cells=32,
-            )
-
-            # if there is no collision (returns -1) return False, else True
-            if collision_at[0] != -1:
-                return True
-
-    return False
+# def collision_checker_prediction(
+#     predictions: dict, scenario, ego_co, frenet_traj, time_step
+# ):
+#     """
+#     Check predictions for collisions.
+#
+#     Args:
+#         predictions (dict): Dictionary with the predictions of the obstacles.
+#         scenario (Scenario): Considered scenario.
+#         ego_co (TimeVariantCollisionObject): The collision object of the ego vehicles trajectory.
+#         frenet_traj (FrenetTrajectory): Considered trajectory.
+#         time_step (State): Current time step
+#
+#     Returns:
+#         bool: True if the trajectory collides with a prediction.
+#     """
+#     # check every obstacle in the predictions
+#     for obstacle in scenario.obstacles:  #list(predictions.keys()):
+#         obstacle_id = obstacle.obstacle_id
+#         if obstacle_id not in predictions or obstacle.state_at_time(time_step).velocity > 2:
+#             continue
+#         # check if the obstacle is not a rectangle (only shape with attribute length)
+#         if not hasattr(scenario.obstacle_by_id(obstacle_id).obstacle_shape, 'length'):
+#             raise Warning('Collision Checker can only handle rectangular obstacles.')
+#         else:
+#
+#             # get dimensions of the obstacle
+#             length = predictions[obstacle_id]['shape']['length']
+#             width = predictions[obstacle_id]['shape']['width']
+#
+#             # only check for collision as long as both trajectories (frenét trajectory and prediction) are visible
+#             if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
+#                 pred_traj = np.reshape(np.repeat(scenario.obstacle_by_id(obstacle_id).state_at_time(time_step).position,
+#                                                  len((predictions[obstacle_id]['pos_list']))),
+#                                        (len((predictions[obstacle_id]['pos_list'])), 2), order='F')
+#             else:
+#                 pred_traj = predictions[obstacle_id]['pos_list']
+#             pred_length = min(len(frenet_traj.cartesian.x), len(pred_traj))
+#             if pred_length == 0:
+#                 continue
+#
+#             # get x, y and orientation of the prediction
+#             x = pred_traj[:, 0][0:pred_length]
+#             y = pred_traj[:, 1][0:pred_length]
+#             if obstacle.obstacle_role == ObstacleRole.DYNAMIC:
+#                 pred_orientation = np.repeat(scenario.obstacle_by_id(obstacle_id).state_at_time(time_step).orientation,
+#                                              len((predictions[obstacle_id]['orientation_list'])))
+#             else:
+#                 pred_orientation = predictions[obstacle_id]['orientation_list']
+#
+#             # create a time variant collision object for the predicted vehicle
+#             traj = [[x[i], y[i], pred_orientation[i]] for i in range(pred_length)]
+#
+#             prediction_collision_object_raw = hf.create_tvobstacle(
+#                 traj_list=traj,
+#                 box_length=length / 2,
+#                 box_width=width / 2,
+#                 start_time_step=time_step + 1,
+#             )
+#
+#             # preprocess the collision object
+#             # if the preprocessing fails, use the raw trajectory
+#             (
+#                 prediction_collision_object,
+#                 err,
+#             ) = trajectory_queries.trajectory_preprocess_obb_sum(
+#                 prediction_collision_object_raw
+#             )
+#             if err:
+#                 prediction_collision_object = prediction_collision_object_raw
+#
+#             # check for collision between the trajectory of the ego obstacle and the predicted obstacle
+#             collision_at = trajectory_queries.trajectories_collision_dynamic_obstacles(
+#                 trajectories=[ego_co],
+#                 dynamic_obstacles=[prediction_collision_object],
+#                 method='grid',
+#                 num_cells=32,
+#             )
+#
+#             # if there is no collision (returns -1) return False, else True
+#             if collision_at[0] != -1:
+#                 return True
+#
+#     return False
 
 
 def add_static_obstacle_to_prediction(
@@ -461,48 +433,5 @@ def main_prediction(predictor, scenario, visible_obstacles, time_step, DT, t_lis
 def load_walenet(scenario):
     predictor = WaleNet(scenario=scenario)
     return predictor
-
-
-def ignore_vehicles_in_cone_angle(predictions, ego_pose, veh_length, cone_angle, cone_safety_dist):
-    """Ignore vehicles behind ego for prediction if inside specific cone.
-
-    Cone is spaned from center of rear-axle (cog - length / 2.0)
-
-    cone_angle = Totel Angle of Cone. 0.5 per side (right, left)
-
-    return bool: True if vehicle is ignored, i.e. inside cone
-    """
-
-    ego_pose = np.array([ego_pose.initial_state.position[0], ego_pose.initial_state.position[1], ego_pose.initial_state.orientation])
-    cone_angle = cone_angle / 180 * np.pi
-    ignore_pred_list = list()
-
-    for i in predictions:
-        ignore_object = True
-        obj_pose = np.array(
-            [predictions[i]['pos_list'][0][0],
-            predictions[i]['pos_list'][0][1], predictions[i]['orientation_list'][0]]
-        )
-
-        loc_obj_pos = hf.rotate_glob_loc(
-            obj_pose[:2] - ego_pose[:2], ego_pose[2], matrix=False
-        )
-        loc_obj_pos[0] += veh_length / 2.0
-
-        if loc_obj_pos[0] > -cone_safety_dist:
-            ignore_object = False
-
-        obj_angle = hf.pi_range(math.atan2(loc_obj_pos[1], loc_obj_pos[0]) - np.pi)
-
-        if abs(obj_angle) > cone_angle / 2.0:
-            ignore_object = False
-        if ignore_object:
-            ignore_pred_list.append(i)
-
-    if len(ignore_pred_list) > 0:
-        for obj in range(len(ignore_pred_list)):
-            del predictions[ignore_pred_list[obj]]
-
-    return predictions
 
 # EOF
