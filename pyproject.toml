@@ -34,6 +34,7 @@ shapely = "^2.0.1"
 wheel = ">=0.37.0"
 pandas = ">=2.0.2"
 triangle = ">=20230923"
+psutil = ">=5.9.6"
 "ruamel.yaml" = "^0.17.32"
 
 commonroad-route-planner = ">=2022.3"

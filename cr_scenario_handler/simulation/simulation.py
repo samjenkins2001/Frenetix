@@ -109,7 +109,7 @@ class Simulation:
 
         self.global_predictions = None
         # get prediction horizon if specified in planner-configuration, else use 2 seconds by default
-        self.prediction_horizon = config_planner.planning.planning_horizon if hasattr(config_planner,"planning") else 2
+        self.prediction_horizon = config_planner.planning.planning_horizon if hasattr(config_planner, "planning") else 2
 
         # Additional Modules
         self._predictor = None
@@ -242,7 +242,7 @@ class Simulation:
                 problem = PlanningProblem(id, initial_state, GoalRegion(list([goal_state])))
                 planning_problem_list.append(problem)
 
-        return  planning_problem_list
+        return planning_problem_list
 
     def _create_obstacle_for_planning_problem(self, planning_problem: PlanningProblem):
         """ Creates a dummy obstacle from a given planning problem.
