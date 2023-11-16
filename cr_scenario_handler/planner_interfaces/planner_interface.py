@@ -16,7 +16,7 @@ from commonroad.scenario.scenario import Scenario
 class PlannerInterface(ABC):
 
     @abstractmethod
-    def __init__(self, config, scenario: Scenario,
+    def __init__(self, agent_id: int, config_planner, config_sim, scenario: Scenario,
                  planning_problem: PlanningProblem,
                  log_path: str, mod_path: str):
         """Wrappers providing a consistent interface for different planners.
@@ -30,14 +30,16 @@ class PlannerInterface(ABC):
         """
         raise NotImplementedError()
 
-    def get_all_traj(self):
+    @property
+    def all_traj(self):
         """Return the sampled trajectories of the last step for plotting.
 
         If plotting of trajectory bundles is not required, leave as is.
         """
         return None
 
-    def get_ref_path(self):
+    @property
+    def ref_path(self):
         """Return the reference path of the planner for plotting.
 
         If plotting of reference paths is not required, leave as is.
@@ -67,7 +69,7 @@ class PlannerInterface(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def plan(self):
+    def plan(self, current_timestep=None):
         """Planner step function.
 
         To be implemented for every specific planner.

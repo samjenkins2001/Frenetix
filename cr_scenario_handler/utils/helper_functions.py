@@ -417,4 +417,41 @@ def calculate_angle_between_lines(line_1, line_2):
     return angle_degrees
 
 
+def rotate_glob_loc(global_matrix, rot_angle, matrix=True):
+    """
+    helper function to rotate matrices from global to local coordinates (vehicle coordinates)
+
+    Angle Convention:
+    yaw = 0: local x-axis parallel to global y-axis
+    yaw = -np.pi / 2: local x-axis parallel to global x-axis --> should result in np.eye(2)
+
+    rot_mat: Rotation from global to local (x_local = np.matmul(rot_mat, x_global))
+    """
+
+    rot_mat = np.array(
+        [
+            [np.cos(rot_angle), np.sin(rot_angle)],
+            [-np.sin(rot_angle), np.cos(rot_angle)],
+        ]
+    )
+
+    mat_temp = np.matmul(rot_mat, global_matrix)
+
+    if matrix:
+        return np.matmul(mat_temp, rot_mat.T)
+
+    return mat_temp
+
+
+def pi_range(yaw):
+    """Clip yaw to (-pi, +pi]."""
+    if yaw <= -np.pi:
+        yaw += 2 * np.pi
+        return yaw
+    elif yaw > np.pi:
+        yaw -= 2 * np.pi
+        return yaw
+    return yaw
+
+
 # EOF

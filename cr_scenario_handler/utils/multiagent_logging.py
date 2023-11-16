@@ -1,13 +1,15 @@
-__author__ = "Maximilian Streubel, Rainer Trauth"
+__author__ = "Rainer Trauth"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
-import os
-
 from typing import List
+import os
+import sys
+import logging
+from cr_scenario_handler.utils.configuration import Configuration
 
 
 def init_log(log_path: str):
@@ -54,3 +56,50 @@ def append_log(log_path: str, time_step: int, domain_time: float, total_planning
 
     with open(os.path.join(log_path, "execution_logs.csv"), "a") as log_file:
         log_file.write(entry)
+
+
+def logger_initialization(config: Configuration, log_path, logger = "Simulation_logger") -> logging.Logger:
+    """
+    Message Logger Initialization
+    """
+
+    # msg logger
+    msg_logger = logging.getLogger(logger) # logging.getLogger("Simulation_logger")
+
+    if msg_logger.handlers:
+        return msg_logger
+
+    # Create directories
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+
+    # create file handler (outputs to file)
+    path_log = os.path.join(log_path, "messages.log")
+    file_handler = logging.FileHandler(path_log)
+
+    # set logging levels
+    loglevel = config.debug.msg_log_mode if hasattr(config, "debug") else config.simulation.msg_log_mode
+
+    msg_logger.setLevel(loglevel)
+    file_handler.setLevel(loglevel)
+
+    # create log formatter
+    # formatter = logging.Formatter('%(asctime)s\t%(filename)s\t\t%(funcName)s@%(lineno)d\t%(levelname)s\t%(message)s')
+    log_formatter = logging.Formatter("%(levelname)-8s [%(asctime)s] --- %(message)s (%(filename)s:%(lineno)s)",
+                                  "%Y-%m-%d %H:%M:%S")
+    file_handler.setFormatter(log_formatter)
+
+    # create stream handler (prints to stdout)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(loglevel)
+
+    # create stream formatter
+    stream_formatter = logging.Formatter("%(levelname)-8s [%(filename)s]: %(message)s")
+    stream_handler.setFormatter(stream_formatter)
+
+    # add handlers
+    msg_logger.addHandler(file_handler)
+    msg_logger.addHandler(stream_handler)
+    msg_logger.propagate = False
+
+    return msg_logger

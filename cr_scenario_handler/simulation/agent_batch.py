@@ -5,8 +5,6 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
-import time
-import warnings
 from multiprocessing import Process, Queue
 from queue import Empty
 from typing import Optional
@@ -14,20 +12,17 @@ from typing import Optional
 from commonroad.scenario.scenario import Scenario
 from commonroad.planning.planning_problem import PlanningProblemSet
 
-from cr_scenario_handler.utils.configuration import Configuration
-
 from cr_scenario_handler.simulation.agent import Agent
-from cr_scenario_handler.utils.multiagent_helpers import get_predictions, TIMEOUT
-from cr_scenario_handler.utils.visualization import visualize_multiagent_at_timestep, make_gif
+import cr_scenario_handler.utils.multiagent_helpers as hf
+from cr_scenario_handler.utils.multiagent_helpers import AgentStatus
 from cr_scenario_handler.utils.multiagent_logging import *
-from cr_scenario_handler.utils.visualization import visualize_planner_at_timestep
 
 
-class AgentBatch (Process):
+class AgentBatch(Process):
 
-    def __init__(self, agent_id_list: List[int], planning_problem_set: PlanningProblemSet,
-                 scenario: Scenario, config: Configuration, log_path: str, mod_path: str,
-                 in_queue: Optional[Queue], out_queue: Optional[Queue]):
+    def __init__(self, agent_id_list: List[int], planning_problem_set: PlanningProblemSet, scenario: Scenario,
+                 global_timestep: int, config_planner, config_sim, msg_logger, log_path: str, mod_path: str,
+                 in_queue: Optional[Queue] = None, out_queue: Optional[Queue] = None):
         """Batch of agents.
 
         Manages the Agents in this batch, and communicates dummy obstacles,
@@ -49,33 +44,36 @@ class AgentBatch (Process):
 
         super().__init__()
 
-        self.config = config
+        self.msg_logger = msg_logger
 
         # Initialize queues
         self.in_queue = in_queue
         self.out_queue = out_queue
 
         # Initialize agents
-        self.agent_id_list = agent_id_list
-        self.planning_problem_set = planning_problem_set
-        self.agent_list = []
-        for id in agent_id_list:
-            self.agent_list.append(Agent(id, planning_problem_set.find_planning_problem_by_id(id),
-                                         scenario, config, os.path.join(log_path, f"{id}"), mod_path))
+        self.global_timestep = global_timestep
 
-        # List of all not yet started agents
-        self.pending_agent_list = list(filter(lambda a: a.current_timestep > 0, self.agent_list))
+        self.agent_status_dict = dict()
+        agent_list = []
+        for agent_id in agent_id_list:
+            agent = Agent(agent_id, planning_problem_set.find_planning_problem_by_id(agent_id),
+                          scenario, config_planner, config_sim, msg_logger)
+            agent_list.append(agent)
+            self.agent_status_dict[agent_id] = agent.status
+
         # List of all active agents
-        self.running_agent_list = list(filter(lambda a: a.current_timestep == 0, self.agent_list))
+        self.latest_starting_time = max([agent.current_timestep for agent in agent_list]) + 1
+        self.agent_dict = {timestep: [agent for agent in agent_list if agent.current_timestep == timestep] for timestep
+                           in range(self.latest_starting_time)}
+        self.running_agent_list = self.agent_dict[self.global_timestep]
+        self.agent_history_dict = dict.fromkeys(agent_id_list)
+        self.agent_recorded_state_dict = dict.fromkeys(agent_id_list)
+        self.agent_input_state_dict = dict.fromkeys(agent_id_list)
+        self.agent_ref_path_dict = dict.fromkeys(agent_id_list)
+        self.agent_traj_set_dict = dict.fromkeys(agent_id_list)
 
-        # List of all dummy obstacles
-        self.dummy_obstacle_list = []
-        # Exit codes of the agent steps
-        self.agent_state_dict = dict()
-        for id in self.agent_id_list:
-            self.agent_state_dict[id] = -1
-
-        self.current_timestep = 0
+        self.terminated_agent_list = []
+        self.finished = False
 
     def run(self):
         """ Main function of the agent batch when running in a separate process.
@@ -103,201 +101,180 @@ class AgentBatch (Process):
                                 sent to out_queue:
                             Lists of trajectory bundles and reference paths for all agents in the batch.
         """
-
         while True:
             # Receive the next predictions
             try:
-                predictions = self.in_queue.get(block=True, timeout=TIMEOUT)
+                global_predictions = self.in_queue.get(block=True, timeout=hf.TIMEOUT)
             except Empty:
-                print(f"[Batch {self.agent_id_list}] Timeout waiting for new predictions! Exiting.")
+                self.msg_logger.info(f"Batch {self.name}: Timeout waiting for new predictions!")
                 return
 
-            self.step_simulation(predictions)
+            self.step_simulation(global_predictions)
 
             # Send dummy obstacles to main simulation
-            self.out_queue.put(self.dummy_obstacle_list, block=True)
-            self.out_queue.put(self.agent_state_dict, block=True)
-
+            # self.out_queue.put(self.dummy_obstacle_list, block=True)
+            # self.out_queue.put(self.agent_state_dict, block=True)
+            self.out_queue.put(self.agent_status_dict, block=True)
+            self.out_queue.put(self.agent_history_dict, block=True)
+            self.out_queue.put(self.agent_recorded_state_dict, block=True)
+            self.out_queue.put(self.agent_input_state_dict, block=True)
+            self.out_queue.put(self.agent_ref_path_dict, block=True)
+            # self.out_queue.put(self.agent_traj_set_dict, block=True)
+            # TODO AB HIER!
             # Check for active or pending agents
-            if self.complete():
+            if self.finished:
                 # Wait for termination signal from main simulation
-                print(f"[Batch {self.agent_id_list}] Completed! Exiting")
+                self.msg_logger.info(f"Batch {self.name}: Completed!")
                 try:
-                    self.in_queue.get(block=True, timeout=TIMEOUT)
+                    self.in_queue.get(block=True, timeout=hf.TIMEOUT)
                 except Empty:
-                    print(f"[Batch {self.agent_id_list}] Timeout waiting for termination signal.")
+                    self.msg_logger.info(f"Batch {self.name}: Timeout waiting for termination signal.")
                 return
 
+            # Synchronize agents
             # receive dummy obstacles and outdated agent list
             try:
-                self.dummy_obstacle_list = self.in_queue.get(block=True, timeout=TIMEOUT)
-                outdated_agent_id_list = self.in_queue.get(block=True, timeout=TIMEOUT)
+                args = self.in_queue.get(block=True, timeout=hf.TIMEOUT)
+                # self.dummy_obstacle_list = self.in_queue.get(block=True, timeout=hf.TIMEOUT)
+                # outdated_agent_id_list = self.in_queue.get(block=True, timeout=hf.TIMEOUT)
             except Empty:
-                print(f"[Batch {self.agent_id_list}] Timeout waiting for agent updates! Exiting")
+                self.msg_logger.info(f"Batch {self.name}: Timeout waiting for agent updates!")
                 return
 
-            # Synchronize agents
-            for agent in self.running_agent_list:
-                agent.update_scenario(outdated_agent_id_list, self.dummy_obstacle_list)
+            self.update_agents(*args)
 
-            # Send data for global plotting.
-            # TODO: Sending trajectory bundles between processes is currently unsupported.
-            if self.config.debug.show_plots or self.config.debug.save_plots:
-                self.out_queue.put((# a.planner.get_all_traj() for a in self.running_agent_list
-                                    #                         if a.planning_problem.initial_state.time_step <= self.current_timestep
-                                    [],
-                                    [a.planner_interface.get_ref_path() for a in self.running_agent_list
-                                     if a.planning_problem.initial_state.time_step <= self.current_timestep]))
+            self.global_timestep += 1
+            # self.out_queue.put(self.global_timestep, block=True)
+            if self.global_timestep < self.latest_starting_time:
+                self.running_agent_list.extend(self.agent_dict[self.global_timestep])
 
-            self.current_timestep += 1
+    # def run_sequential(self, log_path: str, predictor, scenario: Scenario):
+    #     """ Main function of the agent batch when running without multiprocessing.
+    #
+    #     For every time step in the simulation, computes the new predictions,
+    #     executes a planning step, synchronizes the agents, and manages
+    #     global plotting and logging.
+    #
+    #     This function contains the combined functionality of Simulation.run_simulation()
+    #     and AgentBatch.run() to eliminate communication overhead in a single-process configuration.
+    #
+    #     :param log_path: Base path for writing the log files to.
+    #     :param predictor: Prediction module object used to compute predictions
+    #     :param scenario: The scenario to simulate, containing dummy obstacles
+    #         for all running agents.
+    #     """
+    #
+    #     init_log(log_path)
+    #
+    #     while True:
+    #         # Calculate the next predictions
+    #         predictions = get_predictions(self.config, predictor, scenario, self.current_timestep)
+    #
+    #         # START TIMER
+    #         step_time_start = time.time()
+    #
+    #         self.step_simulation(predictions)
+    #
+    #         # STOP TIMER
+    #         step_time_end = time.time()
+    #
+    #         # Check for active or pending agents
+    #         if self.complete():
+    #             print(f"[Batch {self.agent_id_list}] Completed! Exiting")
+    #
+    #             if self.config.debug.gif:
+    #                 make_gif(scenario, range(0, self.current_timestep-1), log_path, duration=0.1)
+    #
+    #             return
+    #
+    #         # Update outdated agent lists
+    #         outdated_agent_id_list = list(filter(lambda id: self.agent_state_dict[id] > -1, self.agent_id_list))
+    #
+    #         # START TIMER
+    #         sync_time_start = time.time()
+    #
+    #         # Update own scenario for predictions and plotting
+    #         for id in filter(lambda i: self.agent_state_dict[i] >= 0, self.agent_state_dict.keys()):
+    #             # manage agents that are not yet active
+    #             with warnings.catch_warnings():
+    #                 warnings.filterwarnings("ignore", message=".*not contained in the scenario")
+    #                 if scenario.obstacle_by_id(id) is not None:
+    #                     scenario.remove_obstacle(scenario.obstacle_by_id(id))
+    #
+    #         # Plot current frame
+    #         if (self.config.debug.show_plots or self.config.debug.save_plots) and \
+    #                 len(self.running_agent_list) > 0 and self.config.multiagent.use_multiagent:
+    #             visualize_multiagent_at_timestep(scenario, self.planning_problem_set,
+    #                                              self.dummy_obstacle_list, self.current_timestep,
+    #                                              self.config, log_path,
+    #                                              traj_set_list=[a.planner_interface.get_all_traj()
+    #                                                             for a in self.running_agent_list],
+    #                                              ref_path_list=[a.planner_interface.get_ref_path()
+    #                                                             for a in self.running_agent_list],
+    #                                              predictions=predictions,
+    #                                              plot_window=self.config.debug.plot_window_dyn)
+    #         elif (self.config.debug.show_plots or self.config.debug.save_plots) and \
+    #                 len(self.running_agent_list) == 1 and not self.config.multiagent.use_multiagent:
+    #             curr_planner = self.running_agent_list[0].planner_interface.planner
+    #             visualize_planner_at_timestep(scenario=scenario, planning_problem=self.planning_problem_set.
+    #                                           find_planning_problem_by_id(self.running_agent_list[0].id),
+    #                                           ego=curr_planner.ego_vehicle_history[-1],
+    #                                           traj_set=curr_planner.all_traj, optimal_traj=curr_planner.trajectory_pair[0],
+    #                                           ref_path=curr_planner.reference_path,
+    #                                           timestep=self.current_timestep, config=self.config, predictions=predictions,
+    #                                           plot_window=self.config.debug.plot_window_dyn, log_path=log_path)
+    #
+    #         scenario.add_objects(self.dummy_obstacle_list)
+    #
+    #         # Synchronize agents
+    #         for agent in self.running_agent_list:
+    #             agent.update_scenario(outdated_agent_id_list, self.dummy_obstacle_list)
+    #
+    #         # STOP TIMER
+    #         sync_time_end = time.time()
+    #
+    #         append_log(log_path, self.current_timestep, self.current_timestep * scenario.dt,
+    #                    step_time_end - step_time_start, sync_time_end - sync_time_start,
+    #                    self.agent_id_list, [self.agent_state_dict[id] for id in self.agent_id_list])
+    #
+    #         self.current_timestep += 1
 
-    def run_sequential(self, log_path: str, predictor, scenario: Scenario):
-        """ Main function of the agent batch when running without multiprocessing.
+    def update_agents(self, scenario: Scenario, colliding_agents: List):
+        for agent in self.running_agent_list:
+            collision = True if agent.id in colliding_agents else False
+            agent.update_agent(scenario, collision)
 
-        For every time step in the simulation, computes the new predictions,
-        executes a planning step, synchronizes the agents, and manages
-        global plotting and logging.
-
-        This function contains the combined functionality of Simulation.run_simulation()
-        and AgentBatch.run() to eliminate communication overhead in a single-process configuration.
-
-        :param log_path: Base path for writing the log files to.
-        :param predictor: Prediction module object used to compute predictions
-        :param scenario: The scenario to simulate, containing dummy obstacles
-            for all running agents.
-        """
-
-        init_log(log_path)
-
-        while True:
-            # Calculate the next predictions
-            predictions = get_predictions(self.config, predictor, scenario, self.current_timestep)
-
-            # START TIMER
-            step_time_start = time.time()
-
-            self.step_simulation(predictions)
-
-            # STOP TIMER
-            step_time_end = time.time()
-
-            # Check for active or pending agents
-            if self.complete():
-                print(f"[Batch {self.agent_id_list}] Completed! Exiting")
-
-                if self.config.debug.gif:
-                    make_gif(scenario, range(0, self.current_timestep-1), log_path, duration=0.1)
-
-                return
-
-            # Update outdated agent lists
-            outdated_agent_id_list = list(filter(lambda id: self.agent_state_dict[id] > -1, self.agent_id_list))
-
-            # START TIMER
-            sync_time_start = time.time()
-
-            # Update own scenario for predictions and plotting
-            for id in filter(lambda i: self.agent_state_dict[i] >= 0, self.agent_state_dict.keys()):
-                # manage agents that are not yet active
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", message=".*not contained in the scenario")
-                    if scenario.obstacle_by_id(id) is not None:
-                        scenario.remove_obstacle(scenario.obstacle_by_id(id))
-
-            # Plot current frame
-            if (self.config.debug.show_plots or self.config.debug.save_plots) and \
-                    len(self.running_agent_list) > 0 and self.config.multiagent.use_multiagent:
-                visualize_multiagent_at_timestep(scenario, self.planning_problem_set,
-                                                 self.dummy_obstacle_list, self.current_timestep,
-                                                 self.config, log_path,
-                                                 traj_set_list=[a.planner_interface.get_all_traj()
-                                                                for a in self.running_agent_list],
-                                                 ref_path_list=[a.planner_interface.get_ref_path()
-                                                                for a in self.running_agent_list],
-                                                 predictions=predictions,
-                                                 plot_window=self.config.debug.plot_window_dyn)
-            elif (self.config.debug.show_plots or self.config.debug.save_plots) and \
-                    len(self.running_agent_list) == 1 and not self.config.multiagent.use_multiagent:
-                curr_planner = self.running_agent_list[0].planner_interface.planner
-                visualize_planner_at_timestep(scenario=scenario, planning_problem=self.planning_problem_set.
-                                              find_planning_problem_by_id(self.running_agent_list[0].id),
-                                              ego=curr_planner.ego_vehicle_history[-1],
-                                              traj_set=curr_planner.all_traj, optimal_traj=curr_planner.trajectory_pair[0],
-                                              ref_path=curr_planner.reference_path,
-                                              timestep=self.current_timestep, config=self.config, predictions=predictions,
-                                              plot_window=self.config.debug.plot_window_dyn, log_path=log_path)
-
-            scenario.add_objects(self.dummy_obstacle_list)
-
-            # Synchronize agents
-            for agent in self.running_agent_list:
-                agent.update_scenario(outdated_agent_id_list, self.dummy_obstacle_list)
-
-            # STOP TIMER
-            sync_time_end = time.time()
-
-            append_log(log_path, self.current_timestep, self.current_timestep * scenario.dt,
-                       step_time_end - step_time_start, sync_time_end - sync_time_start,
-                       self.agent_id_list, [self.agent_state_dict[id] for id in self.agent_id_list])
-
-            self.current_timestep += 1
-
-    def complete(self):
-        """Check for completion of all agents in this batch."""
-        return len(list(filter(lambda v: v < 1, self.agent_state_dict.values()))) == 0
-
-    def step_simulation(self, predictions: dict):
+    def step_simulation(self, global_predictions: dict):
         """Simulate the next timestep.
 
         Calls the step function of the agents and
         manages starting and terminating agents.
 
-        :param predictions: Predictions for all agents in the simulation.
+        :param global_predictions: Predictions for all agents in the simulation.
         """
 
-        # clear dummy obstacles
-        self.dummy_obstacle_list = []
-        terminated_agent_list = []
-
+        self.msg_logger.info(f" stepping Batch {self.name}")
         # Step simulation
-        for agent in self.running_agent_list:
-            print(f"[Batch {self.agent_id_list}] Stepping Agent {agent.id}")
+        for agent in reversed(self.running_agent_list):
+            agent.step_agent(global_predictions)
+            self.agent_status_dict[agent.id] = agent.status
 
-            # Simulate.
-            status, dummy_obstacle = agent.step_agent(predictions)
-
-            self.agent_state_dict[agent.id] = status
-
-            msg = ""
-            if status > 0:
-                if status == 1:
-                    msg = "Completed."
-                elif status == 2:
-                    msg = "Failed to find valid trajectory."
-                elif status == 3:
-                    msg = "Collision detected."
-
-                print(f"[Batch {self.agent_id_list}] Agent {agent.id} terminated: {msg}")
-                # Terminate all agents simultaneously
-                terminated_agent_list.append(agent)
-                with open(os.path.join(agent.mod_path, "logs", "score_overview.csv"), 'a') as file:
-                    line = str(agent.scenario.scenario_id) + ";" + str(self.current_timestep) + ";" + msg + "\n"
-                    file.write(line)
+            if agent.status > hf.AgentStatus.RUNNING:
+                self.terminated_agent_list.append(agent)
+                self.running_agent_list.remove(agent)
             else:
-                # save dummy obstacle
-                self.dummy_obstacle_list.append(dummy_obstacle)
+                self.agent_history_dict[agent.id] = agent.vehicle_history
+                self.agent_recorded_state_dict[agent.id] = agent.record_state_list
+                self.agent_input_state_dict[agent.id] = agent.record_input_list
+                self.agent_ref_path_dict[agent.id] = agent.reference_path
+                self.agent_traj_set_dict[agent.id] = agent.traj_set
+            #     dummy_obstacle_dict.update(dummy_obstacle)
 
-        # Terminate agents
-        for agent in terminated_agent_list:
-            self.running_agent_list.remove(agent)
+        self.global_timestep += 1
+        if self.global_timestep < self.latest_starting_time:
+            self.running_agent_list.extend(self.agent_dict[self.global_timestep])
 
-        # start pending agents
-        started_agent_list = []
-        for agent in self.pending_agent_list:
-            if agent.current_timestep == self.current_timestep + 1:
-                self.running_agent_list.append(agent)
-                self.dummy_obstacle_list.append(agent.ego_obstacle_list[-1])
+    def check_completion(self):
+        """Check for completion of all agents in this batch."""
+        self.finished = all([i > AgentStatus.RUNNING for i in self.agent_status_dict.values()])
 
-                started_agent_list.append(agent)
-        for agent in started_agent_list:
-            self.pending_agent_list.remove(agent)

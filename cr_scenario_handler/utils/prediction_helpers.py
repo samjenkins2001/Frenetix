@@ -14,20 +14,22 @@ import sys
 from commonroad.scenario.obstacle import ObstacleRole
 from commonroad_dc.collision.trajectory_queries import trajectory_queries
 import logging
+from commonroad.scenario.scenario import Scenario
 
 module_path = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 sys.path.append(module_path)
 
-from cr_scenario_handler.utils.helper_functions import create_tvobstacle, distance
-from cr_scenario_handler.utils.sensor_model import get_visible_objects
+import cr_scenario_handler.utils.helper_functions as hf
 from wale_net_lite.wale_net import WaleNet
+from cr_scenario_handler.utils.sensor_model import get_visible_objects, get_obstacles_in_radius
+
 from frenetix_motion_planner.utility import reachable_set
 from frenetix_motion_planner.utility.responsibility import assign_responsibility_by_action_space
 
 # get logger
-msg_logger = logging.getLogger("Message_logger")
+# msg_logger = logging.getLogger("Simulation_logger")
 
 
 def load_prediction(scenario, mode, config=None):
@@ -48,6 +50,33 @@ def load_reachset(scenario, config, params_path):
         work_dir=params_path
     )
     return reach_set
+
+
+def get_predictions(config, predictor, scenario: Scenario, current_timestep: int, planning_horizon: float,
+                    obstacles=None):
+    """ Calculate the predictions for all obstacles in the scenario.
+
+    :param config: The configuration.
+    :param predictor: The prediction module object to use.
+    :param scenario: The scenario for which to calculate the predictions.
+    :param current_timestep: The timestep after which to start predicting.
+    :param planning_horizon: Time horizon of trajectories
+    :param obstacles: All obstacles
+    """
+    predictions = None
+    if config.prediction.mode:
+        obstacle_list = [obs.obstacle_id for obs in scenario.obstacles] if obstacles is None else obstacles
+        if config.prediction.mode == "walenet":
+            # Calculate predictions for all obstacles using WaleNet.
+            # The state is only used for accessing the current timestep.
+            predictions = main_prediction(predictor, scenario, obstacle_list,
+                                          current_timestep, scenario.dt,
+                                          [planning_horizon])
+        elif config.prediction.mode == "ground_truth":
+            predictions = get_ground_truth_prediction(obstacle_list, scenario, current_timestep,
+                                                      int(planning_horizon / scenario.dt))
+
+    return predictions
 
 
 def step_prediction(scenario, predictor, config, ego_state, time_step, occlusion_module=None, ego_id=42):
@@ -83,39 +112,6 @@ def step_reach_set(reach_set, scenario, x_0, predictions):
     return reach_set
 
 
-def get_obstacles_in_radius(scenario, ego_id: int, ego_state, time_step: int, radius: float):
-    """
-    Get all the obstacles that can be found in a given radius.
-
-    Args:
-        scenario (Scenario): Considered Scenario.
-        ego_id (int): ID of the ego vehicle.
-        ego_state (State): State of the ego vehicle.
-        time_step (int) time step
-        radius (float): Considered radius.
-
-    Returns:
-        [int]: List with the IDs of the obstacles that can be found in the ball with the given radius centering at the ego vehicles position.
-    """
-    obstacles_within_radius = []
-    for obstacle in scenario.obstacles:
-        # do not consider the ego vehicle
-        if obstacle.obstacle_id != ego_id:
-            occ = obstacle.occupancy_at_time(time_step)
-            # if the obstacle is not in the lanelet network at the given time, its occupancy is None
-            if occ is not None:
-                # calculate the distance between the two obstacles
-                dist = distance(
-                    pos1=ego_state.initial_state.position,
-                    pos2=obstacle.occupancy_at_time(time_step).shape.center,
-                )
-                # add obstacles that are close enough
-                if dist < radius:
-                    obstacles_within_radius.append(obstacle.obstacle_id)
-
-    return obstacles_within_radius
-
-
 def get_dyn_and_stat_obstacles(obstacle_ids: [int], scenario):
     """
     Split a set of obstacles in a set of dynamic obstacles and a set of static obstacles.
@@ -141,7 +137,7 @@ def get_dyn_and_stat_obstacles(obstacle_ids: [int], scenario):
 
 
 def get_orientation_velocity_and_shape_of_prediction(
-    predictions: dict, scenario, safety_margin_length=0.5, safety_margin_width=0.2
+        predictions: dict, scenario, safety_margin_length=0.5, safety_margin_width=0.2
 ):
     """
     Extend the prediction by adding information about the orientation, velocity and the shape of the predicted obstacle.
@@ -256,7 +252,7 @@ def collision_checker_prediction(
             # create a time variant collision object for the predicted vehicle
             traj = [[x[i], y[i], pred_orientation[i]] for i in range(pred_length)]
 
-            prediction_collision_object_raw = create_tvobstacle(
+            prediction_collision_object_raw = hf.create_tvobstacle(
                 traj_list=traj,
                 box_length=length / 2,
                 box_width=width / 2,
@@ -290,7 +286,7 @@ def collision_checker_prediction(
 
 
 def add_static_obstacle_to_prediction(
-    predictions: dict, obstacle_id_list: [int], scenario, pred_horizon: int = 50
+        predictions: dict, obstacle_id_list: [int], scenario, pred_horizon: int = 50
 ):
     """
     Add static obstacles to the prediction since predictor can not handle static obstacles.
@@ -323,7 +319,7 @@ def add_static_obstacle_to_prediction(
 
 
 def get_ground_truth_prediction(
-    obstacle_ids: [int], scenario, time_step: int, pred_horizon: int = 50
+        obstacle_ids: [int], scenario, time_step: int, pred_horizon: int = 50
 ):
     """
     Transform the ground truth to a prediction. Use this if the prediction fails.
@@ -372,24 +368,41 @@ def get_ground_truth_prediction(
             prediction_result[obstacle_id] = {'pos_list': fut_pos, 'cov_list': fut_cov, 'orientation_list': fut_yaw,
                                               'v_list': fut_v, 'shape': shape_obs}
         except Exception as e:
-            msg_logger.warning("Could not calculate ground truth prediction: ", e)
+            msg_logger.warning(f"Could not calculate ground truth prediction for obstacle {obstacle_id}: ", e)
 
     return prediction_result
 
 
-def prediction_preprocessing(scenario, ego_state, time_step, config, occlusion_module=None, ego_id=42):
+def filter_global_predictions(scenario, global_predictions, ego_state, time_step, config, occlusion_module=None,
+                              ego_id=42, msg_logger= logging.getLogger("Simulation_logger")):
+    visible_obstacles, visible_area = prediction_preprocessing(scenario, ego_state, time_step, config, occlusion_module,
+                                                               ego_id, msg_logger)
+    predictions = {key: item for key, item in global_predictions.items() if key in visible_obstacles}
+
+    return predictions, visible_area
+
+
+def prediction_preprocessing(scenario, ego_state, time_step, config, occlusion_module=None, ego_id=42, msg_logger= logging.getLogger("Simulation_logger")):
+
+    if config.prediction.cone_angle > 0:
+        vehicles_in_cone_angle = True
+    else:
+        vehicles_in_cone_angle = False
     if config.prediction.calc_visible_area:
         try:
             if config.occlusion.use_occlusion_module:
-                visible_obstacles, visible_area = occlusion_module.vis_module.get_visible_area_and_objects(
-                                                    time_step=time_step,ego_state=ego_state)
+                raise NotImplementedError("ignore_vehicles_in_cone_angle")
+                # visible_obstacles, visible_area = occlusion_module.vis_module.get_visible_area_and_objects(
+                # time_step=time_step, ego_state=ego_state)
             else:
                 visible_obstacles, visible_area = get_visible_objects(
-                   scenario=scenario,
-                   time_step=time_step,
-                   ego_pos=ego_state.initial_state.position,
-                   sensor_radius=config.prediction.sensor_radius,
-                   ego_id=ego_id,
+                    scenario=scenario,
+                    time_step=time_step,
+                    ego_state=ego_state,
+                    sensor_radius=config.prediction.sensor_radius,
+                    ego_id=ego_id,
+                    vehicles_in_cone_angle=vehicles_in_cone_angle,
+                    config=config
                 )
             return visible_obstacles, visible_area
         except:
@@ -400,6 +413,8 @@ def prediction_preprocessing(scenario, ego_state, time_step, config, occlusion_m
                 ego_state=ego_state,
                 time_step=time_step,
                 radius=config.prediction.sensor_radius,
+                vehicles_in_cone_angle=vehicles_in_cone_angle,
+                config=config
             )
             return visible_obstacles, None
     else:
@@ -409,6 +424,8 @@ def prediction_preprocessing(scenario, ego_state, time_step, config, occlusion_m
             ego_state=ego_state,
             time_step=time_step,
             radius=config.prediction.sensor_radius,
+            vehicles_in_cone_angle=vehicles_in_cone_angle,
+            config=config
         )
         return visible_obstacles, None
 
@@ -467,12 +484,7 @@ def ignore_vehicles_in_cone_angle(predictions, ego_pose, veh_length, cone_angle,
             predictions[i]['pos_list'][0][1], predictions[i]['orientation_list'][0]]
         )
 
-        # Function not necessary since we already have global coordinates
-        # obj_pose[:2] += rotate_loc_glob(
-        #     np.array([veh_length / 2.0, 0.0]), obj_pose[2], matrix=False
-        # )
-
-        loc_obj_pos = rotate_glob_loc(
+        loc_obj_pos = hf.rotate_glob_loc(
             obj_pose[:2] - ego_pose[:2], ego_pose[2], matrix=False
         )
         loc_obj_pos[0] += veh_length / 2.0
@@ -480,7 +492,7 @@ def ignore_vehicles_in_cone_angle(predictions, ego_pose, veh_length, cone_angle,
         if loc_obj_pos[0] > -cone_safety_dist:
             ignore_object = False
 
-        obj_angle = pi_range(math.atan2(loc_obj_pos[1], loc_obj_pos[0]) - np.pi)
+        obj_angle = hf.pi_range(math.atan2(loc_obj_pos[1], loc_obj_pos[0]) - np.pi)
 
         if abs(obj_angle) > cone_angle / 2.0:
             ignore_object = False
@@ -492,42 +504,5 @@ def ignore_vehicles_in_cone_angle(predictions, ego_pose, veh_length, cone_angle,
             del predictions[ignore_pred_list[obj]]
 
     return predictions
-
-
-def rotate_glob_loc(global_matrix, rot_angle, matrix=True):
-    """
-    helper function to rotate matrices from global to local coordinates (vehicle coordinates)
-
-    Angle Convention:
-    yaw = 0: local x-axis parallel to global y-axis
-    yaw = -np.pi / 2: local x-axis parallel to global x-axis --> should result in np.eye(2)
-
-    rot_mat: Rotation from global to local (x_local = np.matmul(rot_mat, x_global))
-    """
-
-    rot_mat = np.array(
-        [
-            [np.cos(rot_angle), np.sin(rot_angle)],
-            [-np.sin(rot_angle), np.cos(rot_angle)],
-        ]
-    )
-
-    mat_temp = np.matmul(rot_mat, global_matrix)
-
-    if matrix:
-        return np.matmul(mat_temp, rot_mat.T)
-
-    return mat_temp
-
-
-def pi_range(yaw):
-    """Clip yaw to (-pi, +pi]."""
-    if yaw <= -np.pi:
-        yaw += 2 * np.pi
-        return yaw
-    elif yaw > np.pi:
-        yaw -= 2 * np.pi
-        return yaw
-    return yaw
 
 # EOF

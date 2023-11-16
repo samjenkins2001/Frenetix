@@ -30,24 +30,24 @@ from frenetix_motion_planner.planner import Planner
 _EPS = 1e-5
 
 # get logger
-msg_logger = logging.getLogger("Message_logger")
+# msg_logger = logging.getLogger("Message_logger")
 
 
 class ReactivePlannerPython(Planner):
     """
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
-    def __init__(self, config, scenario, planning_problem, log_path, work_dir, agent_id):
+    def __init__(self, config_plan, config_sim, scenario, planning_problem, log_path, work_dir, msg_logger):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
         """
-        super().__init__(config, scenario, planning_problem, log_path, work_dir, agent_id)
+        super().__init__(config_plan, config_sim, scenario, planning_problem, log_path, work_dir, msg_logger)
 
         # **************************
         # Cost Function Setting
         # **************************
-        cost_function = AdaptableCostFunction(rp=self, configuration=self.config)
+        cost_function = AdaptableCostFunction(rp=self, configuration=self.config_plan)
         self.set_cost_function(cost_function=cost_function)
 
     @property
@@ -59,11 +59,12 @@ class ReactivePlannerPython(Planner):
         return self._co.reference
 
     def set_predictions(self, predictions: dict):
+        self.use_prediction = True
         self.predictions = predictions
 
     def set_cost_function(self, cost_function):
         self.cost_function = cost_function
-        # self.logger.set_logging_header(self.config.cost.cost_weights)
+        # self.logger.set_logging_header(self.config_plan.cost.cost_weights)
 
     def set_reference_path(self, reference_path: np.ndarray = None, coordinate_system: CoordinateSystem = None):
         """
@@ -89,8 +90,8 @@ class ReactivePlannerPython(Planner):
         :return: Optimal trajectory as tuple
         """
 
-        msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(self.x_cl[0], self.x_cl[1]))
-        msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
+        self.msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(self.x_cl[0], self.x_cl[1]))
+        self.msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
 
         # Initialization of while loop
         optimal_trajectory = None
@@ -116,9 +117,9 @@ class ReactivePlannerPython(Planner):
 
         planning_time = time.time() - t0
 
-        msg_logger.debug('Rejected {} infeasible trajectories due to kinematics'.format(
+        self.msg_logger.debug('Rejected {} infeasible trajectories due to kinematics'.format(
             self._infeasible_count_kinematics))
-        msg_logger.debug('Rejected {} infeasible trajectories due to collisions'.format(
+        self.msg_logger.debug('Rejected {} infeasible trajectories due to collisions'.format(
             self.infeasible_count_collision))
 
         # ******************************************
@@ -130,7 +131,7 @@ class ReactivePlannerPython(Planner):
             self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
 
         if optimal_trajectory is None and self.x_0.velocity <= 0.1:
-            msg_logger.warning('Planning standstill for the current scenario')
+            self.msg_logger.warning('Planning standstill for the current scenario')
             self.logger.trajectory_number = self.x_0.time_step
             optimal_trajectory = self._compute_standstill_trajectory()
 
@@ -195,7 +196,7 @@ class ReactivePlannerPython(Planner):
         trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
                                              multiproc=self._multiproc, num_workers=self._num_workers)
         self._total_count = len(trajectory_bundle._trajectory_bundle)
-        msg_logger.debug('%s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
+        self.msg_logger.debug('%s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
         return trajectory_bundle
 
     def _get_optimal_trajectory(self, trajectory_bundle: TrajectoryBundle, samp_lvl):
@@ -252,10 +253,10 @@ class ReactivePlannerPython(Planner):
         self.infeasible_kinematics_percentage = float(len(feasible_trajectories) / len(trajectories_all)) * 100
 
         # print size of feasible trajectories and infeasible trajectories
-        msg_logger.debug(
+        self.msg_logger.debug(
             'Found {} feasible trajectories and {} infeasible trajectories'.format(str(len(feasible_trajectories)),
                                                                                    str(len(infeasible_trajectories))))
-        msg_logger.debug('Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
+        self.msg_logger.debug('Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
 
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj:
@@ -281,7 +282,7 @@ class ReactivePlannerPython(Planner):
                 self.set_risk_costs(traje)
             sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk,
                                reverse=False)
-            msg_logger.warning("No optimal trajectory available. Select lowest risk trajectory!")
+            self.msg_logger.warning("No optimal trajectory available. Select lowest risk trajectory!")
             optimal_trajectory = sort_risk[0]
             return optimal_trajectory
 
@@ -390,13 +391,13 @@ class ReactivePlannerPython(Planner):
             if not self._draw_traj_set:
                 # pre-filter with quick underapproximative check for feasibility
                 if np.any(np.abs(s_acceleration) > self.vehicle_params.a_max):
-                    msg_logger.debug(f"Acceleration {np.max(np.abs(s_acceleration))}")
+                    self.msg_logger.debug(f"Acceleration {np.max(np.abs(s_acceleration))}")
                     trajectory.feasible = False
                     infeasible_invalid_count_kinematics[1] += 1
                     trajectory_list.append(trajectory)
                     continue
                 if np.any(s_velocity < -_EPS):
-                    msg_logger.debug(f"Velocity {min(s_velocity)} at step")
+                    self.msg_logger.debug(f"Velocity {min(s_velocity)} at step")
                     trajectory.feasible = False
                     infeasible_invalid_count_kinematics[2] += 1
                     trajectory_list.append(trajectory)
@@ -560,7 +561,7 @@ class ReactivePlannerPython(Planner):
                     else:
                         trajectory.valid = False
                         infeasible_count_kinematics_traj[9] = 1
-                        msg_logger.debug("Out of projection domain")
+                        self.msg_logger.debug("Out of projection domain")
                         break
 
                 if trajectory.feasible or self._draw_traj_set:
@@ -603,10 +604,10 @@ class ReactivePlannerPython(Planner):
         x_0_lon, x_0_lat = self.x_cl
 
         # create artificial standstill trajectory
-        msg_logger.debug('Adding standstill trajectory')
-        msg_logger.debug("x_0 is {}".format(x_0))
-        msg_logger.debug("x_0_lon is {}".format(x_0_lon))
-        msg_logger.debug("x_0_lon is {}".format(type(x_0_lon)))
+        self.msg_logger.debug('Adding standstill trajectory')
+        self.msg_logger.debug("x_0 is {}".format(x_0))
+        self.msg_logger.debug("x_0_lon is {}".format(x_0_lon))
+        self.msg_logger.debug("x_0_lon is {}".format(type(x_0_lon)))
 
         # create lon and lat polynomial
         traj_lon = QuarticTrajectory(tau_0=0, delta_tau=self.horizon, x_0=np.asarray(x_0_lon),
@@ -643,7 +644,7 @@ class ReactivePlannerPython(Planner):
         return p
 
     def _create_end_point_trajectory_bundle(self, x_0_lon, x_0_lat, stop_point_s, cost_function, samp_level):
-        msg_logger.debug('sampling stopping trajectory at stop line')
+        self.msg_logger.debug('sampling stopping trajectory at stop line')
         # reset cost statistic
         self._min_cost = 10 ** 9
         self._max_cost = 0
@@ -683,7 +684,7 @@ class ReactivePlannerPython(Planner):
         trajectory_bundle = TrajectoryBundle(trajectories, cost_function=cost_function,
                                              multiproc=self._multiproc, num_workers=self._num_workers)
         self._total_count = len(trajectory_bundle._trajectory_bundle)
-        msg_logger.debug('%s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
+        self.msg_logger.debug('%s trajectories sampled' % len(trajectory_bundle._trajectory_bundle))
 
         return trajectory_bundle
 
@@ -719,11 +720,11 @@ class ReactivePlannerPython(Planner):
                 elif "time_step" in self.goal_checker.goal.state_list[0].attributes:
                     progress = ((self.x_0.time_step - 1) / self.goal_checker.goal.state_list[0].time_step.end)
                 else:
-                    msg_logger.error('Could not calculate progress')
+                    self.msg_logger.error('Could not calculate progress')
                     progress = None
             except:
                 progress = None
-                msg_logger.error('Could not calculate progress')
+                self.msg_logger.error('Could not calculate progress')
 
             collision_obj = self.collision_checker.find_all_colliding_objects(ego)[0]
             if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
@@ -738,3 +739,4 @@ class ReactivePlannerPython(Planner):
             else:
                 self.logger.log_collision(False, self.vehicle_params.length, self.vehicle_params.width, progress)
             return True
+

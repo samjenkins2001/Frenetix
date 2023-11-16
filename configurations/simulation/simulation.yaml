@@ -30,6 +30,10 @@ number_of_agents: -1
 # or by their order in the scenario
 select_agents_randomly: True
 
+# Messages Logging
+# Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
+msg_log_mode: INFO
+
 multiprocessing: False
 num_procs: 4
 

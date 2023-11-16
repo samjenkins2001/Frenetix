@@ -50,9 +50,9 @@ msg_logger = logging.getLogger("Message_logger")
 
 class Planner:
 
-    def __init__(self, config, scenario: Scenario,
+    def __init__(self, config_plan, config_sim, scenario: Scenario,
                  planning_problem: PlanningProblem,
-                 log_path: str, work_dir: str, agent_id: int):
+                 log_path: str, work_dir: str, msg_logger):
         """Wrappers providing a consistent interface for different planners.
         To be implemented for every specific planner.
 
@@ -62,18 +62,17 @@ class Planner:
         :param log_path: Path the planner's log files will be written to.
         :param work_dir: Working directory for the planner.
         """
-        self.agent_id = agent_id
-        self.config = config
-        self.horizon = config.planning.planning_horizon
-        self.dT = config.planning.dt
-        self.N = int(config.planning.planning_horizon / config.planning.dt)
+        self.config_plan, self.config_sim = config_plan, config_sim
+        self.horizon = config_plan.planning.planning_horizon
+        self.dT = config_plan.planning.dt
+        self.N = int(config_plan.planning.planning_horizon / config_plan.planning.dt)
         self._check_valid_settings()
-        self.vehicle_params = config.vehicle
-        self._low_vel_mode_threshold = config.planning.low_vel_mode_threshold
-
+        self.vehicle_params = config_sim.vehicle
+        self._low_vel_mode_threshold = config_plan.planning.low_vel_mode_threshold
+        self.msg_logger = msg_logger
         # Multiprocessing & Settings
-        self._multiproc = config.debug.multiproc
-        self._num_workers = config.debug.num_workers
+        self._multiproc = config_plan.debug.multiproc
+        self._num_workers = config_plan.debug.num_workers
 
         # Initial State
         self.x_0: Optional[ReactivePlannerState] = None
@@ -107,15 +106,12 @@ class Planner:
         self._desired_d = 0.
         self.max_seen_costs = 1
 
-        self.cost_weights = OmegaConf.to_object(config.cost.cost_weights)
+        self.cost_weights = OmegaConf.to_object(config_plan.cost.cost_weights)
 
         # **************************
         # Extensions Initialization
         # **************************
-        if config.prediction.mode:
-            self.use_prediction = True
-        else:
-            self.use_prediction = False
+        self.use_prediction = False
 
         self.set_collision_checker(self.scenario)
         self._goal_checker = GoalReachedChecker(planning_problem)
@@ -134,33 +130,33 @@ class Planner:
         # Sampling Initialization
         # **************************
         # Set Sampling Parameters#
-        self._sampling_min = config.sampling.sampling_min
-        self._sampling_max = config.sampling.sampling_max
-        self.sampling_handler = SamplingHandler(dt=self.dT, max_sampling_number=config.sampling.sampling_max,
-                                                t_min=config.sampling.t_min, horizon=self.horizon,
-                                                delta_d_max=config.sampling.d_max, delta_d_min=config.sampling.d_min)
+        self._sampling_min = config_plan.planning.sampling_min
+        self._sampling_max = config_plan.planning.sampling_max
+        self.sampling_handler = SamplingHandler(dt=self.dT, max_sampling_number=config_plan.planning.sampling_max,
+                                                t_min=config_plan.planning.t_min, horizon=self.horizon,
+                                                delta_d_max=config_plan.planning.d_max, delta_d_min=config_plan.planning.d_min)
 
         self.stopping_s = None
 
         # *****************************
         # Debug & Logger Initialization
         # *****************************
-        self.log_risk = config.debug.log_risk
-        self.save_all_traj = config.debug.save_all_traj
+        self.log_risk = self.config_plan.debug.log_risk
+        self.save_all_traj = self.config_plan.debug.save_all_traj
         self.all_traj = None
         self.optimal_trajectory = None
         self.trajectory_pair = None
-        self.use_occ_model = config.occlusion.use_occlusion_module
+        self.use_occ_model = False
         self.logger = DataLoggingCosts(
-            config=config,
+            config=self.config_plan,
             scenario=scenario,
             planning_problem=planning_problem,
             path_logs=log_path,
             save_all_traj=self.save_all_traj,
-            cost_params=config.cost.cost_weights
+            cost_params=self.config_plan.cost.cost_weights
         )
-        self._draw_traj_set = config.debug.draw_traj_set
-        self._kinematic_debug = config.debug.kinematic_debug
+        self._draw_traj_set = self.config_plan.debug.draw_traj_set
+        self._kinematic_debug = self.config_plan.debug.kinematic_debug
 
         # **************************
         # Risk & Harm Initialization
@@ -234,7 +230,7 @@ class Planner:
         self.x_0 = x_0
         if self.x_0.velocity < self._low_vel_mode_threshold:
             self._LOW_VEL_MODE = True
-            msg_logger.debug("Plan Timestep in Low-Velocity Mode!")
+            self.msg_logger.debug("Plan Timestep in Low-Velocity Mode!")
         else:
             self._LOW_VEL_MODE = False
 
@@ -279,6 +275,7 @@ class Planner:
         self.goal_area = goal_area
 
     def set_occlusion_module(self, occ_module):
+        self.use_occ_model = True
         self.occlusion_module = occ_module
 
     def set_planning_problem(self, planning_problem: PlanningProblem):
@@ -316,7 +313,7 @@ class Planner:
 
         self.sampling_handler.set_v_sampling(min_v, max_v)
 
-        msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
+        self.msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
 
     def set_risk_costs(self, trajectory):
 
@@ -343,7 +340,6 @@ class Planner:
         """
         # go through sorted list of sorted trajectories and check for collisions
         for trajectory in feasible_trajectories:
-
             # skip trajectory if occ module is activated and trajectory is invalid (harm exceeds max harm)
             if self.use_occ_model and trajectory.valid is False:
                 continue
@@ -355,6 +351,7 @@ class Planner:
             coll_obj = self.create_coll_object(occupancy, self.vehicle_params, self.x_0)
 
             # TODO: Check kinematic checks in cpp. no feasible traj available
+
             if self.use_prediction:
                 collision_detected = collision_checker_prediction(
                     predictions=self.predictions,
@@ -580,7 +577,7 @@ class Planner:
                 obs = create_collision_object(co)
                 cc_scenario.add_collision_object(obs)
             for co in scenario.dynamic_obstacles:
-                if co.obstacle_id == self.agent_id:
+                if co.obstacle_id == self.config_sim.simulation.ego_agent_id:
                     continue
                 tvo = create_collision_object(co)
                 cc_scenario.add_collision_object(tvo)
@@ -602,7 +599,7 @@ class Planner:
         try:
             s, d = self._co.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
         except ValueError:
-            msg_logger.critical("Initial state could not be transformed.")
+            self.msg_logger.critical("Initial state could not be transformed.")
             raise ValueError("Initial state could not be transformed.")
 
         # factor for interpolation
@@ -654,9 +651,9 @@ class Planner:
         x_0_lon: List[float] = [s, s_velocity, s_acceleration]
         x_0_lat: List[float] = [d, d_velocity, d_acceleration]
 
-        msg_logger.debug(f'Initial state for planning is {x_0}')
-        msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
-        msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
+        self.msg_logger.debug(f'Initial state for planning is {x_0}')
+        self.msg_logger.debug(f'Initial x_0 lon = {x_0_lon}')
+        self.msg_logger.debug(f'Initial x_0 lat = {x_0_lat}')
 
         return x_0_lon, x_0_lat
 
@@ -678,7 +675,7 @@ class Planner:
         # **************************
         if optimal_trajectory is not None and self.x_0.time_step > 0:
             self._optimal_cost = optimal_trajectory.cost
-            msg_logger.debug('Found optimal trajectory with {}% of maximum seen costs'
+            self.msg_logger.debug('Found optimal trajectory with {}% of maximum seen costs'
                   .format(int((self._optimal_cost/self.max_seen_costs)*100)))
 
         if optimal_trajectory is not None:

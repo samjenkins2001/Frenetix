@@ -10,7 +10,7 @@ from typing import List, Union, Dict
 
 import matplotlib
 from matplotlib import pyplot as plt
-import imageio.v3 as iio
+import imageio as iio
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.colors as colors

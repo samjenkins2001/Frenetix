@@ -3,17 +3,108 @@
 Author: Maximilian Geisslinger <maximilian.geisslinger@tum.de>
 """
 
-
-# Standard imports
-import os
-
 # Third-party imports
+import os
+import sys
+import math
 import numpy as np
+
 from commonroad.common.file_reader import CommonRoadFileReader
+from commonroad.scenario.scenario import Scenario
+
+import cr_scenario_handler.utils.helper_functions as hf
+
 from shapely.geometry import Point, Polygon
 
 
-def get_visible_objects(scenario, time_step, ego_pos, ego_id=42, sensor_radius=50, occlusions=True, wall_buffer=0.0):
+module_path = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+sys.path.append(module_path)
+
+
+def ignore_vehicles_in_cone_angle(obstacles, scenario, ego_pose, veh_length, cone_angle, cone_safety_dist):
+    """Ignore vehicles behind ego for prediction if inside specific cone.
+
+    Cone is spaned from center of rear-axle (cog - length / 2.0)
+
+    cone_angle = Totel Angle of Cone. 0.5 per side (right, left)
+
+    return bool: True if vehicle is ignored, i.e. inside cone
+    """
+    ego_pose = np.array(
+        [ego_pose.initial_state.position[0], ego_pose.initial_state.position[1], ego_pose.initial_state.orientation])
+    cone_angle = cone_angle / 180 * np.pi
+    ignore_pred_list = list()
+
+    for i in obstacles:
+        ignore_object = True
+        obj_pose = scenario.obstacle_by_id(i).initial_state.position
+        obj_orientation = scenario.obstacle_by_id(i).initial_state.orientation
+
+        loc_obj_pos = hf.rotate_glob_loc(
+            obj_pose[:2] - ego_pose[:2], obj_orientation, matrix=False
+        )
+        loc_obj_pos[0] += veh_length / 2.0
+
+        if loc_obj_pos[0] > -cone_safety_dist:
+            ignore_object = False
+
+        obj_angle = hf.pi_range(math.atan2(loc_obj_pos[1], loc_obj_pos[0]) - np.pi)
+
+        if abs(obj_angle) > cone_angle / 2.0:
+            ignore_object = False
+        if ignore_object:
+            ignore_pred_list.append(i)
+
+    if len(ignore_pred_list) > 0:
+        # for obj in range(len(ignore_pred_list)):
+        for obj in ignore_pred_list:
+            obstacles.remove(obj)
+
+    return obstacles
+
+
+def get_obstacles_in_radius(scenario, ego_id: int, ego_state, time_step: int, radius: float,
+                            vehicles_in_cone_angle=True, config=None):
+    """
+    Get all the obstacles that can be found in a given radius.
+
+    Args:
+        scenario (Scenario): Considered Scenario.
+        ego_id (int): ID of the ego vehicle.
+        ego_state (State): State of the ego vehicle.
+        time_step (int) time step
+        radius (float): Considered radius.
+
+    Returns:
+        [int]: List with the IDs of the obstacles that can be found in the ball with the given radius centering at the ego vehicles position.
+    """
+    obstacles_within_radius = []
+    for obstacle in scenario.obstacles:
+        # do not consider the ego vehicle
+        if obstacle.obstacle_id != ego_id:
+            occ = obstacle.occupancy_at_time(time_step)
+            # if the obstacle is not in the lanelet network at the given time, its occupancy is None
+            if occ is not None:
+                # calculate the distance between the two obstacles
+                dist = hf.distance(
+                    pos1=ego_state.initial_state.position,
+                    pos2=obstacle.occupancy_at_time(time_step).shape.center,
+                )
+                # add obstacles that are close enough
+                if dist < radius:
+                    obstacles_within_radius.append(obstacle.obstacle_id)
+    if vehicles_in_cone_angle and config:
+        obstacles_within_radius = ignore_vehicles_in_cone_angle(obstacles_within_radius, scenario, ego_state,
+                                                                config.vehicle.length,
+                                                                config.prediction.cone_angle,
+                                                                config.prediction.cone_safety_dist)
+    return obstacles_within_radius
+
+
+def get_visible_objects(scenario, time_step, ego_state, ego_id=42, sensor_radius=50, occlusions=True, wall_buffer=0.0,
+                        vehicles_in_cone_angle=True, config=None):
     """This function simulates a sensor model of a camera/lidar sensor.
 
     It returns the visible objects and the visible area.
@@ -34,7 +125,7 @@ def get_visible_objects(scenario, time_step, ego_pos, ego_id=42, sensor_radius=5
         visible_area [shapely object] -- [area that is visible (for visualization e.g.)]
 
     """
-
+    ego_pos = ego_state.initial_state.position,
     # Create circle from sensor radius
     visible_area = Point(ego_pos).buffer(sensor_radius)
 
@@ -156,6 +247,11 @@ def get_visible_objects(scenario, time_step, ego_pos, ego_id=42, sensor_radius=5
     #             # add obstacles that are close enough
     #             if dist < sensor_radius:
     #                 obstacles_within_radius.append(obstacle.obstacle_id)
+    if vehicles_in_cone_angle and config:
+        visible_object_ids = ignore_vehicles_in_cone_angle(visible_object_ids, scenario, ego_state,
+                                                           config.vehicle.length,
+                                                           config.prediction.cone_angle,
+                                                           config.prediction.cone_safety_dist)
 
     return visible_object_ids, visible_area
 
@@ -234,7 +330,7 @@ def _create_polygon_from_vertices(vert_point1, vert_point2, ego_pos):
 
     pol_point1 = vert_point1 + 100 * (vert_point1 - ego_pos)
     pol_point2 = vert_point2 + 100 * (vert_point2 - ego_pos)
-
+    #TODO not working!?
     pol = Polygon([vert_point1, vert_point2, pol_point2, pol_point1, vert_point1])
 
     return pol

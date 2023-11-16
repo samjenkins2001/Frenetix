@@ -29,19 +29,19 @@ import frenetix.trajectory_functions.cost_functions as cf
 from frenetix_motion_planner.planner import Planner
 
 # get logger
-msg_logger = logging.getLogger("Message_logger")
+# msg_logger = logging.getLogger("Message_logger")
 
 
 class ReactivePlannerCpp(Planner):
     """
     Reactive planner class that plans trajectories in a sampling-based fashion
     """
-    def __init__(self, config, scenario, planning_problem, log_path, work_dir, agent_id):
+    def __init__(self, config_plan, config_sim, scenario, planning_problem, log_path, work_dir, msg_logger):
         """
         Constructor of the reactive planner
         : param config: Configuration object holding all planner-relevant configurations
         """
-        super().__init__(config, scenario, planning_problem, log_path, work_dir, agent_id)
+        super().__init__(config_plan, config_sim, scenario, planning_problem, log_path, work_dir, msg_logger)
 
         self.predictionsForCpp = {}
 
@@ -49,12 +49,13 @@ class ReactivePlannerCpp(Planner):
         # C++ Trajectory Handler Import
         # *****************************
 
-        self.handler: frenetix.TrajectoryHandler = frenetix.TrajectoryHandler(dt=self.config.planning.dt)
+        self.handler: frenetix.TrajectoryHandler = frenetix.TrajectoryHandler(dt=self.config_plan.planning.dt)
         self.coordinate_system: frenetix.CoordinateSystemWrapper
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
 
     def set_predictions(self, predictions: dict):
+        self.use_prediction = True
         self.predictions = predictions
         for key, pred in self.predictions.items():
             num_steps = pred['pos_list'].shape[0]
@@ -86,11 +87,11 @@ class ReactivePlannerCpp(Planner):
             self.predictionsForCpp[key] = frenetix.PredictedObject(int(key), predicted_path)
 
     def set_cost_function(self, cost_weights):
-        self.config.cost.cost_weights = cost_weights
+        self.config_plan.cost.cost_weights = cost_weights
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
         self.trajectory_handler_set_changing_functions()
-        self.logger.set_logging_header(self.config.cost.cost_weights)
+        self.logger.set_logging_header(self.config_plan.cost.cost_weights)
 
     def trajectory_handler_set_constant_feasibility_functions(self):
         self.handler.add_feasability_function(ff.CheckYawRateConstraint(deltaMax=self.vehicle_params.delta_max,
@@ -144,7 +145,7 @@ class ReactivePlannerCpp(Planner):
             lowVelocityMode=self._LOW_VEL_MODE,
             initialOrientation=self.x_0.orientation,
             coordinateSystem=self.coordinate_system,
-            horizon=int(self.config.planning.planning_horizon)
+            horizon=int(self.config_plan.planning.planning_horizon)
         ))
 
         name = "prediction"
@@ -219,8 +220,8 @@ class ReactivePlannerCpp(Planner):
             x_0_lat = self.x_cl[1]
             x_0_lon = self.x_cl[0]
 
-        msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
-        msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
+        self.msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
+        self.msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
 
         # Initialization of while loop
         optimal_trajectory = None
@@ -259,8 +260,8 @@ class ReactivePlannerCpp(Planner):
             self.handler.reset_Trajectories()
             self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
 
-            if not self.config.debug.multiproc or (self.config.multiagent.use_multiagent and
-                                                   not self.config.multiagent.multiprocessing):
+            if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
+                                                   not self.config_plan.simulation.multiprocessing):
                 self.handler.evaluate_all_current_functions(True)
             else:
                 self.handler.evaluate_all_current_functions_concurrent(True)
@@ -275,14 +276,14 @@ class ReactivePlannerCpp(Planner):
                     infeasible_trajectories.append(trajectory)
 
             if len(feasible_trajectories) + len(infeasible_trajectories) < 1:
-                msg_logger.critical("No Valid Trajectories!")
+                self.msg_logger.critical("No Valid Trajectories!")
 
             self.infeasible_kinematics_percentage = float(len(feasible_trajectories)
                                                     / (len(feasible_trajectories) + len(infeasible_trajectories))) * 100
 
             # print size of feasible trajectories and infeasible trajectories
-            msg_logger.debug('Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
-            msg_logger.debug(
+            self.msg_logger.debug('Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
+            self.msg_logger.debug(
                 'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
 
             # *****************************
@@ -304,22 +305,23 @@ class ReactivePlannerCpp(Planner):
 
         self.transfer_infeasible_logging_information(infeasible_trajectories)
 
-        msg_logger.debug('Rejected {} infeasible trajectories due to kinematics'.format(
+        self.msg_logger.debug('Rejected {} infeasible trajectories due to kinematics'.format(
             self._infeasible_count_kinematics))
-        msg_logger.debug('Rejected {} infeasible trajectories due to collisions'.format(
+        self.msg_logger.debug('Rejected {} infeasible trajectories due to collisions'.format(
             self.infeasible_count_collision))
 
         # *******************************************
         # Find alternative Optimal Trajectory if None
         # *******************************************
         if optimal_trajectory is None and feasible_trajectories:
-            if self.config.planning.emergency_mode == "stopping":
+            if self.config_plan.planning.emergency_mode == "stopping":
                 optimal_trajectory = self._select_stopping_trajectory(feasible_trajectories, sampling_matrix, x_0_lat[0])
+                self.msg_logger.warning("No optimal trajectory available. Select stopping trajectory!")
             else:
                 for traje in feasible_trajectories:
                     self.set_risk_costs(traje)
                 sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk, reverse=False)
-                msg_logger.warning("No optimal trajectory available. Select lowest risk trajectory!")
+                self.msg_logger.warning("No optimal trajectory available. Select lowest risk trajectory!")
                 optimal_trajectory = sort_risk[0]
 
         # ******************************************
@@ -327,7 +329,8 @@ class ReactivePlannerCpp(Planner):
         # ******************************************
         self.trajectory_pair = self._compute_trajectory_pair(optimal_trajectory) if optimal_trajectory is not None else None
         if self.trajectory_pair is not None:
-            current_ego_vehicle = self.convert_state_list_to_commonroad_object(self.trajectory_pair[0].state_list, self.agent_id)
+            current_ego_vehicle = self.convert_state_list_to_commonroad_object(self.trajectory_pair[0].state_list,
+                                                                               self.config_sim.simulation.ego_agent_id)
             self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
 
         # ************************************
@@ -372,7 +375,7 @@ class ReactivePlannerCpp(Planner):
         # Check combinations of v, t, d values for valid trajectories
         for v, t, d in product(min_v_list, min_t_list, min_d_list):
             if v in trajectory_dict and t in trajectory_dict[v] and d in trajectory_dict[v][t]:
-                msg_logger.debug("Found possible Stopping Trajectory!")
+                self.msg_logger.debug("Found possible Stopping Trajectory!")
                 return trajectory_dict[v][t][d]
 
     def check_collision(self, ego_vehicle):
@@ -407,11 +410,11 @@ class ReactivePlannerCpp(Planner):
                 elif "time_step" in self.goal_checker.goal.state_list[0].attributes:
                     progress = ((self.x_0.time_step - 1) / self.goal_checker.goal.state_list[0].time_step.end)
                 else:
-                    msg_logger.error('Could not calculate progress')
+                    self.msg_logger.error('Could not calculate progress')
                     progress = None
             except:
                 progress = None
-                msg_logger.error('Could not calculate progress')
+                self.msg_logger.error('Could not calculate progress')
 
             collision_obj = self.collision_checker.find_all_colliding_objects(ego)[0]
             if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):

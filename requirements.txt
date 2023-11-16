@@ -19,3 +19,4 @@ frenetix>=0.1.0
 wheel>=0.37.0
 pandas>=2.0.1
 triangle>=20230923
+psutil
