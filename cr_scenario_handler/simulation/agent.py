@@ -61,7 +61,10 @@ class Agent:
         self.config_visu = config_sim.visualization
 
         self.mod_path = config_sim.simulation.mod_path
-        self.log_path = os.path.join(config_sim.simulation.log_path, f"{agent_id}")
+
+        self.log_path = os.path.join(config_sim.simulation.log_path, str(agent_id)) if (
+                                     self.config_simulation.use_multiagent) else config_sim.simulation.log_path
+
         self.msg_logger = msg_logger
         self.vehicle = config_sim.vehicle
 
@@ -169,7 +172,7 @@ class Agent:
         self.scenario = hf.scenario_without_obstacle_id(scenario=deepcopy(scenario), obs_ids=[self.id])
         self.crashed = collision
 
-    def _check_goal_reached(self):
+    def check_goal_reached(self):
         """Check for completion of the planner.
 
         :return: True iff the goal area has been reached.
@@ -210,10 +213,10 @@ class Agent:
             self.msg_logger.info(f"Agent {self.id}: Timelimit reached!")
             self.status = AgentStatus.TIMELIMIT
         else:
-            self._check_goal_reached()
+            self.check_goal_reached()
             if self.goal_status:
                 self.msg_logger.info(f"Agent {self.id}: Scenario completed!")
-                self.status= AgentStatus.COMPLETED
+                self.status = AgentStatus.COMPLETED
 
             # check for completion of this agent
             else:
@@ -260,19 +263,17 @@ class Agent:
 
             # plot own view on scenario
             if self.id in self.config_visu.show_specific_individual_plots or self.config_visu.show_all_individual_plots \
-                or self.id in self.config_visu.save_specific_individual_plots or self.config_visu.save_all_individual_plots:
-
+                or self.id in self.config_visu.save_specific_individual_plots or self.config_visu.save_all_individual_plots \
+                    or ((self.config_visu.save_plots or self.config_visu.show_plots) and not self.config.simulation.use_multiagent):
                 visualize_agent_at_timestep(self.scenario, self.planning_problem,
-                                                 [self.vehicle_history[-1]],
-                                                 self.current_timestep, self.config, self.log_path,
-                                                 # traj_set_list=self.traj_set_list,
-                                                 # ref_path_list=self.ref_path_list,
-                                                 traj_set_dict={self.id: self.traj_set},
-                                                 ref_path_dict={self.id: self.reference_path},
-                                                 predictions=self.predictions,
-                                                 visible_area=self.visible_area,
-                                                 cluster=None, occlusion_map=None,
-                                                 plot_window=self.config_visu.plot_window_dyn)
+                                            self.vehicle_history[-1], self.current_timestep,
+                                            self.config, self.log_path,
+                                            traj_set=self.traj_set,
+                                            optimal_traj=self.planner_interface.planner.trajectory_pair[0],
+                                            ref_path=self.planner_interface.reference_path,
+                                            predictions=self.predictions,
+                                            visible_area=self.visible_area,
+                                            plot_window=self.config_visu.plot_window_dyn)
 
     def record_state_and_input(self, state):
         """

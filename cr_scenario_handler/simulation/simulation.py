@@ -506,7 +506,7 @@ class Simulation:
         agents = []
         collided_agents = []
         for agent, occupancy in self.agent_history_dict.items():
-            if self.agent_status_dict[agent]==AgentStatus.RUNNING:
+            if self.agent_status_dict[agent] == AgentStatus.RUNNING:
                 ego = pycrcc.TimeVariantCollisionObject(self.global_timestep)
                 ego.append_obstacle(pycrcc.RectOBB(0.5 * self.config.vehicle.length, 0.5 * self.config.vehicle.width,
                                                    occupancy[-1].initial_state.orientation,
@@ -522,12 +522,12 @@ class Simulation:
         if any(i > -1 for i in coll_time_stat):
             index = [i for i, n in enumerate(coll_time_stat) if n != -1]
             collided_agents.extend([agents[i] for i in index])
-            #TODO check crash statistics s. planner
+            # TODO: check crash statistics s. planner
         coll_time_dyn = trajectory_queries.trajectories_collision_dynamic_obstacles(coll_objects, self._cc_dyn)
         if any(i > -1 for i in coll_time_dyn):
             index = [i for i, n in enumerate(coll_time_dyn) if n != -1]
             collided_agents.extend([agents[i] for i in index])
-            #TODO check crash statistics s. planner
+            # TODO: check crash statistics s. planner
 
         # check if agents crash against each other
         if len(coll_objects)>1:
@@ -554,22 +554,12 @@ class Simulation:
 
     def _simulation_visualization_agent(self, timestep):
         if ((self.config_visu.show_plots or self.config_visu.save_plots or self.config_visu.save_gif) and
-                len(self.running_agents_obs) > 0):
-            if len(self.running_agents_obs) == 1 and not self.config.simulation.use_multiagent:
-                visualize_agent_at_timestep(self.scenario, self.batch_list[0].running_agent_list[0].planning_problem,
-                                            self.batch_list[0].running_agent_list[0].vehicle_history[-1], timestep,
-                                            self.config, self.log_path,
-                                            traj_set=self.batch_list[0].running_agent_list[0].traj_set,
-                                            optimal_traj=self.batch_list[0].running_agent_list[0].planner_interface.planner.trajectory_pair[0],
-                                            ref_path=self.batch_list[0].running_agent_list[0].planner_interface.reference_path,
-                                            predictions=self.global_predictions,
-                                            visible_area=self.batch_list[0].running_agent_list[0].visible_area,
-                                            plot_window=self.config_visu.plot_window_dyn)
-            else:
-                visualize_multiagent_scenario_at_timestep(self.scenario, self.planning_problem_set,
-                                                          self.running_agents_obs, timestep, self.config, self.log_path,
-                                                          traj_set_dict=self.agent_traj_set_dict,
-                                                          ref_path_dict=self.agent_ref_path_dict,
-                                                          predictions=self.global_predictions,
-                                                          plot_window=self.config_visu.plot_window_dyn)
+                len(self.running_agents_obs) > 0) and self.config.simulation.use_multiagent:
+            visualize_multiagent_scenario_at_timestep(self.scenario, self.planning_problem_set,
+                                                      self.running_agents_obs, timestep, self.config, self.log_path,
+                                                      traj_set_dict=self.agent_traj_set_dict,
+                                                      ref_path_dict=self.agent_ref_path_dict,
+                                                      predictions=self.global_predictions,
+                                                      plot_window=self.config_visu.plot_window_dyn)
+
 
