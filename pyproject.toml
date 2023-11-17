@@ -15,11 +15,12 @@ packages = [
 
 [tool.poetry.dependencies]
 
-# NOTE: commonroad-drivability-checker does not support Python >= 3.11 currently
-# (it will be supported in the next release after 2023.1)
-# python = ">=3.9,<3.13"
-
 python = ">=3.9,<3.11"
+
+# internal, will be resolved when we publish it.
+commonroad-route-planner = { git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-route-planner.git", branch = "develop" }
+frenetix = { git = "https://gitlab.lrz.de/motionplanning1/frenetperformanceplannerfunctions.git", branch = "develop" }
+commonroad-drivability-checker = { git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-drivability-checker.git", branch = "development" }
 
 matplotlib = ">=3.8.1"
 numpy = ">=1.24.2"
@@ -34,15 +35,9 @@ wheel = ">=0.38.4"
 pandas = ">=2.0.3"
 triangle = ">=20230923"
 psutil = ">=5.9.6"
-"ruamel.yaml" = "^0.17.32"
 
-commonroad-route-planner = ">=2022.3"
 commonroad-io = "==2023.2"
 commonroad-vehicle-models = "^3.0.2"
-
-commonroad-drivability-checker = "2023.1"
-
-frenetix = ">=0.1.0"
 
 [tool.poetry.group.docs]
 optional = true
