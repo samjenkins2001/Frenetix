@@ -21,18 +21,17 @@ packages = [
 
 python = ">=3.9,<3.11"
 
-matplotlib = ">=3.7.0"
-networkx = "^3.1"
-numpy = "^1.24.2"
+matplotlib = ">=3.8.1"
+numpy = ">=1.24.2"
 methodtools = "^0.4.7"
 omegaconf = "^2.1.1"
-scipy = "^1.7.1"
-onnxruntime = "^1.15.1"
+scipy = "^1.9.3"
+onnxruntime = "^1.16.2"
 pygeos = "^0.14"
 imageio = "^2.31.2"
-shapely = "^2.0.1"
-wheel = ">=0.37.0"
-pandas = ">=2.0.2"
+shapely = "^2.0.2"
+wheel = ">=0.38.4"
+pandas = ">=2.0.3"
 triangle = ">=20230923"
 psutil = ">=5.9.6"
 "ruamel.yaml" = "^0.17.32"
@@ -40,7 +39,6 @@ psutil = ">=5.9.6"
 commonroad-route-planner = ">=2022.3"
 commonroad-io = "==2023.2"
 commonroad-vehicle-models = "^3.0.2"
-commonroad-helper-functions = "^1.0.0"
 
 commonroad-drivability-checker = "2023.1"
 
@@ -50,7 +48,7 @@ frenetix = ">=0.1.0"
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-sphinx = ">=2.2.1"
+sphinx = ">=6.2.1"
 
 [tool.poetry.group.dev]
 optional = true
