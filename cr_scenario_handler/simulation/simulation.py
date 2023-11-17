@@ -343,7 +343,7 @@ class Simulation:
         sim_time_start = time.time()
         # start agent batches
         if len(self.batch_list) == 1:
-            self._run_sequential_simulation()
+            self.run_sequential_simulation()
             # If we have only one batch, run sequential simulation
             # self.batch_list[0][0].run_sequential(self.log_path, self.predictor, self.scenario)
         elif type(self.batch_list[0]) == AgentBatch:
@@ -352,7 +352,7 @@ class Simulation:
                 batch.start()
 
             # run parallel simulation
-            self._run_parallel_simulation()
+            self.run_parallel_simulation()
 
             # Workers should already have terminated, otherwise wait for timeouts
             self.msg_logger.info("[Simulation] Terminating workers...")
@@ -366,15 +366,15 @@ class Simulation:
 
         self.postprocess_simulation()
 
-    def _run_sequential_simulation(self):
+    def run_sequential_simulation(self):
         running = True
         while running:
 
             self.global_timestep = self.batch_list[0].global_timestep
-            running = self._step_sequential_simulation()
+            running = self.step_sequential_simulation()
             self._simulation_visualization_agent(self.global_timestep)
 
-    def _run_parallel_simulation(self):
+    def run_parallel_simulation(self):
         """Control a simulation running in multiple processes.
 
         Initializes the global log file, calls step_parallel_simulation,
@@ -386,9 +386,9 @@ class Simulation:
             running = self.step_parallel_simulation()
             self.global_timestep += 1
 
-    def _step_sequential_simulation(self):
+    def step_sequential_simulation(self):
         step_time_start = time.time()
-        self.global_predictions = self._prestep_simulation()
+        self.global_predictions = self.prestep_simulation()
 
         self.batch_list[0].step_simulation(self.global_predictions)
 
@@ -401,9 +401,9 @@ class Simulation:
         self.agent_input_state_dict.update(self.batch_list[0].agent_input_state_dict)
         self.agent_ref_path_dict.update(self.batch_list[0].agent_ref_path_dict)
 
-        self._update_simulation()
+        self.update_simulation()
 
-        colliding_agents = self._check_collision()
+        colliding_agents = self.check_collision()
 
         self.batch_list[0].update_agents(self.scenario, colliding_agents)
 
@@ -425,7 +425,7 @@ class Simulation:
         # START TIMER
         step_time_start = time.time()
 
-        self.global_predictions = self._prestep_simulation()
+        self.global_predictions = self.prestep_simulation()
         # # Calculate new predictions
 
         # Send predictions to agent batches
@@ -455,9 +455,9 @@ class Simulation:
                 self.msg_logger.info(" Timeout while waiting for step results!")
                 return
 
-        self._update_simulation()
+        self.update_simulation()
 
-        colliding_agents = self._check_collision()
+        colliding_agents = self.check_collision()
         for batch in self.batch_list:
             batch.in_queue.put([self.scenario, colliding_agents])
 
@@ -468,7 +468,7 @@ class Simulation:
 
         return len(self.batch_list) > 0
 
-    def _prestep_simulation(self):
+    def prestep_simulation(self):
         self.msg_logger.info(f"Simulating timestep {self.global_timestep}")
         # Calculate new predictions
         predictions = ph.get_predictions(self.config, self._predictor, self.scenario, self.global_timestep, self.prediction_horizon)
@@ -476,7 +476,7 @@ class Simulation:
 
     def postprocess_simulation(self):
         if self.config.debug.gif:
-            make_gif(self.config, self.scenario, range(0, self.current_timestep - 1),
+            make_gif(self.config, self.scenario, range(0, self.global_timestep - 1),
                      self.log_path, duration=0.1)
 
     def _set_collision_checker(self):#, collision_checker: pycrcc.CollisionChecker = None):
@@ -501,7 +501,7 @@ class Simulation:
                 continue
             self._cc_dyn.append(create_collision_object(co))
 
-    def _check_collision(self):
+    def check_collision(self):
         coll_objects = []
         agents = []
         collided_agents = []
@@ -544,7 +544,7 @@ class Simulation:
                 # TODO check crash statistics s. planner
         return collided_agents
 
-    def _update_simulation(self):
+    def update_simulation(self):
 
         agents_to_update = [agent_id for agent_id, status in self.agent_status_dict.items() if status>AgentStatus.INITIAL]
         self.running_agents_obs = [history[-1] for agent, history in self.agent_history_dict.items() if self.agent_status_dict[agent] == AgentStatus.RUNNING]
