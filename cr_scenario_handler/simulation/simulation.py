@@ -77,7 +77,7 @@ class Simulation:
         self.global_timestep = 0
 
         self.msg_logger = multi_agent_log.logger_initialization(config_sim,  self.log_path, "Simulation_logger")
-        self.msg_logger.critical("Start Scenario: " + self.log_path.split("/")[-1])
+        self.msg_logger.critical("Start Scenario: " + self.config_simulation.name_scenario)
 
         self.scenario, self.agent_id_list, self.planning_problem_set = self._scenario_preprocessing()
         if self.config_simulation.use_multiagent:
