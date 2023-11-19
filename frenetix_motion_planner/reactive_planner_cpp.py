@@ -375,7 +375,6 @@ class ReactivePlannerCpp(Planner):
         # Check combinations of v, t, d values for valid trajectories
         for v, t, d in product(min_v_list, min_t_list, min_d_list):
             if v in trajectory_dict and t in trajectory_dict[v] and d in trajectory_dict[v][t]:
-                self.msg_logger.debug("Found possible Stopping Trajectory!")
                 return trajectory_dict[v][t][d]
 
     def check_collision(self, ego_vehicle):
