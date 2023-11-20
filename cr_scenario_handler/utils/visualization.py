@@ -72,8 +72,8 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
         # Assuming ego.prediction.trajectory.state_list[0].position returns a constant value
         ego_start_pos = ego.prediction.trajectory.state_list[0].position
         if plot_window > 0:
-            plot_limits = [-plot_window + ego_start_pos[0], plot_window + ego_start_pos[0],
-                           -plot_window + ego_start_pos[1], plot_window + ego_start_pos[1]]
+            plot_limits = [-plot_window + float(ego_start_pos[0]), plot_window + float(ego_start_pos[0]),
+                           -plot_window + float(ego_start_pos[1]), plot_window + float(ego_start_pos[1])]
             rnd = MPRenderer(plot_limits=plot_limits, figsize=(10, 10))
         else:
             rnd = MPRenderer(figsize=(20, 10))
