@@ -12,8 +12,7 @@ import subprocess
 import math
 import zipfile
 import numpy as np
-import ruamel.yaml as yaml
-import yaml as yml
+import yaml
 import pickle
 from shapely.geometry import Point
 from commonroad.geometry.shape import Polygon
@@ -286,7 +285,7 @@ def zip_log_files(inputpath):
 def open_config_file(path: str):
     # Load config with the set of tuning parameters
     with open(path) as f:
-        config_parameters_ = yml.load(f, Loader=yaml.RoundTripLoader)
+        config_parameters_ = yaml.safe_load(f)
     return config_parameters_
 
 
