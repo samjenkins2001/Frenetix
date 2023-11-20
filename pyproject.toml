@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "frenetix-motion-planner"
-version = "2023.3"
+version = "2023.4"
 description = "Frenetix Motion Planner: Sampling-based Frenet Planner"
 authors = ["Institute of Automotive Technology, Technical University of Munich"]
 readme = "README.md"
@@ -15,7 +15,7 @@ packages = [
 
 [tool.poetry.dependencies]
 
-python = ">=3.9,<3.11"
+python = ">=3.9,<3.12"
 
 # internal, will be resolved when we publish it.
 commonroad-route-planner = { git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-route-planner.git", branch = "develop" }
