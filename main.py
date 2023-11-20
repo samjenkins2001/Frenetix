@@ -79,9 +79,9 @@ def main():
                                        use_specific_scenario_list)
 
     if evaluation_pipeline and not start_multiagent:
-        num_workers = 6  # or any number you choose based on your resources and requirements
+        num_workers = 4  # or any number you choose based on your resources and requirements
         with open(os.path.join(mod_path, "logs", "score_overview.csv"), 'a') as file:
-            line = "scenario;timestep;result\n"
+            line = "scenario;timestep;status;message\n"
             file.write(line)
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Create a list of tuples that will be passed to run_simulation_wrapper

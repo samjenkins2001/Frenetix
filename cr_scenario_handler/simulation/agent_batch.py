@@ -261,8 +261,10 @@ class AgentBatch(Process):
 
             if agent.status > hf.AgentStatus.RUNNING:
                 self.terminated_agent_list.append(agent)
-                with open(os.path.join(agent.mod_path, "logs", "score_overview.csv"), 'a') as file:
-                    line = str(agent.scenario.scenario_id) + ";" + str(agent.current_timestep) + ";" + str(agent.goal_message) + "\n"
+                msg = "Success" if agent.status == 1 else "Failed"
+                with (open(os.path.join(agent.mod_path, "logs", "score_overview.csv"), 'a') as file):
+                    line = str(agent.scenario.scenario_id) + ";" + str(agent.current_timestep) + ";" + \
+                           str(agent.status) + ";" + msg + "\n"
                     file.write(line)
                 self.running_agent_list.remove(agent)
             else:
