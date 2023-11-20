@@ -107,8 +107,9 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
     rnd.render()
 
     # visualize optimal trajectory
-    optimal_traj_positions = np.array([(state.position[0], state.position[1]) for state in optimal_traj.state_list])
-    rnd.ax.plot(optimal_traj_positions[:, 0], optimal_traj_positions[:, 1], 'kx-', markersize=1.5, zorder=21, linewidth=2.0)
+    if optimal_traj:
+        optimal_traj_positions = np.array([(state.position[0], state.position[1]) for state in optimal_traj.state_list])
+        rnd.ax.plot(optimal_traj_positions[:, 0], optimal_traj_positions[:, 1], 'kx-', markersize=1.5, zorder=21, linewidth=2.0)
 
     # draw visible sensor area
     if visible_area is not None:

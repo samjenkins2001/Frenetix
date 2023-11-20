@@ -268,8 +268,9 @@ class Agent:
                 visualize_agent_at_timestep(self.scenario, self.planning_problem,
                                             self.vehicle_history[-1], self.current_timestep,
                                             self.config, self.log_path,
-                                            traj_set=self.traj_set,
-                                            optimal_traj=self.planner_interface.planner.trajectory_pair[0],
+                                            traj_set=self.traj_set if self.traj_set else None,
+                                            optimal_traj=self.planner_interface.planner.trajectory_pair[0]
+                                            if self.planner_interface.planner.trajectory_pair else None,
                                             ref_path=self.planner_interface.reference_path,
                                             predictions=self.predictions,
                                             visible_area=self.visible_area,

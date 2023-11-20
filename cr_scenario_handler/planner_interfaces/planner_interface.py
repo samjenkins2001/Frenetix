@@ -28,6 +28,8 @@ class PlannerInterface(ABC):
         :param log_path: Path the planner's log files will be written to.
         :param mod_path: Working directory for the planner.
         """
+        self.planner = None
+        self.reference_path = None
         raise NotImplementedError()
 
     @property
