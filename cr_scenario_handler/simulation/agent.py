@@ -257,24 +257,25 @@ class Agent:
                     self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
                     # dummy[self.id] = current_ego_vehicle
                     self.status = AgentStatus.RUNNING
+
+                    # plot own view on scenario
+                    if self.id in self.config_visu.show_specific_individual_plots or self.config_visu.show_all_individual_plots \
+                            or self.id in self.config_visu.save_specific_individual_plots or self.config_visu.save_all_individual_plots \
+                            or ((self.config_visu.save_plots or self.config_visu.show_plots) and not self.config.simulation.use_multiagent):
+                        visualize_agent_at_timestep(self.scenario, self.planning_problem,
+                                                    self.vehicle_history[-1], self.current_timestep,
+                                                    self.config, self.log_path,
+                                                    traj_set=self.traj_set if self.traj_set else None,
+                                                    optimal_traj=self.planner_interface.planner.trajectory_pair[0]
+                                                    if self.planner_interface.planner.trajectory_pair else None,
+                                                    ref_path=self.planner_interface.reference_path,
+                                                    predictions=self.predictions,
+                                                    visible_area=self.visible_area,
+                                                    plot_window=self.config_visu.plot_window_dyn)
+
                 else:
                     self.msg_logger.critical(f"Agent {self.id}: No Kinematic Feasible and Optimal Trajectory Available!")
                     self.status = AgentStatus.ERROR
-
-            # plot own view on scenario
-            if self.id in self.config_visu.show_specific_individual_plots or self.config_visu.show_all_individual_plots \
-                or self.id in self.config_visu.save_specific_individual_plots or self.config_visu.save_all_individual_plots \
-                    or ((self.config_visu.save_plots or self.config_visu.show_plots) and not self.config.simulation.use_multiagent):
-                visualize_agent_at_timestep(self.scenario, self.planning_problem,
-                                            self.vehicle_history[-1], self.current_timestep,
-                                            self.config, self.log_path,
-                                            traj_set=self.traj_set if self.traj_set else None,
-                                            optimal_traj=self.planner_interface.planner.trajectory_pair[0]
-                                            if self.planner_interface.planner.trajectory_pair else None,
-                                            ref_path=self.planner_interface.reference_path,
-                                            predictions=self.predictions,
-                                            visible_area=self.visible_area,
-                                            plot_window=self.config_visu.plot_window_dyn)
 
     def record_state_and_input(self, state):
         """
