@@ -20,15 +20,16 @@ def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp):
     config_planner.debug.use_cpp = use_cpp
 
     simulation = None
-    #try:
-    simulation = Simulation(config_sim, config_planner)
-    simulation.run_simulation()
-    # except Exception as e:
-    #     error_traceback = traceback.format_exc()  # This gets the entire error traceback
-    #     with open('logs/log_failures.csv', 'a', newline='') as f:
-    #         csv.writer(f).writerow([log_path.split("/")[-1], "In Timestep: ", str(simulation.current_timestep),
-    #                                 " --> CODE ERROR: ", str(e), error_traceback, "\n\n"])
-    #     print(error_traceback)
+    simulation.current_timestep = None
+    try:
+        simulation = Simulation(config_sim, config_planner)
+        simulation.run_simulation()
+    except Exception as e:
+        error_traceback = traceback.format_exc()  # This gets the entire error traceback
+        with open('logs/log_failures.csv', 'a', newline='') as f:
+            csv.writer(f).writerow([log_path.split("/")[-1], "In Timestep: ", str(simulation.current_timestep),
+                                    " --> CODE ERROR: ", str(e), error_traceback, "\n\n"])
+        print(error_traceback)
 
 
 def main():
