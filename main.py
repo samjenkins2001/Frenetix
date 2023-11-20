@@ -20,15 +20,17 @@ def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp):
     config_planner.debug.use_cpp = use_cpp
 
     simulation = None
-    simulation.current_timestep = None
     try:
         simulation = Simulation(config_sim, config_planner)
         simulation.run_simulation()
     except Exception as e:
         error_traceback = traceback.format_exc()  # This gets the entire error traceback
         with open('logs/log_failures.csv', 'a', newline='') as f:
-            csv.writer(f).writerow([log_path.split("/")[-1], "In Timestep: ", str(simulation.current_timestep),
-                                    " --> CODE ERROR: ", str(e), error_traceback, "\n\n"])
+            writer = csv.writer(f)
+            # Check if simulation is not None before trying to access current_timestep
+            current_timestep = str(simulation.current_timestep) if simulation else "N/A"
+            writer.writerow([log_path.split("/")[-1], "In Timestep: ", current_timestep,
+                             " --> CODE ERROR: ", str(e), error_traceback, "\n\n"])
         print(error_traceback)
 
 
