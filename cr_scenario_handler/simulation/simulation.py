@@ -475,11 +475,11 @@ class Simulation:
         return predictions
 
     def postprocess_simulation(self):
-        if self.config.debug.gif:
+        if self.config.visualization.save_gif:
             make_gif(self.config, self.scenario, range(0, self.global_timestep - 1),
                      self.log_path, duration=0.1)
 
-    def _set_collision_checker(self):#, collision_checker: pycrcc.CollisionChecker = None):
+    def _set_collision_checker(self):
         """
         Sets the collision checker used by the planner using either of the two options:
         If a collision_checker object is passed, then it is used directly by the planner.
