@@ -1,6 +1,7 @@
 import os
 import sys
 import csv
+import shutil
 import traceback
 import concurrent.futures
 from cr_scenario_handler.simulation.simulation import Simulation
@@ -41,10 +42,10 @@ def main():
     mod_path = os.path.dirname(
         os.path.abspath(__file__)
     )
-    sys.path.append(mod_path)
     stack_path = os.path.dirname(os.path.dirname(
         os.path.abspath(__file__)
     ))
+    logs_path = os.path.join(mod_path, "logs")
 
     # *************************
     # Set Python or C++ Planner
@@ -78,11 +79,20 @@ def main():
     scenario_files = get_scenario_list(scenario_name, scenario_folder, evaluation_pipeline, example_scenarios_list,
                                        use_specific_scenario_list)
 
-    if evaluation_pipeline and not start_multiagent:
-        num_workers = 4  # or any number you choose based on your resources and requirements
-        with open(os.path.join(mod_path, "logs", "score_overview.csv"), 'a') as file:
+    # ***************************************************
+    # Delete former logs & Create new score overview file
+    # ***************************************************
+    delete_former_logs = True
+    if delete_former_logs:
+        shutil.rmtree(logs_path, ignore_errors=True)
+        os.makedirs(logs_path, exist_ok=True)
+    if not os.path.exists(os.path.join(logs_path, "score_overview.csv")):
+        with open(os.path.join(logs_path, "score_overview.csv"), 'a') as file:
             line = "scenario;timestep;status;message\n"
             file.write(line)
+
+    if evaluation_pipeline and not start_multiagent:
+        num_workers = 4  # or any number you choose based on your resources and requirements
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Create a list of tuples that will be passed to run_simulation_wrapper
             scenario_info_list = [(scenario_file, scenario_folder, mod_path, use_cpp)
