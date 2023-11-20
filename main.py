@@ -2,6 +2,7 @@ import os
 import sys
 import csv
 import shutil
+from datetime import datetime
 import traceback
 import concurrent.futures
 from cr_scenario_handler.simulation.simulation import Simulation
@@ -28,10 +29,13 @@ def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp):
         error_traceback = traceback.format_exc()  # This gets the entire error traceback
         with open('logs/log_failures.csv', 'a', newline='') as f:
             writer = csv.writer(f)
+            current_time = datetime.now().strftime('%H:%M:%S')
             # Check if simulation is not None before trying to access current_timestep
             current_timestep = str(simulation.global_timestep) if simulation else "N/A"
-            writer.writerow([log_path.split("/")[-1], "In Timestep: ", current_timestep,
-                             " --> CODE ERROR: ", str(e), error_traceback, "\n\n"])
+            writer.writerow(["Scenario Name: " + log_path.split("/")[-1] + "\n" +
+                             "Error time: " + str(current_time) + "\n" +
+                             "In Scenario Timestep: " + current_timestep + "\n" +
+                             "CODE ERROR: " + str(e) + error_traceback + "\n\n\n\n"])
         print(error_traceback)
 
 
@@ -72,7 +76,7 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
-    scenario_name = "ZAM_Tjunction-1_180_T-1"  # do not add .xml format to the name
+    scenario_name = "ZAM_Tjunction-1_266_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
@@ -92,7 +96,7 @@ def main():
             file.write(line)
 
     if evaluation_pipeline and not start_multiagent:
-        num_workers = 4  # or any number you choose based on your resources and requirements
+        num_workers = 6  # or any number you choose based on your resources and requirements
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Create a list of tuples that will be passed to run_simulation_wrapper
             scenario_info_list = [(scenario_file, scenario_folder, mod_path, use_cpp)
