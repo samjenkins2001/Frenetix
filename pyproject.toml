@@ -33,7 +33,7 @@ imageio = "^2.31.2"
 shapely = "^2.0.2"
 wheel = ">=0.38.4"
 pandas = ">=2.0.3"
-triangle = ">=20230923"
+triangle = ">=20200424"
 psutil = ">=5.9.6"
 
 commonroad-io = "==2023.2"
