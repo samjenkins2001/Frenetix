@@ -92,14 +92,14 @@ class FrenetPlannerInterface(PlannerInterface):
         self.occlusion_module = None
         self.behavior_module = None
         self.route_planner = None
-        # self.desired_velocity = hf.calculate_desired_velocity(scenario, planning_problem, x_0, self.config.planning.dt,
-        #                                                       desired_velocity=self.desired_velocity)
 
         # Set reference path
         if not self.config_sim.behavior.use_behavior_planner:
-            route_planner = RoutePlanner(scenario, planning_problem)
+            route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
             self.reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
-            self.reference_path = extend_ref_path(self.reference_path, self.x_0.position)
+            self.reference_path, _ = route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
+                                                                                  initial_position_cart=self.x_0.position,
+                                                                                  additional_lenght_in_meters=10.0)
         else:
             raise NotImplementedError
 
