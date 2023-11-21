@@ -5,30 +5,24 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
-import traceback
 from copy import deepcopy
 from typing import List
 
-from commonroad.scenario.scenario import Scenario
-from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.geometry.shape import Rectangle
+from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-
-from commonroad_dc import pycrcc
-
-from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
-from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
-from frenetix_motion_planner.state import ReactivePlannerState
-from frenetix_motion_planner.occlusion_planning.occlusion_module import OcclusionModule
-
-from cr_scenario_handler.utils import helper_functions as hf
-import cr_scenario_handler.utils.multiagent_logging as lh
-from cr_scenario_handler.utils.utils_coordinate_system import extend_ref_path
-from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
-from cr_scenario_handler.utils.collision_report import coll_report
-
-from behavior_planner.behavior_module import BehaviorModule
+from commonroad.scenario.scenario import Scenario
 from commonroad_route_planner.route_planner import RoutePlanner
+
+import cr_scenario_handler.utils.multiagent_helpers as hf
+import cr_scenario_handler.utils.multiagent_logging as lh
+from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
+from cr_scenario_handler.utils import helper_functions as hf
+from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
+from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
+from frenetix_motion_planner.state import ReactivePlannerState
+
+# msg_logger = logging.getLogger("Message_logger")
 
 
 class FrenetPlannerInterface(PlannerInterface):
@@ -137,72 +131,72 @@ class FrenetPlannerInterface(PlannerInterface):
 
         :return: True iff there was a collision.
         """
-        raise EnvironmentError
-    #     ego_vehicle = ego_vehicle_list[-1]
-    #
-    #     ego = pycrcc.TimeVariantCollisionObject((timestep + 1))
-    #     ego.append_obstacle(
-    #         pycrcc.RectOBB(0.5 * self.planner.vehicle_params.length, 0.5 * self.planner.vehicle_params.width,
-    #                        ego_vehicle.state_at_time(timestep).orientation,
-    #                        ego_vehicle.state_at_time(timestep).position[0],
-    #                        ego_vehicle.state_at_time(timestep).position[1]))
-    #
-    #     if not self.planner.collision_checker.collide(ego):
-    #         return False
-    #     else:
-    #         try:
-    #             goal_position = []
-    #
-    #             if self.planner.goal_checker.goal.state_list[0].has_value("position"):
-    #                 for x in self.planner.reference_path:
-    #                     if self.planner.goal_checker.goal.state_list[0].position.contains_point(x):
-    #                         goal_position.append(x)
-    #                 s_goal_1, d_goal_1 = self.planner._co.convert_to_curvilinear_coords(
-    #                     goal_position[0][0],
-    #                     goal_position[0][1])
-    #                 s_goal_2, d_goal_2 = self.planner._co.convert_to_curvilinear_coords(
-    #                     goal_position[-1][0],
-    #                     goal_position[-1][1])
-    #                 s_goal = min(s_goal_1, s_goal_2)
-    #                 s_start, d_start = self.planner._co.convert_to_curvilinear_coords(
-    #                     self.planner.planning_problem.initial_state.position[0],
-    #                     self.planner.planning_problem.initial_state.position[1])
-    #                 s_current, d_current = self.planner._co.convert_to_curvilinear_coords(
-    #                     ego_vehicle.state_at_time(timestep).position[0],
-    #                     ego_vehicle.state_at_time(timestep).position[1])
-    #                 progress = ((s_current - s_start) / (s_goal - s_start))
-    #             elif "time_step" in self.planner.goal_checker.goal.state_list[0].attributes:
-    #                 progress = (timestep - 1 / self.planner.goal_checker.goal.state_list[0].time_step.end)
-    #             else:
-    #                 print('Could not calculate progress')
-    #                 progress = None
-    #         except:
-    #             progress = None
-    #             print('Could not calculate progress')
-    #             traceback.print_exc()
-    #
-    #         collision_obj = self.planner.collision_checker.find_all_colliding_objects(ego)[0]
-    #         if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
-    #             obj = collision_obj.obstacle_at_time(timestep)
-    #             center = obj.center()
-    #             last_center = collision_obj.obstacle_at_time(timestep - 1).center()
-    #             r_x = obj.r_x()
-    #             r_y = obj.r_y()
-    #             orientation = obj.orientation()
-    #             self.planner.logger.log_collision(True, self.planner.vehicle_params.length,
-    #                                               self.planner.vehicle_params.width,
-    #                                               progress, center,
-    #                                               last_center, r_x, r_y, orientation)
-    #         else:
-    #             self.planner.logger.log_collision(False, self.planner.vehicle_params.length,
-    #                                               self.planner.vehicle_params.width,
-    #                                               progress)
-    #
-    #         if self.config.debug.collision_report:
-    #             coll_report(ego_vehicle_list, self.planner, self.scenario,
-    #                         self.planning_problem, timestep, self.config, self.log_path)
-    #
-    #         return True
+        raise NotImplementedError
+        # ego_vehicle = ego_vehicle_list[-1]
+        #
+        # ego = pycrcc.TimeVariantCollisionObject((timestep + 1))
+        # ego.append_obstacle(
+        #     pycrcc.RectOBB(0.5 * self.planner.vehicle_params.length, 0.5 * self.planner.vehicle_params.width,
+        #                    ego_vehicle.state_at_time(timestep).orientation,
+        #                    ego_vehicle.state_at_time(timestep).position[0],
+        #                    ego_vehicle.state_at_time(timestep).position[1]))
+        #
+        # if not self.planner.collision_checker.collide(ego):
+        #     return False
+        # else:
+        #     try:
+        #         goal_position = []
+        #
+        #         if self.planner.goal_checker.goal.state_list[0].has_value("position"):
+        #             for x in self.planner.reference_path:
+        #                 if self.planner.goal_checker.goal.state_list[0].position.contains_point(x):
+        #                     goal_position.append(x)
+        #             s_goal_1, d_goal_1 = self.planner._co.convert_to_curvilinear_coords(
+        #                 goal_position[0][0],
+        #                 goal_position[0][1])
+        #             s_goal_2, d_goal_2 = self.planner._co.convert_to_curvilinear_coords(
+        #                 goal_position[-1][0],
+        #                 goal_position[-1][1])
+        #             s_goal = min(s_goal_1, s_goal_2)
+        #             s_start, d_start = self.planner._co.convert_to_curvilinear_coords(
+        #                 self.planner.planning_problem.initial_state.position[0],
+        #                 self.planner.planning_problem.initial_state.position[1])
+        #             s_current, d_current = self.planner._co.convert_to_curvilinear_coords(
+        #                 ego_vehicle.state_at_time(timestep).position[0],
+        #                 ego_vehicle.state_at_time(timestep).position[1])
+        #             progress = ((s_current - s_start) / (s_goal - s_start))
+        #         elif "time_step" in self.planner.goal_checker.goal.state_list[0].attributes:
+        #             progress = (timestep - 1 / self.planner.goal_checker.goal.state_list[0].time_step.end)
+        #         else:
+        #             print('Could not calculate progress')
+        #             progress = None
+        #     except:
+        #         progress = None
+        #         print('Could not calculate progress')
+        #         traceback.print_exc()
+        #
+        #     collision_obj = self.planner.collision_checker.find_all_colliding_objects(ego)[0]
+        #     if isinstance(collision_obj, pycrcc.TimeVariantCollisionObject):
+        #         obj = collision_obj.obstacle_at_time(timestep)
+        #         center = obj.center()
+        #         last_center = collision_obj.obstacle_at_time(timestep - 1).center()
+        #         r_x = obj.r_x()
+        #         r_y = obj.r_y()
+        #         orientation = obj.orientation()
+        #         self.planner.logger.log_collision(True, self.planner.vehicle_params.length,
+        #                                           self.planner.vehicle_params.width,
+        #                                           progress, center,
+        #                                           last_center, r_x, r_y, orientation)
+        #     else:
+        #         self.planner.logger.log_collision(False, self.planner.vehicle_params.length,
+        #                                           self.planner.vehicle_params.width,
+        #                                           progress)
+        #
+        #     if self.config.debug.collision_report:
+        #         coll_report(ego_vehicle_list, self.planner, self.scenario,
+        #                     self.planning_problem, timestep, self.config, self.log_path)
+        #
+        #         return True
 
     def update_planner(self, scenario: Scenario, predictions: dict):
         """ Update the planner before the next time step.
@@ -267,3 +261,9 @@ class FrenetPlannerInterface(PlannerInterface):
 
         return optimal_trajectory_pair[0]
 
+    def close_planner(self, goal_status, goal_message, full_goal_status, msg=None):
+        self.msg_logger.info(goal_message)
+        if full_goal_status:
+            self.msg_logger.info(full_goal_status)
+        # if not goal_status:
+            self.msg_logger.info(msg)

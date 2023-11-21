@@ -16,8 +16,6 @@ path_output: logs/
 #        Multiagent Settings      #
 ###################################
 
-# Whether to run multi- or single agent.
-use_multiagent: False
 # If True, the vehicles specified in agent_ids are made agents,
 # otherwise, number_of_agents vehicles are randomly chosen.
 use_specific_agents: False

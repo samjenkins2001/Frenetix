@@ -49,6 +49,10 @@ class PlannerInterface(ABC):
         return None
 
     @abstractmethod
+    def close_planner(self, goal_status, goal_message, full_goal_status, msg = None):
+        return None
+
+    @abstractmethod
     def check_collision(self, ego_obstacle: List[DynamicObstacle], timestep: int):
         """Check for a collision at the given timestep.
 
@@ -80,3 +84,4 @@ class PlannerInterface(ABC):
                   The planned trajectory.
         """
         raise NotImplementedError()
+

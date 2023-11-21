@@ -5,34 +5,32 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
-from typing import List
-from enum import IntEnum
 import warnings
+from enum import IntEnum
+from typing import List
 
 from commonroad.geometry.shape import Rectangle
 from commonroad.prediction.prediction import TrajectoryPrediction
+from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
+from commonroad.scenario.scenario import Scenario
+from commonroad.scenario.state import State
 from commonroad.scenario.trajectory import Trajectory
 from commonroad_dc import pycrcc
-
-from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
-from commonroad.scenario.state import State
-
-from commonroad.scenario.scenario import Scenario
 
 from cr_scenario_handler.utils.configuration import VehicleConfiguration
 
 
+"""Timeout value used when waiting for messages during parallel execution"""
+TIMEOUT = 60
+
+
 class AgentStatus(IntEnum):
-    INITIAL = -1
+    IDLE = -1
     RUNNING = 0
     COMPLETED = 1
     TIMELIMIT = 2
     ERROR = 3
     COLLISION = 4
-
-
-"""Timeout value used when waiting for messages during parallel execution"""
-TIMEOUT = 20
 
 
 def scenario_without_obstacle_id(scenario: Scenario, obs_ids: List[int]):

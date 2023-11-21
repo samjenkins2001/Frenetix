@@ -12,12 +12,14 @@ from cr_scenario_handler.utils.general import get_scenario_list
 
 def run_simulation_wrapper(scenario_info):
     scenario_file, scenario_folder, mod_path, use_cpp = scenario_info
-    run_simulation(scenario_file, scenario_folder, mod_path, use_cpp)
+    run_simulation(scenario_file, scenario_folder, mod_path, use_cpp, start_multiagent=False)
 
 
-def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp):
+def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp, start_multiagent=False):
     log_path = "./logs/" + scenario_name
     config_sim = ConfigurationBuilder.build_sim_configuration(scenario_name, scenario_folder, mod_path)
+    config_sim.simulation.use_multiagent = start_multiagent
+
     config_planner = ConfigurationBuilder.build_frenetplanner_configuration(scenario_name)
     config_planner.debug.use_cpp = use_cpp
 
@@ -76,7 +78,7 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
-    scenario_name = "ZAM_Tjunction-1_266_T-1"  # do not add .xml format to the name
+    scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
@@ -86,7 +88,7 @@ def main():
     # ***************************************************
     # Delete former logs & Create new score overview file
     # ***************************************************
-    delete_former_logs = True
+    delete_former_logs = False
     if delete_former_logs:
         shutil.rmtree(logs_path, ignore_errors=True)
         os.makedirs(logs_path, exist_ok=True)
@@ -105,7 +107,8 @@ def main():
 
     else:
         # If not in evaluation_pipeline mode, just run one scenario
-        run_simulation(scenario_files[0], scenario_folder, mod_path, use_cpp)
+        # config_eval
+        run_simulation(scenario_files[0], scenario_folder, mod_path, use_cpp, start_multiagent)
 
 
 if __name__ == '__main__':

@@ -7,12 +7,12 @@ __status__ = "Beta"
 
 """Helper functions to adjust the prediction to the needs of the frenét planner."""
 
-import numpy as np
+import logging
 import os
 import sys
+
+import numpy as np
 from commonroad.scenario.obstacle import ObstacleRole
-from commonroad_dc.collision.trajectory_queries import trajectory_queries
-import logging
 from commonroad.scenario.scenario import Scenario
 
 module_path = os.path.dirname(
@@ -20,7 +20,6 @@ module_path = os.path.dirname(
 )
 sys.path.append(module_path)
 
-import cr_scenario_handler.utils.helper_functions as hf
 from wale_net_lite.wale_net import WaleNet
 from cr_scenario_handler.utils.sensor_model import get_visible_objects, get_obstacles_in_radius
 

@@ -1,7 +1,10 @@
 # Global multiagent visualization
 show_plots: False
-save_plots: False
-evaluation: False
+save_plots: True
+
+# evaluation: False
+save_all_final_trajectories: False
+show_all_final_trajectories: False
 
 save_gif: False
 
@@ -18,3 +21,7 @@ save_all_individual_plots: False
 save_specific_individual_plots: []
 save_all_individual_gifs: False
 save_specific_individual_gifs: []
+show_all_individual_final_trajectories: False
+show_specific_final_trajectories: []
+save_all_final_trajectory_plots: False
+save_specific_final_trajectory_plots: []

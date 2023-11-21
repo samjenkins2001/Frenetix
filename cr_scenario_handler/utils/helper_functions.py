@@ -18,10 +18,6 @@ from shapely.geometry import Point
 from commonroad.geometry.shape import Polygon
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum
 import commonroad_dc.pycrcc as pycrcc
-from commonroad_dc.pycrcc import ShapeGroup
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import (
-    create_collision_object,
-)
 
 # get logger
 msg_logger = logging.getLogger("Message_logger")

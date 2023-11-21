@@ -10,14 +10,14 @@ from typing import List, Union, Dict
 
 import matplotlib
 from matplotlib import pyplot as plt
-import imageio as iio
+import imageio.v3 as iio
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.colors as colors
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.state import State, CustomState
-from commonroad.planning.planning_problem import PlanningProblem, PlanningProblemSet
-
+from commonroad.planning.planning_problem import PlanningProblem
+from cr_scenario_handler.utils.multiagent_helpers import AgentStatus
 # commonroad_dc
 from commonroad_dc import pycrcc
 
@@ -46,7 +46,7 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
                                   timestep: int, config, log_path: str,
                                   traj_set=None, optimal_traj=None, ref_path: np.ndarray = None,
                                   rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
-                                  visible_area=None, occlusion_map=None):
+                                  visible_area=None, occlusion_map=None, save: bool = False, show: bool = False, gif: bool = False):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -72,8 +72,8 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
         # Assuming ego.prediction.trajectory.state_list[0].position returns a constant value
         ego_start_pos = ego.prediction.trajectory.state_list[0].position
         if plot_window > 0:
-            plot_limits = [-plot_window + float(ego_start_pos[0]), plot_window + float(ego_start_pos[0]),
-                           -plot_window + float(ego_start_pos[1]), plot_window + float(ego_start_pos[1])]
+            plot_limits = [-plot_window + ego_start_pos[0], plot_window + ego_start_pos[0],
+                           -plot_window + ego_start_pos[1], plot_window + ego_start_pos[1]]
             rnd = MPRenderer(plot_limits=plot_limits, figsize=(10, 10))
         else:
             rnd = MPRenderer(figsize=(20, 10))
@@ -169,44 +169,40 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
                     label='reference path')
 
     # save as .png file
-    if config.visualization.save_plots:
+    if config.visualization.save_plots or save or gif:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
-        if config.visualization.save_gif:
+        if config.visualization.save_gif or gif:
             plt.axis('off')
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300, bbox_inches='tight', pad_inches=0)
         else:
             plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.svg", format='svg')
 
     # show plot
-    if config.visualization.show_plots:
+    if config.visualization.show_plots or show:
         matplotlib.use("TkAgg")
         plt.pause(0.0001)
 
 
-def visualize_multiagent_scenario_at_timestep(scenario: Scenario, planning_problem_set: PlanningProblemSet,
-                                              agent_list: List[DynamicObstacle], timestep: int,
+def visualize_multiagent_scenario_at_timestep(scenario: Scenario,
+                                              agent_list: List,
+                                              timestep: int,
                                               config: Configuration, log_path: str,
-                                              traj_set_list: List[List] = None,
-                                              ref_path_list: List[np.ndarray] = None,
-                                              predictions: dict = None, visible_area=None,
+                                              predictions: dict = None,
                                               rnd: MPRenderer = None,
-                                              plot_window: int = None):
+                                              plot_window: int = None,
+                                              save: bool = False, show: bool = False, gif: bool = False):
     """
     Function to visualize planning result from the reactive planner for a given time step
     for all agents in a multiagent simulation.
     Replaces visualize_visualize_planner_at_timestep from visualization.py
 
     :param scenario: CommonRoad scenario object containing no dummy obstacles
-    :param planning_problem_set: Planning problems of all agents
     :param agent_list: Dummy obstacles for all agents. Assumed to include the recorded path in the trajectory
     :param timestep: Time step of the scenario to plot
     :param config: Configuration object for plot/save settings
     :param log_path: Path to save the plot to (optional, depending on the config)
-    :param traj_set_list: List of lists of sampled trajectories for each agent (optional)
-    :param ref_path_list: Reference paths for every planner as polyline [(nx2) np.ndarray] (optional)
     :param predictions: Dictionary of all predictions (optional)
-    :param visible_area: Visible sensor area (optional, ignored if more than one agent is plotted)
     :param rnd: MPRenderer object (optional: if none is passed, the function creates a new renderer object;
                 otherwise it will visualize on the existing object)
     :param plot_window: Size of the margin of the plot, or minimum distance between the
@@ -219,20 +215,22 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario, planning_probl
 
     if plot_window is not None:
         # focus on window around all agents
-        left = None
-        right = None
-        top = None
-        bottom = None
+        left = np.inf
+        right = - np.inf
+        top = - np.inf
+        bottom = np.inf
         for agent in agent_list:
-            if left is None or agent.state_at_time(timestep).position[0] < left:
-                left = agent.state_at_time(timestep).position[0]
-            if right is None or agent.state_at_time(timestep).position[0] > right:
-                right = agent.state_at_time(timestep).position[0]
-
-            if bottom is None or agent.state_at_time(timestep).position[1] < bottom:
-                bottom = agent.state_at_time(timestep).position[1]
-            if top is None or agent.state_at_time(timestep).position[1] > top:
-                top = agent.state_at_time(timestep).position[1]
+            ini_pos = agent.planning_problem.initial_state.position
+            if hasattr(agent.planning_problem.goal.state_list[0].position, "shapes"):
+                goal_pos = agent.planning_problem.goal.state_list[0].position.shapes[0].center
+            elif hasattr(agent.planning_problem.goal.state_list[0].position, "center"):
+                goal_pos = agent.planning_problem.goal.state_list[0].position.center
+            else:
+                raise ValueError
+            left = min(left, goal_pos[0], ini_pos[0])
+            right = max(right, goal_pos[0], ini_pos[0])
+            top = max(top, goal_pos[1], ini_pos[1])
+            bottom = min(bottom, goal_pos[1], ini_pos[1])
 
         rnd.plot_limits = [-plot_window + left,
                            plot_window + right,
@@ -243,11 +241,11 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario, planning_probl
     obs_params = MPDrawParams()
     obs_params.dynamic_obstacle.time_begin = timestep
     obs_params.dynamic_obstacle.draw_icon = config.visualization.draw_icons
-    obs_params.dynamic_obstacle.show_label = True
+    obs_params.dynamic_obstacle.show_label = config.visualization.show_labels
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#E37222"
     obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
 
-    obs_params.static_obstacle.show_label = True
+    obs_params.static_obstacle.show_label = config.visualization.show_labels
     obs_params.static_obstacle.occupancy.shape.facecolor = "#A30000"
     obs_params.static_obstacle.occupancy.shape.edgecolor = "#756F61"
 
@@ -255,12 +253,13 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario, planning_probl
     scenario.draw(rnd, draw_params=obs_params)
 
     # Visualize agents and planning problems
-    for i in range(len(agent_list)):
+    # for i in range(len(agent_list)):
+    for agent in agent_list:
         # set ego vehicle draw params
         ego_params = DynamicObstacleParams()
         ego_params.time_begin = timestep
         ego_params.draw_icon = config.visualization.draw_icons
-        ego_params.show_label = True
+        ego_params.show_label = config.visualization.show_labels
 
         # Use standard colors for single-agent plots
         if len(agent_list) == 1:
@@ -268,121 +267,109 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario, planning_probl
             ego_params.vehicle_shape.occupancy.shape.edgecolor = "#9C4100"
         else:
             ego_params.vehicle_shape.occupancy.shape.facecolor = \
-                colors[agent_list[i].obstacle_id % len(colors)]
+                colors_spec[agent.id % len(colors_spec)]
             ego_params.vehicle_shape.occupancy.shape.edgecolor = \
-                darkcolors[agent_list[i].obstacle_id % len(darkcolors)]
+                darkcolors[agent.id % len(darkcolors)]
         ego_params.vehicle_shape.occupancy.shape.zorder = 50
         ego_params.vehicle_shape.occupancy.shape.opacity = 1
 
         # Visualize planning problem and agent
-        planning_problem_set.find_planning_problem_by_id(agent_list[i].obstacle_id).draw(rnd)
-        agent_list[i].draw(rnd, draw_params=ego_params)
+        # if multiple_agents:
+        #     planning_problems.find_planning_problem_by_id(agent.obstacle_id).draw(rnd)
+        # else:
 
+        agent.vehicle_history[-1].draw(rnd, draw_params=ego_params)
+        agent.planning_problem.draw(rnd)
     rnd.render()
+    for agent in agent_list:
+        if agent.status != AgentStatus.RUNNING:
+            continue
+        # visualize optimal trajectory
+        if agent.vehicle_history[-1].prediction is not None:
+            rnd.ax.plot([i.position[0] for i in agent.vehicle_history[-1].prediction.trajectory.state_list],
+                        [i.position[1] for i in agent.vehicle_history[-1].prediction.trajectory.state_list],
+                        color='k', marker='x', markersize=1.5, zorder=21, linewidth=2.0, label='optimal trajectory')
 
-    # draw visible sensor area
-    if visible_area is not None and len(agent_list) == 1:
-        if visible_area.geom_type == "MultiPolygon":
-            for geom in visible_area.geoms:
-                rnd.ax.fill(*geom.exterior.xy, "g", alpha=0.2, zorder=10)
-        elif visible_area.geom_type == "Polygon":
-            rnd.ax.fill(*visible_area.exterior.xy, "g", alpha=0.2, zorder=10)
-        else:
-            for obj in visible_area.geoms:
-                if obj.geom_type == "Polygon":
-                    rnd.ax.fill(*obj.exterior.xy, "g", alpha=0.2, zorder=10)
+        if agent.traj_set is not None:
+        # if traj_set_dict is not None and traj_set_dict[agent.obstacle_id] is not None:
+        #     traj_set = traj_set_dict[agent.obstacle_id]
 
-    # Visualize trajectories and paths
-    for i in range(len(agent_list)):
+            valid_traj = [obj for obj in agent.traj_set if obj.valid is True and obj.feasible is True]
+            invalid_traj = [obj for obj in agent.traj_set if obj.valid is False or obj.feasible is False]
+            norm = matplotlib.colors.Normalize(
+                vmin=0,
+                vmax=len(valid_traj),
+                clip=True,
+            )
+            mapper = cm.ScalarMappable(norm=norm, cmap=green_to_red_colormap())
+            step = int(len(invalid_traj) / 100) if int(len(invalid_traj) / 100) > 2 else 1
+            for idx, val in enumerate(valid_traj):
+                if not val._coll_detected:
+                    color = mapper.to_rgba(idx)
+                    plt.plot(val.cartesian.x, val.cartesian.y,
+                             color=color, zorder=20, linewidth=1.0, alpha=1.0, picker=False)
+                else:
+                    plt.plot(val.cartesian.x, val.cartesian.y,
+                             color='cyan', zorder=20, linewidth=1.0, alpha=0.8, picker=False)
+            for ival in range(0, len(invalid_traj), step):
+                plt.plot(invalid_traj[ival].cartesian.x, invalid_traj[ival].cartesian.y,
+                         color="#808080", zorder=19, linewidth=0.8, alpha=0.4, picker=False)
 
-        # Use standard colors for single-agent plots
-        if len(agent_list) == 1:
-            darkcolor = "k"
-            lightcolor = "blue"
-            color = "g"
-        else:
-            darkcolor = darkcolors[agent_list[i].obstacle_id % len(darkcolors)]
-            lightcolor = lightcolors[agent_list[i].obstacle_id % len(lightcolors)]
-            color = colors[agent_list[i].obstacle_id % len(colors)]
 
-        # visualize sampled trajectory bundle
-        if traj_set_list is not None and len(traj_set_list) > 0:
-            # visualize optimal trajectory
-            rnd.ax.plot(traj_set_list[i][0].cartesian.x,
-                        traj_set_list[i][0].cartesian.y,
-                        color=darkcolor,
-                        marker='x', markersize=1.5, zorder=21, linewidth=2, label='optimal trajectory')
+        if agent.reference_path is not None:
 
-            # Plot sampled trajectories. Select at most 100 trajectories from the bundle for plotting.
-            step = int(len(traj_set_list[i]) / 100) if int(len(traj_set_list[i]) / 100) > 2 else 1
-            for j in range(0, len(traj_set_list[i]), step):
-                plt.plot(traj_set_list[i][j].cartesian.x,
-                         traj_set_list[i][j].cartesian.y,
-                         color=lightcolor,
-                         zorder=20, linewidth=0.2, alpha=1.0)
-
-        # visualize reference path
-        if ref_path_list is not None:
-            rnd.ax.plot(ref_path_list[i][:, 0], ref_path_list[i][:, 1],
-                        color=color,
-                        marker='.', markersize=1, zorder=19, linewidth=0.8, label='reference path')
+            rnd.ax.plot(agent.reference_path[:, 0], agent.reference_path[:, 1], color='g', marker='.', markersize=1, zorder=19, linewidth=0.8,
+                        label='reference path')
 
     # visualize predictions
     if predictions is not None:
         draw_uncertain_predictions(predictions, rnd.ax)
 
-    # save as .png file
-    if (len(agent_list) == 1 and
-            (agent_list[0].obstacle_id in config.multiagent.save_specific_individual_plots or
-            config.multiagent.save_all_individual_plots)) \
-            or config.visualization.save_plots:
+    if save or gif:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
-        if (len(agent_list) == 1 and
-                (agent_list[0].obstacle_id in config.multiagent.save_specific_individual_gifs or
-                config.multiagent.save_all_individual_gifs)) \
-                or config.visualization.save_gif:
-            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep:03d}.png", format='png', dpi=300)
+        if gif:
+            plt.axis('off')
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.png", format='png', dpi=300, bbox_inches='tight',
+                        pad_inches=0)
         else:
-            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep:03d}.svg", format='svg')
+            plt.savefig(f"{plot_dir}/{scenario.scenario_id}_{timestep}.svg", format='svg')
 
-    # show plot
-    if agent_list[0].obstacle_id in config.multiagent.show_specific_individual_plots \
-            or config.multiagent.show_all_individual_plots \
-            or config.visualization.show_plots:
+    if show:
         matplotlib.use("TkAgg")
         plt.pause(0.0001)
 
 
-def make_gif(config: Configuration, scenario: Scenario, time_steps: Union[range, List[int]], log_path: str, duration: float = 0.1):
+def make_gif(scenario: Scenario, time_steps: Union[range, List[int]],
+             log_path: str, duration: float = 0.1):
+    """ Create an animated GIF from saved image files.
+
+    Images are assumed to be saved as <log_path>/plots/<scenario_id>_<timestep>.png
+    Does not check the plotting configuration in order to simplify independent
+    configurations on agent and simulation level. This has to be done by the caller.
+
+    :param scenario: CommonRoad scenario object.
+    :param time_steps: List or range of time steps to include in the GIF
+    :param log_path: Base path containing the plots folder with the input images
+    :param duration: Duration of the individual frames (default: 0.1s)
     """
-    Function to create from single images of planning results at each time step
-    Images are saved in output path specified in config.general.path_output
-    :param config Configuration object
-    :param scenario CommonRoad scenario object
-    :param time_steps list or range of time steps to create the GIF
-    :param duration
-    """
-    if not config.visualization.save_plots:
-        # only create GIF when saving of plots is enabled
-        print("...GIF not created: Enable config.visualization.save_plots to generate GIF.")
-        pass
-    else:
-        print("...Generating GIF")
-        images = []
-        filenames = []
 
-        # directory, where single images are outputted (see visualize_planner_at_timestep())
-        path_images = os.path.join(log_path, "plots")
+    print("Generating GIF")
+    images = []
+    filenames = []
 
-        for step in time_steps:
-            im_path = os.path.join(path_images, str(scenario.scenario_id) + "_{}.png".format(step))
-            filenames.append(im_path)
+    # directory, where single images are outputted (see visualize_planner_at_timestep())
+    path_images = os.path.join(log_path, "plots")
 
-        for filename in filenames:
-            images.append(iio.imread(filename))
+    for step in time_steps:
+        im_path = os.path.join(path_images, str(scenario.scenario_id) + f"_{step}.png")
+        filenames.append(im_path)
 
-        iio.imwrite(os.path.join(log_path, str(scenario.scenario_id) + ".gif"), images, duration=duration)
+    for filename in filenames:
+        images.append(iio.imread(filename))
+
+    iio.imwrite(os.path.join(log_path, str(scenario.scenario_id) + ".gif"),
+                images, duration=duration)
 
 
 def collision_vis(scenario: Scenario, ego_vehicle: DynamicObstacle, destination: str,
@@ -559,7 +546,7 @@ def collision_vis(scenario: Scenario, ego_vehicle: DynamicObstacle, destination:
 
 
 def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem, state_list: List[CustomState],
-                          config: Configuration, log_path: str, ref_path: np.ndarray = None):
+                          config: Configuration, log_path: str, ref_path: np.ndarray = None, save=None, show=None):
     """
     Function plots occupancies for a given CommonRoad trajectory (of the ego vehicle)
     :param scenario: CommonRoad scenario object
@@ -611,14 +598,85 @@ def plot_final_trajectory(scenario: Scenario, planning_problem: PlanningProblem,
                     label='reference path')
 
     # save as .png file
-    if config.visualization.save_plots:
+    if config.visualization.save_plots or save:
         plot_dir = os.path.join(log_path, "plots")
         os.makedirs(plot_dir, exist_ok=True)
         plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.svg", format='svg',
                     bbox_inches='tight')
 
     # show plot
-    if config.visualization.show_plots:
+    if config.visualization.show_plots or show:
+        matplotlib.use("TkAgg")
+        # plt.show(block=False)
+        # plt.pause(0.0001)
+
+
+def plot_multiagent_scenario_final_trajectories(scenario, agent_list,
+                                       config,
+                                       log_path,
+                                       show, save):
+    """
+    Function plots occupancies for a given CommonRoad trajectory (of the ego vehicle)
+    :param scenario: CommonRoad scenario object
+    :param planning_problem CommonRoad Planning problem object
+    :param state_list: List of trajectory States
+    :param config: Configuration object for plot/save settings
+    :param ref_path: Reference path as [(nx2) np.ndarray] (optional)
+    :param save_path: Path to save plot as .png (optional)
+    """
+    # create renderer object (if no existing renderer is passed)
+    rnd = MPRenderer(figsize=(20, 10))
+
+    # set renderer draw params
+    rnd.draw_params.time_begin = 0
+    rnd.draw_params.planning_problem.initial_state.state.draw_arrow = False
+    rnd.draw_params.planning_problem.initial_state.state.radius = 0.5
+
+    # set occupancy shape params
+    occ_params = ShapeParams()
+    occ_params.facecolor = '#E37222'
+    occ_params.edgecolor = '#9C4100'
+    occ_params.opacity = 1.0
+    occ_params.zorder = 51
+
+    # visualize scenario
+    scenario.draw(rnd)
+    for agent in agent_list:
+        # visualize planning problem
+        agent.planning_problem.draw(rnd)
+        # visualize occupancies of trajectory
+        for i, state in enumerate(agent.record_state_list):
+            # state = agent.record_state_list[i]
+            occ_pos = Rectangle(length=config.vehicle.length, width=config.vehicle.width, center=state.position,
+                                orientation=state.orientation)
+            if i >= 1:
+                occ_params.opacity = 0.3
+                occ_params.zorder = 50
+            occ_pos.draw(rnd, draw_params=occ_params)
+
+    # render scenario and occupancies
+    rnd.render()
+
+    for agent in agent_list:
+        # visualize trajectory
+        pos = np.asarray([state.position for state in agent.record_state_list])
+        rnd.ax.plot(pos[:, 0], pos[:, 1], color='k', marker='x', markersize=3.0, markeredgewidth=0.4, zorder=21,
+                    linewidth=0.8)
+        # visualize reference path
+        if agent.reference_path is not None:
+            rnd.ax.plot(agent.reference_path[:, 0], agent.reference_path[:, 1], color='g', marker='.', markersize=1, zorder=19,
+                            linewidth=0.8,
+                            label='reference path')
+
+    # save as .png file
+    if save:
+        plot_dir = os.path.join(log_path, "plots")
+        os.makedirs(plot_dir, exist_ok=True)
+        plt.savefig(f"{plot_dir}/{scenario.scenario_id}_final_trajectory.svg", format='svg',
+                    bbox_inches='tight')
+
+    # show plot
+    if show:
         matplotlib.use("TkAgg")
         # plt.show(block=False)
         # plt.pause(0.0001)
