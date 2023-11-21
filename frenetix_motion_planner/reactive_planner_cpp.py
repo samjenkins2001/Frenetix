@@ -261,7 +261,7 @@ class ReactivePlannerCpp(Planner):
             self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
 
             if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
-                                                   not self.config_plan.simulation.multiprocessing):
+                                                        not self.config_sim.simulation.multiprocessing):
                 self.handler.evaluate_all_current_functions(True)
             else:
                 self.handler.evaluate_all_current_functions_concurrent(True)
