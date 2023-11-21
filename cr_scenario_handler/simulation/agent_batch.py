@@ -124,7 +124,7 @@ class AgentBatch(Process):
                 # send agent updates to simulation
                 self.out_queue.put(self.out_queue_dict)
 
-                self.process_times[self.global_timestep].update({"iteration": time.time() - start_time})
+                self.process_times[self.global_timestep].update({"single_process_run": time.time() - start_time})
                 # send batch status to simulation
                 proc_time = self.process_times if self.finished else None
                 self.out_queue.put([self.finished, proc_time])
@@ -171,7 +171,7 @@ class AgentBatch(Process):
         # check for batch completion
         self._check_completion()
         batch_update = time.time() - batch_update
-        self.process_times[self.global_timestep].update({"complete_step_duration": time.time() - step_time,
+        self.process_times[self.global_timestep].update({"complete_simulation_step": time.time() - step_time,
                                                          "agent_update": agent_update_time,
                                                          "step_duration": single_step_time,
                                                          "batch_update": batch_update})

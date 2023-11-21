@@ -99,8 +99,8 @@ class GoalReachedChecker:
                     and all(list(state_status.values()))
                 ):
                     return True, "Scenario Completed out of Time!", state_status
-                elif all(list(state_status.values())):
-                    return True, "Scenario Completed Faster than Target Time!", state_status
+                # elif all(list(state_status.values())):
+                #     return True, "Scenario Completed Faster than Target Time!", state_status
             #TODO was soll der check ff.?
             elif "position" in state_status:
                 if self.last_position_check and not state_status["position"]:

@@ -90,7 +90,6 @@ class Agent:
         self.planning_problem = planning_problem
         self.scenario = hf.scenario_without_obstacle_id(scenario=deepcopy(scenario), obs_ids=[self.id])
 
-
         self.goal_checker = gc.GoalReachedChecker(planning_problem)
         self.goal_status = None
         self.goal_message = None
@@ -138,8 +137,8 @@ class Agent:
                                  and name == used_planner][0]
         except:
             raise ModuleNotFoundError(f"No such planner class found in planner_interfaces: {used_planner}")
-        self.planner_interface = planner_interface(self.id, self.config_planner, self.config, self.scenario, self.planning_problem,
-                                         self.log_path, self.mod_path)
+        self.planner_interface = planner_interface(self.id, self.config_planner, self.config, self.scenario,
+                                                   self.planning_problem, self.log_path, self.mod_path)
 
         if self.config.occlusion.use_occlusion_module:
             raise NotImplementedError
@@ -174,8 +173,6 @@ class Agent:
                                                                                occlusion_module=None,
                                                                                ego_id=self.id,
                                                                                msg_logger=self.msg_logger)
-
-        return
 
     def check_goal_reached(self):
         """Check for completion of the planner.
