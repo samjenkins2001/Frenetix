@@ -99,7 +99,7 @@ class AgentBatch(Process):
             # Receive the next predictions
             # Synchronize agents
             # receive dummy obstacles and outdated agent list
-            start_time = time.time()
+            start_time = time.perf_counter()
             self.process_times[self.global_timestep+1] = dict()
 
             try:
@@ -124,7 +124,7 @@ class AgentBatch(Process):
                 # send agent updates to simulation
                 self.out_queue.put(self.out_queue_dict)
 
-                self.process_times[self.global_timestep].update({"single_process_run": time.time() - start_time})
+                self.process_times[self.global_timestep].update({"single_process_run": time.perf_counter() - start_time})
                 # send batch status to simulation
                 proc_time = self.process_times if self.finished else None
                 self.out_queue.put([self.finished, proc_time])
@@ -146,7 +146,7 @@ class AgentBatch(Process):
         """
 
         self.msg_logger.debug(f"Stepping Batch {self.name}")
-        step_time = time.time()
+        step_time = time.perf_counter()
         # update batch timestep
         self.global_timestep = global_timestep
         self.process_times[self.global_timestep] = dict()
@@ -156,22 +156,22 @@ class AgentBatch(Process):
             self.running_agent_list.extend(self.agent_dict[self.global_timestep])
 
         # update agents
-        agent_update_time = time.time()
+        agent_update_time = time.perf_counter()
         self._update_agents(scenario, global_predictions, colliding_agents)
-        agent_update_time = time.time()-agent_update_time
+        agent_update_time = time.perf_counter()-agent_update_time
 
         # step simulation
-        single_step_time = time.time()
+        single_step_time = time.perf_counter()
         self._step_agents(global_timestep)
-        single_step_time = time.time() - single_step_time
+        single_step_time = time.perf_counter() - single_step_time
 
         # update batch
-        batch_update = time.time()
+        batch_update = time.perf_counter()
         self._update_batch()
         # check for batch completion
         self._check_completion()
-        batch_update = time.time() - batch_update
-        self.process_times[self.global_timestep].update({"complete_simulation_step": time.time() - step_time,
+        batch_update = time.perf_counter() - batch_update
+        self.process_times[self.global_timestep].update({"complete_simulation_step": time.perf_counter() - step_time,
                                                          "agent_update": agent_update_time,
                                                          "step_duration": single_step_time,
                                                          "batch_update": batch_update})

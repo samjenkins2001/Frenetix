@@ -57,7 +57,7 @@ class Simulation:
         """
 
         # Configuration
-        init_time_start = time.time()
+        init_time_start = time.perf_counter()
 
         self.config = config_sim
         self.config_simulation = config_sim.simulation
@@ -121,7 +121,7 @@ class Simulation:
 
         self.process_times = dict()
         self.process_times["simulation_steps"] = dict()
-        self.process_times["initialization"] = time.time() - init_time_start
+        self.process_times["initialization"] = time.perf_counter() - init_time_start
 
     def _open_scenario(self):
         """
@@ -363,7 +363,7 @@ class Simulation:
         to allow treating parallel and sequential simulations equally.
         """
 
-        sim_time_start = time.time()
+        sim_time_start = time.perf_counter()
         # start agent batches
         if len(self.batch_list) == 1:
             # If we have only one batch, run sequential simulation
@@ -373,11 +373,11 @@ class Simulation:
             # run parallel simulation
             self.run_parallel_simulation()
 
-        self.process_times["complete_simulation"] = time.time() - sim_time_start
+        self.process_times["complete_simulation"] = time.perf_counter() - sim_time_start
         self.msg_logger.info(f"Simulation completed")
         # TODO
         self.postprocess_simulation()
-        self.process_times["total_elapsed_time"] = time.time() - sim_time_start
+        self.process_times["total_elapsed_time"] = time.perf_counter() - sim_time_start
 
     def run_sequential_simulation(self):
         """
@@ -387,10 +387,10 @@ class Simulation:
         running = True
         while running:
             self.process_times["simulation_steps"][self.global_timestep] = {}
-            step_time_start = time.time()
+            step_time_start = time.perf_counter()
             running = self.step_sequential_simulation()
             self.visualize_simulation(self.global_timestep)
-            self.process_times["simulation_steps"][self.global_timestep].update({"total_sim_step" :time.time() - step_time_start})
+            self.process_times["simulation_steps"][self.global_timestep].update({"total_sim_step" :time.perf_counter() - step_time_start})
             self.global_timestep += 1
         # get batch process times
         self.process_times[self.batch_list[0].name] = self.batch_list[0].process_times
@@ -408,9 +408,9 @@ class Simulation:
         running = True
         while running:
             self.process_times["simulation_steps"][self.global_timestep] = {}
-            step_time_start = time.time()
+            step_time_start = time.perf_counter()
             running = self._step_parallel_simulation()
-            self.process_times["simulation_steps"][self.global_timestep].update({"total_sim_step" :time.time() - step_time_start})
+            self.process_times["simulation_steps"][self.global_timestep].update({"total_sim_step" :time.perf_counter() - step_time_start})
             self.global_timestep += 1
 
         # Workers should already have terminated, otherwise wait for timeouts
@@ -493,7 +493,7 @@ class Simulation:
         return len(self.batch_list) > 0
 
     def prestep_simulation(self):
-        preproc_time = time.time()
+        preproc_time = time.perf_counter()
         self.msg_logger.info(f"Simulating timestep {self.global_timestep}")
         # check for collisions
         colliding_agents = self.check_collision()
@@ -503,7 +503,7 @@ class Simulation:
         predictions = ph.get_predictions(self.config, self._predictor, self.scenario, self.global_timestep,
                                          self.prediction_horizon)
 
-        self.process_times["simulation_steps"][self.global_timestep].update({"preprocessing": time.time() - preproc_time})
+        self.process_times["simulation_steps"][self.global_timestep].update({"preprocessing": time.perf_counter() - preproc_time})
         return predictions, colliding_agents
 
     def check_collision(self):
@@ -593,7 +593,7 @@ class Simulation:
     def visualize_simulation(self, timestep):
         if ((self.config_visu.show_plots or self.config_visu.save_plots or self.config_visu.save_gif)
                 and self.config_simulation.use_multiagent):
-            time_visu = time.time()
+            time_visu = time.perf_counter()
             visualize_multiagent_scenario_at_timestep(self.scenario,
                                                       self.agents,
                                                       timestep, self.config, self.log_path,
@@ -602,7 +602,7 @@ class Simulation:
                                                       save=self.config_visu.save_plots,
                                                       show=self.config_visu.show_plots,
                                                       gif=self.config_visu.save_gif)
-            self.process_times["simulation_steps"][self.global_timestep].update({"time_visu": time.time()-time_visu})
+            self.process_times["simulation_steps"][self.global_timestep].update({"time_visu": time.perf_counter()-time_visu})
 
     def get_agent_by_id(self, agent_id):
         """ Returns agent object by given id
