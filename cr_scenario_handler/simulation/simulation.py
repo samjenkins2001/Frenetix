@@ -566,7 +566,7 @@ class Simulation:
                     Trajectory(initial_time_step=traj[0].time_step, state_list=traj), shape,
                     center_lanelet_assignment=lanelet_assigned)
             elif agent.status == AgentStatus.COLLISION or agent.id in colliding_agents:
-                raise NotImplementedError("Prediction still in trajectory?")
+                pass  # raise NotImplementedError("Prediction still in trajectory?")
             elif agent.status == AgentStatus.COMPLETED:
                 pass
             # TODO Cutoff trajectory if agent is finished/crashed? Currently ends with prediction (+2 seconds)

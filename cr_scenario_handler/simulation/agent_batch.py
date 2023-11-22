@@ -199,12 +199,17 @@ class AgentBatch(Process):
             if agent.status > hf.AgentStatus.RUNNING:
                 self.terminated_agent_list.append(agent)
                 self.running_agent_list.remove(agent)
-            self.out_queue_dict[agent.id]= {"status": agent.status,
-                                        "collision_objects": [agent.collision_objects[-1]],
-                                        "vehicle_history": [agent.vehicle_history[-1]],
-                                        "record_state_list": [agent.record_state_list[-1]]
-                                        }
-        return
+                msg = "Success" if agent.status == 1 else "Failed"
+                with (open(os.path.join(agent.mod_path, "logs", "score_overview.csv"), 'a') as file):
+                    line = str(agent.scenario.scenario_id) + ";" + str(agent.current_timestep) + ";" + \
+                           str(agent.status) + ";" + msg + "\n"
+                    file.write(line)
+
+            self.out_queue_dict[agent.id] = {"status": agent.status,
+                                             "collision_objects": [agent.collision_objects[-1]],
+                                             "vehicle_history": [agent.vehicle_history[-1]],
+                                             "record_state_list": [agent.record_state_list[-1]]
+                                             }
 
     def _check_completion(self):
         """
