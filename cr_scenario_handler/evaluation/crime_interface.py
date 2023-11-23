@@ -4,7 +4,7 @@ from typing import List, Type
 
 from commonroad_crime.data_structure.base import CriMeBase
 from commonroad_crime.data_structure.configuration import CriMeConfiguration
-import commonroad_crime.measure as measures
+# import commonroad_crime.measure as measures
 import matplotlib
 import matplotlib.pyplot as plt
 import math

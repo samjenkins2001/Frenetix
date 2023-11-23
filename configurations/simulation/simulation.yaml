@@ -5,7 +5,7 @@
 # Increase allowed planning horizon compared to planning-problem
 max_steps: 1.3  # Percentage of Scenario Horizon 1.3=30% longer. If Scenario Horizon not available: Use 200 time steps
 # used planner interface class (must be located in /cr_scenario_handler/planner_interfaces and a subclass of PlannerInterface
-# currently supported: FrenetPlannerInterface, SearchInterface
+# currently supported: FrenetPlannerInterface
 used_planner_interface: FrenetPlannerInterface
 
 # paths are relative to the root directory

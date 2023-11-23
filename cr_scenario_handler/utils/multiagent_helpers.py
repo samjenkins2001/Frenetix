@@ -21,7 +21,7 @@ from cr_scenario_handler.utils.configuration import VehicleConfiguration
 
 
 """Timeout value used when waiting for messages during parallel execution"""
-TIMEOUT = 60
+TIMEOUT = 20
 
 
 class AgentStatus(IntEnum):
@@ -31,6 +31,33 @@ class AgentStatus(IntEnum):
     TIMELIMIT = 2
     ERROR = 3
     COLLISION = 4
+
+class AgentState():
+    def __init__(self, timestep):
+        self.status = AgentStatus.IDLE
+        self.last_timestep = None
+        self.first_timestep = timestep
+        self.message = None
+
+    def running(self):
+        self.status = AgentStatus.RUNNING
+        # self.last_timestep = timestep
+    def collision(self, timestep):
+        self.status = AgentStatus.COLLISION
+        self.last_timestep = timestep
+
+    def finished(self, timestep):
+        self.status = AgentStatus.COMPLETED
+        self.last_timestep = timestep
+
+    def timelimit(self, timestep):
+        self.status = AgentStatus.TIMELIMIT
+        self.last_timestep = timestep
+
+    def error(self, timestep):
+        self.status = AgentStatus.ERROR
+        self.last_timestep = timestep
+
 
 
 def scenario_without_obstacle_id(scenario: Scenario, obs_ids: List[int]):

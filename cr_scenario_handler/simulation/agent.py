@@ -30,7 +30,7 @@ import cr_scenario_handler.utils.prediction_helpers as ph
 import cr_scenario_handler.utils.visualization as visu
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 from cr_scenario_handler.utils.collision_report import coll_report
-from cr_scenario_handler.utils.multiagent_helpers import AgentStatus
+from cr_scenario_handler.utils.multiagent_helpers import AgentStatus, AgentState
 from cr_scenario_handler.utils.visualization import visualize_agent_at_timestep
 from frenetix_motion_planner.state import ReactivePlannerState
 
@@ -84,7 +84,9 @@ class Agent:
             self.max_time_steps_scenario = 200
         self.msg_logger.debug(f"Agent {self.id}: Max time steps {self.max_time_steps_scenario}")
 
-        self.status = AgentStatus.IDLE if self.current_timestep > 0 else AgentStatus.RUNNING
+        self.agent_state = AgentState(self.current_timestep)
+        if self.current_timestep == 0:
+            self.agent_state.running()
         self.crashed = False
 
         self.planning_problem = planning_problem
@@ -108,7 +110,7 @@ class Agent:
 
         self.predictions = None
         self.visible_area = None
-
+        self._traj_set = None
         # Initialize Planning Problem
 
         problem_init_state = deepcopy(planning_problem.initial_state)
@@ -151,7 +153,15 @@ class Agent:
 
     @property
     def traj_set(self):
-        return self.planner_interface.all_traj
+        return self._traj_set if self._traj_set is not None else self.planner_interface.all_traj
+
+    @traj_set.setter
+    def traj_set(self, traj_set):
+        self._traj_set = traj_set
+
+    @property
+    def status(self):
+        return self.agent_state.status
 
     def update_agent(self, scenario: Scenario, global_predictions: dict,
                      collision: bool = False):
@@ -171,7 +181,7 @@ class Agent:
                                                                                # +1 bc for next timestep
                                                                                self.config,
                                                                                occlusion_module=None,
-                                                                               ego_id=self.id,
+                                                                             ego_id=self.id,
                                                                                msg_logger=self.msg_logger)
 
     def check_goal_reached(self):
@@ -195,19 +205,22 @@ class Agent:
                 coll_report(self.vehicle_history, self.planner_interface.planner, self.scenario, self.planning_problem,
                             self.current_timestep, self.config, self.log_path)
 
-            self.status = AgentStatus.COLLISION
+            self.agent_state.collision(self.current_timestep)
+            # self.status = AgentStatus.COLLISION
         elif self.current_timestep >= self.max_time_steps_scenario:
             msg = "Scenario Aborted! Maximum Time Step Reached!"
             self.postprocessing(msg)
 
-            self.status = AgentStatus.TIMELIMIT
+            self.agent_state.timelimit(self.current_timestep)
+            # self.status = AgentStatus.TIMELIMIT
         else:
             # check for completion of this agent
             self.check_goal_reached()
             if self.goal_status:
                 msg = "Scenario completed!"
                 self.postprocessing(msg)
-                self.status = AgentStatus.COMPLETED
+                self.agent_state.finished(self.current_timestep)
+                # self.status = AgentStatus.COMPLETED
 
             else:
                 self.current_timestep = timestep#len(self.record_state_list) - 1
@@ -238,21 +251,11 @@ class Agent:
                 if trajectory:
                     # self.optimal
                     self.record_state_and_input(trajectory.state_list[1])
-
-                    # TODO oder 0? index 1 bc of coll-check for next time_step
                     self._create_collision_object(trajectory.state_list[1])
                     current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory.state_list)
 
                     self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
-                    self.status = AgentStatus.RUNNING
-                else:
-                    self.msg_logger.critical(
-                        f"Agent {self.id}: No Kinematic Feasible and Optimal Trajectory Available!")
-                    self.status = AgentStatus.ERROR
-                    # TODO in ZAM_Tjunction-1_42_T-1 time step 143 warum keine Valid trajectory für obj id 1
-                    # raise EnvironmentError("check further functionality")
-
-                    # return self.status_dict
+                    self.agent_state.running()
 
             # plot own view on scenario
             if (self.save_plot or self.show_plot or self.gif
@@ -273,7 +276,7 @@ class Agent:
 
         Create a gif from plotted images, and run the evaluation function.
         """
-        self.planner_interface.close_planner(self.goal_status, self.goal_message, self.full_goal_status, msg)
+        # self.planner_interface.close_planner(self.goal_status, self.goal_message, self.full_goal_status, msg)
 
         self.msg_logger.info(f"Agent {self.id}: {msg}")
         self.msg_logger.info(f"Agent {self.id} current goal message: {self.goal_message}")

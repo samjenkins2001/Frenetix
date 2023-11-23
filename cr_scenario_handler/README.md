@@ -13,7 +13,7 @@ For the python installation, we suggest the usage of Virtual Environment with Py
 For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
 
 ### Installation
-1. Clone this repository, `checkout develop_RT`, and 
+1. Clone this repository, and 
    create a new virtual environment `python3.10 -m venv venv`
 
 2. Install the package:

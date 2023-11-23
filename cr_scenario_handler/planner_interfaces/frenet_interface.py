@@ -22,6 +22,8 @@ from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
 from frenetix_motion_planner.state import ReactivePlannerState
 
+
+from cr_scenario_handler.utils.utils_coordinate_system import extend_ref_path
 # msg_logger = logging.getLogger("Message_logger")
 
 
@@ -91,9 +93,13 @@ class FrenetPlannerInterface(PlannerInterface):
         if not self.config_sim.behavior.use_behavior_planner:
             route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
             self.reference_path = route_planner.plan_routes().retrieve_first_route().reference_path
-            self.reference_path, _ = route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
+            #
+            try: # works in py3.11
+                self.reference_path, _ = route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
                                                                                   initial_position_cart=self.x_0.position,
                                                                                   additional_lenght_in_meters=10.0)
+            except:
+                self.reference_path = extend_ref_path(self.reference_path, self.x_0.position)
         else:
             raise NotImplementedError
 
@@ -261,9 +267,9 @@ class FrenetPlannerInterface(PlannerInterface):
 
         return optimal_trajectory_pair[0]
 
-    def close_planner(self, goal_status, goal_message, full_goal_status, msg=None):
-        self.msg_logger.info(goal_message)
-        if full_goal_status:
-            self.msg_logger.info(full_goal_status)
-        # if not goal_status:
-            self.msg_logger.info(msg)
+    # def close_planner(self, goal_status, goal_message, full_goal_status, msg=None):
+    #     self.msg_logger.info(goal_message)
+    #     if full_goal_status:
+    #         self.msg_logger.info(full_goal_status)
+    #     # if not goal_status:
+    #         self.msg_logger.info(msg)

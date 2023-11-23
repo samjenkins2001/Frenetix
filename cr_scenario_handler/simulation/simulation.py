@@ -548,13 +548,14 @@ class Simulation:
             # no need to update initial setting
             return
         shape = Rectangle(self.config.vehicle.length, self.config.vehicle.width)
-        agents_to_update = [agent for agent in self.agents if agent.status > AgentStatus.IDLE]
+        agents_to_update = [agent for agent in self.agents if agent.status == AgentStatus.RUNNING]
         for agent in agents_to_update:
-            if agent.status == AgentStatus.RUNNING and agent.id not in colliding_agents:
+
+            if agent.status == AgentStatus.RUNNING:  # and agent.id not in colliding_agents:
                 obs = self.scenario.obstacle_by_id(agent.id)
+                initial_timestep = obs.prediction.trajectory.initial_time_step
                 # add calculated position to trajectory of dummy obstacles
                 if len(obs.prediction.trajectory.state_list) > 1:
-                    initial_timestep = obs.prediction.trajectory.initial_time_step
                     traj = (obs.prediction.trajectory.states_in_time_interval(initial_timestep, self.global_timestep-1)
                             + agent.vehicle_history[-1].prediction.trajectory.state_list[1:])
 
@@ -565,12 +566,16 @@ class Simulation:
                 obs.prediction = TrajectoryPrediction(
                     Trajectory(initial_time_step=traj[0].time_step, state_list=traj), shape,
                     center_lanelet_assignment=lanelet_assigned)
-            elif agent.status == AgentStatus.COLLISION or agent.id in colliding_agents:
-                pass  # raise NotImplementedError("Prediction still in trajectory?")
-            elif agent.status == AgentStatus.COMPLETED:
-                pass
-            # TODO Cutoff trajectory if agent is finished/crashed? Currently ends with prediction (+2 seconds)
-        return
+        agents_to_update = [agent for agent in self.agents
+                            if (agent.status != AgentStatus.RUNNING and agent.status != AgentStatus.IDLE)]
+        for agent in agents_to_update:
+            obs = self.scenario.obstacle_by_id(agent.id)
+            initial_timestep = obs.prediction.trajectory.initial_time_step#agent.agent_state.first_timestep
+            lanelet_assigned = obs.prediction.center_lanelet_assignment
+            traj = obs.prediction.trajectory.states_in_time_interval(initial_timestep, agent.agent_state.last_timestep)
+            obs.prediction = TrajectoryPrediction(
+                Trajectory(initial_time_step=traj[0].time_step, state_list=traj), shape,
+                center_lanelet_assignment=lanelet_assigned)
 
     def postprocess_simulation(self):
         save = self.config_visu.save_all_final_trajectories

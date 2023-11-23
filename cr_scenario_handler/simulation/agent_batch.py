@@ -205,10 +205,11 @@ class AgentBatch(Process):
                            str(agent.status) + ";" + msg + "\n"
                     file.write(line)
 
-            self.out_queue_dict[agent.id] = {"status": agent.status,
+            self.out_queue_dict[agent.id] = {"status": agent.agent_state,
                                              "collision_objects": [agent.collision_objects[-1]],
                                              "vehicle_history": [agent.vehicle_history[-1]],
-                                             "record_state_list": [agent.record_state_list[-1]]
+                                             "record_state_list": [agent.record_state_list[-1]],
+                                             "traj_set": agent.traj_set
                                              }
 
     def _check_completion(self):

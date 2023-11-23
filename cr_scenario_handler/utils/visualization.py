@@ -213,29 +213,33 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario,
     if rnd is None:
         rnd = MPRenderer(figsize=(20, 10))
 
-    if plot_window is not None:
-        # focus on window around all agents
-        left = np.inf
-        right = - np.inf
-        top = - np.inf
-        bottom = np.inf
-        for agent in agent_list:
-            ini_pos = agent.planning_problem.initial_state.position
-            if hasattr(agent.planning_problem.goal.state_list[0].position, "shapes"):
-                goal_pos = agent.planning_problem.goal.state_list[0].position.shapes[0].center
-            elif hasattr(agent.planning_problem.goal.state_list[0].position, "center"):
-                goal_pos = agent.planning_problem.goal.state_list[0].position.center
-            else:
-                raise ValueError
-            left = min(left, goal_pos[0], ini_pos[0])
-            right = max(right, goal_pos[0], ini_pos[0])
-            top = max(top, goal_pos[1], ini_pos[1])
-            bottom = min(bottom, goal_pos[1], ini_pos[1])
+        if plot_window is not None:
+            # focus on window around all agents
+            left = np.inf
+            right = - np.inf
+            top = - np.inf
+            bottom = np.inf
+            for agent in agent_list:
+                try:
+                    ini_pos = agent.planning_problem.initial_state.position
+                    if hasattr(agent.planning_problem.goal.state_list[0].position, "shapes"):
+                        goal_pos = agent.planning_problem.goal.state_list[0].position.shapes[0].center
+                    elif hasattr(agent.planning_problem.goal.state_list[0].position, "center"):
+                        goal_pos = agent.planning_problem.goal.state_list[0].position.center
+                    # else:
+                    #     raise ValueError
 
-        rnd.plot_limits = [-plot_window + left,
-                           plot_window + right,
-                           -plot_window + bottom,
-                           plot_window + top]
+                    left = min(left, goal_pos[0], ini_pos[0])
+                    right = max(right, goal_pos[0], ini_pos[0])
+                    top = max(top, goal_pos[1], ini_pos[1])
+                    bottom = min(bottom, goal_pos[1], ini_pos[1])
+                except AttributeError:
+                    pass
+
+            rnd.plot_limits = [-plot_window + left,
+                               plot_window + right,
+                               -plot_window + bottom,
+                               plot_window + top]
 
     # Set obstacle parameters
     obs_params = MPDrawParams()
@@ -255,6 +259,8 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario,
     # Visualize agents and planning problems
     # for i in range(len(agent_list)):
     for agent in agent_list:
+        if agent.status != AgentStatus.RUNNING:
+            continue
         # set ego vehicle draw params
         ego_params = DynamicObstacleParams()
         ego_params.time_begin = timestep
