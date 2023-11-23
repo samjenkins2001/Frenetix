@@ -256,26 +256,26 @@ class Agent:
 
                     self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
                     self.agent_state.running()
-                else:
-                    msg = "Error or no Available Trajectory found!"
-                    self.agent_state.error(self.current_timestep)
-                    self.postprocessing(msg)
 
-            # plot own view on scenario
-            if ((self.save_plot or self.show_plot or self.gif or ((self.config_visu.save_plots or
-                                                                  self.config_visu.show_plots) and
-                                                                 not self.config.simulation.use_multiagent)) and
-                    self.planner_interface.planner.trajectory_pair):
-                visualize_agent_at_timestep(self.scenario, self.planning_problem,
-                                            self.vehicle_history[-1], self.current_timestep,
-                                            self.config, self.log_path,
-                                            traj_set=self.traj_set,
-                                            optimal_traj=self.planner_interface.planner.trajectory_pair[0],
-                                            ref_path=self.planner_interface.reference_path,
-                                            predictions=self.predictions,
-                                            visible_area=self.visible_area,
-                                            plot_window=self.config_visu.plot_window_dyn, save=self.save_plot,
-                                            show=self.show_plot, gif=self.gif)
+                    # plot own view on scenario
+                    if (self.save_plot or self.show_plot or self.gif
+                            or ((
+                                        self.config_visu.save_plots or self.config_visu.show_plots) and not self.config.simulation.use_multiagent)):
+                        visualize_agent_at_timestep(self.scenario, self.planning_problem,
+                                                    self.vehicle_history[-1], self.current_timestep,
+                                                    self.config, self.log_path,
+                                                    traj_set=self.traj_set,
+                                                    optimal_traj=self.planner_interface.planner.trajectory_pair[0],
+                                                    ref_path=self.planner_interface.reference_path,
+                                                    predictions=self.predictions,
+                                                    visible_area=self.visible_area,
+                                                    plot_window=self.config_visu.plot_window_dyn, save=self.save_plot,
+                                                    show=self.show_plot, gif=self.gif)
+
+                else:
+                    self.msg_logger.critical(
+                        f"Agent {self.id}: No Kinematic Feasible and Optimal Trajectory Available!")
+                    self.agent_state.error(self.current_timestep)
 
     def postprocessing(self, msg):
         """ Execute post-simulation tasks.
