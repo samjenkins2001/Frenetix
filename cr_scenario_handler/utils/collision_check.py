@@ -10,18 +10,18 @@ from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch impor
 
 
 def get_scenario_dynamic_obstacles_as_tvo(scenario):
-    dyn_obstacles_list=list()
+    dyn_obstacles_list = list()
     for dyn_obst in scenario.dynamic_obstacles:
-        if isinstance(dyn_obst.prediction,TrajectoryPrediction):
-            co_raw=create_collision_object(dyn_obst.prediction)
+        if isinstance(dyn_obst.prediction, TrajectoryPrediction):
+            co_raw = create_collision_object(dyn_obst.prediction)
             # preprocess using obb hull for continuous collision detection
-            co, err=trajectory_queries.trajectory_preprocess_obb_sum(co_raw)
+            co, err = trajectory_queries.trajectory_preprocess_obb_sum(co_raw)
             if err:
                 co = co_raw
             dyn_obstacles_list.append(co)
         else:
-            if isinstance(dyn_obst.prediction,SetBasedPrediction):
-                co=create_collision_object(dyn_obst.prediction)
+            if isinstance(dyn_obst.prediction, SetBasedPrediction):
+                co = create_collision_object(dyn_obst.prediction)
                 dyn_obstacles_list.append(co)
             else:
                 raise Exception('Unknown dynamic obstacle prediction type: ' + str(type(dyn_obst.prediction)))

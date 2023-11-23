@@ -122,12 +122,12 @@ class Agent:
         ego_vehicle = DynamicObstacle(planning_problem.planning_problem_id, ObstacleType.CAR, shape, x_0, None)
         self.set_ego_vehicle_state(ego_vehicle)
 
+        self.collision_objects = list()
+        self._create_collision_object(x_0)
+
         x_0 = ReactivePlannerState.create_from_initial_state(problem_init_state, self.vehicle.wheelbase,
                                                              self.vehicle.wb_rear_axle)
         self.record_state_and_input(x_0)
-
-        self.collision_objects = list()
-        self._create_collision_object(x_0)
 
         # Initialize Planner
         used_planner = self.config_simulation.used_planner_interface
@@ -251,8 +251,9 @@ class Agent:
                 if trajectory:
                     # self.optimal
                     self.record_state_and_input(trajectory.state_list[1])
-                    self._create_collision_object(trajectory.state_list[1])
+
                     current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory.state_list)
+                    self._create_collision_object(current_ego_vehicle.prediction.trajectory.state_list[1])
 
                     self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
                     self.agent_state.running()
