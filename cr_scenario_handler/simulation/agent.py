@@ -223,7 +223,7 @@ class Agent:
                 # self.status = AgentStatus.COMPLETED
 
             else:
-                self.current_timestep = timestep#len(self.record_state_list) - 1
+                self.current_timestep = timestep
                 self.msg_logger.info(f"Agent {self.id} current time step: {self.current_timestep}")
 
                 # **************************
@@ -256,10 +256,16 @@ class Agent:
 
                     self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
                     self.agent_state.running()
+                else:
+                    msg = "Error or no Available Trajectory found!"
+                    self.agent_state.error(self.current_timestep)
+                    self.postprocessing(msg)
 
             # plot own view on scenario
-            if (self.save_plot or self.show_plot or self.gif
-                    or ((self.config_visu.save_plots or self.config_visu.show_plots) and not self.config.simulation.use_multiagent)):
+            if ((self.save_plot or self.show_plot or self.gif or ((self.config_visu.save_plots or
+                                                                  self.config_visu.show_plots) and
+                                                                 not self.config.simulation.use_multiagent)) and
+                    self.planner_interface.planner.trajectory_pair):
                 visualize_agent_at_timestep(self.scenario, self.planning_problem,
                                             self.vehicle_history[-1], self.current_timestep,
                                             self.config, self.log_path,

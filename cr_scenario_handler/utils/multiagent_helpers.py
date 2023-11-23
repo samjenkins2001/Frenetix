@@ -32,6 +32,7 @@ class AgentStatus(IntEnum):
     ERROR = 3
     COLLISION = 4
 
+
 class AgentState():
     def __init__(self, timestep):
         self.status = AgentStatus.IDLE
@@ -42,6 +43,7 @@ class AgentState():
     def running(self):
         self.status = AgentStatus.RUNNING
         # self.last_timestep = timestep
+
     def collision(self, timestep):
         self.status = AgentStatus.COLLISION
         self.last_timestep = timestep
@@ -57,7 +59,6 @@ class AgentState():
     def error(self, timestep):
         self.status = AgentStatus.ERROR
         self.last_timestep = timestep
-
 
 
 def scenario_without_obstacle_id(scenario: Scenario, obs_ids: List[int]):
