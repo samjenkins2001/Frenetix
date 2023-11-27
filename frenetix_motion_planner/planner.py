@@ -27,7 +27,6 @@ from frenetix_motion_planner.trajectories import TrajectorySample
 
 from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from cr_scenario_handler.utils import helper_functions as hf
-from cr_scenario_handler.utils.goalcheck import GoalReachedChecker, get_goal_area_shape_group
 from cr_scenario_handler.utils.collision_check import collision_check_prediction
 
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
@@ -77,6 +76,7 @@ class Planner:
         # Initial State
         self.x_0: Optional[ReactivePlannerState] = None
         self.x_cl: Optional[Tuple[List, List]] = None
+        self.reference_path = None
 
         self.record_state_list: List[ReactivePlannerState] = list()
         self.record_input_list: List[InputState] = list()
@@ -85,7 +85,7 @@ class Planner:
         self._LOW_VEL_MODE = False
 
         # Scenario
-        self._co: Optional[CoordinateSystem] = None
+        self.coordinate_system = None
         self._cc: Optional[pycrcc.CollisionChecker] = None
         self.scenario = None
         self.road_boundary = None
@@ -98,7 +98,7 @@ class Planner:
         self.cost_function = None
         self.goal_status = False
         self.full_goal_status = None
-        self.goal_area = get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
+        self.goal_area = None
         self.occlusion_module = None
         self.goal_message = "Planner is in time step 0!"
 
@@ -195,7 +195,8 @@ class Planner:
         if scenario is not None:
             self.set_scenario(scenario)
         if reference_path is not None:
-            self.set_reference_path(reference_path)
+            self.reference_path = reference_path
+            self.set_reference_and_coordinate_system(reference_path)
         if planning_problem is not None:
             self.set_planning_problem(planning_problem)
         if goal_area is not None:
@@ -586,26 +587,26 @@ class Planner:
         """
         # compute curvilinear position
         try:
-            s, d = self._co.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
+            s, d = self.coordinate_system.convert_to_curvilinear_coords(x_0.position[0], x_0.position[1])
         except ValueError:
             self.msg_logger.critical("Initial state could not be transformed.")
             raise ValueError("Initial state could not be transformed.")
 
         # factor for interpolation
-        s_idx = np.argmax(self._co.ref_pos > s) - 1
-        s_lambda = (s - self._co.ref_pos[s_idx]) / (
-                self._co.ref_pos[s_idx + 1] - self._co.ref_pos[s_idx])
+        s_idx = np.argmax(self.coordinate_system.ref_pos > s) - 1
+        s_lambda = (s - self.coordinate_system.ref_pos[s_idx]) / (
+                self.coordinate_system.ref_pos[s_idx + 1] - self.coordinate_system.ref_pos[s_idx])
 
         # compute orientation in curvilinear coordinate frame
-        ref_theta = np.unwrap(self._co.ref_theta)
-        theta_cl = x_0.orientation - interpolate_angle(s, self._co.ref_pos[s_idx], self._co.ref_pos[s_idx + 1],
+        ref_theta = np.unwrap(self.coordinate_system.ref_theta)
+        theta_cl = x_0.orientation - interpolate_angle(s, self.coordinate_system.ref_pos[s_idx], self.coordinate_system.ref_pos[s_idx + 1],
                                                        ref_theta[s_idx], ref_theta[s_idx + 1])
 
         # compute reference curvature
-        kr = (self._co.ref_curv[s_idx + 1] - self._co.ref_curv[s_idx]) * s_lambda + self._co.ref_curv[
+        kr = (self.coordinate_system.ref_curv[s_idx + 1] - self.coordinate_system.ref_curv[s_idx]) * s_lambda + self.coordinate_system.ref_curv[
             s_idx]
         # compute reference curvature change
-        kr_d = (self._co.ref_curv_d[s_idx + 1] - self._co.ref_curv_d[s_idx]) * s_lambda + self._co.ref_curv_d[s_idx]
+        kr_d = (self.coordinate_system.ref_curv_d[s_idx + 1] - self.coordinate_system.ref_curv_d[s_idx]) * s_lambda + self.coordinate_system.ref_curv_d[s_idx]
 
         # compute initial ego curvature from initial steering angle
         kappa_0 = np.tan(x_0.steering_angle) / self.vehicle_params.wheelbase
@@ -701,18 +702,18 @@ class Planner:
         """
         raise NotImplementedError()
 
+    # @abstractmethod
+    # def check_collision(self, ego_obstacle):
+    #     """Planner collision check function.
+    #
+    #     To be implemented for every specific planner.
+    #
+    #     :returns: Exit code of the collision check,
+    #     """
+    #     raise NotImplementedError()
+
     @abstractmethod
-    def check_collision(self, ego_obstacle):
-        """Planner collision check function.
-
-        To be implemented for every specific planner.
-
-        :returns: Exit code of the collision check,
-        """
-        raise NotImplementedError()
-
-    @abstractmethod
-    def set_reference_path(self, *args, **kwargs):
+    def set_reference_and_coordinate_system(self, *args, **kwargs):
         """Set reference path
         To be implemented for every specific planner.
         """

@@ -48,21 +48,6 @@ class PlannerInterface(ABC):
         """
         return None
 
-    # @abstractmethod
-    # def close_planner(self, goal_status, goal_message, full_goal_status, msg = None):
-    #     return None
-
-    @abstractmethod
-    def check_collision(self, ego_obstacle: List[DynamicObstacle], timestep: int):
-        """Check for a collision at the given timestep.
-
-        To be implemented by every specific planner.
-
-        :param ego_obstacle: Dummy obstacles of the ego vehicle at every timestep.
-        :param timestep: Time step at which to check for collisions.
-        """
-        raise NotImplementedError()
-
     @abstractmethod
     def update_planner(self, scenario: Scenario, predictions: dict):
         """Update scenario for synchronization between agents.

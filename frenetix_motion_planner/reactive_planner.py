@@ -11,17 +11,13 @@ import time
 
 import numpy as np
 from typing import List
-import logging
 import multiprocessing
 from multiprocessing.context import Process
-
-# commonroad_dc
-import commonroad_dc.pycrcc as pycrcc
 
 # frenetix_motion_planner imports
 from frenetix_motion_planner.polynomial_trajectory import QuinticTrajectory, QuarticTrajectory
 from frenetix_motion_planner.trajectories import TrajectoryBundle, TrajectorySample, CartesianSample, CurviLinearSample
-from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, interpolate_angle, smooth_ref_path
+from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, interpolate_angle
 from frenetix_motion_planner.cost_functions.cost_function import AdaptableCostFunction
 
 from frenetix_motion_planner.planner import Planner
@@ -50,14 +46,6 @@ class ReactivePlannerPython(Planner):
         cost_function = AdaptableCostFunction(rp=self, configuration=self.config_plan)
         self.set_cost_function(cost_function=cost_function)
 
-    @property
-    def coordinate_system(self) -> CoordinateSystem:
-        return self._co
-
-    @property
-    def reference_path(self):
-        return self._co.reference
-
     def set_predictions(self, predictions: dict):
         self.use_prediction = True
         self.predictions = predictions
@@ -66,23 +54,15 @@ class ReactivePlannerPython(Planner):
         self.cost_function = cost_function
         # self.logger.set_logging_header(self.config_plan.cost.cost_weights)
 
-    def set_reference_path(self, reference_path: np.ndarray = None, coordinate_system: CoordinateSystem = None):
+    def set_reference_and_coordinate_system(self, reference_path: np.ndarray = None):
         """
         Automatically creates a curvilinear coordinate system from a given reference path or sets a given
         curvilinear coordinate system for the planner to use
         :param reference_path: reference path as polyline
         :param coordinate_system: given CoordinateSystem object which is used by the planner
         """
-        reference_path = smooth_ref_path(reference_path)
-        if coordinate_system is None:
-            assert reference_path is not None, '<set reference path>: Please provide a reference path OR a ' \
-                                               'CoordinateSystem object to the planner.'
-            self._co: CoordinateSystem = CoordinateSystem(reference_path)
-        else:
-            assert reference_path is None, '<set reference path>: Please provide a reference path OR a ' \
-                                           'CoordinateSystem object to the planner.'
-            self._co: CoordinateSystem = coordinate_system
-            self.set_new_ref_path = True
+        self.coordinate_system = CoordinateSystem(reference_path)
+        self.set_new_ref_path = True
 
     def plan(self) -> tuple:
         """
@@ -430,12 +410,12 @@ class ReactivePlannerPython(Planner):
                     dpp = d_acceleration[i]
 
                 # factor for interpolation
-                s_idx = np.argmax(self._co.ref_pos > s[i]) - 1
-                if s_idx + 1 >= len(self._co.ref_pos):
+                s_idx = np.argmax(self.coordinate_system.ref_pos > s[i]) - 1
+                if s_idx + 1 >= len(self.coordinate_system.ref_pos):
                     trajectory.feasible = False
                     infeasible_count_kinematics_traj[3] = 1
                     break
-                s_lambda = (s[i] - self._co.ref_pos[s_idx]) / (self._co.ref_pos[s_idx + 1] - self._co.ref_pos[s_idx])
+                s_lambda = (s[i] - self.coordinate_system.ref_pos[s_idx]) / (self.coordinate_system.ref_pos[s_idx + 1] - self.coordinate_system.ref_pos[s_idx])
 
                 # compute curvilinear (theta_cl) and global Cartesian (theta_gl) orientation
                 if s_velocity[i] > 0.001:
@@ -445,10 +425,10 @@ class ReactivePlannerPython(Planner):
 
                     theta_gl[i] = theta_cl[i] + interpolate_angle(
                         s[i],
-                        self._co.ref_pos[s_idx],
-                        self._co.ref_pos[s_idx + 1],
-                        self._co.ref_theta[s_idx],
-                        self._co.ref_theta[s_idx + 1])
+                        self.coordinate_system.ref_pos[s_idx],
+                        self.coordinate_system.ref_pos[s_idx + 1],
+                        self.coordinate_system.ref_theta[s_idx],
+                        self.coordinate_system.ref_theta[s_idx + 1])
                 else:
                     if self._LOW_VEL_MODE:
                         # dp = velocity w.r.t. to travelled arclength (s)
@@ -456,26 +436,26 @@ class ReactivePlannerPython(Planner):
 
                         theta_gl[i] = theta_cl[i] + interpolate_angle(
                             s[i],
-                            self._co.ref_pos[s_idx],
-                            self._co.ref_pos[s_idx + 1],
-                            self._co.ref_theta[s_idx],
-                            self._co.ref_theta[s_idx + 1])
+                            self.coordinate_system.ref_pos[s_idx],
+                            self.coordinate_system.ref_pos[s_idx + 1],
+                            self.coordinate_system.ref_theta[s_idx],
+                            self.coordinate_system.ref_theta[s_idx + 1])
                     else:
                         # in stillstand (s_velocity~0) and High velocity mode: assume vehicle keeps global orientation
                         theta_gl[i] = self.x_0.orientation if i == 0 else theta_gl[i - 1]
 
                         theta_cl[i] = theta_gl[i] - interpolate_angle(
                             s[i],
-                            self._co.ref_pos[s_idx],
-                            self._co.ref_pos[s_idx + 1],
-                            self._co.ref_theta[s_idx],
-                            self._co.ref_theta[s_idx + 1])
+                            self.coordinate_system.ref_pos[s_idx],
+                            self.coordinate_system.ref_pos[s_idx + 1],
+                            self.coordinate_system.ref_theta[s_idx],
+                            self.coordinate_system.ref_theta[s_idx + 1])
 
                 # Interpolate curvature of reference path k_r at current position
-                k_r = (self._co.ref_curv[s_idx + 1] - self._co.ref_curv[s_idx]) * s_lambda + self._co.ref_curv[s_idx]
+                k_r = (self.coordinate_system.ref_curv[s_idx + 1] - self.coordinate_system.ref_curv[s_idx]) * s_lambda + self.coordinate_system.ref_curv[s_idx]
                 # Interpolate curvature rate of reference path k_r_d at current position
-                k_r_d = (self._co.ref_curv_d[s_idx + 1] - self._co.ref_curv_d[s_idx]) * s_lambda + \
-                        self._co.ref_curv_d[s_idx]
+                k_r_d = (self.coordinate_system.ref_curv_d[s_idx + 1] - self.coordinate_system.ref_curv_d[s_idx]) * s_lambda + \
+                        self.coordinate_system.ref_curv_d[s_idx]
 
                 # compute global curvature (see appendix A of Moritz Werling's PhD thesis)
                 oneKrD = (1 - k_r * d[i])
@@ -554,7 +534,7 @@ class ReactivePlannerPython(Planner):
             if trajectory.feasible or self._draw_traj_set:
                 for i in range(0, len(s)):
                     # compute (global) Cartesian position
-                    pos: np.ndarray = self._co.convert_to_cartesian_coords(s[i], d[i])
+                    pos: np.ndarray = self.coordinate_system.convert_to_cartesian_coords(s[i], d[i])
                     if pos is not None:
                         x[i] = pos[0]
                         y[i] = pos[1]
@@ -632,9 +612,9 @@ class ReactivePlannerPython(Planner):
 
         # create Curvilinear trajectory sample
         # compute orientation in curvilinear coordinate frame
-        s_idx = np.argmax(self._co.ref_pos > x_0_lon[0]) - 1
-        ref_theta = np.unwrap(self._co.ref_theta)
-        theta_cl = x_0.orientation - interpolate_angle(x_0_lon[0], self._co.ref_pos[s_idx], self._co.ref_pos[s_idx + 1],
+        s_idx = np.argmax(self.coordinate_system.ref_pos > x_0_lon[0]) - 1
+        ref_theta = np.unwrap(self.coordinate_system.ref_theta)
+        theta_cl = x_0.orientation - interpolate_angle(x_0_lon[0], self.coordinate_system.ref_pos[s_idx], self.coordinate_system.ref_pos[s_idx + 1],
                                                        ref_theta[s_idx], ref_theta[s_idx + 1])
 
         p.curvilinear = CurviLinearSample(np.repeat(x_0_lon[0], self.N), np.repeat(x_0_lat[0], self.N),

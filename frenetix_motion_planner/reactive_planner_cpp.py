@@ -9,17 +9,13 @@ __status__ = "Beta"
 import time
 import numpy as np
 import copy
-import logging
 from itertools import product
 from typing import List
-
-# commonroad_dc
-import commonroad_dc.pycrcc as pycrcc
 
 # frenetix_motion_planner imports
 from frenetix_motion_planner.sampling_matrix import generate_sampling_matrix
 
-from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, smooth_ref_path
+from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem
 
 import frenetix
 import frenetix.trajectory_functions
@@ -50,7 +46,7 @@ class ReactivePlannerCpp(Planner):
         # *****************************
 
         self.handler: frenetix.TrajectoryHandler = frenetix.TrajectoryHandler(dt=self.config_plan.planning.dt)
-        self.coordinate_system: frenetix.CoordinateSystemWrapper
+        self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
 
@@ -144,7 +140,7 @@ class ReactivePlannerCpp(Planner):
         self.handler.add_function(frenetix.trajectory_functions.FillCoordinates(
             lowVelocityMode=self._LOW_VEL_MODE,
             initialOrientation=self.x_0.orientation,
-            coordinateSystem=self.coordinate_system,
+            coordinateSystem=self.coordinate_system_cpp,
             horizon=int(self.config_plan.planning.planning_horizon)
         ))
 
@@ -169,15 +165,13 @@ class ReactivePlannerCpp(Planner):
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
             self.handler.add_cost_function(cf.CalculateVelocityOffsetCost(name, self.cost_weights[name], self._desired_speed))
 
-    def set_reference_path(self, reference_path: np.ndarray):
+    def set_reference_and_coordinate_system(self, reference_path: np.ndarray):
         """
         Automatically creates a curvilinear coordinate system from a given reference path
         :param reference_path: reference_path as polyline
         """
-
-        self.reference_path = smooth_ref_path(reference_path)
-        self.coordinate_system: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper(copy.deepcopy(self.reference_path))
-        self._co: CoordinateSystem = CoordinateSystem(self.reference_path)
+        self.coordinate_system = CoordinateSystem(reference_path)
+        self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper(copy.deepcopy(reference_path))
         self.set_new_ref_path = True
         self.logger.sql_logger.write_reference_path(reference_path)
 
@@ -205,7 +199,7 @@ class ReactivePlannerCpp(Planner):
             )
 
             initial_state_computation = frenetix.trajectory_functions.ComputeInitialState(
-                coordinateSystem=self.coordinate_system,
+                coordinateSystem=self.coordinate_system_cpp,
                 wheelBase=self.vehicle_params.wheelbase,
                 steeringAngle=self.x_0.steering_angle,
                 lowVelocityMode=self._LOW_VEL_MODE

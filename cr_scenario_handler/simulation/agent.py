@@ -140,7 +140,7 @@ class Agent:
         if self.config.occlusion.use_occlusion_module:
             raise NotImplementedError
 
-        self.goal_checker = gc.GoalReachedChecker(planning_problem, self.reference_path, self.planner_interface.planner)
+        self.goal_checker = gc.GoalReachedChecker(planning_problem, self.reference_path, self.coordinate_system)
         self.goal_status = None
         self.goal_message = None
         self.full_goal_status = None
@@ -148,6 +148,10 @@ class Agent:
     @property
     def reference_path(self):
         return self.planner_interface.ref_path
+
+    @property
+    def coordinate_system(self):
+        return self.planner_interface.planner.coordinate_system
 
     @property
     def traj_set(self):
