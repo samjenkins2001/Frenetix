@@ -43,7 +43,10 @@ class GoalReachedChecker:
         end_distance = end_velocity * planning_horizon_in_seconds
 
         if hf.distance(last_pos_in_goal, self.reference_path[-1]) <= end_distance:
-            buffer_index, _ = self._find_buffer_index(last_pos_in_goal, end_distance)
+            buffer_index, last_pos_in_goal = self._find_buffer_index(last_pos_in_goal, end_distance)
+            if not self.goal_state.position.contains_point(last_pos_in_goal):
+                # TODO: Think about what happens when ref path too short/close to end of scenario
+                raise EnvironmentError("Reference Path ends to close to goal region!")
             return self._convert_to_curvilinear(buffer_index)
         else:
             return self._convert_to_curvilinear(last_pos_in_goal)
@@ -56,9 +59,8 @@ class GoalReachedChecker:
             check_distance += distances[i]
             if check_distance >= end_distance:
                 return i, self.reference_path[i]
-        # TODO: Think about what happens when ref path too short/close to end of scenario
-        raise EnvironmentError("Reference Path ends to close to goal region!")
-        # return len(self.reference_path) - 1, last_pos_in_goal
+
+        return len(self.reference_path) - 1, last_pos_in_goal
 
     def _convert_to_curvilinear(self, buffer_index):
         """Converts a buffer index to curvilinear coordinates."""
