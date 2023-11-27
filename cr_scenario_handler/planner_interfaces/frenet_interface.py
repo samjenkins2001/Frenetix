@@ -93,7 +93,7 @@ class FrenetPlannerInterface(PlannerInterface):
             self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
             self.reference_path = self.route_planner.plan_routes().retrieve_first_route().reference_path
             #
-            try: # works in py3.11
+            try:  # works in py3.11
                 self.reference_path, _ = self.route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
                                                                                   initial_position_cart=self.x_0.position,
                                                                                   additional_lenght_in_meters=10.0)
@@ -102,6 +102,9 @@ class FrenetPlannerInterface(PlannerInterface):
         else:
             raise NotImplementedError
 
+        # TODO: Achieve a stable route planner version
+        self.reference_path, _ = self.route_planner.extend_reference_path_at_end(self.reference_path,
+                                                                                 self.reference_path[-1])
         self.reference_path = smooth_ref_path(self.reference_path)
         self.goal_area = gc.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
 

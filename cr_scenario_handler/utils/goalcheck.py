@@ -28,25 +28,32 @@ class GoalReachedChecker:
         self.status = []
         self.current_time = None
 
-    def _initialize_last_goal_position(self, planning_horizon_in_seconds=4.0):
+    def _initialize_last_goal_position(self, planning_horizon_in_seconds=3.0, default_velocity=5.0):
         """Initializes the last goal position."""
         last_pos_in_goal = None
-        for point in reversed(self.reference_path):
-            if self.goal_state.position.contains_point(point):
-                last_pos_in_goal = point
-                break
+        position_available = False
 
-        if last_pos_in_goal is None:
-            raise ValueError("No Point of the Reference Path is in the Goal Area")
+        if hasattr(self.goal_state, 'position'):
+            position_available = True
+            for point in reversed(self.reference_path):
+                if self.goal_state.position.contains_point(point):
+                    last_pos_in_goal = point
+                    break
 
-        end_velocity = getattr(self.goal_state.velocity, 'end', 10.0)
+            if last_pos_in_goal is None:
+                raise ValueError("No Point of the Reference Path is in the Goal Area")
+        else:
+            last_pos_in_goal = self.reference_path[-1]
+
+        end_velocity = getattr(getattr(self.goal_state, 'velocity', None), 'end', default_velocity)
         end_distance = end_velocity * planning_horizon_in_seconds
 
         if hf.distance(last_pos_in_goal, self.reference_path[-1]) <= end_distance:
             buffer_index, last_pos_in_goal = self._find_buffer_index(last_pos_in_goal, end_distance)
-            if not self.goal_state.position.contains_point(last_pos_in_goal):
-                # TODO: Think about what happens when ref path too short/close to end of scenario
-                raise EnvironmentError("Reference Path ends to close to goal region!")
+            if position_available:
+                if not self.goal_state.position.contains_point(last_pos_in_goal):
+                    # TODO: Think about what happens when ref path too short/close to end of scenario
+                    raise EnvironmentError("Reference Path ends to close to goal region!")
             return self._convert_to_curvilinear(buffer_index)
         else:
             return self._convert_to_curvilinear(last_pos_in_goal)
