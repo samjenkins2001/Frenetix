@@ -7,8 +7,10 @@ __status__ = "Beta"
 
 """Provide a class for easy checking if a goal state is reached."""
 import copy
+import numpy as np
 from commonroad_dc.pycrcc import ShapeGroup
 from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
+import cr_scenario_handler.utils.helper_functions as hf
 
 
 def get_goal_area_shape_group(planning_problem, scenario):
@@ -66,16 +68,58 @@ def get_goal_area_shape_group(planning_problem, scenario):
 class GoalReachedChecker:
     """GoalChecker for easy checking if the goal is reached."""
 
-    def __init__(self, planning_problem):
+    def __init__(self, planning_problem, reference_path, planner):
         """__init__ function."""
         self.goal = planning_problem.goal
+        self.goal_state = planning_problem.goal.state_list[0]
         self.status = []
-        self.last_position_check = False
+        self.current_time = None
+        self.x_cl = None
+        self.last_s_position_of_goal = None
 
-    def register_current_state(self, current_state):
+        # Initialize to None
+        last_pos_in_goal = None
+        last_index_in_goal = None
+
+        if "position" in self.goal_state.attributes:
+            for index, point in reversed(list(enumerate(reference_path))):
+                if self.goal_state.position.contains_point(point):
+                    last_pos_in_goal = point
+                    last_index_in_goal = index
+                    break
+
+            assert last_pos_in_goal is not None, "No Point of the Reference Path is in the Goal Area"
+
+            end_velocity = self.goal_state.velocity.end if "velocity" in self.goal_state.attributes else 10.0
+            end_distance = 4.0 * end_velocity  # usual may planning horizon is 4
+
+            if last_pos_in_goal is not None and hf.distance(last_pos_in_goal, reference_path[-1]) <= end_distance:
+                deltas = np.diff(reference_path, axis=0)
+                distances = np.sqrt((deltas ** 2).sum(axis=1))
+
+                check_distance = 0.0
+                buffer_index = last_index_in_goal
+                for i in reversed(range(0, last_index_in_goal)):
+                    check_distance += distances[i]
+                    buffer_index -= 1
+                    if check_distance >= end_distance:
+                        break
+
+                x_pos = reference_path[buffer_index][0]
+                y_pos = reference_path[buffer_index][1]
+
+                if not self.goal_state.position.contains_point(reference_path[buffer_index]):
+                    x_pos, y_pos = next(
+                        (point for point in reference_path if self.goal_state.position.contains_point(point)),
+                        None)
+
+                self.last_goal_position = planner._co.ccosy.convert_to_curvilinear_coords(x_pos, y_pos)[0]
+
+    def register_current_state(self, current_state, x_cl=None):
         """Register the current state and check if in goal."""
         self.status = []
         self.current_time = current_state.time_step
+        self.x_cl = x_cl
         for goal_state in self.goal.state_list:
             state_status = {}
             normalized_state = self._normalize_states(current_state, goal_state)
@@ -99,17 +143,23 @@ class GoalReachedChecker:
                     and all(list(state_status.values()))
                 ):
                     return True, "Scenario Completed out of Time!", state_status
-                # elif all(list(state_status.values())):
-                #     return True, "Scenario Completed Faster than Target Time!", state_status
-            #TODO was soll der check ff.?
-            elif "position" in state_status:
-                if self.last_position_check and not state_status["position"]:
-                    return True, "Scenario Completed Faster than Target Time!", state_status
+                elif "position" in state_status:
+                    if state_status["position"]:
+                        return True, "Scenario Completed Faster than Target Time!", state_status
             if "position" in state_status:
-                self.last_position_check = state_status["position"]
+                if self.x_cl[0][0] > self.last_goal_position:
+                    return True, "Vehicle Reached Maximum S-Position!", state_status
+
+            # elif "position" in state_status:
+            #     if self.last_position_check and not state_status["position"]:
+            #         return True, "Scenario Completed Faster than Target Time!", state_status
+            # if "position" in state_status:
+            #     self.last_position_check = state_status["position"]
+
             return False, "Scenario is still running!", state_status
 
-    def _check_position(self, normalized_state, goal_state, state_status):
+    @staticmethod
+    def _check_position(normalized_state, goal_state, state_status):
         if hasattr(goal_state, "position"):
             state_status["position"] = goal_state.position.contains_point(
                 normalized_state.position

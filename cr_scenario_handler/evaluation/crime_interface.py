@@ -67,9 +67,6 @@ class CrimeInterface(ABC):
                                                        for i in agent_id
                                                        for j in range(self.start_min, self.end_max+1)},
                                                       orient='index')
-        #TODO fill df and use df for visualization!
-        # (
-        #
         # dict.fromkeys(agent_id, dict.fromkeys(range(self.start_min, self.end_max), dict.fromkeys(self._measure_names, np.inf))))
         return
 

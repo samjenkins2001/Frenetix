@@ -92,11 +92,6 @@ class Agent:
         self.planning_problem = planning_problem
         self.scenario = hf.scenario_without_obstacle_id(scenario=deepcopy(scenario), obs_ids=[self.id])
 
-        self.goal_checker = gc.GoalReachedChecker(planning_problem)
-        self.goal_status = None
-        self.goal_message = None
-        self.full_goal_status = None
-
         # TODO CR-Reach/Spot/ Occlusion / Sensor
 
         # self._load_external_modules()
@@ -144,8 +139,11 @@ class Agent:
 
         if self.config.occlusion.use_occlusion_module:
             raise NotImplementedError
-            # TODO add here instead of in interface
-        return
+
+        self.goal_checker = gc.GoalReachedChecker(planning_problem, self.reference_path, self.planner_interface.planner)
+        self.goal_status = None
+        self.goal_message = None
+        self.full_goal_status = None
 
     @property
     def reference_path(self):
@@ -190,7 +188,7 @@ class Agent:
         :return: True iff the goal area has been reached.
         """
 
-        self.goal_checker.register_current_state(self.record_state_list[-1])
+        self.goal_checker.register_current_state(self.record_state_list[-1], self.planner_interface.planner.x_cl)
         self.goal_status, self.goal_message, self.full_goal_status = self.goal_checker.goal_reached_status()
 
     def step_agent(self, timestep):

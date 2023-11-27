@@ -114,7 +114,6 @@ class Planner:
         self.use_prediction = False
 
         self.set_collision_checker(self.scenario)
-        self._goal_checker = GoalReachedChecker(planning_problem)
         self._collision_counter = 0
 
         # **************************
@@ -163,11 +162,6 @@ class Planner:
         # **************************
         self.params_harm = load_harm_parameter_json(work_dir)
         self.params_risk = load_risk_json(work_dir)
-
-    @property
-    def goal_checker(self):
-        """Return the goal checker."""
-        return self._goal_checker
 
     @property
     def collision_checker(self) -> pycrcc.CollisionChecker:
@@ -523,11 +517,6 @@ class Planner:
             collision_object = collision_object_raw
 
         return collision_object
-
-    def check_goal_reached(self):
-        # Get the ego vehicle
-        self.goal_checker.register_current_state(self.x_0)
-        self.goal_status, self.goal_message, self.full_goal_status = self.goal_checker.goal_reached_status()
 
     def shift_orientation(self, trajectory: Trajectory, interval_start=-np.pi, interval_end=np.pi):
         for state in trajectory.state_list:

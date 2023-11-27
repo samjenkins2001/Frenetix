@@ -1,4 +1,4 @@
-__author__ = "Maximilian Streubel, Rainer Trauth"
+__author__ = "Marc Kaufed, Rainer Trauth"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
@@ -282,7 +282,9 @@ class Simulation:
         load all external modules
         """
         # load prediction framework
-        # TODO include gt if not multiagent
+        if self.config.prediction.mode == "ground_truth" and self.config_simulation.use_multiagent:
+            raise Warning("ground_truth in multiagent setting not available, use wale_net instead")
+
         self._predictor = ph.load_prediction(self.scenario, self.config.prediction.mode)
 
         """---------------------------------------"""
@@ -375,7 +377,6 @@ class Simulation:
 
         self.process_times["complete_simulation"] = time.perf_counter() - sim_time_start
         self.msg_logger.info(f"Simulation completed")
-        # TODO
         self.postprocess_simulation()
         self.process_times["total_elapsed_time"] = time.perf_counter() - sim_time_start
 
@@ -539,7 +540,6 @@ class Simulation:
                 if coll_time != [-1]:
                     # collision detected
                     collided_agents.append(agent_ids[index])
-                    raise NotImplementedError("check functionality")  # TODO check functionality
                 # TODO: check crash statistics s. planner -> sollte funktionieren
         return collided_agents
 
