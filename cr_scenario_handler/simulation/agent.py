@@ -147,7 +147,7 @@ class Agent:
 
     @property
     def reference_path(self):
-        return self.planner_interface.ref_path
+        return self.planner_interface.reference_path
 
     @property
     def coordinate_system(self):

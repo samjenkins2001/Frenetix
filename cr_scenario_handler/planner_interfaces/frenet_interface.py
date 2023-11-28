@@ -102,10 +102,12 @@ class FrenetPlannerInterface(PlannerInterface):
         else:
             raise NotImplementedError
 
+        self.reference_path = smooth_ref_path(self.reference_path)
+
         # TODO: Achieve a stable route planner version
         self.reference_path, _ = self.route_planner.extend_reference_path_at_end(self.reference_path,
                                                                                  self.reference_path[-1])
-        self.reference_path = smooth_ref_path(self.reference_path)
+
         self.goal_area = gc.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
 
         # **************************
@@ -124,11 +126,6 @@ class FrenetPlannerInterface(PlannerInterface):
     def all_traj(self):
         """Return the sampled trajectory bundle for plotting purposes."""
         return self.planner.all_traj
-
-    @property
-    def ref_path(self):
-        """Return the reference path for plotting purposes."""
-        return self.planner.reference_path
 
     def update_planner(self, scenario: Scenario, predictions: dict):
         """ Update the planner before the next time step.

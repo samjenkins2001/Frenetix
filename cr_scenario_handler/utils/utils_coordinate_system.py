@@ -8,6 +8,7 @@ __status__ = "Alpha"
 
 from copy import deepcopy
 import numpy as np
+import matplotlib.pyplot as plt
 import cr_scenario_handler.utils.helper_functions as hf
 from scipy.interpolate import splprep, splev
 from commonroad_dc.pycrccosy import CurvilinearCoordinateSystem
@@ -44,28 +45,37 @@ def extend_ref_path(ref_path, init_pos):
 
 
 def smooth_ref_path(reference: np.ndarray):
+    # Remove duplicate points
     _, idx = np.unique(reference, axis=0, return_index=True)
     reference = reference[np.sort(idx)]
+    # reference = extrapolate_ref_path(reference)
 
-    distances = np.sqrt(np.sum((reference[50:-50:2]-reference[51:-49:2])**2, axis=1))
-    dist_sum_in_m = np.round(np.sum(distances), 3)
-    average_dist_in_m = np.round(np.average(distances), 3)
+    # Calculate the cumulative sum of distances between points
+    distances = np.sqrt(np.sum(np.diff(reference, axis=0) ** 2, axis=1))
+    cumdist = np.insert(np.cumsum(distances), 0, 0)
 
-    t = int(6 / average_dist_in_m)  # 5 meters distance per point
+    # Determine the number of points based on fixed spacing
+    total_length = cumdist[-1]
+    num_points = int(np.ceil(total_length / 0.125))
+
+    t = int(8 / 0.125)  # 5 meters distance per point
     reference = reference[::t]
-    spline_discretization = int(1 * dist_sum_in_m)  # 2 = 0.5 m distances between points
+    cumdist = cumdist[::t]
 
-    tck, u = splprep(reference.T, u=None, k=3, s=0.0)
-    u_new = np.linspace(u.min(), u.max(), spline_discretization)
+    # Fit spline to reference path
+    tck, u = splprep(reference.T, u=cumdist, k=3, s=0.00)
+
+    # Create new set of equally spaced points along the spline
+    u_new = np.linspace(0, total_length, num_points)
     x_new, y_new = splev(u_new, tck, der=0)
-    reference = np.array([x_new, y_new]).transpose()
-    reference = resample_polyline(reference, 1)
+    new_reference = np.column_stack((x_new, y_new))
+    # new_reference = resample_polyline(new_reference, 1)
 
-    # remove duplicated vertices in reference path
-    _, idx = np.unique(reference, axis=0, return_index=True)
-    reference = reference[np.sort(idx)]
+    # Remove potential duplicate points after interpolation
+    _, unique_indices = np.unique(new_reference, axis=0, return_index=True)
+    new_reference = new_reference[np.sort(unique_indices)]
 
-    return reference
+    return new_reference
 
 
 def interpolate_angle(x: float, x1: float, x2: float, y1: float, y2: float) -> float:
@@ -89,7 +99,7 @@ def interpolate_angle(x: float, x1: float, x2: float, y1: float, y2: float) -> f
     return make_valid_orientation(delta * (x - x1) / (x2 - x1) + y1)
 
 
-def extrapolate_ref_path(reference_path: np.ndarray, resample_step: float = 2.0) -> np.ndarray:
+def extrapolate_ref_path(reference_path: np.ndarray, resample_step: float = 0.25) -> np.ndarray:
     """
     Function to extrapolate the end of the reference path in order to avoid CCosy errors and/or invalid trajectory
     samples when the reference path is shorter than the planning horizon.
@@ -140,8 +150,8 @@ class CoordinateSystem:
         self._ref_curv_d = np.gradient(self._ref_curv, self._ref_pos)
         self._ref_curv_dd = np.gradient(self._ref_curv_d, self._ref_pos)
         # plt.clf()
-        # plt.plot(self._ref_pos[20:-20], self._ref_curv_d[20:-20])
-        # plt.savefig('curv_window.png')
+        # plt.plot(self._ref_pos[10:-10], self._ref_curv_d[10:-10])
+        # plt.savefig('curv_window.svg')
 
     @property
     def reference(self) -> np.ndarray:
