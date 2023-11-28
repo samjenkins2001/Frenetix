@@ -54,9 +54,9 @@ class GoalReachedChecker:
                 if not self.goal_state.position.contains_point(last_pos_in_goal):
                     # TODO: Think about what happens when ref path too short/close to end of scenario
                     raise EnvironmentError("Reference Path ends to close to goal region!")
-            return self._convert_to_curvilinear(buffer_index)
+            return self._convert_to_curvilinear(buffer_index=buffer_index)
         else:
-            return self._convert_to_curvilinear(last_pos_in_goal)
+            return self._convert_to_curvilinear(direct_pos=last_pos_in_goal)
 
     def _find_buffer_index(self, last_pos_in_goal, end_distance):
         """Finds the buffer index based on the last goal position and end distance."""
@@ -69,9 +69,13 @@ class GoalReachedChecker:
 
         return len(self.reference_path) - 1, last_pos_in_goal
 
-    def _convert_to_curvilinear(self, buffer_index):
-        """Converts a buffer index to curvilinear coordinates."""
-        x_pos, y_pos = self.reference_path[buffer_index]
+    def _convert_to_curvilinear(self, buffer_index=None, direct_pos=None):
+        """Converts a buffer index to curvilinear coordinates.
+        You can either use a buffer index or a direct position of the ref path """
+        if buffer_index:
+            x_pos, y_pos = self.reference_path[buffer_index]
+        else:
+            x_pos, y_pos = direct_pos
         return self.coordinate_system.convert_to_curvilinear_coords(x_pos, y_pos)[0]
 
     def register_current_state(self, current_state, x_cl=None):
