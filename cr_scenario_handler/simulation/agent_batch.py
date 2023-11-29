@@ -100,7 +100,7 @@ class AgentBatch(Process):
             # Synchronize agents
             # receive dummy obstacles and outdated agent list
             start_time = time.perf_counter()
-            self.process_times[self.global_timestep+1] = dict()
+
 
             try:
                 args = self.in_queue.get(block=True, timeout=hf.TIMEOUT)
@@ -109,11 +109,13 @@ class AgentBatch(Process):
                                       f"{'simulation' if self.finished else 'agent'} updates!")
                 return
 
+            self.process_times[self.global_timestep].update({"in_sync": time.perf_counter() - start_time})
+
             if self.finished:
                 # if batch finished, postprocess agents (currently only make_gif())
                 self.msg_logger.info(f"Batch {self.name}: Simulation of the batch finished!")
-                for agent in self.terminated_agent_list:
-                    agent.make_gif()
+                # for agent in self.terminated_agent_list:
+                #     agent.make_gif()
                 return
 
             else:
@@ -121,15 +123,36 @@ class AgentBatch(Process):
 
                 self.step_simulation(*args)
 
+                syn_time_out = time.perf_counter()
                 # send agent updates to simulation
                 self.out_queue.put(self.out_queue_dict)
 
                 self.process_times[self.global_timestep].update({"single_process_run": time.perf_counter() - start_time})
                 # send batch status to simulation
-                proc_time = self.process_times if self.finished else None
-                self.out_queue.put([self.finished, proc_time])
+                # proc_time = self.process_times if self.finished else None
+                proc_time = None
+                agents = None
+                if self.finished:
+                    for agent in self.terminated_agent_list:
+                        agent.make_gif()
+                    proc_time = self.process_times
+                    agents = self._prep_agent_pickle()
 
-            # TODO: Sending trajectory bundles between processes is currently unsupported.
+            self.out_queue.put([self.finished, proc_time, agents])
+
+            self.process_times[self.global_timestep].update({"syn_time_out": time.perf_counter() - syn_time_out})
+
+    def _prep_agent_pickle(self):
+        # delet non-pickle-objects for final queue
+        for agent in self.agent_list:
+            print("deleting agent")
+            # delattr(agent, "planner_interface")
+            # agent.planner_interface = None
+            del agent.planner_interface.planner.logger
+            del agent.planner_interface.planner.predictionsForCpp
+            del agent.planner_interface.planner.handler
+            print("agent deleted")
+        return self.agent_list
 
     def step_simulation(self, scenario, global_timestep, global_predictions, colliding_agents):
         """Simulate the next timestep.
@@ -145,12 +168,11 @@ class AgentBatch(Process):
         :param colliding_agents: list with IDs of agents that collided in the prev. timestep
         """
 
-        self.msg_logger.debug(f"Stepping Batch {self.name}")
         step_time = time.perf_counter()
+        self.msg_logger.debug(f"Stepping Batch {self.name}")
         # update batch timestep
         self.global_timestep = global_timestep
         self.process_times[self.global_timestep] = dict()
-
         # add agents if they enter the scenario
         if self.global_timestep <= self.latest_starting_time:
             self.running_agent_list.extend(self.agent_dict[self.global_timestep])

@@ -102,11 +102,11 @@ class FrenetPlannerInterface(PlannerInterface):
         else:
             raise NotImplementedError
 
-        self.reference_path = smooth_ref_path(self.reference_path)
-
         # TODO: Achieve a stable route planner version
-        self.reference_path, _ = self.route_planner.extend_reference_path_at_end(self.reference_path,
-                                                                                 self.reference_path[-1])
+        self.reference_path = smooth_ref_path(self.reference_path)
+        self.reference_path, _ = self.route_planner.extend_reference_path_at_end(reference_path=self.reference_path,
+                                                                                 final_position=self.reference_path[-1]
+                                                                                 ,additional_lenght_in_meters=25)
 
         self.goal_area = gc.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
 

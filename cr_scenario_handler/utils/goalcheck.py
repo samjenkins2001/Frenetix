@@ -53,6 +53,7 @@ class GoalReachedChecker:
             if position_available:
                 if not self.goal_state.position.contains_point(last_pos_in_goal):
                     # TODO: Think about what happens when ref path too short/close to end of scenario
+                    pass
                     raise EnvironmentError("Reference Path ends to close to goal region!")
             return self._convert_to_curvilinear(buffer_index=buffer_index)
         else:

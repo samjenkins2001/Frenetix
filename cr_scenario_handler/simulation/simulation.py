@@ -12,11 +12,13 @@ from math import ceil
 from multiprocessing import Queue
 from queue import Empty
 from typing import List
+import numpy as np
 
 import psutil
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
-from commonroad.geometry.shape import Rectangle, Circle
+from commonroad.scenario.lanelet import Lanelet
+from commonroad.geometry.shape import Rectangle, Circle, Polygon
 from commonroad.planning.goal import GoalRegion
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.prediction.prediction import TrajectoryPrediction
@@ -79,8 +81,9 @@ class Simulation:
         # multi_agent_log.init_log(self.log_path)
 
         # Create and preprocess the scenario, create planning problems and find agent-IDs
-        self.global_timestep = 0
+        self.global_timestep = -1
         scenario, self.planning_problem_set = self._open_scenario()
+        self.original_agent_id = list(self.planning_problem_set.planning_problem_dict.keys())
         if self.config_simulation.use_multiagent:
             # create additional planning-problems for multiagent simulation
             # by converting dynamic obstacles into planning problems
@@ -106,7 +109,7 @@ class Simulation:
         # store all agents in one list
         self.agents = []
         [self.agents.extend(batch.agent_list) for batch in self.batch_list]
-
+        self.finished_agents = []
         # prepare global collision checker
         self._cc_dyn = None
         self._cc_stat = None
@@ -216,13 +219,38 @@ class Simulation:
                     initial_state.acceleration = 0.
                 # define goal state for planning problem
                 final_state = obstacle.prediction.trajectory.final_state
+                [lanelet_id] = scenario.lanelet_network.find_lanelet_by_position([final_state.position])
+                lanelet = scenario.lanelet_network.find_lanelet_by_id(lanelet_id[0])
+                index = np.argmin(np.linalg.norm(lanelet.center_vertices - final_state.position, axis = 1))
+
+                # at boundary of two lanelets, merge first befor assigning the goal region
+                if index +1  >= len(lanelet.center_vertices):
+                    lanelet = Lanelet.merge_lanelets(lanelet,scenario.lanelet_network.find_lanelet_by_id(lanelet.successor[0]) )
+                elif index-1 < 0:
+                    lanelet = Lanelet.merge_lanelets(lanelet,
+                                                     scenario.lanelet_network.find_lanelet_by_id(lanelet.predecessor[0]))
+
+
+                if (np.linalg.norm(lanelet.center_vertices[index + 1] - initial_state.position)
+                        > np.linalg.norm(lanelet.polygon.vertices[index - 1]- initial_state.position)):
+                    left =lanelet.left_vertices[index:]
+                    right = lanelet.right_vertices[index:]
+                    # position = lanelet.polygon.vertices[indices.min():indices.max()+1]
+
+                else:
+                    left = lanelet.left_vertices[:index]
+                    right = lanelet.right_vertices[:index]
+                    # position = np.concatenate((lanelet.polygon.vertices[indices.max():], lanelet.polygon.vertices[:indices.min()+1]), axis=0)
+                # hf.distance(final_state.position, a)
+                position = np.concatenate((left, right[::-1]), axis=0)
+
                 goal_state = CustomState(time_step=Interval(final_state.time_step - 20, final_state.time_step + 20),
-                                         position=Circle(1.5, final_state.position),
+                                         position=Polygon(position),# Circle(1.5, final_state.position),
                                          velocity=Interval(final_state.velocity - 2, final_state.velocity + 2),
                                          orientation=AngleInterval(final_state.orientation - 0.349,
                                                                    final_state.orientation + 0.349))
                 # create planning problem
-                problem = PlanningProblem(agent_id, initial_state, GoalRegion(list([goal_state])))
+                problem = PlanningProblem(agent_id, initial_state, GoalRegion(list([goal_state]), lanelets_of_goal_position={0: lanelet_id}))
                 planning_problem_list.append(problem)
 
         return planning_problem_list
@@ -387,12 +415,13 @@ class Simulation:
         """
         running = True
         while running:
+            self.global_timestep += 1
             self.process_times["simulation_steps"][self.global_timestep] = {}
             step_time_start = time.perf_counter()
             running = self.step_sequential_simulation()
             self.visualize_simulation(self.global_timestep)
             self.process_times["simulation_steps"][self.global_timestep].update({"total_sim_step" :time.perf_counter() - step_time_start})
-            self.global_timestep += 1
+
         # get batch process times
         self.process_times[self.batch_list[0].name] = self.batch_list[0].process_times
 
@@ -408,12 +437,18 @@ class Simulation:
 
         running = True
         while running:
+            self.global_timestep += 1
             self.process_times["simulation_steps"][self.global_timestep] = {}
             step_time_start = time.perf_counter()
             running = self._step_parallel_simulation()
             self.process_times["simulation_steps"][self.global_timestep].update({"total_sim_step" :time.perf_counter() - step_time_start})
-            self.global_timestep += 1
 
+
+        if len(self.agents) != len(self.finished_agents):
+            raise ValueError("Not all agents pushed back!")
+        else:
+            self.agents = self.finished_agents
+        del self.finished_agents
         # Workers should already have terminated, otherwise wait for timeouts
         self.msg_logger.info("Terminating workers...")
 
@@ -458,12 +493,14 @@ class Simulation:
         # Plot previous timestep while batches are busy
         self.visualize_simulation(self.global_timestep - 1)
 
+        syn_time = time.perf_counter()
         # Receive simulation step results
         for batch in reversed(self.batch_list):
             try:
                 # update agents
                 queue_dict = batch.out_queue.get(block=True, timeout=TIMEOUT)
                 agent_ids = list(queue_dict.keys())
+
                 for agent_id in agent_ids:
                     agent = self.get_agent_by_id(agent_id)
                     for attr, value in queue_dict[agent_id].items():
@@ -472,18 +509,25 @@ class Simulation:
                         else:
                             raise AttributeError
                 # check if batch is finished
-                [batch_finished, proc_times] = batch.out_queue.get(block=True, timeout=TIMEOUT)
+                [batch_finished, proc_times, finished_agents] = batch.out_queue.get(block=True, timeout=TIMEOUT)
+
                 if batch_finished:
                     self.process_times[batch.name] = proc_times
+                    # print(finished_agents)
+                    self.finished_agents.extend(finished_agents)
                     # terminate finished process
                     batch.in_queue.put("END", block=True)
                     batch.join()
                     self.batch_list.remove(batch)
                     self.msg_logger.info(f"Closing Batch {batch.name}")
-
             except Empty:
                 self.msg_logger.info("Timeout while waiting for step results!")
+
+                self.process_times["simulation_steps"][self.global_timestep].update(
+                    {"syn": time.perf_counter() - syn_time})
                 return
+        self.process_times["simulation_steps"][self.global_timestep].update(
+            {"syn": time.perf_counter() - syn_time})
 
         # Write global log
         # TODO
@@ -495,7 +539,7 @@ class Simulation:
 
     def prestep_simulation(self):
         preproc_time = time.perf_counter()
-        self.msg_logger.info(f"Simulating timestep {self.global_timestep}")
+        self.msg_logger.critical(f"Simulating timestep {self.global_timestep}")
         # check for collisions
         colliding_agents = self.check_collision()
         # update scenario
@@ -602,6 +646,7 @@ class Simulation:
             visualize_multiagent_scenario_at_timestep(self.scenario,
                                                       self.agents,
                                                       timestep, self.config, self.log_path,
+                                                      self.original_agent_id,
                                                       predictions=self.global_predictions,
                                                       plot_window=self.config_visu.plot_window_dyn,
                                                       save=self.config_visu.save_plots,

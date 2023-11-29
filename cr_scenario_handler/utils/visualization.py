@@ -188,6 +188,7 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario,
                                               agent_list: List,
                                               timestep: int,
                                               config: Configuration, log_path: str,
+                                              orig_pp_id: List=None,
                                               predictions: dict = None,
                                               rnd: MPRenderer = None,
                                               plot_window: int = None,
@@ -271,6 +272,13 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario,
         if len(agent_list) == 1:
             ego_params.vehicle_shape.occupancy.shape.facecolor = "#E37222"
             ego_params.vehicle_shape.occupancy.shape.edgecolor = "#9C4100"
+        elif orig_pp_id:
+            if agent.id in orig_pp_id:
+                ego_params.vehicle_shape.occupancy.shape.facecolor = "#E37222"
+                ego_params.vehicle_shape.occupancy.shape.edgecolor = "#9C4100"
+            else:
+                obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.facecolor = "#E37222"
+                obs_params.dynamic_obstacle.vehicle_shape.occupancy.shape.edgecolor = "#003359"
         else:
             ego_params.vehicle_shape.occupancy.shape.facecolor = \
                 colors_spec[agent.id % len(colors_spec)]

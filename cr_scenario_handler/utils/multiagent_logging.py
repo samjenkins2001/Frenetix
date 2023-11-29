@@ -6,11 +6,106 @@ __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
 from typing import List
+from pathlib import Path
 import os
 import sys
 import logging
 from cr_scenario_handler.utils.configuration import Configuration
+import sqlite3
 
+# KEYS: großbuchstaben
+# Logging:
+# SCENARIO, AGENT_ID, TIMESTEP
+#
+# Tabellen:
+# Meta: Config
+#
+# TIMEING:
+# Timestep,
+#
+
+class SimulationLogger:
+    def __init__(self, log_path):
+
+        os.mkdir(log_path, exist_ok=True)
+        self.log_path = log_path
+
+        self.con = sqlite3.connect(os.path.join(self.log_path, "simulation.sql"), isolation_level="EXCLUSIVE")
+        self.con.executescript("""
+            PRAGMA journal_mode = OFF;
+            PRAGMA locking_mode = EXCLUSIVE;
+            PRAGMA temp_store = MEMORY;
+        """)
+
+
+        self.create_tables()
+
+
+
+        os.makedirs(log_path, exist_ok=True)
+        self.time_header= None
+        self.time_file = "performance_measures.csv"
+
+        # self.set_performance_header()
+    # def set_performance_header(self):
+
+    def create_tables(self):
+        # Table for main simulation time measurement
+        self.con.execute("""
+                CREATE TABLE global_performance_measure(
+                    scenario TEXT NOT NULL,
+                    time_step INT NOT NULL,
+                    total_sim_time REAL NOT NULL,
+                    global_sim_preprocessing REAL,
+                    global_batch_syn REAL,
+                    global_visualization REAL,
+                    PRIMARY KEY(scenario, time_step)
+                   ) STRICT
+               """)
+
+
+        # Table for batch simulation time measurement
+        self.con.execute("""
+                CREATE TABLE batch_performance_measure(
+                    scenario TEXT NOT NULL,
+                    batch TEXT NOT NULL,
+                    time_step INT NOT NULL,
+                    total_sim_time REAL NOT NULL,
+                    planning_step_time REAL NOT NULL,
+                    syn_time_in REAL,
+                    sync_time_out REAL,
+                    PRIMARY KEY(scenario, batch, time_step)
+                   ) STRICT
+               """)
+
+        # TODO von meherern PRozessen beschreibbar? wäre aktueller da kein queing am ende notwendig
+        # Table for general information (Scenarios
+        self.con.execute("""
+            CREATE TABLE meta(
+                Scenario TEXT NOT NULL ,
+                key TEXT NOT NULL,
+                value ANY,
+                PRIMARY KEY(Scenario, key)
+            ) STRICT
+        """)
+
+        # self.con.execute("""
+        #         CREATE TABLE agent_evaluation(
+        #             scenario TEXT NOT NULL,
+        #             time_step INT NOT NULL,
+        #             agent_id INT NOT NULL,
+        #             original_planning_problem INTEGER,
+        #             PRIMARY KEY(scenario, time_step)
+        #             )STRICT
+        #             """)
+        #
+
+    def log_meta(self, scenario, config):
+        self.con.execute("INSERT INTO meta Values(?, ?)"(scenario.scenario_id, ))
+        self.con.commit()
+
+    def log_global_time(self, time_dict):
+        pass
 
 def init_log(log_path: str):
     """Create log file for simulation-level logging and write the header.

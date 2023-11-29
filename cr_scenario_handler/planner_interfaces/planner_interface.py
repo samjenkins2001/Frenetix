@@ -40,13 +40,13 @@ class PlannerInterface(ABC):
         """
         return None
 
-    @property
-    def ref_path(self):
-        """Return the reference path of the planner for plotting.
-
-        If plotting of reference paths is not required, leave as is.
-        """
-        return None
+    # @property
+    # def reference_path(self):
+    #     """Return the reference path of the planner for plotting.
+    #
+    #     If plotting of reference paths is not required, leave as is.
+    #     """
+    #     return None
 
     @abstractmethod
     def update_planner(self, scenario: Scenario, predictions: dict):

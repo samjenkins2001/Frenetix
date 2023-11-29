@@ -58,10 +58,10 @@ class Agent:
 
         self.msg_logger = msg_logger
 
-        self.config = config_sim
-        self.config_simulation = config_sim.simulation
-        self.config_visu = config_sim.visualization
-        self.config_planner = config_planner
+        self.config = deepcopy(config_sim)
+        self.config_simulation = self.config.simulation
+        self.config_visu = self.config.visualization
+        self.config_planner = deepcopy(config_planner)
         self.vehicle = config_sim.vehicle
 
         self.mod_path = config_sim.simulation.mod_path
@@ -210,7 +210,7 @@ class Agent:
             self.agent_state.collision(self.current_timestep)
             # self.status = AgentStatus.COLLISION
         elif self.current_timestep >= self.max_time_steps_scenario:
-            msg = "Scenario Aborted! Maximum Time Step Reached!"
+            msg = "Scenario Aborted! Maximum Time Step Reached for Agent!"
             self.postprocessing(msg)
 
             self.agent_state.timelimit(self.current_timestep)
