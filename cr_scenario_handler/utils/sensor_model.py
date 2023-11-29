@@ -23,7 +23,7 @@ module_path = os.path.dirname(
 sys.path.append(module_path)
 
 
-def ignore_vehicles_in_cone_angle(obstacles, scenario, ego_pose, veh_length, cone_angle, cone_safety_dist):
+def ignore_vehicles_in_cone_angle(time_step, obstacles, scenario, ego_pose, veh_length, cone_angle, cone_safety_dist):
     """Ignore vehicles behind ego for prediction if inside specific cone.
 
     Cone is spaned from center of rear-axle (cog - length / 2.0)
@@ -39,8 +39,8 @@ def ignore_vehicles_in_cone_angle(obstacles, scenario, ego_pose, veh_length, con
 
     for i in obstacles:
         ignore_object = True
-        obj_pose = scenario.obstacle_by_id(i).initial_state.position
-        obj_orientation = scenario.obstacle_by_id(i).initial_state.orientation
+        obj_pose = scenario.obstacle_by_id(i).occupancy_at_time(time_step).shape.center
+        obj_orientation = scenario.obstacle_by_id(i).occupancy_at_time(time_step).shape.orientation
 
         loc_obj_pos = hf.rotate_glob_loc(
             obj_pose[:2] - ego_pose[:2], obj_orientation, matrix=False
@@ -96,7 +96,7 @@ def get_obstacles_in_radius(scenario, ego_id: int, ego_state, time_step: int, ra
                 if dist < radius:
                     obstacles_within_radius.append(obstacle.obstacle_id)
     if vehicles_in_cone_angle and config:
-        obstacles_within_radius = ignore_vehicles_in_cone_angle(obstacles_within_radius, scenario, ego_state,
+        obstacles_within_radius = ignore_vehicles_in_cone_angle(time_step, obstacles_within_radius, scenario, ego_state,
                                                                 config.vehicle.length,
                                                                 config.prediction.cone_angle,
                                                                 config.prediction.cone_safety_dist)
@@ -248,7 +248,7 @@ def get_visible_objects(scenario, time_step, ego_state, ego_id=42, sensor_radius
     #             if dist < sensor_radius:
     #                 obstacles_within_radius.append(obstacle.obstacle_id)
     if vehicles_in_cone_angle and config:
-        visible_object_ids = ignore_vehicles_in_cone_angle(visible_object_ids, scenario, ego_state,
+        visible_object_ids = ignore_vehicles_in_cone_angle(time_step, visible_object_ids, scenario, ego_state,
                                                            config.vehicle.length,
                                                            config.prediction.cone_angle,
                                                            config.prediction.cone_safety_dist)
