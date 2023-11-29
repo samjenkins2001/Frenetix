@@ -147,7 +147,7 @@ class ReactivePlannerCpp(Planner):
         name = "prediction"
         if name in self.cost_weights.keys():
             self.handler.add_cost_function(
-                cf.CalculateCollisionProbabilityFast(name, self.cost_weights[name]*1000, self.predictionsForCpp,
+                cf.CalculateCollisionProbabilityFast(name, self.cost_weights[name], self.predictionsForCpp,
                                                      self.vehicle_params.length, self.vehicle_params.width))
 
         name = "distance_to_obstacles"
