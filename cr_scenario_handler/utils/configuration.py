@@ -20,6 +20,7 @@ class SimConfiguration(Configuration):
         self.prediction = None
         self.occlusion = None
         self.behavior = None
+        self.evaluation = None
         # initialize subclasses automatically
         for subclasses in config.keys():
             setattr(self, subclasses,  SubConfiguration(config[subclasses]))

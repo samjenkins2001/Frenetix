@@ -5,9 +5,10 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
+import os
 from multiprocessing import Process, Queue
 from queue import Empty
-from typing import Optional
+from typing import Optional, List
 import time
 
 from commonroad.scenario.scenario import Scenario
@@ -16,13 +17,15 @@ from commonroad.planning.planning_problem import PlanningProblemSet
 from cr_scenario_handler.simulation.agent import Agent
 import cr_scenario_handler.utils.multiagent_helpers as hf
 from cr_scenario_handler.utils.multiagent_helpers import AgentStatus
-from cr_scenario_handler.utils.multiagent_logging import *
+# from cr_scenario_handler.utils.multiagent_logging import *
+
+import cr_scenario_handler.utils.multiagent_logging as multi_agent_log
 
 
 class AgentBatch(Process):
 
     def __init__(self, agent_id_list: List[int], planning_problem_set: PlanningProblemSet, scenario: Scenario,
-                 global_timestep: int, config_planner, config_sim, msg_logger, log_path: str, mod_path: str,
+                 global_timestep: int, config_planner, config_sim, msg_logger,  sim_logger, log_path: str, mod_path: str,
                  in_queue: Optional[Queue] = None, out_queue: Optional[Queue] = None):
         """Batch of agents.
 
@@ -108,12 +111,12 @@ class AgentBatch(Process):
                 self.msg_logger.error(f"Batch {self.name}: Timeout waiting for "
                                       f"{'simulation' if self.finished else 'agent'} updates!")
                 return
+            sync_time_in = time.perf_counter() - start_time
 
-            self.process_times[self.global_timestep].update({"in_sync": time.perf_counter() - start_time})
 
             if self.finished:
                 # if batch finished, postprocess agents (currently only make_gif())
-                self.msg_logger.info(f"Batch {self.name}: Simulation of the batch finished!")
+                self.msg_logger.critical(f"Batch {self.name}: Simulation of the batch finished!")
                 # for agent in self.terminated_agent_list:
                 #     agent.make_gif()
                 return
@@ -127,31 +130,30 @@ class AgentBatch(Process):
                 # send agent updates to simulation
                 self.out_queue.put(self.out_queue_dict)
 
-                self.process_times[self.global_timestep].update({"single_process_run": time.perf_counter() - start_time})
                 # send batch status to simulation
                 # proc_time = self.process_times if self.finished else None
-                proc_time = None
+                # proc_time = None
                 agents = None
                 if self.finished:
                     for agent in self.terminated_agent_list:
                         agent.make_gif()
-                    proc_time = self.process_times
+                    # proc_time = self.process_times
                     agents = self._prep_agent_pickle()
 
-            self.out_queue.put([self.finished, proc_time, agents])
 
-            self.process_times[self.global_timestep].update({"syn_time_out": time.perf_counter() - syn_time_out})
+
+            self.out_queue.put([self.finished, self.process_times, agents])
+
+            self.process_times.update({"sync_time_out": time.perf_counter() - syn_time_out,
+                                       "process_iteration_time": time.perf_counter() - start_time,
+                                       "sync_time_in": sync_time_in})
 
     def _prep_agent_pickle(self):
         # delet non-pickle-objects for final queue
         for agent in self.agent_list:
-            print("deleting agent")
-            # delattr(agent, "planner_interface")
-            # agent.planner_interface = None
             del agent.planner_interface.planner.logger
             del agent.planner_interface.planner.predictionsForCpp
             del agent.planner_interface.planner.handler
-            print("agent deleted")
         return self.agent_list
 
     def step_simulation(self, scenario, global_timestep, global_predictions, colliding_agents):
@@ -172,15 +174,15 @@ class AgentBatch(Process):
         self.msg_logger.debug(f"Stepping Batch {self.name}")
         # update batch timestep
         self.global_timestep = global_timestep
-        self.process_times[self.global_timestep] = dict()
+        # self.process_times[self.global_timestep] = dict()
         # add agents if they enter the scenario
         if self.global_timestep <= self.latest_starting_time:
             self.running_agent_list.extend(self.agent_dict[self.global_timestep])
 
         # update agents
-        agent_update_time = time.perf_counter()
+        # agent_update_time = time.perf_counter()
         self._update_agents(scenario, global_predictions, colliding_agents)
-        agent_update_time = time.perf_counter()-agent_update_time
+        # agent_update_time = time.perf_counter()-agent_update_time
 
         # step simulation
         single_step_time = time.perf_counter()
@@ -188,15 +190,16 @@ class AgentBatch(Process):
         single_step_time = time.perf_counter() - single_step_time
 
         # update batch
-        batch_update = time.perf_counter()
+        # batch_update = time.perf_counter()
         self._update_batch()
         # check for batch completion
         self._check_completion()
-        batch_update = time.perf_counter() - batch_update
-        self.process_times[self.global_timestep].update({"complete_simulation_step": time.perf_counter() - step_time,
-                                                         "agent_update": agent_update_time,
-                                                         "step_duration": single_step_time,
-                                                         "batch_update": batch_update})
+        # batch_update = time.perf_counter() - batch_update
+        self.process_times.update({"sim_step_time": time.perf_counter() - step_time,
+                                    # "agent_update": agent_update_time,
+                                    "agent_planning_time": single_step_time,
+                                    # "batch_update": batch_update
+                                    })
 
     def _update_agents(self, scenario: Scenario,global_predictions: dict,  colliding_agents: List):
         for agent in self.running_agent_list:
