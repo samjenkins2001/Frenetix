@@ -56,7 +56,7 @@ def smooth_ref_path(reference: np.ndarray):
     reference = reference[::t]
     spline_discretization = int(2 * dist_sum_in_m)  # 2 = 0.5 m distances between points
 
-    tck, u = splprep(reference.T, u=None, k=3, s=0.0)
+    tck, u = splprep(reference.T, u=None, k=3, s=0.1)
     u_new = np.linspace(u.min(), u.max(), spline_discretization)
     x_new, y_new = splev(u_new, tck, der=0)
     reference = np.array([x_new, y_new]).transpose()

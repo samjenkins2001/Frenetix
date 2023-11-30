@@ -13,7 +13,7 @@ cost_weights:
     distance_to_reference_path: 1.
     distance_to_obstacles: 1.0
 
-    prediction: 300
+    prediction: 200
     responsibility: 0
 
 external_cost_weights:
