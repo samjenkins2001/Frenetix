@@ -48,14 +48,15 @@ def extend_ref_path(ref_path, init_pos):
 def smooth_ref_path(reference: np.ndarray):
     _, idx = np.unique(reference, axis=0, return_index=True)
     reference = reference[np.sort(idx)]
+    reference = preprocess_ref_path(reference)
 
-    distances = np.sqrt(np.sum((reference[50:-50:2]-reference[51:-49:2])**2, axis=1))
+    distances = np.sqrt(np.sum((reference[0:-2:2]-reference[1:-1:2])**2, axis=1))
     dist_sum_in_m = np.round(np.sum(distances), 3)
     average_dist_in_m = 0.125  # np.round(np.average(distances), 3)
 
-    t = int(8 / average_dist_in_m)  # 5 meters distance per point
+    t = int(4 / average_dist_in_m)  # 5 meters distance per point
     reference = reference[::t]
-    spline_discretization = int(2 * dist_sum_in_m)  # 2 = 0.5 m distances between points
+    spline_discretization = int(4 * dist_sum_in_m)  # 2 = 0.5 m distances between points
 
     tck, u = splprep(reference.T, u=None, k=3, s=0.0)
     u_new = np.linspace(u.min(), u.max(), spline_discretization)
@@ -105,7 +106,7 @@ def extrapolate_ref_path(reference_path: np.ndarray, resample_step: float = 0.25
     return resample_polyline(new_polyline, step=resample_step)
 
 
-def preprocess_ref_path(ref_path: np.ndarray, resample_step: float = 1.0, max_curv_desired: float = 0.01):
+def preprocess_ref_path(ref_path: np.ndarray, resample_step: float = 0.1, max_curv_desired: float = 0.1):
     """
     Function to preprocess the reference path for maximum curvature and sampling distance
     """
