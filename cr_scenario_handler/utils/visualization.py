@@ -726,7 +726,7 @@ def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProb
     planning_problem.draw(rnd)
     rnd.render()
     if ref_path is not None:
-        rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=19,
+        rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=20,
                     linewidth=0.8, label='reference path')
         proj_domain_border = np.array(cosy.ccosy.projection_domain())
         rnd.ax.plot(proj_domain_border[:, 0], proj_domain_border[:, 1], color="orange", linewidth=0.8)
