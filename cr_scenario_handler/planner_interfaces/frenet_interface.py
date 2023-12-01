@@ -17,7 +17,7 @@ import cr_scenario_handler.utils.multiagent_logging as lh
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 from cr_scenario_handler.utils import helper_functions as hf
 import cr_scenario_handler.utils.goalcheck as gc
-from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, smooth_ref_path, extend_ref_path
+from cr_scenario_handler.utils.utils_coordinate_system import smooth_ref_path, extend_ref_path
 
 from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp

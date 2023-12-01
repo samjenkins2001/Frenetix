@@ -6,6 +6,7 @@ __maintainer__ = "Gerald Würsching"
 __email__ = "commonroad@lists.lrz.de"
 __status__ = "Alpha"
 
+import os
 from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
@@ -56,7 +57,7 @@ def smooth_ref_path(reference: np.ndarray):
     reference = reference[::t]
     spline_discretization = int(2 * dist_sum_in_m)  # 2 = 0.5 m distances between points
 
-    tck, u = splprep(reference.T, u=None, k=3, s=0.1)
+    tck, u = splprep(reference.T, u=None, k=3, s=0.0)
     u_new = np.linspace(u.min(), u.max(), spline_discretization)
     x_new, y_new = splev(u_new, tck, der=0)
     reference = np.array([x_new, y_new]).transpose()
@@ -121,7 +122,7 @@ def preprocess_ref_path(ref_path: np.ndarray, resample_step: float = 1.0, max_cu
 # TODO use wrapper class of CCosy in commonroad_dc instead
 class CoordinateSystem:
 
-    def __init__(self, reference: np.ndarray = None, ccosy: CurvilinearCoordinateSystem = None):
+    def __init__(self, reference: np.ndarray = None, ccosy: CurvilinearCoordinateSystem = None, config_sim=None):
         if ccosy is None:
             assert reference is not None, '<CoordinateSystem>: Please provide a reference path OR a ' \
                                           'CurvilinearCoordinateSystem object.'
@@ -140,10 +141,13 @@ class CoordinateSystem:
         self._ref_theta = np.unwrap(compute_orientation_from_polyline(self.reference))
         self._ref_curv_d = np.gradient(self._ref_curv, self._ref_pos)
         self._ref_curv_dd = np.gradient(self._ref_curv_d, self._ref_pos)
-        # plt.clf()
-        # plt.plot(self._ref_pos[10:-10], self._ref_curv[10:-10], "k")
-        # plt.plot(self._ref_pos[10:-10], self._ref_curv_d[10:-10], "r")
-        # plt.savefig('curv_window.svg')
+
+        # For manual debugging reasons:
+        if config_sim.visualization.ref_path_debug:
+            plt.clf()
+            # plt.plot(self._ref_pos[10:-10], self._ref_curv[10:-10], "k")
+            plt.plot(self._ref_pos[10:-10], self._ref_curv_d[10:-10], "r")
+            plt.savefig(os.path.join(config_sim.simulation.log_path, 'curvature_ref_path.svg'))
 
     @property
     def reference(self) -> np.ndarray:

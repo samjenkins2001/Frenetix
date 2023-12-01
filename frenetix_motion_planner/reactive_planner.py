@@ -61,7 +61,7 @@ class ReactivePlannerPython(Planner):
         :param reference_path: reference path as polyline
         :param coordinate_system: given CoordinateSystem object which is used by the planner
         """
-        self.coordinate_system = CoordinateSystem(reference_path)
+        self.coordinate_system = CoordinateSystem(reference=reference_path, config_sim=self.config_sim)
         self.set_new_ref_path = True
 
     def plan(self) -> tuple:

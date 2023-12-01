@@ -708,7 +708,7 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
     rnd.render(show=True)
 
 
-def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProblem, cosy=None):
+def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProblem, save_path, cosy=None):
     """Visualizes scenario, planning problem and (optionally) the reference path"""
     plot_limits = None
     ref_path = None
@@ -730,7 +730,7 @@ def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProb
                     linewidth=0.8, label='reference path')
         proj_domain_border = np.array(cosy.ccosy.projection_domain())
         rnd.ax.plot(proj_domain_border[:, 0], proj_domain_border[:, 1], color="orange", linewidth=0.8)
-    plt.show(block=True)
+    plt.savefig(os.path.join(save_path, "reference_path.svg"), format='svg', bbox_inches='tight')
 
 
 def green_to_red_colormap():

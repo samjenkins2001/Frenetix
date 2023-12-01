@@ -16,6 +16,7 @@ from typing import List
 from frenetix_motion_planner.sampling_matrix import generate_sampling_matrix
 
 from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem
+from cr_scenario_handler.utils.visualization import visualize_scenario_and_pp
 
 import frenetix
 import frenetix.trajectory_functions
@@ -170,7 +171,13 @@ class ReactivePlannerCpp(Planner):
         Automatically creates a curvilinear coordinate system from a given reference path
         :param reference_path: reference_path as polyline
         """
-        self.coordinate_system = CoordinateSystem(reference_path)
+        self.coordinate_system = CoordinateSystem(reference=reference_path, config_sim=self.config_sim)
+
+        # For manual debugging reasons:
+        if self.config_sim.visualization.ref_path_debug:
+            visualize_scenario_and_pp(scenario=self.scenario, planning_problem=self.planning_problem,
+                                      save_path=self.config_sim.simulation.log_path, cosy=self.coordinate_system)
+
         self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper(copy.deepcopy(reference_path))
         self.set_new_ref_path = True
         self.logger.sql_logger.write_reference_path(reference_path)
