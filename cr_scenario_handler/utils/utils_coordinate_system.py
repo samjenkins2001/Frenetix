@@ -48,7 +48,8 @@ def extend_ref_path(ref_path, init_pos):
 def smooth_ref_path(reference: np.ndarray):
     _, idx = np.unique(reference, axis=0, return_index=True)
     reference = reference[np.sort(idx)]
-    reference = preprocess_ref_path(reference)
+
+    # reference = preprocess_ref_path(reference)
 
     distances = np.sqrt(np.sum((reference[0:-2:2]-reference[1:-1:2])**2, axis=1))
     dist_sum_in_m = np.round(np.sum(distances), 3)

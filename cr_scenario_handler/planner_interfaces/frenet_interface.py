@@ -105,7 +105,7 @@ class FrenetPlannerInterface(PlannerInterface):
         # TODO: Achieve a stable route planner version
         self.reference_path = smooth_ref_path(self.reference_path)
 
-        end_velocity = getattr(getattr(self.planning_problem.goal.state_list[0], 'velocity', None), 'end', 10)
+        end_velocity = getattr(getattr(self.planning_problem.goal.state_list[0], 'velocity', None), 'end', 5)
         additional_lenght_in_meters = end_velocity * (config_planner.planning.planning_horizon + 1.0)
         self.reference_path, _ = self.route_planner.extend_reference_path_at_end(reference_path=self.reference_path,
                                                                                  final_position=self.reference_path[-1]
