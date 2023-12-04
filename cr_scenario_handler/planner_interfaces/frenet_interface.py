@@ -91,7 +91,7 @@ class FrenetPlannerInterface(PlannerInterface):
         # Set reference path
         if not self.config_sim.behavior.use_behavior_planner:
             self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
-            self.reference_path = self.route_planner.plan_routes().retrieve_first_route().reference_path
+            self.reference_path = self.route_planner.plan_routes().retrieve_shortest_route().reference_path
             #
             try:  # works in py3.11
                 self.reference_path, _ = self.route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
