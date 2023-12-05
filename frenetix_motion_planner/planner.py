@@ -104,7 +104,7 @@ class Planner:
 
         self._desired_speed = None
         self._desired_d = 0.
-        self.max_seen_costs = 1
+        # self.max_seen_costs = 1
 
         self.cost_weights = OmegaConf.to_object(config_plan.cost.cost_weights)
 
@@ -123,7 +123,7 @@ class Planner:
         self._infeasible_count_collision = 0
         self._infeasible_count_kinematics = None
         self.infeasible_kinematics_percentage = None
-        self._optimal_cost = 0
+        # self._optimal_cost = 0
 
         # **************************
         # Sampling Initialization
@@ -663,15 +663,15 @@ class Planner:
         # **************************
         # Check Cost Status
         # **************************
-        if optimal_trajectory is not None:
-            self._optimal_cost = optimal_trajectory.cost
-
-            if self._optimal_cost is not None:
-                self.msg_logger.debug('Found optimal trajectory with {}% of maximum seen costs'
-                                      .format(int((self._optimal_cost/self.max_seen_costs)*100)))
-
-                if self.max_seen_costs < self._optimal_cost:
-                    self.max_seen_costs = self._optimal_cost
+        # if optimal_trajectory is not None:
+        #     self._optimal_cost = optimal_trajectory.cost
+        #
+        #     if self._optimal_cost is not None:
+        #         self.msg_logger.debug('Found optimal trajectory with {}% of maximum seen costs'
+        #                               .format(int((self._optimal_cost/self.max_seen_costs)*100)))
+        #
+        #         if self.max_seen_costs < self._optimal_cost:
+        #             self.max_seen_costs = self._optimal_cost
 
         # calc potential phantom harm of optimal trajectory
         if optimal_trajectory is not None and self.occlusion_module is not None:

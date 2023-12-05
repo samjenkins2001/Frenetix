@@ -239,7 +239,6 @@ class SqlLogger:
 
         return inf_row
 
-
     def log_all_trajectories(self, all_trajectories, time_step: int):
         trajectory_data = []
         meta_data = []
