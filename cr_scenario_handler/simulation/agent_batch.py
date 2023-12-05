@@ -183,11 +183,11 @@ class AgentBatch(Process):
                                     # "batch_update": batch_update
                                     })
 
-    def _update_agents(self, scenario: Scenario,global_predictions: dict,  colliding_agents: List):
+    def _update_agents(self, scenario: Scenario, global_predictions: dict,  colliding_agents: List):
         for agent in self.running_agent_list:
             # update agent if he collided and update predictions and scenario
             collision = True if agent.id in colliding_agents else False
-            agent.update_agent(scenario, global_predictions, collision)
+            agent.update_agent(scenario, self.global_timestep, global_predictions, collision)
 
     def _step_agents(self, global_timestep):
         for agent in self.running_agent_list:

@@ -161,27 +161,30 @@ class Agent:
     def current_timestep(self):
         return self.agent_state.last_timestep
 
-    def update_agent(self, scenario: Scenario, global_predictions: dict,
+    def update_agent(self, scenario: Scenario, time_step: int, global_predictions: dict,
                      collision: bool = False):
         """ Update the scenario to synchronize the agents.
 
-        :param global_predictions:
+
         :param scenario:
+        :param time_step:
+        :param global_predictions:
         :param collision:
         """
+        self.agent_state.log_running(time_step)
 
         if not collision:
             self.scenario = hf.scenario_without_obstacle_id(scenario=deepcopy(scenario), obs_ids=[self.id])
 
             self.predictions, self.visible_area = ph.filter_global_predictions(self.scenario, global_predictions,
                                                                                self.vehicle_history[-1],
-                                                                               self.agent_state.last_timestep + 1,
+                                                                               time_step,
                                                                                self.config,
                                                                                occlusion_module=None,
                                                                                ego_id=self.id,
                                                                                msg_logger=self.msg_logger)
         else:
-            self.agent_state.log_collision(self.agent_state.last_timestep+1)
+            self.agent_state.log_collision(time_step)
 
     def step_agent(self, timestep):
         """ Execute one planning step.
