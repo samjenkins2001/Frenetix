@@ -198,16 +198,10 @@ class Agent:
                             self.agent_state.last_timestep, self.config, self.log_path)
             self.postprocessing()
 
-            # self.agent_state.log_collision(self.current_timestep, self.goal_status, self.goal_message,
-            #                                self.full_goal_status)
-
         elif timestep > self.max_time_steps_scenario:
 
             self.agent_state.log_timelimit(timestep)
             self.postprocessing()
-
-            # self.agent_state.timelimit(self.current_timestep, self.goal_status, self.goal_message,
-            #                            self.full_goal_status)
 
         elif self.planner_interface.planner.x_cl[0][0] > self.agent_state.goal_checker.last_goal_position:
             self.agent_state.log_max_s_position(timestep)
@@ -221,7 +215,6 @@ class Agent:
                 self.postprocessing()
 
             else:
-                # self.current_timestep = timestep
                 self.msg_logger.info(f"Agent {self.id} current time step: {timestep}")
 
                 # **************************
