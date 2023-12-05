@@ -663,14 +663,15 @@ class Planner:
         # **************************
         # Check Cost Status
         # **************************
-        if optimal_trajectory is not None and self.x_0.time_step > 0:
-            self._optimal_cost = optimal_trajectory.cost
-            self.msg_logger.debug('Found optimal trajectory with {}% of maximum seen costs'
-                  .format(int((self._optimal_cost/self.max_seen_costs)*100)))
-
         if optimal_trajectory is not None:
-            if self.max_seen_costs < self._optimal_cost:
-                self.max_seen_costs = self._optimal_cost
+            self._optimal_cost = optimal_trajectory.cost
+
+            if self._optimal_cost is not None:
+                self.msg_logger.debug('Found optimal trajectory with {}% of maximum seen costs'
+                                      .format(int((self._optimal_cost/self.max_seen_costs)*100)))
+
+                if self.max_seen_costs < self._optimal_cost:
+                    self.max_seen_costs = self._optimal_cost
 
         # calc potential phantom harm of optimal trajectory
         if optimal_trajectory is not None and self.occlusion_module is not None:
