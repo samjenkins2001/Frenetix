@@ -56,7 +56,13 @@ class SimulationLogger:
 
         self.config = config
         self.eval_conf = config.evaluation
-        self.log_path = self.config.simulation.log_path
+        self.scenario = self.config.simulation.name_scenario
+        self.original_planning_problem_id = None
+        log_path = self.config.simulation.log_path
+        self.log_path = log_path if self.scenario not in log_path else log_path.replace(self.scenario, "")
+        self.log_time = self.eval_conf.evaluate_runtime
+        self.scenario = self.config.simulation.name_scenario
+
         os.makedirs(self.log_path, exist_ok=True)
 
         self.con = sqlite3.connect(os.path.join(self.log_path, "simulation.db"), timeout=TIMEOUT,
@@ -69,8 +75,6 @@ class SimulationLogger:
         """)
         # PRAGMA locking_mode = EXCLUSIVE;
         self.con.commit()
-
-        self.log_time = self.eval_conf.evaluate_runtime
 
         self.create_tables()
 
@@ -86,14 +90,14 @@ class SimulationLogger:
             # Table for main simulation time measurement
             self.con.execute("""
                     CREATE TABLE  IF NOT EXISTS global_performance_measure(
-                        -- scenario TEXT NOT NULL,
+                        scenario TEXT NOT NULL,
                         time_step INT NOT NULL,
                         total_sim_time REAL NOT NULL,
                         global_sim_preprocessing REAL,
                         global_batch_synchronization REAL,
                         global_visualization REAL,
                         --PRIMARY KEY(scenario, time_step)
-                        PRIMARY KEY(time_step)
+                        PRIMARY KEY(scenario, time_step)
                        ) STRICT
                    """)
 
@@ -101,7 +105,7 @@ class SimulationLogger:
             # Table for batch simulation time measurement
             self.con.execute("""
                     CREATE TABLE  IF NOT EXISTS batch_performance_measure(
-                        -- scenario TEXT NOT NULL,
+                        scenario TEXT NOT NULL,
                         batch TEXT NOT NULL,
                         time_step INT NOT NULL,
                         process_iteration_time REAL,
@@ -110,17 +114,19 @@ class SimulationLogger:
                         sync_time_in REAL,
                         sync_time_out REAL,
                         -- PRIMARY KEY(scenario, batch, time_step)
-                        PRIMARY KEY(batch, time_step)
+                        PRIMARY KEY(scenario, batch, time_step)
                        ) STRICT
                    """)
             self.con.commit()
 
         # Table for general information (Scenarios
         self.con.execute("""
-            CREATE  TABLE IF NOT EXISTS meta(
+            CREATE TABLE IF NOT EXISTS meta(
                 scenario TEXT NOT NULL ,
                 num_agents INT Not NULL,
                 agent_ids ANY,
+                original_planning_problem_id ANY,
+                agent_batches ANY,
                 duration_init REAL NOT NULL, 
                 sim_duration REAL,
                 post_duration REAL,
@@ -131,37 +137,34 @@ class SimulationLogger:
         """)
 
         self.con.execute("""
-            CREATE TABLE IF NOT EXISTS agent_solution(
+            CREATE TABLE IF NOT EXISTS results(
                 scenario TEXT NOT NULL ,
                 agent_id INT NOT NULL,
-                original_planning_problem INTEGER,
-                final_status TEXT NOT NULL,
-                ref_path ANY,
-                final_trajectory ANY,
+                original_planning_problem INTEGER NOT NULL ,
+                final_status INTEGER NOT NULL,
+                last_timestep INTEGER NOT NULL ,
+                message TEXT,
+                agent_success TEXT NOT NULL,
                 PRIMARY KEY(scenario, agent_id)
             ) STRICT
         """)
 
-        # self.con.execute("""
-        #         CREATE TABLE agent_evaluation(
-        #             scenario TEXT NOT NULL,
-        #             time_step INT NOT NULL,
-        #             agent_id INT NOT NULL,
-        #             original_planning_problem INTEGER,
-        #             PRIMARY KEY(scenario, time_step)
-        #             )STRICT
-        #             """)
-        #
 
-    def log(self, timestep, time_dict):
-        if self.log_time:
-            self.log_global_time(timestep, time_dict)
+    def log_results(self,agents ):
+        data = []
+        for agent in agents:
+            orig_pp = True if agent.id in self.original_planning_problem_id else False
+            success = "success" if agent.status == 1 else "failed"
+            data.append([self.scenario, agent.id, orig_pp, agent.status, agent.agent_state.last_timestep, agent.agent_state.message,success])
+        self.con.executemany("INSERT INTO results VALUES(?,?,?,?,?,?,?)", data)
+        self.con.commit()
 
-    def log_meta(self, scenario_name, agent_ids, duration_init, config_sim, config_planner):
+    def log_meta(self, agent_ids, original_planning_problem_id, batch_names, duration_init, config_sim, config_planner):
+        self.original_planning_problem_id = original_planning_problem_id
         conf_sim = json.dumps(SimulationLogger._convert_config(config_sim))
         conf_plan = json.dumps(SimulationLogger._convert_config(config_planner))
-        data = [scenario_name, len(agent_ids), json.dumps(agent_ids), duration_init, None, None,conf_sim, conf_plan]
-        self.con.execute("INSERT INTO meta VALUES(?,?,?,?,?,?,?,?)", data)
+        data = [self.scenario, len(agent_ids), json.dumps(agent_ids), json.dumps(original_planning_problem_id), json.dumps(batch_names), duration_init, None, None,conf_sim, conf_plan]
+        self.con.execute("INSERT INTO meta VALUES(?,?,?,?,?,?,?,?,?,?)", data)
         self.con.commit()
 
     def update_meta(self, **kwargs):
@@ -176,31 +179,34 @@ class SimulationLogger:
                 cols2update += f"{key}= ?, "
                 data.append(value)
         cols2update = cols2update[:-2]
-        self.con.execute(f"UPDATE meta SET {cols2update} WHERE scenario = ?", data +[kwargs["scenario_name"]])
+        self.con.execute(f"UPDATE meta SET {cols2update} WHERE scenario = ?", data +[self.scenario])
+        self.con.commit()
 
     def log_global_time(self, timestep, time_dict):
-        data = [timestep,
+        data = [self.scenario, timestep,
                 time_dict.pop("total_sim_step"),
                 time_dict.pop("preprocessing"),
                 time_dict.pop("time_sync") if "time_sync" in time_dict.keys() else None,
                 time_dict.pop("time_visu") if "time_visu" in time_dict.keys() else None]
-        self.con.execute("INSERT INTO global_performance_measure VALUES(?,?,?, ?,?)",data)
+        self.con.execute("INSERT INTO global_performance_measure VALUES(?,?,?,?, ?,?)",data)
         self.con.commit()
         if len(time_dict) > 0:
             self.log_batch_time(timestep, time_dict)
 
+
+
     def log_batch_time(self,time_step, time_dict):
         data = []
         for batch_name, process_times in time_dict.items():
-            data.append([batch_name,
+            data.append([self.scenario,batch_name,
                     time_step,
-                    process_times["process_iteration_time"]  if "process_iteration_time" in time_dict.keys() else None,
+                    process_times["process_iteration_time"]  if "process_iteration_time" in process_times.keys() else None,
                     process_times["sim_step_time"],
                     process_times["agent_planning_time"],
-                    process_times["sync_time_in"] if "sync_time_in" in time_dict.keys() else None,
-                    process_times["sync_time_out"] if "sync_time_out" in time_dict.keys() else None,
+                    process_times["sync_time_in"] if "sync_time_in" in process_times.keys() else None,
+                    process_times["sync_time_out"] if "sync_time_out" in process_times.keys() else None,
                     ])
-        self.con.executemany("INSERT INTO batch_performance_measure VALUES(?,?,?,?,?,?,?)", data)
+        self.con.executemany("INSERT INTO batch_performance_measure VALUES(?,?,?,?,?,?,?,?)", data)
         self.con.commit()
 
 

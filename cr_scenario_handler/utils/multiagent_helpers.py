@@ -36,29 +36,52 @@ class AgentStatus(IntEnum):
 class AgentState():
     def __init__(self, timestep):
         self.status = AgentStatus.IDLE
-        self.last_timestep = None
+        self.last_timestep = timestep
         self.first_timestep = timestep
         self.message = None
+        self.goal_status = False
+        self.goal_message = None
+        self.full_goal_status = None
+        self.crashed = False
 
-    def running(self):
+    def log_running(self, timestep, goal_message = None, full_goal_status = None):
         self.status = AgentStatus.RUNNING
-        # self.last_timestep = timestep
+        self.last_timestep = timestep
+        self.message = "running"
+        self.goal_message = goal_message
+        self.full_goal_status = full_goal_status
 
-    def collision(self, timestep):
+    def log_collision(self, timestep):#, goal_status, goal_message, full_goal_status):
         self.status = AgentStatus.COLLISION
         self.last_timestep = timestep
+        self.message = "collision"
+        # self.goal_status = goal_status
+        # self.goal_message = goal_message
+        # self.full_goal_status = full_goal_status
 
-    def finished(self, timestep):
+    def log_finished(self, timestep, goal_message, full_goal_status):
         self.status = AgentStatus.COMPLETED
         self.last_timestep = timestep
+        self.message = "goal reached"
+        self.goal_status = True
+        self.goal_message = goal_message
+        self.full_goal_status = full_goal_status
 
-    def timelimit(self, timestep):
+    def log_timelimit(self, timestep):#, goal_status, goal_message, full_goal_status):
         self.status = AgentStatus.TIMELIMIT
         self.last_timestep = timestep
+        self.message = "timelimit reached"
+        # self.goal_status = goal_status
+        # self.goal_message = goal_message
+        # self.full_goal_status = full_goal_status
 
-    def error(self, timestep):
+    def log_error(self, timestep):
         self.status = AgentStatus.ERROR
         self.last_timestep = timestep
+        self.message = "no valid or feasible trajectory found"
+
+    # def collided(self, collision: bool):
+    #     self.crashed = collision
 
 
 def scenario_without_obstacle_id(scenario: Scenario, obs_ids: List[int]):

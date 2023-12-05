@@ -56,10 +56,12 @@ class AgentBatch(Process):
         # Initialize queues
         self.in_queue = in_queue
         self.out_queue = out_queue
+        self.mod_path = mod_path
 
         # Initialize batch
         self.global_timestep = global_timestep
         self.agent_list = []
+        self.agent_ids = agent_id_list
         for agent_id in agent_id_list:
             # Initialize Agents
             agent = Agent(agent_id, planning_problem_set.find_planning_problem_by_id(agent_id),
@@ -113,9 +115,10 @@ class AgentBatch(Process):
                 return
             sync_time_in = time.perf_counter() - start_time
 
-
             if self.finished:
                 # if batch finished, postprocess agents (currently only make_gif())
+                for agent in self.terminated_agent_list:
+                    agent.make_gif()
                 self.msg_logger.critical(f"Batch {self.name}: Simulation of the batch finished!")
                 # for agent in self.terminated_agent_list:
                 #     agent.make_gif()
@@ -130,31 +133,11 @@ class AgentBatch(Process):
                 # send agent updates to simulation
                 self.out_queue.put(self.out_queue_dict)
 
-                # send batch status to simulation
-                # proc_time = self.process_times if self.finished else None
-                # proc_time = None
-                agents = None
-                if self.finished:
-                    for agent in self.terminated_agent_list:
-                        agent.make_gif()
-                    # proc_time = self.process_times
-                    agents = self._prep_agent_pickle()
-
-
-
-            self.out_queue.put([self.finished, self.process_times, agents])
-
             self.process_times.update({"sync_time_out": time.perf_counter() - syn_time_out,
                                        "process_iteration_time": time.perf_counter() - start_time,
                                        "sync_time_in": sync_time_in})
 
-    def _prep_agent_pickle(self):
-        # delet non-pickle-objects for final queue
-        for agent in self.agent_list:
-            del agent.planner_interface.planner.logger
-            del agent.planner_interface.planner.predictionsForCpp
-            del agent.planner_interface.planner.handler
-        return self.agent_list
+            self.out_queue.put([self.finished, self.process_times])
 
     def step_simulation(self, scenario, global_timestep, global_predictions, colliding_agents):
         """Simulate the next timestep.
@@ -192,8 +175,10 @@ class AgentBatch(Process):
         # update batch
         # batch_update = time.perf_counter()
         self._update_batch()
+        self.msg_logger.debug(f"Batch {self.name} updated")
         # check for batch completion
         self._check_completion()
+        self.msg_logger.debug(f"Batch {self.name} completion checked")
         # batch_update = time.perf_counter() - batch_update
         self.process_times.update({"sim_step_time": time.perf_counter() - step_time,
                                     # "agent_update": agent_update_time,
@@ -224,16 +209,19 @@ class AgentBatch(Process):
             if agent.status > hf.AgentStatus.RUNNING:
                 self.terminated_agent_list.append(agent)
                 self.running_agent_list.remove(agent)
-                msg = "Success" if agent.status == 1 else "Failed"
-                with (open(os.path.join(agent.mod_path, "logs", "score_overview.csv"), 'a') as file):
-                    line = str(agent.scenario.scenario_id) + ";" + str(agent.current_timestep) + ";" + \
-                           str(agent.status) + ";" + msg + "\n"
+                with (open(os.path.join(self.mod_path, "logs", "score_overview.csv"), 'a') as file):
+                    msg = "Success" if agent.status == 1 else "Failed"
+                    line = str(agent.scenario.scenario_id) + ";" + str(agent.id) + ";" + str(
+                        agent.current_timestep) + ";" + \
+                           str(agent.status) + ";" + str(agent.agent_state.message) + ";" + msg + "\n"
                     file.write(line)
 
             self.out_queue_dict[agent.id]= {"agent_state": agent.agent_state,
-                                            "collision_objects": [agent.collision_objects[-1]],
-                                            "vehicle_history": [agent.vehicle_history[-1]],
-                                            "record_state_list": [agent.record_state_list[-1]],
+                                            "collision_objects": agent.collision_objects[-1],
+                                            "vehicle_history": agent.vehicle_history[-1],
+                                            "record_state_list": agent.record_state_list[-1],
+                                            "record_input_list": agent.record_input_list[-1],
+                                            "planning_times": agent.planning_times[-1],
                                             "traj_set": agent.traj_set
                                             }
 

@@ -8,15 +8,17 @@ import concurrent.futures
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 from cr_scenario_handler.utils.general import get_scenario_list
+from omegaconf import OmegaConf, ListConfig, DictConfig
+from cr_scenario_handler.evaluation.evaluation import evaluate_simulation
 
 
 def run_simulation_wrapper(scenario_info):
-    scenario_file, scenario_folder, mod_path, use_cpp = scenario_info
-    run_simulation(scenario_file, scenario_folder, mod_path, use_cpp, start_multiagent=False)
+    scenario_file, scenario_folder, mod_path, logs_path, use_cpp = scenario_info
+    run_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False)
 
 
-def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp, start_multiagent=False):
-    log_path = "./logs/" + scenario_name
+def run_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False, count=0):
+    log_path = os.path.join(logs_path, scenario_name)
     config_sim = ConfigurationBuilder.build_sim_configuration(scenario_name, scenario_folder, mod_path)
     config_sim.simulation.use_multiagent = start_multiagent
 
@@ -24,9 +26,14 @@ def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp, start_mult
     config_planner.debug.use_cpp = use_cpp
 
     simulation = None
+    evaluation = None
+
     try:
         simulation = Simulation(config_sim, config_planner)
         simulation.run_simulation()
+        if config_sim.evaluation.evaluate_simulation:
+            evaluation = evaluate_simulation(simulation)
+
     except Exception as e:
         error_traceback = traceback.format_exc()  # This gets the entire error traceback
         with open('logs/log_failures.csv', 'a', newline='') as f:
@@ -38,7 +45,8 @@ def run_simulation(scenario_name, scenario_folder, mod_path, use_cpp, start_mult
                              "Error time: " + str(current_time) + "\n" +
                              "In Scenario Timestep: " + current_timestep + "\n" +
                              "CODE ERROR: " + str(e) + error_traceback + "\n\n\n\n"])
-        print(error_traceback)
+            raise Exception
+    return simulation, evaluation
 
 
 def main():
@@ -94,23 +102,31 @@ def main():
         os.makedirs(logs_path, exist_ok=True)
     if not os.path.exists(os.path.join(logs_path, "score_overview.csv")):
         with open(os.path.join(logs_path, "score_overview.csv"), 'a') as file:
-            line = "scenario;timestep;status;message\n"
+            line = "scenario;agent;timestep;status;message\n"
             file.write(line)
 
-    if evaluation_pipeline and not start_multiagent:
-        num_workers = 6  # or any number you choose based on your resources and requirements
-        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-            # Create a list of tuples that will be passed to run_simulation_wrapper
-            scenario_info_list = [(scenario_file, scenario_folder, mod_path, use_cpp)
-                                  for scenario_file in scenario_files]
-            results = executor.map(run_simulation_wrapper, scenario_info_list)
+    if evaluation_pipeline:
+        if not start_multiagent:
+            num_workers = 4  # or any number you choose based on your resources and requirements
+            with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+                # Create a list of tuples that will be passed to run_simulation_wrapper
+                scenario_info_list = [(scenario_file, scenario_folder, mod_path, logs_path, use_cpp)
+                                      for scenario_file in scenario_files]
+                results = executor.map(run_simulation_wrapper, scenario_info_list)
+        else:
+            count = 0
+            for scenario_file in scenario_files:
+                run_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp,
+                               start_multiagent, count)
+                count += 1
+
 
     else:
         # If not in evaluation_pipeline mode, just run one scenario
         # config_eval
-        run_simulation(scenario_files[0], scenario_folder, mod_path, use_cpp, start_multiagent)
+        simulation_result, evaluation_result = run_simulation(scenario_files[0], scenario_folder, mod_path, logs_path, use_cpp, start_multiagent)
+        return simulation_result, evaluation_result
 
 
 if __name__ == '__main__':
-    main()
-
+    simulation, evaluation = main()

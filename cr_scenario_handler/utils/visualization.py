@@ -304,7 +304,7 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario,
                         [i.position[1] for i in agent.vehicle_history[-1].prediction.trajectory.state_list],
                         color='k', marker='x', markersize=1.5, zorder=21, linewidth=2.0, label='optimal trajectory')
 
-        if agent.traj_set is not None:
+        if agent.traj_set is not None and agent.config_planner.debug.draw_traj_set:
         # if traj_set_dict is not None and traj_set_dict[agent.obstacle_id] is not None:
         #     traj_set = traj_set_dict[agent.obstacle_id]
 

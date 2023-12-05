@@ -5,6 +5,7 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
+import os
 import copy
 import random
 import time
@@ -34,6 +35,7 @@ from commonroad_dc.collision.trajectory_queries import trajectory_queries
 # cr-scenario-handler
 import cr_scenario_handler.utils.general as general
 import cr_scenario_handler.utils.multiagent_helpers as hf
+from cr_scenario_handler.utils.helper_functions import find_lanelet_by_position_and_orientation, distance
 import cr_scenario_handler.utils.multiagent_logging as multi_agent_log
 import cr_scenario_handler.utils.prediction_helpers as ph
 import cr_scenario_handler.utils.visualization as visu
@@ -109,7 +111,7 @@ class Simulation:
         # store all agents in one list
         self.agents = []
         [self.agents.extend(batch.agent_list) for batch in self.batch_list]
-        self.finished_agents = []
+        # self.finished_agents = []
         # prepare global collision checker
         self._cc_dyn = None
         self._cc_stat = None
@@ -125,8 +127,9 @@ class Simulation:
         self.process_times = dict()
 
         if self.config.evaluation.evaluate_simulation or self.config.evaluation.evaluate_runtime:
-            self.sim_logger.log_meta(scenario_name=self.config_simulation.name_scenario,
-                                     agent_ids= self.agent_id_list,
+            self.sim_logger.log_meta(agent_ids=self.agent_id_list,
+                                     original_planning_problem_id=self.original_agent_id,
+                                     batch_names={batch.name: batch.agent_ids for batch in self.batch_list},
                                      duration_init=time.perf_counter() - init_time_start,
                                      config_sim=self.config,
                                      config_planner=config_planner)
@@ -165,14 +168,15 @@ class Simulation:
 
         :return: A List of obstacle IDs that should be used as agents
         """
-        # Find all dynamic obstacles in the scenario with a supported obstacle type
+        # Find all dynamic obstacles in the scenario with a supported obstacle type and which are on a lanelet
         allowed_types = [ObstacleType.CAR,
                          # ObstacleType.TRUCK,
                          # ObstacleType.BUS
                          ]
         allowed_roles = [ObstacleRole.DYNAMIC]
         allowed_id_list = [obs.obstacle_id for obs in scenario.obstacles if obs.obstacle_type in allowed_types and
-                           obs.obstacle_role in allowed_roles]
+                           obs.obstacle_role in allowed_roles and
+                           len(scenario.lanelet_network.find_lanelet_by_position([obs.initial_state.position])) > 0]
 
         if self.config_simulation.use_specific_agents:
             # Agents were selected by the user
@@ -224,38 +228,99 @@ class Simulation:
                     initial_state.acceleration = 0.
                 # define goal state for planning problem
                 final_state = obstacle.prediction.trajectory.final_state
-                [lanelet_id] = scenario.lanelet_network.find_lanelet_by_position([final_state.position])
+                lanelet_id = find_lanelet_by_position_and_orientation(scenario.lanelet_network, final_state.position,
+                                                                      final_state.orientation)
                 lanelet = scenario.lanelet_network.find_lanelet_by_id(lanelet_id[0])
-                index = np.argmin(np.linalg.norm(lanelet.center_vertices - final_state.position, axis = 1))
+                index_alt = np.argmin(np.linalg.norm(lanelet.center_vertices - final_state.position, axis=1))
 
-                # at boundary of two lanelets, merge first befor assigning the goal region
-                if index +1  >= len(lanelet.center_vertices):
-                    lanelet = Lanelet.merge_lanelets(lanelet,scenario.lanelet_network.find_lanelet_by_id(lanelet.successor[0]) )
-                elif index-1 < 0:
-                    lanelet = Lanelet.merge_lanelets(lanelet,
-                                                     scenario.lanelet_network.find_lanelet_by_id(lanelet.predecessor[0]))
+                # to increase goal area (keep non-original planning-problem vehicles as long as possible
+                # without loss of scenario success, try to add successor lanelet as goal area as well
+                if len(lanelet.successor) > 0:
+                    lanelet = Lanelet.merge_lanelets(lanelet, scenario.lanelet_network.find_lanelet_by_id(
+                                    lanelet.successor[0]))
 
+                # get final position of obstacle as initial point of goal area
+                (final_center, final_right, final_left, index) = lanelet.interpolate_position(np.linalg.norm(final_state.position - lanelet.center_vertices[0]))
 
-                if (np.linalg.norm(lanelet.center_vertices[index + 1] - initial_state.position)
-                        > np.linalg.norm(lanelet.polygon.vertices[index - 1]- initial_state.position)):
-                    left =lanelet.left_vertices[index:]
-                    right = lanelet.right_vertices[index:]
-                    # position = lanelet.polygon.vertices[indices.min():indices.max()+1]
-
+                # goal area is defined as current lanelet from final_state.position
+                # to end of lanelet + subsequent lanelet
+                if (np.linalg.norm(lanelet.center_vertices[index] - initial_state.position)
+                      >= np.linalg.norm(final_state.position - initial_state.position)):
+                    left = np.vstack((lanelet.left_vertices[:index+1],final_left))  # lanelet.left_vertices[index+1:]
+                    right = np.vstack((lanelet.right_vertices[:index+1], final_right))
                 else:
-                    left = lanelet.left_vertices[:index]
-                    right = lanelet.right_vertices[:index]
-                    # position = np.concatenate((lanelet.polygon.vertices[indices.max():], lanelet.polygon.vertices[:indices.min()+1]), axis=0)
+                    left = np.vstack((final_left, lanelet.left_vertices[index+1:]))# lanelet.left_vertices[index+1:]
+                    right = np.vstack((final_right, lanelet.right_vertices[index+1:]))#lanelet.right_vertices[index+1:]
+
+
+                if len(left) < 2:
+                    bla = 0
+                    raise ValueError
+                # if final state is at end of lanelet try to extend it to next lanelet
+                # if index + 1 >= len(lanelet.center_vertices):
+                #     if len(lanelet.successor) > 0:
+                #         lanelet = Lanelet.merge_lanelets(lanelet,
+                #                                          scenario.lanelet_network.find_lanelet_by_id(
+                #                                              lanelet.successor[0]))
+                #         index = np.argmin(np.linalg.norm(lanelet.center_vertices - final_state.position, axis=1))
+                #     else:
+                #         # if cannot extend at end, extend goal area to front
+                #         index -= 1
+                # elif index - 1 < 0:
+                #     if len(lanelet.predecessor) > 0:
+                #         lanelet = Lanelet.merge_lanelets(lanelet,
+                #                                          scenario.lanelet_network.find_lanelet_by_id(
+                #                                              lanelet.predecessor[0]))
+                #         index = np.argmin(np.linalg.norm(lanelet.center_vertices - final_state.position, axis=1))
+                #     elif index + 1 < len(lanelet.center_vertices) - 1:
+                #         # if cannot extend at end, extend goal area to front
+                #         index += 1
+                #
+                #     else:
+                #         # if lanelet has vertices-length 2 keep complete lanelet
+                #         pass
+                #
+                # # extend goal area on lanelet into opposite direction of initial position
+                # if len(lanelet.center_vertices) == 2:
+                #     left = lanelet.left_vertices
+                #     right = lanelet.right_vertices
+                # elif (np.linalg.norm(lanelet.center_vertices[index + 1] - initial_state.position)
+                #       >= np.linalg.norm(lanelet.center_vertices[index - 1] - initial_state.position)):
+                #     #                                     <=#np.linalg.norm(final_state.position - initial_state.position)):
+                #     if (np.linalg.norm(lanelet.center_vertices[index] - initial_state.position)
+                #       >= np.linalg.norm(final_state.position- initial_state.position)):
+                #
+                #         # if closest point is behind final position include final position
+                #         left = lanelet.left_vertices[index-1:]
+                #         right = lanelet.right_vertices[index-1:]
+                #     else:
+                #         left = lanelet.left_vertices[index:]
+                #         right = lanelet.right_vertices[index:]
+                #     # position = lanelet.polygon.vertices[indices.min():indices.max()+1]
+                #
+                # # elif (np.linalg.norm(lanelet.center_vertices[index]- initial_state.position)
+                # #                      <= np.linalg.norm(final_state.position - initial_state.position)):
+                # else:
+                #     left = lanelet.left_vertices[:index + 1]
+                #     right = lanelet.right_vertices[:index + 1]
+                # # else:
+                # #     raise ValueError("goal area not defineable")
+
+                # position = np.concatenate((lanelet.polygon.vertices[indices.max():], lanelet.polygon.vertices[:indices.min()+1]), axis=0)
                 # hf.distance(final_state.position, a)
                 position = np.concatenate((left, right[::-1]), axis=0)
 
                 goal_state = CustomState(time_step=Interval(final_state.time_step - 20, final_state.time_step + 20),
-                                         position=Polygon(position),# Circle(1.5, final_state.position),
+                                         position=Polygon(position),  # Circle(1.5, final_state.position),
                                          velocity=Interval(final_state.velocity - 2, final_state.velocity + 2),
                                          orientation=AngleInterval(final_state.orientation - 0.349,
                                                                    final_state.orientation + 0.349))
+                # check if goal state was created at correct position
+                assert goal_state.position.contains_point(final_state.position), "final position is not in the goal area!"
+
                 # create planning problem
-                problem = PlanningProblem(agent_id, initial_state, GoalRegion(list([goal_state]), lanelets_of_goal_position={0: lanelet_id}))
+                problem = PlanningProblem(agent_id, initial_state,
+                                          GoalRegion(list([goal_state]), lanelets_of_goal_position={0: lanelet_id}))
                 planning_problem_list.append(problem)
 
         return planning_problem_list
@@ -295,7 +360,10 @@ class Simulation:
         vehicle_params = self.config.vehicle
         shape = Rectangle(length=vehicle_params.length, width=vehicle_params.width)
         ini_state = planning_problem.initial_state
-        lanelet_assigned= {0: set(scenario.lanelet_network.find_lanelet_by_position([ini_state.position])[0])}
+
+        lanelet_assigned = {0: find_lanelet_by_position_and_orientation(scenario.lanelet_network, ini_state.position,
+                                                                        ini_state.orientation)
+                            }
         dummy_obstacle = DynamicObstacle(
             problem_id,
             ObstacleType.CAR,
@@ -303,7 +371,7 @@ class Simulation:
             ini_state,
             TrajectoryPrediction(Trajectory(planning_problem.initial_state.time_step,
                                             [planning_problem.initial_state]),
-                                             shape, center_lanelet_assignment=lanelet_assigned)
+                                 shape, center_lanelet_assignment=lanelet_assigned)
         )
         # otherwise prediction of this obstacle not available not used
         dummy_obstacle.prediction.final_time_step += 1
@@ -364,7 +432,7 @@ class Simulation:
                                              self.planning_problem_set, self.scenario,
                                              self.global_timestep,
                                              config_planner,
-                                             self.config, self.msg_logger,  self.sim_logger,
+                                             self.config, self.msg_logger, self.sim_logger,
                                              self.log_path, self.mod_path,
                                              outqueue, inqueue))
         return batch_list
@@ -418,10 +486,19 @@ class Simulation:
         post_time = time.perf_counter()
         self.postprocess_simulation()
         post_duration = time.perf_counter() - post_time
-        # TODO Log to meta
         if self.config.evaluation.evaluate_simulation or self.config.evaluation.evaluate_runtime:
             self.sim_logger.update_meta(scenario_name=self.config_simulation.name_scenario,
-                                        sim_duration=sim_duration,post_duration=post_duration)
+                                        sim_duration=sim_duration, post_duration=post_duration)
+            self.sim_logger.log_results(self.agents)
+
+        # with (open(os.path.join(self.mod_path, "logs", "score_overview.csv"), 'a') as file):
+        #     for agent in self.agents:
+        #         orig_pp = True if agent.id in self.original_agent_id else False
+        #         msg = "Success" if agent.status == 1 else "Failed"
+        #         line = str(self.scenario.scenario_id) + ";" + str(agent.id) + ";" + str(orig_pp) + ";" + str(
+        #             agent.current_timestep) + ";" + \
+        #                str(agent.status) + ";" + str(agent.agent_state.message) + ";" + msg + "\n"
+        #         file.write(line)
 
         # close sim_logger
         self.sim_logger.con.close()
@@ -439,7 +516,7 @@ class Simulation:
             step_time_start = time.perf_counter()
             running = self.step_sequential_simulation()
             self.visualize_simulation(self.global_timestep)
-            self.process_times.update({"total_sim_step" :time.perf_counter() - step_time_start})
+            self.process_times.update({"total_sim_step": time.perf_counter() - step_time_start})
 
             # get batch process times
             self.process_times[self.batch_list[0].name] = self.batch_list[0].process_times
@@ -468,18 +545,20 @@ class Simulation:
             self.process_times["total_sim_step"] = time.perf_counter() - step_time_start
 
             if self.config.evaluation.evaluate_runtime:
-                self.sim_logger.log_global_time(self.global_timestep,self.process_times)
+                self.sim_logger.log_global_time(self.global_timestep, self.process_times)
 
-        if len(self.agents) != len(self.finished_agents):
-            raise ValueError("Not all agents pushed back!")
-        else:
-            self.agents = self.finished_agents
-        del self.finished_agents
+        # if len(self.agents) != len(self.finished_agents):
+        #     raise ValueError("Not all agents pushed back!")
+        # else:
+        #     self.agents = self.finished_agents
+        # del self.finished_agents
         # Workers should already have terminated, otherwise wait for timeouts
         self.msg_logger.critical("Terminating workers...")
 
         for batch in self.batch_list:
             batch.in_queue.put("END", block=True)
+            batch.in_queue.close()
+            batch.out_queue.close()
             batch.join()
 
     def step_sequential_simulation(self):
@@ -531,34 +610,31 @@ class Simulation:
                     agent = self.get_agent_by_id(agent_id)
                     for attr, value in queue_dict[agent_id].items():
                         if hasattr(agent, attr):
-                            setattr(agent, attr, value)
+                            if type(getattr(agent,attr)) != list:
+                                setattr(agent, attr, value)
+                            else:
+                                getattr(agent, attr).append(value)
                         else:
                             raise AttributeError
                 # check if batch is finished
-                [batch_finished, proc_times, finished_agents] = batch.out_queue.get(block=True, timeout=TIMEOUT)
+                [batch_finished, proc_times] = batch.out_queue.get(block=True, timeout=TIMEOUT)
 
                 self.process_times[batch.name] = proc_times
                 if batch_finished:
-
                     # print(finished_agents)
-                    self.finished_agents.extend(finished_agents)
+                    self.msg_logger.debug(f"Start closing Batch {batch.name}")
+                    # self.finished_agents.extend(finished_agents)
                     # terminate finished process
                     batch.in_queue.put("END", block=True)
                     batch.join()
                     self.batch_list.remove(batch)
                     self.msg_logger.critical(f"Closing Batch {batch.name}")
             except Empty:
-                self.msg_logger.info("Timeout while waiting for step results!")
-
+                self.msg_logger.info(f"Timeout while waiting for step results of batch {batch.name}!")
+                raise RuntimeError(f"Timeout while waiting for step results of batch {batch.name}!")
                 self.process_times["time_sync"] = time.perf_counter() - syn_time
                 return
         self.process_times["time_sync"] = time.perf_counter() - syn_time
-
-        # Write global log
-        # TODO
-        # multi_agent_log.append_log(self.log_path, self.current_timestep, self.current_timestep * self.scenario.dt,
-        #            step_time_end - step_time_start, sync_time_end - sync_time_start,
-        #            self.agent_id_list, [self.agent_state_dict[id] for id in self.agent_id_list])
 
         return len(self.batch_list) > 0
 
@@ -625,7 +701,8 @@ class Simulation:
                 initial_timestep = obs.prediction.trajectory.initial_time_step
                 # add calculated position to trajectory of dummy obstacles
                 if len(obs.prediction.trajectory.state_list) > 1:
-                    traj = (obs.prediction.trajectory.states_in_time_interval(initial_timestep, self.global_timestep-1)
+                    traj = (obs.prediction.trajectory.states_in_time_interval(initial_timestep,
+                                                                              self.global_timestep - 1)
                             + agent.vehicle_history[-1].prediction.trajectory.state_list[1:])
 
                 else:
@@ -639,7 +716,7 @@ class Simulation:
                             if (agent.status != AgentStatus.RUNNING and agent.status != AgentStatus.IDLE)]
         for agent in agents_to_update:
             obs = self.scenario.obstacle_by_id(agent.id)
-            initial_timestep = obs.prediction.trajectory.initial_time_step#agent.agent_state.first_timestep
+            initial_timestep = obs.prediction.trajectory.initial_time_step  # agent.agent_state.first_timestep
             lanelet_assigned = obs.prediction.center_lanelet_assignment
             traj = obs.prediction.trajectory.states_in_time_interval(initial_timestep, agent.agent_state.last_timestep)
             obs.prediction = TrajectoryPrediction(
@@ -677,7 +754,7 @@ class Simulation:
                                                       save=self.config_visu.save_plots,
                                                       show=self.config_visu.show_plots,
                                                       gif=self.config_visu.save_gif)
-            self.process_times["time_visu"] = time.perf_counter()-time_visu
+            self.process_times["time_visu"] = time.perf_counter() - time_visu
 
     def get_agent_by_id(self, agent_id):
         """ Returns agent object by given id
