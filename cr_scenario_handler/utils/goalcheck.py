@@ -93,28 +93,25 @@ class GoalReachedChecker:
             self._check_time_step(normalized_state, goal_state, state_status)
             self.status.append(state_status)
 
-    def goal_reached_status(self):
+    def goal_reached_status(self, AgentStatus):
         """Get the goal status."""
         for state_status in copy.deepcopy(self.status):
             if "time_step" in state_status:  # time step info available
                 timing_flag = state_status.pop("timing_flag")
             if all(list(state_status.values())):  # every condition fulfilled
-                return True, "Scenario Successful!", state_status
+                return True, AgentStatus.COMPLETED_SUCCESS, state_status, "Scenario Successful!"
             elif "time_step" in state_status:
                 _ = state_status.pop("time_step")
                 if (
                     timing_flag == "exceeded"
                     and all(list(state_status.values()))
                 ):
-                    return True, "Scenario Completed out of Time!", state_status
+                    return True, AgentStatus.COMPLETED_OUT_OF_TIME, state_status, "Scenario Completed out of Time!"
                 elif "position" in state_status:
                     if state_status["position"] and self.x_cl[0][0] >= self.last_goal_position:
-                        return True, "Scenario Completed Faster than Target Time!", state_status
-            if "position" in state_status:
-                if self.x_cl[0][0] > self.last_goal_position:
-                    return True, "Vehicle Reached Maximum S-Position!", state_status
+                        return True, AgentStatus.COMPLETED_FASTER, state_status, "Scenario Completed Faster than Target Time!"
 
-            return False, "Scenario is still running!", state_status
+            return False, AgentStatus.RUNNING, state_status, "Scenario is still running!"
 
     @staticmethod
     def _check_position(normalized_state, goal_state, state_status):

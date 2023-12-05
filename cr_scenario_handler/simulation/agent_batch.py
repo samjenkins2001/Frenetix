@@ -16,10 +16,7 @@ from commonroad.planning.planning_problem import PlanningProblemSet
 
 from cr_scenario_handler.simulation.agent import Agent
 import cr_scenario_handler.utils.multiagent_helpers as hf
-from cr_scenario_handler.utils.multiagent_helpers import AgentStatus
-# from cr_scenario_handler.utils.multiagent_logging import *
-
-import cr_scenario_handler.utils.multiagent_logging as multi_agent_log
+from cr_scenario_handler.utils.agent_status import AgentStatus
 
 
 class AgentBatch(Process):
@@ -206,11 +203,11 @@ class AgentBatch(Process):
             - Agent vehicle history for visualization
         """
         for agent in reversed(self.running_agent_list):
-            if agent.status > hf.AgentStatus.RUNNING:
+            if agent.status > AgentStatus.RUNNING:
                 self.terminated_agent_list.append(agent)
                 self.running_agent_list.remove(agent)
                 with (open(os.path.join(self.mod_path, "logs", "score_overview.csv"), 'a') as file):
-                    msg = "Success" if agent.status == 1 else "Failed"
+                    msg = "Success" if agent.status == AgentStatus.COMPLETED else "Failed"
                     line = str(agent.scenario.scenario_id) + ";" + str(agent.id) + ";" + str(
                         agent.current_timestep) + ";" + \
                            str(agent.status) + ";" + str(agent.agent_state.message) + ";" + msg + "\n"

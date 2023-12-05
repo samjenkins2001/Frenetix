@@ -7,7 +7,7 @@ __status__ = "Beta"
 
 import json
 from typing import List
-from pathlib import Path
+
 import os
 import sys
 import logging
@@ -15,7 +15,8 @@ from omegaconf import DictConfig, ListConfig
 
 from cr_scenario_handler.utils.configuration import Configuration
 import sqlite3
-from cr_scenario_handler.utils.multiagent_helpers import TIMEOUT
+
+from cr_scenario_handler.utils.agent_status import AgentStatus, TIMEOUT
 
 # KEYS: großbuchstaben
 # Logging:
@@ -154,7 +155,7 @@ class SimulationLogger:
         data = []
         for agent in agents:
             orig_pp = True if agent.id in self.original_planning_problem_id else False
-            success = "success" if agent.status == 1 else "failed"
+            success = "success" if agent.status == AgentStatus.COMPLETED else "failed"
             data.append([self.scenario, agent.id, orig_pp, agent.status, agent.agent_state.last_timestep, agent.agent_state.message,success])
         self.con.executemany("INSERT INTO results VALUES(?,?,?,?,?,?,?)", data)
         self.con.commit()

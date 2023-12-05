@@ -19,7 +19,7 @@ import psutil
 from commonroad.common.util import AngleInterval
 from commonroad.common.util import Interval
 from commonroad.scenario.lanelet import Lanelet
-from commonroad.geometry.shape import Rectangle, Circle, Polygon
+from commonroad.geometry.shape import Rectangle, Polygon
 from commonroad.planning.goal import GoalRegion
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.prediction.prediction import TrajectoryPrediction
@@ -35,13 +35,13 @@ from commonroad_dc.collision.trajectory_queries import trajectory_queries
 # cr-scenario-handler
 import cr_scenario_handler.utils.general as general
 import cr_scenario_handler.utils.multiagent_helpers as hf
-from cr_scenario_handler.utils.helper_functions import find_lanelet_by_position_and_orientation, distance
+from cr_scenario_handler.utils.helper_functions import find_lanelet_by_position_and_orientation
 import cr_scenario_handler.utils.multiagent_logging as multi_agent_log
 import cr_scenario_handler.utils.prediction_helpers as ph
 import cr_scenario_handler.utils.visualization as visu
 from cr_scenario_handler.utils.visualization import visualize_multiagent_scenario_at_timestep
 from cr_scenario_handler.simulation.agent_batch import AgentBatch
-from cr_scenario_handler.utils.multiagent_helpers import TIMEOUT, AgentStatus
+from cr_scenario_handler.utils.agent_status import TIMEOUT, AgentStatus
 
 # msg_logger = logging.getLogger("Simulation_logger")
 

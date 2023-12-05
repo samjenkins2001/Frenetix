@@ -24,13 +24,12 @@ from commonroad.scenario.state import InputState
 from commonroad.scenario.trajectory import Trajectory
 # scenario handler
 import cr_scenario_handler.planner_interfaces as planner_interfaces
-import cr_scenario_handler.utils.goalcheck as gc
 import cr_scenario_handler.utils.multiagent_helpers as hf
 import cr_scenario_handler.utils.prediction_helpers as ph
 import cr_scenario_handler.utils.visualization as visu
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 from cr_scenario_handler.utils.collision_report import coll_report
-from cr_scenario_handler.utils.multiagent_helpers import AgentStatus, AgentState
+from cr_scenario_handler.utils.agent_status import AgentStatus, AgentState
 from cr_scenario_handler.utils.visualization import visualize_agent_at_timestep
 from frenetix_motion_planner.state import ReactivePlannerState
 
@@ -135,9 +134,8 @@ class Agent:
         if self.config.occlusion.use_occlusion_module:
             raise NotImplementedError
 
-        self.goal_checker = gc.GoalReachedChecker(planning_problem, self.reference_path, self.coordinate_system)
-
-        self.agent_state = AgentState(planning_problem.initial_state.time_step)
+        self.agent_state = AgentState(planning_problem=planning_problem, reference_path=self.reference_path,
+                                      coordinate_system=self.coordinate_system)
         if planning_problem.initial_state.time_step == 0:
             self.agent_state.log_running(0)
 
@@ -173,8 +171,7 @@ class Agent:
         :param scenario:
         :param collision:
         """
-        # self.crashed = collision
-        # self.agent_state.collided(collision)
+
         if not collision:
             self.scenario = hf.scenario_without_obstacle_id(scenario=deepcopy(scenario), obs_ids=[self.id])
 
@@ -188,48 +185,40 @@ class Agent:
         else:
             self.agent_state.log_collision(self.agent_state.last_timestep+1)
 
-    def check_goal_reached(self):
-        """Check for completion of the planner.
-
-        :return: True iff the goal area has been reached.
-        """
-
-        self.goal_checker.register_current_state(self.record_state_list[-1], self.planner_interface.planner.x_cl)
-        # self.goal_status, self.goal_message, self.full_goal_status = self.goal_checker.goal_reached_status()
-        return self.goal_checker.goal_reached_status()
-
     def step_agent(self, timestep):
         """ Execute one planning step.
 
         """
         # Check for collisions in previous timestep
         if self.agent_state.status == AgentStatus.COLLISION:
-            # msg = f"Collision Detected in timestep {self.current_timestep}!"
-            # self.postprocessing(msg)
+
             if self.config.evaluation.collision_report:
                 coll_report(self.vehicle_history, self.planner_interface.planner, self.scenario, self.planning_problem,
                             self.agent_state.last_timestep, self.config, self.log_path)
             self.postprocessing()
 
-            # self.agent_state.log_collision(self.current_timestep, self.goal_status, self.goal_message, self.full_goal_status)
-            #
+            # self.agent_state.log_collision(self.current_timestep, self.goal_status, self.goal_message,
+            #                                self.full_goal_status)
+
         elif timestep > self.max_time_steps_scenario:
-            # msg = "Scenario Aborted! Maximum Time Step Reached for Agent!"
-            self.agent_state.log_timelimit(timestep)#, self.goal_status, self.goal_message,
-                                       # self.full_goal_status)
+
+            self.agent_state.log_timelimit(timestep)
             self.postprocessing()
 
-            # self.agent_state.timelimit(self.current_timestep, self.goal_status, self.goal_message, self.full_goal_status)
-            # self.status = AgentStatus.TIMELIMIT
+            # self.agent_state.timelimit(self.current_timestep, self.goal_status, self.goal_message,
+            #                            self.full_goal_status)
+
+        elif self.planner_interface.planner.x_cl[0][0] > self.agent_state.goal_checker.last_goal_position:
+            self.agent_state.log_max_s_position(timestep)
+            self.postprocessing()
+
         else:
             # check for completion of this agent
-            success, goal_message, full_goal_status = self.check_goal_reached()
-            if success:
-                # msg = "Scenario completed!"
+            self.agent_state.check_goal_reached(self.record_state_list, self.planner_interface.planner.x_cl)
+            if self.agent_state.status:
 
                 self.agent_state.log_finished(timestep, goal_message, full_goal_status)
                 self.postprocessing()
-                # self.status = AgentStatus.COMPLETED
 
             else:
                 # self.current_timestep = timestep
@@ -265,7 +254,7 @@ class Agent:
                     self._create_collision_object(current_ego_vehicle.prediction.trajectory.state_list[1], timestep+1)
 
                     self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
-                    self.agent_state.log_running(timestep, goal_message, full_goal_status)
+                    self.agent_state.log_running(timestep)
 
                     # plot own view on scenario
                     if (self.save_plot or self.show_plot or self.gif

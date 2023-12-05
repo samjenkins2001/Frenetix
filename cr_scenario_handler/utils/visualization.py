@@ -17,7 +17,7 @@ import matplotlib.colors as colors
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.state import State, CustomState
 from commonroad.planning.planning_problem import PlanningProblem
-from cr_scenario_handler.utils.multiagent_helpers import AgentStatus
+from cr_scenario_handler.utils.agent_status import AgentStatus
 # commonroad_dc
 from commonroad_dc import pycrcc
 
@@ -32,8 +32,8 @@ from wale_net_lite.visualization import draw_uncertain_predictions
 
 # Color palette for plotting
 colors_spec = ["#e3af22", "#d6e322", "#96e322", "#55e322", "#22e32f",
-          "#22e36f", "#22e3af", "#22d6e3", "#2296e3", "#2255e3",
-          "#2f22e3", "#6f22e3", "#af22e3", "#e322d6", "#e32296"]
+               "#22e36f", "#22e3af", "#22d6e3", "#2296e3", "#2255e3",
+               "#2f22e3", "#6f22e3", "#af22e3", "#e322d6", "#e32296"]
 darkcolors = ["#9c0d00", "#8f9c00", "#5b9c00", "#279c00", "#009c0d",
               "#009c41", "#009c75", "#008f9c", "#005b9c", "#00279c",
               "#0d009c", "#41009c", "#75009c", "#9c008f", "#9c005b"]
