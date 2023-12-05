@@ -8,7 +8,6 @@ import concurrent.futures
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 from cr_scenario_handler.utils.general import get_scenario_list
-from omegaconf import OmegaConf, ListConfig, DictConfig
 from cr_scenario_handler.evaluation.evaluation import evaluate_simulation
 
 
@@ -46,7 +45,6 @@ def run_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cpp,
                              "In Scenario Timestep: " + current_timestep + "\n" +
                              "CODE ERROR: " + str(e) + error_traceback + "\n\n\n\n"])
             raise Exception
-    return simulation, evaluation
 
 
 def main():
@@ -124,9 +122,8 @@ def main():
     else:
         # If not in evaluation_pipeline mode, just run one scenario
         # config_eval
-        simulation_result, evaluation_result = run_simulation(scenario_files[0], scenario_folder, mod_path, logs_path, use_cpp, start_multiagent)
-        return simulation_result, evaluation_result
+        run_simulation(scenario_files[0], scenario_folder, mod_path, logs_path, use_cpp, start_multiagent)
 
 
 if __name__ == '__main__':
-    simulation, evaluation = main()
+    main()

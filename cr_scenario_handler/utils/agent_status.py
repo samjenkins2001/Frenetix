@@ -24,7 +24,7 @@ class AgentState:
         self.message = None
         self.goal_status = False
         self.goal_message = None
-        self.full_goal_status = None
+
         self.running = False
         self.goal_checker_status = None
         self.crashed = False
@@ -52,12 +52,10 @@ class AgentState:
         self.last_timestep = timestep
         self.message = "collision"
 
-    def log_finished(self, timestep, goal_message, full_goal_status):
+    def log_finished(self, timestep):
         self.last_timestep = timestep
         self.message = "goal reached"
         self.goal_status = True
-        self.goal_message = goal_message
-        self.full_goal_status = full_goal_status
 
     def log_max_s_position(self, timestep):
         self.status = AgentStatus.MAX_S_POSITION

@@ -207,13 +207,13 @@ class AgentBatch(Process):
                 self.terminated_agent_list.append(agent)
                 self.running_agent_list.remove(agent)
                 with (open(os.path.join(self.mod_path, "logs", "score_overview.csv"), 'a') as file):
-                    msg = "Success" if agent.status == AgentStatus.COMPLETED else "Failed"
+                    msg = "Success" if agent.status == AgentStatus.COMPLETED_SUCCESS else "Failed"
                     line = str(agent.scenario.scenario_id) + ";" + str(agent.id) + ";" + str(
                         agent.current_timestep) + ";" + \
                            str(agent.status) + ";" + str(agent.agent_state.message) + ";" + msg + "\n"
                     file.write(line)
 
-            self.out_queue_dict[agent.id]= {"agent_state": agent.agent_state,
+            self.out_queue_dict[agent.id] = {"agent_state": agent.agent_state,
                                             "collision_objects": agent.collision_objects[-1],
                                             "vehicle_history": agent.vehicle_history[-1],
                                             "record_state_list": agent.record_state_list[-1],

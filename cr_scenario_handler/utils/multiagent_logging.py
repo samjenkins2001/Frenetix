@@ -155,8 +155,8 @@ class SimulationLogger:
         data = []
         for agent in agents:
             orig_pp = True if agent.id in self.original_planning_problem_id else False
-            success = "success" if agent.status == AgentStatus.COMPLETED else "failed"
-            data.append([self.scenario, agent.id, orig_pp, agent.status, agent.agent_state.last_timestep, agent.agent_state.message,success])
+            success = "success" if agent.status == AgentStatus.COMPLETED_SUCCESS else "failed"
+            data.append([self.scenario, agent.id, orig_pp, agent.status, agent.agent_state.last_timestep, agent.agent_state.message, success])
         self.con.executemany("INSERT INTO results VALUES(?,?,?,?,?,?,?)", data)
         self.con.commit()
 

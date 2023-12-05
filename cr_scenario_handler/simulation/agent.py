@@ -74,8 +74,6 @@ class Agent:
         self.show_plot = (self.id in self.config_visu.show_specific_individual_plots
                           or self.config_visu.show_all_individual_plots)
 
-        # Initialize Time Variables
-        # self.current_timestep = planning_problem.initial_state.time_step
         try:
             self.max_time_steps_scenario = int(
                 self.config_simulation.max_steps * planning_problem.goal.state_list[0].time_step.end)
@@ -215,9 +213,8 @@ class Agent:
         else:
             # check for completion of this agent
             self.agent_state.check_goal_reached(self.record_state_list, self.planner_interface.planner.x_cl)
-            if self.agent_state.status:
-
-                self.agent_state.log_finished(timestep, goal_message, full_goal_status)
+            if self.agent_state.status is not AgentStatus.RUNNING:
+                self.agent_state.log_finished(timestep)
                 self.postprocessing()
 
             else:
@@ -281,12 +278,10 @@ class Agent:
 
         Create a gif from plotted images, and run the evaluation function.
         """
-        # self.planner_interface.close_planner(self.goal_status, self.goal_message, self.full_goal_status, msg)
 
         self.msg_logger.info(f"Agent {self.id}: timestep {self.agent_state.last_timestep}: {self.agent_state.message}")
         self.msg_logger.debug(f"Agent {self.id} current goal message: {self.agent_state.goal_message}")
-        self.msg_logger.debug(f"Agent {self.id}: {self.agent_state.full_goal_status}")
-            # if not goal_status:
+        self.msg_logger.debug(f"Agent {self.id}: {self.agent_state.goal_checker_status}")
 
         # plot final trajectory
         show = (self.config_visu.show_all_individual_final_trajectories or
@@ -295,8 +290,7 @@ class Agent:
                 self.id in self.config_visu.save_specific_final_trajectory_plots)
         if show or save:
             visu.plot_final_trajectory(self.scenario, self.planning_problem, self.record_state_list,
-                          self.config, self.log_path, ref_path=self.reference_path, save=save, show=show)
-
+                                       self.config, self.log_path, ref_path=self.reference_path, save=save, show=show)
 
     def make_gif(self):
         # make gif
@@ -309,9 +303,9 @@ class Agent:
     def _create_collision_object(self, state, timestep):
         ego = pycrcc.TimeVariantCollisionObject(timestep)
         ego.append_obstacle(pycrcc.RectOBB(0.5 * self.config.vehicle.length, 0.5 * self.config.vehicle.width,
-                                               state.orientation,
-                                               state.position[0],
-                                               state.position[1]))
+                                           state.orientation,
+                                           state.position[0],
+                                           state.position[1]))
         self.collision_objects.append(ego)
 
     def record_state_and_input(self, state):
