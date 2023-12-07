@@ -178,7 +178,7 @@ class ReactivePlannerCpp(Planner):
             visualize_scenario_and_pp(scenario=self.scenario, planning_problem=self.planning_problem,
                                       save_path=self.config_sim.simulation.log_path, cosy=self.coordinate_system)
 
-        self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper(copy.deepcopy(reference_path))
+        self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper(reference_path)
         self.set_new_ref_path = True
         self.logger.sql_logger.write_reference_path(reference_path)
 

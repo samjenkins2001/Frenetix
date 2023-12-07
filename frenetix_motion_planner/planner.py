@@ -86,7 +86,6 @@ class Planner:
 
         # Scenario
         self.coordinate_system = None
-        self._cc: Optional[pycrcc.CollisionChecker] = None
         self.scenario = None
         self.road_boundary = None
         self.set_scenario(scenario)
@@ -112,8 +111,6 @@ class Planner:
         # Extensions Initialization
         # **************************
         self.use_prediction = False
-
-        self.set_collision_checker(self.scenario)
         self._collision_counter = 0
 
         # **************************
@@ -162,10 +159,6 @@ class Planner:
         # **************************
         self.params_harm = load_harm_parameter_json(work_dir)
         self.params_risk = load_risk_json(work_dir)
-
-    @property
-    def collision_checker(self) -> pycrcc.CollisionChecker:
-        return self._cc
 
     @property
     def infeasible_count_collision(self):
@@ -536,48 +529,19 @@ class Planner:
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""
         self.scenario = scenario
-        self.set_collision_checker(scenario)
-        try:
-            (
-                _,
-                self.road_boundary,
-            ) = create_road_boundary_obstacle(
-                scenario=self.scenario,
-                method="aligned_triangulation",
-                axis=2,
-            )
-        except:
-            raise RuntimeError("Road Boundary can not be created")
 
-    def set_collision_checker(self, scenario: Scenario = None, collision_checker: pycrcc.CollisionChecker = None):
-        """
-        Sets the collision checker used by the planner using either of the two options:
-        If a collision_checker object is passed, then it is used directly by the planner.
-        If no collision checker object is passed, then a CommonRoad scenario must be provided from which the collision
-        checker is created and set.
-        :param scenario: CommonRoad Scenario object
-        :param collision_checker: pycrcc.CollisionChecker object
-        """
-        # self.scenario = scenario
-        if collision_checker is None:
-            assert scenario is not None, '<ReactivePlanner.set collision checker>: Please provide a CommonRoad scenario OR a ' \
-                                         'CollisionChecker object to the planner.'
-            cc_scenario = pycrcc.CollisionChecker()
-            for co in scenario.static_obstacles:
-                obs = create_collision_object(co)
-                cc_scenario.add_collision_object(obs)
-            for co in scenario.dynamic_obstacles:
-                if co.obstacle_id == self.config_sim.simulation.ego_agent_id:
-                    continue
-                tvo = create_collision_object(co)
-                cc_scenario.add_collision_object(tvo)
-            _, road_boundary_sg_obb = create_road_boundary_obstacle(scenario)
-            cc_scenario.add_collision_object(road_boundary_sg_obb)
-            self._cc: pycrcc.CollisionChecker = cc_scenario
-        else:
-            assert scenario is None, '<ReactivePlanner.set collision checker>: Please provide a CommonRoad scenario OR a ' \
-                                     'CollisionChecker object to the planner.'
-            self._cc: pycrcc.CollisionChecker = collision_checker
+        if not self.road_boundary:
+            try:
+                (
+                    _,
+                    self.road_boundary,
+                ) = create_road_boundary_obstacle(
+                    scenario=self.scenario,
+                    method="aligned_triangulation",
+                    axis=2,
+                )
+            except:
+                raise RuntimeError("Road Boundary can not be created")
 
     def _compute_initial_states(self, x_0: ReactivePlannerState) -> (np.ndarray, np.ndarray):
         """
