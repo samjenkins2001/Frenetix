@@ -640,7 +640,7 @@ class Simulation:
 
     def prestep_simulation(self):
         preproc_time = time.perf_counter()
-        self.msg_logger.critical(f"Simulating timestep {self.global_timestep}")
+        self.msg_logger.critical(f"Scenario {self.scenario.scenario_id} in timestep {self.global_timestep}")
         # check for collisions
         colliding_agents = self.check_collision()
         # update scenario
