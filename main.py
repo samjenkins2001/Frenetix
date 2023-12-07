@@ -13,10 +13,10 @@ from cr_scenario_handler.evaluation.evaluation import evaluate_simulation
 
 def run_simulation_wrapper(scenario_info):
     scenario_file, scenario_folder, mod_path, logs_path, use_cpp = scenario_info
-    run_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False)
+    start_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False)
 
 
-def run_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False, count=0):
+def start_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False, count=0):
     log_path = os.path.join(logs_path, scenario_name)
     config_sim = ConfigurationBuilder.build_sim_configuration(scenario_name, scenario_folder, mod_path)
     config_sim.simulation.use_multiagent = start_multiagent
@@ -84,7 +84,7 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
-    scenario_name = "ZAM_Tjunction-1_42_T-1"  # do not add .xml format to the name
+    scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name
     scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
@@ -107,14 +107,14 @@ def main():
         if not start_multiagent:
             num_workers = 4  # or any number you choose based on your resources and requirements
             with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-                # Create a list of tuples that will be passed to run_simulation_wrapper
+                # Create a list of tuples that will be passed to start_simulation_wrapper
                 scenario_info_list = [(scenario_file, scenario_folder, mod_path, logs_path, use_cpp)
                                       for scenario_file in scenario_files]
-                results = executor.map(run_simulation_wrapper, scenario_info_list)
+                results = executor.map(start_simulation, scenario_info_list)
         else:
             count = 0
             for scenario_file in scenario_files:
-                run_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp,
+                start_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp,
                                start_multiagent, count)
                 count += 1
 
@@ -122,8 +122,32 @@ def main():
     else:
         # If not in evaluation_pipeline mode, just run one scenario
         # config_eval
-        run_simulation(scenario_files[0], scenario_folder, mod_path, logs_path, use_cpp, start_multiagent)
+        start_simulation(scenario_files[0], scenario_folder, mod_path, logs_path, use_cpp, start_multiagent)
 
 
 if __name__ == '__main__':
+    # import cProfile
+    # import pstats
+    #
+    # profiler = cProfile.Profile()
+    # profiler.enable()
     main()
+    # profiler.disable()
+    # profiler.dump_stats("train_profile.prof")
+    #
+    # # Analyzing the profile data
+    # p = pstats.Stats("train_profile.prof")
+    # p.sort_stats('cumulative')  # Sort by cumulative time
+    #
+    # func_data = []
+    # for func in p.stats:
+    #     cc, nc, tt, ct, callers = p.stats[func]
+    #     func_data.append((func, ct))
+    #
+    # # Sort by cumulative time
+    # sorted_func_data = sorted(func_data, key=lambda x: x[1], reverse=True)
+    #
+    # # Print first 1000 entries
+    # for i, data in enumerate(sorted_func_data[:1000]):
+    #     func, cum_time = data
+    #     print(f"{i + 1}. Function: {func[2]} - Cumulative Time: {cum_time:.5f} seconds")

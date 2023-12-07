@@ -233,7 +233,7 @@ class Agent:
                 # Execute Planner
                 # **************************
                 comp_time_start = time.time()
-                trajectory = self.planner_interface.plan(timestep)
+                trajectory = self.planner_interface.step_interface(timestep)
                 comp_time_end = time.time()
                 # END TIMER
                 self.planning_times.append(comp_time_end - comp_time_start)

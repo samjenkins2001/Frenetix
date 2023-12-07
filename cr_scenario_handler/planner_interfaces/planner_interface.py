@@ -60,7 +60,7 @@ class PlannerInterface(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def plan(self, current_timestep=None):
+    def step_interface(self, current_timestep=None):
         """Planner step function.
 
         To be implemented for every specific planner.

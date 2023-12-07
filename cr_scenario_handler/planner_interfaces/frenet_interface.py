@@ -155,7 +155,7 @@ class FrenetPlannerInterface(PlannerInterface):
         self.planner.update_externals(scenario=scenario, x_0=self.x_0, x_cl=self.x_cl,
                                       desired_velocity=self.desired_velocity, predictions=predictions, occlusion_module=None)
 
-    def plan(self, current_timestep=None):
+    def step_interface(self, current_timestep=None):
         """ Execute one planing step.
 
         update_planner has to be called before this function.
