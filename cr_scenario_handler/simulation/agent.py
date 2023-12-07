@@ -86,13 +86,6 @@ class Agent:
 
         # TODO CR-Reach/Spot/ Occlusion / Sensor
 
-        # self._load_external_modules()
-
-        self.record_state_list = list()
-        # List of input states for the planner
-        self.record_input_list = list()
-        self.vehicle_history = list()
-
         self.planning_times = list()
 
         self.predictions = None
@@ -105,16 +98,8 @@ class Agent:
             problem_init_state.acceleration = 0.
         x_0 = deepcopy(problem_init_state)
 
-        shape = Rectangle(self.vehicle.length, self.vehicle.width)
-        ego_vehicle = DynamicObstacle(planning_problem.planning_problem_id, ObstacleType.CAR, shape, x_0, None)
-        self.set_ego_vehicle_state(ego_vehicle)
-
         self.collision_objects = list()
         self._create_collision_object(x_0, problem_init_state.time_step)
-
-        x_0 = ReactivePlannerState.create_from_initial_state(problem_init_state, self.vehicle.wheelbase,
-                                                             self.vehicle.wb_rear_axle)
-        self.record_state_and_input(x_0)
 
         # Initialize Planner
         used_planner = self.config_simulation.used_planner_interface
@@ -140,6 +125,18 @@ class Agent:
     @property
     def reference_path(self):
         return self.planner_interface.reference_path
+
+    @property
+    def record_input_list(self):
+        return self.planner_interface.planner.record_input_list
+
+    @property
+    def record_state_list(self):
+        return self.planner_interface.planner.record_state_list
+
+    @property
+    def vehicle_history(self):
+        return self.planner_interface.planner.ego_vehicle_history
 
     @property
     def coordinate_system(self):
@@ -241,12 +238,9 @@ class Agent:
 
                 if trajectory:
                     # self.optimal
-                    self.record_state_and_input(trajectory.state_list[1])
 
-                    current_ego_vehicle = self.convert_state_list_to_commonroad_object(trajectory.state_list)
-                    self._create_collision_object(current_ego_vehicle.prediction.trajectory.state_list[1], timestep+1)
+                    self._create_collision_object(self.vehicle_history[-1].prediction.trajectory.state_list[0], timestep+1)
 
-                    self.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
                     self.agent_state.log_running(timestep)
 
                     # plot own view on scenario
@@ -303,28 +297,6 @@ class Agent:
                                            state.position[0],
                                            state.position[1]))
         self.collision_objects.append(ego)
-
-    def record_state_and_input(self, state):
-        """
-        Adds state to list of recorded states
-        Adds control inputs to list of recorded inputs
-        """
-        # append state to state list
-        self.record_state_list.append(state)
-
-        # compute control inputs and append to input list
-        if len(self.record_state_list) > 1:
-            steering_angle_speed = (state.steering_angle - self.record_state_list[-2].steering_angle) / self.dt
-        else:
-            steering_angle_speed = 0.0
-
-        input_state = InputState(time_step=state.time_step,
-                                 acceleration=state.acceleration,
-                                 steering_angle_speed=steering_angle_speed)
-        self.record_input_list.append(input_state)
-
-    def set_ego_vehicle_state(self, current_ego_vehicle):
-        self.vehicle_history.append(current_ego_vehicle)
 
     def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState]):
         """

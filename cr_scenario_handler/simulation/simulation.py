@@ -596,7 +596,7 @@ class Simulation:
                                 colliding_agents])
 
         # Plot previous timestep while batches are busy
-        self.visualize_simulation(self.global_timestep - 1)
+        self.visualize_simulation(self.global_timestep)
 
         syn_time = time.perf_counter()
         # Receive simulation step results
