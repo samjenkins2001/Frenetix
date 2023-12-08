@@ -1,4 +1,4 @@
-__author__ = "Maximilian Streubel, Rainer Trauth"
+__author__ = "Rainer Trauth, Marc Kaufeld"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
@@ -6,10 +6,7 @@ __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
 from abc import abstractmethod, ABC
-from typing import List
-
 from commonroad.planning.planning_problem import PlanningProblem
-from commonroad.scenario.obstacle import DynamicObstacle
 from commonroad.scenario.scenario import Scenario
 
 
@@ -33,20 +30,39 @@ class PlannerInterface(ABC):
         raise NotImplementedError()
 
     @property
-    def all_traj(self):
-        """Return the sampled trajectories of the last step for plotting.
-
-        If plotting of trajectory bundles is not required, leave as is.
-        """
+    def all_trajectories(self):
+        """Return the sampled trajectories of the last step for plotting."""
         return None
 
-    # @property
-    # def reference_path(self):
-    #     """Return the reference path of the planner for plotting.
-    #
-    #     If plotting of reference paths is not required, leave as is.
-    #     """
-    #     return None
+    @property
+    def record_input_list(self):
+        """Return the recorded input list of all states to the controller."""
+        return None
+
+    @property
+    def record_state_list(self):
+        """Return the recorded planner state lists of the vehicle."""
+        return None
+
+    @property
+    def vehicle_history(self):
+        """Return the recorded object state lists of the vehicle."""
+        return None
+
+    @property
+    def coordinate_system(self):
+        """Return the coordinate system of the planner."""
+        return None
+
+    @property
+    def optimal_trajectory(self):
+        """Return the optimal trajectory in a timestep of the planner."""
+        return None
+
+    @property
+    def trajectory_pair(self):
+        """Return the optimal trajectory pair in a timestep of the planner."""
+        return None
 
     @abstractmethod
     def update_planner(self, scenario: Scenario, predictions: dict):

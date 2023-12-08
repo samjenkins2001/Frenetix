@@ -126,9 +126,33 @@ class FrenetPlannerInterface(PlannerInterface):
         self.x_cl = self.planner.x_cl
 
     @property
-    def all_traj(self):
+    def all_trajectories(self):
         """Return the sampled trajectory bundle for plotting purposes."""
         return self.planner.all_traj
+
+    @property
+    def record_input_list(self):
+        return self.planner.record_input_list
+
+    @property
+    def record_state_list(self):
+        return self.planner.record_state_list
+
+    @property
+    def vehicle_history(self):
+        return self.planner.ego_vehicle_history
+
+    @property
+    def coordinate_system(self):
+        return self.planner.coordinate_system
+
+    @property
+    def optimal_trajectory(self):
+        return self.planner.optimal_trajectory
+
+    @property
+    def trajectory_pair(self):
+        return self.planner.trajectory_pair
 
     def update_planner(self, scenario: Scenario, predictions: dict):
         """ Update the planner before the next time step.

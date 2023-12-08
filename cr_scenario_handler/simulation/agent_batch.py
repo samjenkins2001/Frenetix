@@ -1,4 +1,4 @@
-__author__ = "Maximilian Streubel, Rainer Trauth"
+__author__ = "Rainer Trauth, Marc Kaufeld"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
@@ -103,7 +103,6 @@ class AgentBatch(Process):
             # receive dummy obstacles and outdated agent list
             start_time = time.perf_counter()
 
-
             try:
                 args = self.in_queue.get(block=True, timeout=hf.TIMEOUT)
             except Empty:
@@ -117,8 +116,7 @@ class AgentBatch(Process):
                 for agent in self.terminated_agent_list:
                     agent.make_gif()
                 self.msg_logger.critical(f"Batch {self.name}: Simulation of the batch finished!")
-                # for agent in self.terminated_agent_list:
-                #     agent.make_gif()
+
                 return
 
             else:
@@ -214,13 +212,13 @@ class AgentBatch(Process):
                     file.write(line)
 
             self.out_queue_dict[agent.id] = {"agent_state": agent.agent_state,
-                                            "collision_objects": agent.collision_objects[-1],
-                                            "vehicle_history": agent.vehicle_history[-1],
-                                            "record_state_list": agent.record_state_list[-1],
-                                            "record_input_list": agent.record_input_list[-1],
-                                            "planning_times": agent.planning_times[-1],
-                                            "traj_set": agent.traj_set
-                                            }
+                                             "collision_objects": agent.collision_objects[-1],
+                                             "vehicle_history": agent.vehicle_history[-1],
+                                             "record_state_list": agent.record_state_list[-1],
+                                             "record_input_list": agent.record_input_list[-1],
+                                             "planning_times": agent.planning_times[-1],
+                                             "traj_set": agent.all_trajectories
+                                             }
 
     def _check_completion(self):
         """

@@ -1,4 +1,4 @@
-__author__ = "Maximilian Streubel, Rainer Trauth"
+__author__ = "Rainer Trauth, Marc Kaufeld"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"

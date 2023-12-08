@@ -1,4 +1,4 @@
-__author__ = "Marc Kaufed, Rainer Trauth"
+__author__ = "Rainer Trauth, Marc Kaufeld"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
@@ -490,15 +490,6 @@ class Simulation:
             self.sim_logger.update_meta(scenario_name=self.config_simulation.name_scenario,
                                         sim_duration=sim_duration, post_duration=post_duration)
             self.sim_logger.log_results(self.agents)
-
-        # with (open(os.path.join(self.mod_path, "logs", "score_overview.csv"), 'a') as file):
-        #     for agent in self.agents:
-        #         orig_pp = True if agent.id in self.original_agent_id else False
-        #         msg = "Success" if agent.status == 1 else "Failed"
-        #         line = str(self.scenario.scenario_id) + ";" + str(agent.id) + ";" + str(orig_pp) + ";" + str(
-        #             agent.current_timestep) + ";" + \
-        #                str(agent.status) + ";" + str(agent.agent_state.message) + ";" + msg + "\n"
-        #         file.write(line)
 
         # close sim_logger
         self.sim_logger.con.close()

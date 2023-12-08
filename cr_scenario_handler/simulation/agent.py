@@ -1,4 +1,4 @@
-__author__ = "Maximilian Streubel, Rainer Trauth"
+__author__ = "Rainer Trauth, Marc Kaufeld"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
@@ -90,9 +90,8 @@ class Agent:
 
         self.predictions = None
         self.visible_area = None
-        self._traj_set = None
-        # Initialize Planning Problem
 
+        # Initialize Planning Problem
         problem_init_state = deepcopy(planning_problem.initial_state)
         if not hasattr(problem_init_state, 'acceleration'):
             problem_init_state.acceleration = 0.
@@ -128,27 +127,23 @@ class Agent:
 
     @property
     def record_input_list(self):
-        return self.planner_interface.planner.record_input_list
+        return self.planner_interface.record_input_list
 
     @property
     def record_state_list(self):
-        return self.planner_interface.planner.record_state_list
+        return self.planner_interface.record_state_list
 
     @property
     def vehicle_history(self):
-        return self.planner_interface.planner.ego_vehicle_history
+        return self.planner_interface.vehicle_history
 
     @property
     def coordinate_system(self):
-        return self.planner_interface.planner.coordinate_system
+        return self.planner_interface.coordinate_system
 
     @property
-    def traj_set(self):
-        return self._traj_set if self._traj_set is not None else self.planner_interface.all_traj
-
-    @traj_set.setter
-    def traj_set(self, traj_set):
-        self._traj_set = traj_set
+    def all_trajectories(self):
+        return self.planner_interface.all_trajectories
 
     @property
     def status(self):
@@ -237,21 +232,20 @@ class Agent:
                 self.msg_logger.info(f"Agent {self.id}: Total Planning Time: \t\t{self.planning_times[-1]:.5f} s")
 
                 if trajectory:
-                    # self.optimal
-
-                    self._create_collision_object(self.vehicle_history[-1].prediction.trajectory.state_list[0], timestep+1)
-
+                    # Timestep + 1 in creating collision object because vehicle history of next step is already created
+                    self._create_collision_object(self.vehicle_history[-1].prediction.trajectory.state_list[0],
+                                                  timestep + 1)
                     self.agent_state.log_running(timestep)
 
                     # plot own view on scenario
-                    if (self.save_plot or self.show_plot or self.gif
-                            or ((
-                                        self.config_visu.save_plots or self.config_visu.show_plots) and not self.config.simulation.use_multiagent)):
+                    if (self.save_plot or self.show_plot or self.gif or ((self.config_visu.save_plots or
+                                                                          self.config_visu.show_plots) and
+                                                                         not self.config.simulation.use_multiagent)):
                         visualize_agent_at_timestep(self.scenario, self.planning_problem,
-                                                    self.vehicle_history[-1], timestep,
+                                                    self.vehicle_history[-1], timestep + 1,
                                                     self.config, self.log_path,
-                                                    traj_set=self.traj_set,
-                                                    optimal_traj=self.planner_interface.planner.trajectory_pair[0],
+                                                    traj_set=self.all_trajectories,
+                                                    optimal_traj=self.planner_interface.trajectory_pair[0],
                                                     ref_path=self.planner_interface.reference_path,
                                                     predictions=self.predictions,
                                                     visible_area=self.visible_area,
@@ -298,21 +292,3 @@ class Agent:
                                            state.position[1]))
         self.collision_objects.append(ego)
 
-    def convert_state_list_to_commonroad_object(self, state_list: List[ReactivePlannerState]):
-        """
-        Converts a CR trajectory to a CR dynamic obstacle with given dimensions
-        :param state_list: trajectory state list of reactive planner
-        :param obstacle_id: [optional] ID of ego vehicle dynamic obstacle
-        :return: CR dynamic obstacle representing the ego vehicle
-        """
-        # shift trajectory positions to center
-        new_state_list = list()
-        for state in state_list:
-            new_state_list.append(state.shift_positions_to_center(self.config.vehicle.wb_rear_axle))
-
-        trajectory = Trajectory(initial_time_step=new_state_list[0].time_step, state_list=new_state_list)
-        # get shape of vehicle
-        shape = Rectangle(self.config.vehicle.length, self.config.vehicle.width)
-        # get trajectory prediction
-        prediction = TrajectoryPrediction(trajectory, shape)
-        return DynamicObstacle(self.id, ObstacleType.CAR, shape, trajectory.state_list[0], prediction)
