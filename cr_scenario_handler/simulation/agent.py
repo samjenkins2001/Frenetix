@@ -232,9 +232,9 @@ class Agent:
                 self.msg_logger.info(f"Agent {self.id}: Total Planning Time: \t\t{self.planning_times[-1]:.5f} s")
 
                 if trajectory:
-                    # Timestep + 1 in creating collision object because vehicle history of next step is already created
-                    self._create_collision_object(self.vehicle_history[-1].prediction.trajectory.state_list[0],
-                                                  timestep + 1)
+
+                    self._create_collision_object(self.vehicle_history[-1].initial_state,
+                                                  self.vehicle_history[-1].initial_state.time_step)
                     self.agent_state.log_running(timestep)
 
                     # plot own view on scenario
@@ -242,7 +242,7 @@ class Agent:
                                                                           self.config_visu.show_plots) and
                                                                          not self.config.simulation.use_multiagent)):
                         visualize_agent_at_timestep(self.scenario, self.planning_problem,
-                                                    self.vehicle_history[-1], timestep + 1,
+                                                    self.vehicle_history[-1], timestep,
                                                     self.config, self.log_path,
                                                     traj_set=self.all_trajectories,
                                                     optimal_traj=self.planner_interface.trajectory_pair[0],
