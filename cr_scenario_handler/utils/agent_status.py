@@ -61,8 +61,15 @@ class AgentState:
 
     def log_finished(self, timestep):
         self.last_timestep = timestep
-        self.message = "goal reached"
         self.goal_status = True
+        if self.status == AgentStatus.COMPLETED_SUCCESS:
+            self.message = "goal reached successful"
+        elif self.status == AgentStatus.COMPLETED_FASTER:
+            self.message = "goal reached faster"
+        elif self.status == AgentStatus.COMPLETED_OUT_OF_TIME:
+            self.message = "goal reached out of time"
+        else:
+            self.message = "ERROR: not valid finishing state"
 
     def log_max_s_position(self, timestep):
         self.status = AgentStatus.MAX_S_POSITION
