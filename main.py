@@ -105,19 +105,18 @@ def main():
 
     if evaluation_pipeline:
         if not start_multiagent:
-            num_workers = 4  # or any number you choose based on your resources and requirements
+            num_workers = 8  # or any number you choose based on your resources and requirements
             with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
                 # Create a list of tuples that will be passed to start_simulation_wrapper
                 scenario_info_list = [(scenario_file, scenario_folder, mod_path, logs_path, use_cpp)
                                       for scenario_file in scenario_files]
-                results = executor.map(start_simulation, scenario_info_list)
+                results = executor.map(run_simulation_wrapper, scenario_info_list)
         else:
             count = 0
             for scenario_file in scenario_files:
                 start_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp,
-                               start_multiagent, count)
+                                 start_multiagent, count)
                 count += 1
-
 
     else:
         # If not in evaluation_pipeline mode, just run one scenario
