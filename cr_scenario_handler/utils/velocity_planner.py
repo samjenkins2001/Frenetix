@@ -83,7 +83,10 @@ class VelocityPlanner:
             float: The calculated desired velocity.
         """
         if self._is_in_goal(x_0):
-            return self.default_goal_velocity
+            if self.default_goal_velocity:
+                return self.default_goal_velocity
+            else:
+                return x_0.velocity
 
         if self.used_goal_metric == "time_step":
             return x_0.velocity
@@ -112,13 +115,13 @@ class VelocityPlanner:
         Returns:
             float: Remaining time in seconds.
         """
-        _, max_remaining_time_steps = self.calc_remaining_time_steps(
+        remaining_time_steps = self.calc_remaining_time_steps(
             ego_state_time=x_0.time_step,
             t=0.0,
         )
-        return max_remaining_time_steps * self.DT
+        return remaining_time_steps * self.DT
 
-    def calc_remaining_time_steps(self, ego_state_time: float, t: float) -> Tuple[int, int]:
+    def calc_remaining_time_steps(self, ego_state_time: float, t: float) -> int:
         """
         Calculate the minimum and maximum amount of remaining time steps.
 
@@ -133,6 +136,6 @@ class VelocityPlanner:
         if hasattr(self.planning_problem.goal.state_list[0], "time_step"):
             min_remaining_time = self.planning_problem.goal.state_list[0].time_step.start - considered_time_step
             max_remaining_time = self.planning_problem.goal.state_list[0].time_step.end - considered_time_step
-            return min_remaining_time, max_remaining_time
+            return int((max_remaining_time+min_remaining_time)/2)
 
 
