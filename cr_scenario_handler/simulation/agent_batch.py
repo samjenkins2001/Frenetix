@@ -6,7 +6,7 @@ __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
 import os
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Event
 from queue import Empty
 from typing import Optional, List
 import time
@@ -16,14 +16,13 @@ from commonroad.planning.planning_problem import PlanningProblemSet
 
 from cr_scenario_handler.simulation.agent import Agent
 import cr_scenario_handler.utils.multiagent_helpers as hf
-from cr_scenario_handler.utils.agent_status import AgentStatus
+from cr_scenario_handler.utils.agent_status import AgentStatus, TIMEOUT
 
 
 class AgentBatch(Process):
 
-    def __init__(self, agent_id_list: List[int], planning_problem_set: PlanningProblemSet, scenario: Scenario,
-                 global_timestep: int, config_planner, config_sim, msg_logger,  sim_logger, log_path: str, mod_path: str,
-                 in_queue: Optional[Queue] = None, out_queue: Optional[Queue] = None):
+    def __init__(self, agents, global_timestep: int, msg_logger, log_path: str,
+                 in_queue: Optional[Queue] = None, out_queue: Optional[Queue] = None, event: Optional[Event] = None):
         """Batch of agents.
 
         Manages the Agents in this batch, and communicates dummy obstacles,
@@ -53,33 +52,33 @@ class AgentBatch(Process):
         # Initialize queues
         self.in_queue = in_queue
         self.out_queue = out_queue
-        self.mod_path = mod_path
+        self.event = event
+
+        # self.mod_path = mod_path
+        self.log_path = log_path
 
         # Initialize batch
         self.global_timestep = global_timestep
-        self.agent_list = []
-        self.agent_ids = agent_id_list
-        for agent_id in agent_id_list:
-            # Initialize Agents
-            agent = Agent(agent_id, planning_problem_set.find_planning_problem_by_id(agent_id),
-                          scenario, config_planner, config_sim, msg_logger)
-            self.agent_list.append(agent)
+        self.agent_list = agents
+        self.agent_ids = [agent.id for agent in agents]
+
+        # list of all active agents
+        self.running_agent_list = []
+        # list of all finished agents
+        self.terminated_agent_list = []
+
+        self.process_times = dict()
+
+        self.finished = False
 
         # initialize communication dict
-        self.out_queue_dict = dict.fromkeys(agent_id_list, {})
+        self.out_queue_dict = dict.fromkeys(self.agent_ids, {})
 
         self.latest_starting_time = max([agent.current_timestep for agent in self.agent_list])
 
         # dict of all agents with corresponding starting times
         self.agent_dict = {timestep: [agent for agent in self.agent_list if agent.current_timestep == timestep] for
                            timestep in range(self.latest_starting_time+1)}
-        # list of all active agents
-        self.running_agent_list = []
-        # list of all finished agents
-        self.terminated_agent_list = []
-        self.finished = False
-
-        self.process_times = dict()
 
     def run(self):
         """ Main function of the agent batch when running in a separate process.
@@ -104,11 +103,19 @@ class AgentBatch(Process):
             start_time = time.perf_counter()
 
             try:
-                args = self.in_queue.get(block=True, timeout=hf.TIMEOUT)
+                args = self.in_queue.get(block=True, timeout=TIMEOUT)
             except Empty:
+                self.event.set()
                 self.msg_logger.error(f"Batch {self.name}: Timeout waiting for "
                                       f"{'simulation' if self.finished else 'agent'} updates!")
-                return
+
+                raise RuntimeError(f"Batch {self.name}: Timeout waiting for "
+                                   f"{'simulation' if self.finished else 'agent'} updates!")
+
+            if self.event.is_set():
+                self.msg_logger.error(f"Batch {self.name}: Termination event is triggered!")
+                break
+
             sync_time_in = time.perf_counter() - start_time
 
             if self.finished:
@@ -116,12 +123,10 @@ class AgentBatch(Process):
                 for agent in self.terminated_agent_list:
                     agent.make_gif()
                 self.msg_logger.critical(f"Batch {self.name}: Simulation of the batch finished!")
-
-                return
+                break
 
             else:
                 # simulate next step
-
                 self.step_simulation(*args)
 
                 syn_time_out = time.perf_counter()
@@ -133,6 +138,12 @@ class AgentBatch(Process):
                                        "sync_time_in": sync_time_in})
 
             self.out_queue.put([self.finished, self.process_times])
+
+
+            if self.event.is_set():
+                self.msg_logger.error(f"Batch {self.name}: Termination event is triggered!")
+                break
+            #print(self.name, self.event.is_set())
 
     def step_simulation(self, scenario, global_timestep, global_predictions, colliding_agents):
         """Simulate the next timestep.
@@ -217,7 +228,7 @@ class AgentBatch(Process):
                                              "record_state_list": agent.record_state_list[-1],
                                              "record_input_list": agent.record_input_list[-1],
                                              "planning_times": agent.planning_times[-1],
-                                             "traj_set": agent.all_trajectories
+                                             "all_trajectories": agent.all_trajectories
                                              }
 
     def _check_completion(self):

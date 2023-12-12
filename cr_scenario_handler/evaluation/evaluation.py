@@ -1,36 +1,21 @@
-from cr_scenario_handler.evaluation.metrics import Measures
-#from commonroad_crime.data_structure.configuration import CriMeConfiguration
-#from commonroad_crime.data_structure.crime_interface import CriMeInterface
-
-from abc import abstractmethod, ABC
-#from commonroad_crime.data_structure.crime_interface import CriMeInterface
-from typing import List, Type
-
-#from commonroad_crime.data_structure.base import CriMeBase
-#from commonroad_crime.data_structure.configuration import CriMeConfiguration
-# import commonroad_crime.measure as measures
-import matplotlib
-import matplotlib.pyplot as plt
 import math
-#from commonroad_crime.data_structure.type import TypeMonotone
-import numpy as np
+from abc import ABC
+
+# import commonroad_crime.measure as measures
+import matplotlib.pyplot as plt
 import pandas as pd
-import traceback
-#import commonroad_crime.utility.logger as utils_log
-from multiprocessing import Pool
-import concurrent.futures
-import copy as copy
-from itertools import repeat
+
+from cr_scenario_handler.evaluation.metrics import Measures
 
 
-def evaluate_agent(agent_id, scenario, ref_path, metrics, msg_logger):
+def evaluate_agent(agent_id, scenario, reference_paths, metrics, msg_logger):
     # self.config_measures.update(ego_id=agent_id)
     t_start = scenario.obstacle_by_id(agent_id).initial_state.time_step
     t_end = scenario.obstacle_by_id(agent_id).prediction.final_time_step
 
     results = pd.DataFrame(None, index=list(range(t_start,t_end+1)), columns=metrics)
     # for t in range(t_start, t_end + 1):
-    measures = Measures(agent_id, scenario, t_start, t_end, ref_path, msg_logger)
+    measures = Measures(agent_id, scenario, t_start, t_end, reference_paths, msg_logger)
     for measure in metrics:
         value = getattr(measures, measure)()
         results[measure] = value
@@ -105,7 +90,7 @@ class Evaluator(ABC):
                 raise ValueError("provided agents_ids do not match with agents!")
         elif agents:
             agent_id = [i.id for i in agents]
-            self.reference_paths = {i.id: i.reference_path for i in agents}
+            self.reference_paths= {i.id: i.reference_paths for i in agents}
         elif not agent_id and not agents:
             agent_id = [obs.id for obs in self.scenario.dynamic_obstacles]
 
@@ -127,6 +112,7 @@ class Evaluator(ABC):
             self.msg_logger.critical(f"Evaluate agent {agent_id}")
             self.msg_logger.info(f"metrics: {self.measures}")
             ref_path = self.reference_paths[agent_id] if agent_id in self.reference_paths else None
+            # cosy =  self.coordinatie_system[agent_id] if agent_id in self.coordinatie_system else None
             agent_results = evaluate_agent(agent_id, self.scenario, ref_path, self.measures, self.msg_logger)
             if self._df_criticality is None:
                 self._df_criticality = agent_results.set_index([[agent_id] * len(agent_results), agent_results.index])

@@ -57,7 +57,7 @@ class AgentState:
     def log_collision(self, timestep):
         self.status = AgentStatus.COLLISION
         self.last_timestep = timestep
-        self.message = "collision"
+        self.message = "collision" if timestep > 0 else "initial state already crashed"
 
     def log_finished(self, timestep):
         self.last_timestep = timestep

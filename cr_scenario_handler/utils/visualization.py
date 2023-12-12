@@ -708,29 +708,42 @@ def visualize_collision_checker(scenario: Scenario, cc: pycrcc.CollisionChecker)
     rnd.render(show=True)
 
 
-def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProblem, save_path, cosy=None):
+def visualize_scenario_and_pp(scenario: Scenario, planning_problem: PlanningProblem=None, save_path=None, cosy=None):
     """Visualizes scenario, planning problem and (optionally) the reference path"""
     plot_limits = None
     ref_path = None
     if cosy is not None:
-        ref_path = cosy.reference
-        x_min = np.min(ref_path[:, 0]) - 50
-        x_max = np.max(ref_path[:, 0]) + 50
-        y_min = np.min(ref_path[:, 1]) - 50
-        y_max = np.max(ref_path[:, 1]) + 50
-        plot_limits = [x_min, x_max, y_min, y_max]
+        try:
+            ref_path = cosy.reference
+        except:
+            ref_path = np.array(cosy.reference_path())
+        # x_min = np.min(ref_path[:, 0]) - 150
+        # x_max = np.max(ref_path[:, 0]) + 150
+        # y_min = np.min(ref_path[:, 1]) - 150
+        # y_max = np.max(ref_path[:, 1]) + 150
+        # plot_limits = [x_min, x_max, y_min, y_max]
+        plot_limits = None
 
     rnd = MPRenderer(figsize=(20, 10), plot_limits=plot_limits)
     rnd.draw_params.time_begin = 0
+    rnd.draw_params.traffic_light.draw_traffic_lights = False
+    rnd.draw_params.traffic_sign.draw_traffic_signs = False
     scenario.draw(rnd)
-    planning_problem.draw(rnd)
+    if planning_problem is not None:
+        planning_problem.draw(rnd)
     rnd.render()
     if ref_path is not None:
         rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=20,
                     linewidth=0.8, label='reference path')
-        proj_domain_border = np.array(cosy.ccosy.projection_domain())
+        if hasattr(cosy, "ccosy"):
+            proj_domain_border = np.array(cosy.ccosy.projection_domain())
+        else:
+            proj_domain_border = np.array(cosy.projection_domain())
         rnd.ax.plot(proj_domain_border[:, 0], proj_domain_border[:, 1], color="orange", linewidth=0.8)
-    plt.savefig(os.path.join(save_path, "reference_path.svg"), format='svg', bbox_inches='tight')
+    if save_path is not None:
+        plt.savefig(os.path.join(save_path, "reference_path.svg"), format='svg', bbox_inches='tight')
+    else:
+        plt.show()
 
 
 def green_to_red_colormap():

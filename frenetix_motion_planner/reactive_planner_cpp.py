@@ -176,7 +176,7 @@ class ReactivePlannerCpp(Planner):
         # For manual debugging reasons:
         if self.config_sim.visualization.ref_path_debug:
             visualize_scenario_and_pp(scenario=self.scenario, planning_problem=self.planning_problem,
-                                      save_path=self.config_sim.simulation.log_path, cosy=self.coordinate_system)
+                                      save_path=self.logger.path_logs, cosy=self.coordinate_system)
 
         self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper(reference_path)
         self.set_new_ref_path = True

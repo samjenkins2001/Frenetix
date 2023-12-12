@@ -10,18 +10,13 @@ import inspect
 import os
 import time
 from copy import deepcopy
-from typing import List
 
 # third party
 import commonroad_dc.pycrcc as pycrcc
-from commonroad.geometry.shape import Rectangle
 from commonroad.planning.planning_problem import PlanningProblem
-from commonroad.prediction.prediction import TrajectoryPrediction
-from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
+
 # commonroad-io
 from commonroad.scenario.scenario import Scenario
-from commonroad.scenario.state import InputState
-from commonroad.scenario.trajectory import Trajectory
 # scenario handler
 import cr_scenario_handler.planner_interfaces as planner_interfaces
 import cr_scenario_handler.utils.multiagent_helpers as hf
@@ -31,13 +26,12 @@ from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInte
 from cr_scenario_handler.utils.collision_report import coll_report
 from cr_scenario_handler.utils.agent_status import AgentStatus, AgentState
 from cr_scenario_handler.utils.visualization import visualize_agent_at_timestep
-from frenetix_motion_planner.state import ReactivePlannerState
 
 
 class Agent:
 
     def __init__(self, agent_id: int, planning_problem: PlanningProblem,
-                 scenario: Scenario, config_planner, config_sim, msg_logger):
+                 scenario: Scenario, config_planner, config_sim, msg_logger, log_path: str, mod_path: str):
         """Represents one agent of a multiagent or single-agent simulation.
 
         Manages the agent's local view on the scenario, the planning problem,
@@ -63,9 +57,9 @@ class Agent:
         self.config_planner = deepcopy(config_planner)
         self.vehicle = config_sim.vehicle
 
-        self.mod_path = config_sim.simulation.mod_path
+        self.mod_path = mod_path
         self.log_path = os.path.join(config_sim.simulation.log_path, str(agent_id)) if (
-                                     self.config_simulation.use_multiagent) else config_sim.simulation.log_path
+                                     self.config_simulation.use_multiagent) else log_path
 
         self.save_plot = (self.id in self.config_visu.save_specific_individual_plots
                           or self.config_visu.save_all_individual_plots)
@@ -100,6 +94,7 @@ class Agent:
         self.collision_objects = list()
         self._create_collision_object(x_0, problem_init_state.time_step)
 
+        self._all_trajectories = None
         # Initialize Planner
         used_planner = self.config_simulation.used_planner_interface
 
@@ -143,8 +138,11 @@ class Agent:
 
     @property
     def all_trajectories(self):
-        return self.planner_interface.all_trajectories
+        return self._all_trajectories if self._all_trajectories is not None else self.planner_interface.all_trajectories
 
+    @all_trajectories.setter
+    def all_trajectories(self, traj):
+        self._all_trajectories = traj
     @property
     def status(self):
         return self.agent_state.status
@@ -185,25 +183,27 @@ class Agent:
         """
         # Check for collisions in previous timestep
         if self.agent_state.status == AgentStatus.COLLISION:
-
+            self.planning_times.append(0)
             if self.config.evaluation.collision_report:
                 coll_report(self.vehicle_history, self.planner_interface.planner, self.scenario, self.planning_problem,
                             self.agent_state.last_timestep, self.config, self.log_path)
             self.postprocessing()
 
         elif timestep > self.max_time_steps_scenario:
-
+            self.planning_times.append(0)
             self.agent_state.log_timelimit(timestep)
             self.postprocessing()
 
         elif self.planner_interface.planner.x_cl[0][0] > self.agent_state.goal_checker.last_goal_position:
             self.agent_state.log_max_s_position(timestep)
+            self.planning_times.append(0)
             self.postprocessing()
 
         else:
             # check for completion of this agent
             self.agent_state.check_goal_reached(self.record_state_list, self.planner_interface.planner.x_cl)
             if self.agent_state.status is not AgentStatus.RUNNING:
+                self.planning_times.append(0)
                 self.agent_state.log_finished(timestep)
                 self.postprocessing()
 

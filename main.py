@@ -25,15 +25,13 @@ def start_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cp
     config_planner.debug.use_cpp = use_cpp
 
     simulation = None
-    evaluation = None
 
     try:
         simulation = Simulation(config_sim, config_planner)
         simulation.run_simulation()
-        if config_sim.evaluation.evaluate_simulation:
-            evaluation = evaluate_simulation(simulation)
 
     except Exception as e:
+        simulation.close_processes()
         error_traceback = traceback.format_exc()  # This gets the entire error traceback
         with open('logs/log_failures.csv', 'a', newline='') as f:
             writer = csv.writer(f)
