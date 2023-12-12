@@ -275,7 +275,7 @@ def logger_initialization(config: Configuration, log_path, logger = "Simulation_
 
     # Create directories
     if not os.path.exists(log_path):
-        os.makedirs(log_path)
+        os.makedirs(log_path, exist_ok=True)
 
     # create file handler (outputs to file)
     path_log = os.path.join(log_path, "messages.log")
