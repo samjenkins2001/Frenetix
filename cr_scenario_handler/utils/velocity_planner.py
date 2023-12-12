@@ -82,11 +82,12 @@ class VelocityPlanner:
         Returns:
             float: The calculated desired velocity.
         """
-        if self._is_in_goal(x_0):
-            if self.default_goal_velocity:
-                return self.default_goal_velocity
-            else:
-                return x_0.velocity
+        if self.used_goal_metric != "time_step":
+            if self._is_in_goal(x_0):
+                if self.default_goal_velocity:
+                    return self.default_goal_velocity
+                else:
+                    return x_0.velocity
 
         if self.used_goal_metric == "time_step":
             return x_0.velocity
