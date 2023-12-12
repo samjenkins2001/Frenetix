@@ -18,6 +18,7 @@ from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInte
 from cr_scenario_handler.utils import helper_functions as hf
 import cr_scenario_handler.utils.goalcheck as gc
 from cr_scenario_handler.utils.utils_coordinate_system import smooth_ref_path, extend_ref_path
+from cr_scenario_handler.utils.velocity_planner import VelocityPlanner
 
 from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
@@ -108,8 +109,8 @@ class FrenetPlannerInterface(PlannerInterface):
         end_velocity = getattr(getattr(self.planning_problem.goal.state_list[0], 'velocity', None), 'end', 5)
         additional_lenght_in_meters = end_velocity * (config_planner.planning.planning_horizon + 1.0)
         self.reference_path, _ = self.route_planner.extend_reference_path_at_end(reference_path=self.reference_path,
-                                                                                 final_position=self.reference_path[-1]
-                                                                                 , additional_lenght_in_meters=additional_lenght_in_meters)
+                                                                                 final_position=self.reference_path[-1],
+                                                                                 additional_lenght_in_meters=additional_lenght_in_meters)
 
         self.goal_area = gc.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
 
@@ -124,6 +125,12 @@ class FrenetPlannerInterface(PlannerInterface):
         # **************************
         self.planner.update_externals(x_0=self.x_0, reference_path=self.reference_path, goal_area=self.goal_area)
         self.x_cl = self.planner.x_cl
+
+        # ***************************
+        # Initialize Velocity Planner
+        # ***************************
+        self.velocity_planner = VelocityPlanner(scenario=scenario, planning_problem=planning_problem,
+                                                coordinate_system=self.coordinate_system)
 
     @property
     def all_trajectories(self):
@@ -167,8 +174,7 @@ class FrenetPlannerInterface(PlannerInterface):
         # TODO Behavior Planner in simulation oder hier?
         if not self.config_sim.behavior.use_behavior_planner:
             # set desired velocity
-            self.desired_velocity = hf.calculate_desired_velocity(scenario, self.planning_problem, self.x_0, self.DT,
-                                                                  desired_velocity=self.desired_velocity)
+            self.desired_velocity = self.velocity_planner.calculate_desired_velocity(self.x_0, self.x_cl[0][0])
         else:
             raise NotImplementedError
             # behavior = behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
@@ -177,7 +183,7 @@ class FrenetPlannerInterface(PlannerInterface):
         # End TODO
 
         self.planner.update_externals(scenario=scenario, x_0=self.x_0, x_cl=self.x_cl,
-                                      desired_velocity=self.desired_velocity, predictions=predictions, occlusion_module=None)
+                                      desired_velocity=self.desired_velocity, predictions=predictions)
 
     def step_interface(self, current_timestep=None):
         """ Execute one planing step.
