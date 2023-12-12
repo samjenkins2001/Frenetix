@@ -8,12 +8,12 @@ cost_weights:
     path_length: 0.0
 
     lane_center_offset: 0.0
-    velocity_offset: 0.5
+    velocity_offset: 0.3
     velocity: 0.
     distance_to_reference_path: 1.
-    distance_to_obstacles: 1.0
+    distance_to_obstacles: 0.0
 
-    prediction: 200
+    prediction: 350
     responsibility: 0
 
 external_cost_weights:
