@@ -1,5 +1,6 @@
 from typing import Optional, Tuple, List
 from shapely.geometry import Point
+from commonroad.geometry.shape import Rectangle, Circle, Polygon, Shape, ShapeGroup
 
 
 class VelocityPlanner:
@@ -9,7 +10,7 @@ class VelocityPlanner:
         self.DT = scenario.dt
         self.coordinate_system = coordinate_system
         self.default_goal_velocity = self._calculate_default_goal_velocity(planning_problem)
-        self.used_goal_metric, self.goal_s_position, self.goal_centers = self._determine_goal_metrics(scenario,
+        self.used_goal_metric, self.goal_s_position, self.goal_centers, self.goal_shape = self._determine_goal_metrics(scenario,
                                                                                                       planning_problem)
 
     @staticmethod
@@ -22,19 +23,21 @@ class VelocityPlanner:
             return (start_velocity + end_velocity) / 2
         return None
 
-    def _determine_goal_metrics(self, scenario, planning_problem) -> Tuple[Optional[str], Optional[float], List]:
+    def _determine_goal_metrics(self, scenario, planning_problem):
         """Determine the goal metrics based on planning problem attributes."""
         goal_metric = None
         goal_centers = []
         goal_s_position = None
+        goal_shape = None
 
         if self._is_lanelet_goal(planning_problem):
-            goal_metric, goal_centers = self._process_lanelet_goal(scenario, planning_problem)
+            goal_metric, goal_centers, goal_shape = self._process_lanelet_goal(scenario, planning_problem)
 
         elif hasattr(planning_problem.goal.state_list[0], "position"):
-            goal_metric = "center" if hasattr(planning_problem.goal.state_list[0].position, "center") else None
+            goal_metric = "center" if hasattr(planning_problem.goal.state_list[0].position, "shapely_object") else None
             if goal_metric:
                 goal_centers.append(planning_problem.goal.state_list[0].position.center)
+                goal_shape = planning_problem.goal.state_list[0].position.shapely_object
 
         elif hasattr(planning_problem.goal.state_list[0], "time_step"):
             goal_metric = "time_step"
@@ -42,13 +45,13 @@ class VelocityPlanner:
         if goal_metric != "time_step":
             goal_s_position = self._calculate_goal_s_position(goal_centers)
 
-        return goal_metric, goal_s_position, goal_centers
+        return goal_metric, goal_s_position, goal_centers, goal_shape
 
     def _is_lanelet_goal(self, planning_problem) -> bool:
         """Check if the planning problem's goal is defined by lanelets."""
         return hasattr(planning_problem.goal, "lanelets_of_goal_position") and planning_problem.goal.lanelets_of_goal_position is not None
 
-    def _process_lanelet_goal(self, scenario, planning_problem) -> Tuple[str, List]:
+    def _process_lanelet_goal(self, scenario, planning_problem):
         """Process the lanelet-based goal."""
         goal_centers = []
         goal_lanelet_ids = planning_problem.goal.lanelets_of_goal_position[0]
@@ -56,7 +59,9 @@ class VelocityPlanner:
             lanelet = scenario.lanelet_network.find_lanelet_by_id(lanelet_id)
             n_center_vertices = len(lanelet.center_vertices)
             goal_centers.append(lanelet.center_vertices[int(n_center_vertices / 2.0)])
-        return "lanelets_of_goal_position", goal_centers
+        goal_lanelet_id = self.planning_problem.goal.lanelets_of_goal_position[0][0]
+        goal_polygon = self.scenario.lanelet_network.find_lanelet_by_id(goal_lanelet_id).polygon.shapely_object
+        return "lanelets_of_goal_position", goal_centers, goal_polygon
 
     def _calculate_goal_s_position(self, goal_centers: List) -> Optional[float]:
         """Calculate the goal's s position based on goal centers."""
@@ -102,9 +107,7 @@ class VelocityPlanner:
 
     def _is_in_goal(self, x_0) -> bool:
         """Check if the vehicle is within the goal region."""
-        goal_lanelet_id = self.planning_problem.goal.lanelets_of_goal_position[0][0]
-        goal_polygon = self.scenario.lanelet_network.find_lanelet_by_id(goal_lanelet_id).polygon.shapely_object
-        return Point(x_0.position).within(goal_polygon)
+        return Point(x_0.position).within(self.goal_shape)
 
     def _calculate_remaining_time(self, x_0) -> float:
         """
