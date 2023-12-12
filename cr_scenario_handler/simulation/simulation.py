@@ -456,7 +456,7 @@ class Simulation:
                 or len(self.agent_id_list) < 2:
 
             # Multiprocessing disabled or useless, run single process
-            batch_list.append(AgentBatch(agents, self.global_timestep, self.msg_logger,  self.log_path))
+            batch_list.append(AgentBatch(agents, self.global_timestep, self.msg_logger,  self.log_path, self.mod_path))
 
         else:
             # We need at least one agent per batch, and one process for the main simulation
@@ -473,8 +473,8 @@ class Simulation:
                 inqueue = Queue()
                 outqueue = Queue()
 
-                batch_list.append(AgentBatch(chunk, self.global_timestep, self.msg_logger, self.log_path, outqueue,
-                                             inqueue, self.event))
+                batch_list.append(AgentBatch(chunk, self.global_timestep, self.msg_logger, self.log_path, self.mod_path,
+                                             outqueue, inqueue, self.event))
 
         return batch_list, agents
 

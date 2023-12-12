@@ -8,7 +8,6 @@ import concurrent.futures
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 from cr_scenario_handler.utils.general import get_scenario_list
-from cr_scenario_handler.evaluation.evaluation import evaluate_simulation
 
 
 def run_simulation_wrapper(scenario_info):

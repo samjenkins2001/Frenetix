@@ -21,7 +21,7 @@ from cr_scenario_handler.utils.agent_status import AgentStatus, TIMEOUT
 
 class AgentBatch(Process):
 
-    def __init__(self, agents, global_timestep: int, msg_logger, log_path: str,
+    def __init__(self, agents, global_timestep: int, msg_logger, log_path: str, mod_path: str,
                  in_queue: Optional[Queue] = None, out_queue: Optional[Queue] = None, event: Optional[Event] = None):
         """Batch of agents.
 
@@ -54,8 +54,8 @@ class AgentBatch(Process):
         self.out_queue = out_queue
         self.event = event
 
-        # self.mod_path = mod_path
         self.log_path = log_path
+        self.mod_path = mod_path
 
         # Initialize batch
         self.global_timestep = global_timestep
@@ -217,8 +217,7 @@ class AgentBatch(Process):
                 self.running_agent_list.remove(agent)
                 with (open(os.path.join(self.mod_path, "logs", "score_overview.csv"), 'a') as file):
                     msg = "Success" if agent.status == AgentStatus.COMPLETED_SUCCESS else "Failed"
-                    line = str(agent.scenario.scenario_id) + ";" + str(agent.id) + ";" + str(
-                        agent.current_timestep) + ";" + \
+                    line = str(agent.scenario.scenario_id) + ";" + str(agent.id) + ";" + str(agent.current_timestep) + ";" + \
                            str(agent.status) + ";" + str(agent.agent_state.message) + ";" + msg + "\n"
                     file.write(line)
 
