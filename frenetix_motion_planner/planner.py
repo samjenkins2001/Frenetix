@@ -143,14 +143,17 @@ class Planner:
         self.optimal_trajectory = None
         self.trajectory_pair = None
         self.use_occ_model = False
-        self.logger = DataLoggingCosts(
-            config=self.config_plan,
-            scenario=scenario,
-            planning_problem=planning_problem,
-            path_logs=log_path,
-            save_all_traj=self.save_all_traj,
-            cost_params=self.config_plan.cost.cost_weights
-        )
+        if config_plan.debug.activate_logging:
+            self.logger = DataLoggingCosts(
+                config=self.config_plan,
+                scenario=scenario,
+                planning_problem=planning_problem,
+                path_logs=log_path,
+                save_all_traj=self.save_all_traj,
+                cost_params=self.config_plan.cost.cost_weights
+            )
+        else:
+            self.logger = None
         self._draw_traj_set = self.config_plan.debug.draw_traj_set
         self._kinematic_debug = self.config_plan.debug.kinematic_debug
 
@@ -615,13 +618,13 @@ class Planner:
         # **************************
         # Logging
         # **************************
-        if optimal_trajectory is not None:
+        if optimal_trajectory is not None and self.logger:
             self.logger.log(optimal_trajectory, time_step=self.x_0.time_step,
                             infeasible_kinematics=self._infeasible_count_kinematics,
                             percentage_kinematics=self.infeasible_kinematics_percentage, planning_time=planning_time,
                             ego_vehicle=self.ego_vehicle_history[-1])
             self.logger.log_predicition(self.predictions)
-        if self.save_all_traj:
+        if self.save_all_traj and self.logger:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step)
 
         # **************************

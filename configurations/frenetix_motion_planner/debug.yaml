@@ -8,6 +8,9 @@ kinematic_debug: True
 # Collision Report Information
 collision_report: True
 
+# Logging of CSVs etc. should be activated
+activate_logging: False
+
 # Messages Logging
 # Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
 msg_log_mode: INFO

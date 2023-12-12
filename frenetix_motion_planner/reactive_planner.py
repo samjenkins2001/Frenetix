@@ -88,7 +88,8 @@ class ReactivePlannerPython(Planner):
 
             bundle = self._create_trajectory_bundle(self.x_cl[0], self.x_cl[1], self.cost_function, samp_level=samp_level)
 
-            self.logger.trajectory_number = self.x_0.time_step
+            if self.logger:
+                self.logger.trajectory_number = self.x_0.time_step
 
             optimal_trajectory = self._get_optimal_trajectory(bundle, samp_level)
 
@@ -112,7 +113,8 @@ class ReactivePlannerPython(Planner):
 
         if optimal_trajectory is None and self.x_0.velocity <= 0.1:
             self.msg_logger.warning('Planning standstill for the current scenario')
-            self.logger.trajectory_number = self.x_0.time_step
+            if self.logger:
+                self.logger.trajectory_number = self.x_0.time_step
             optimal_trajectory = self._compute_standstill_trajectory()
 
         # ************************************

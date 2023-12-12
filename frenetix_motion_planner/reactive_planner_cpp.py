@@ -88,7 +88,8 @@ class ReactivePlannerCpp(Planner):
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
         self.trajectory_handler_set_changing_functions()
-        self.logger.set_logging_header(self.config_plan.cost.cost_weights)
+        if self.logger:
+            self.logger.set_logging_header(self.config_plan.cost.cost_weights)
 
     def trajectory_handler_set_constant_feasibility_functions(self):
         self.handler.add_feasability_function(ff.CheckYawRateConstraint(deltaMax=self.vehicle_params.delta_max,
@@ -176,11 +177,12 @@ class ReactivePlannerCpp(Planner):
         # For manual debugging reasons:
         if self.config_sim.visualization.ref_path_debug:
             visualize_scenario_and_pp(scenario=self.scenario, planning_problem=self.planning_problem,
-                                      save_path=self.logger.path_logs, cosy=self.coordinate_system)
+                                      save_path=self.config_sim.simulation.log_path, cosy=self.coordinate_system)
 
         self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper = frenetix.CoordinateSystemWrapper(reference_path)
         self.set_new_ref_path = True
-        self.logger.sql_logger.write_reference_path(reference_path)
+        if self.logger:
+            self.logger.sql_logger.write_reference_path(reference_path)
 
     def plan(self) -> tuple:
         """
