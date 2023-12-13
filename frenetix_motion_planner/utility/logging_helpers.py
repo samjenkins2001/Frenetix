@@ -344,6 +344,7 @@ class DataLoggingCosts:
             "kappa_rad;"
             "curvilinear_orientations_rad;"
             "velocities_mps;"
+            "desired_velocity_mps;"
             "accelerations_mps2;"
             "s_position_m;"
             "d_position_m;"
@@ -406,7 +407,7 @@ class DataLoggingCosts:
         return self.header
 
     def log(self, trajectory, time_step: int, infeasible_kinematics, percentage_kinematics,
-            planning_time: float, ego_vehicle: DynamicObstacle, collision: bool = False):
+            planning_time: float, ego_vehicle: DynamicObstacle, collision: bool = False, desired_velocity: float = None):
 
         new_line = "\n" + str(time_step)
 
@@ -441,6 +442,7 @@ class DataLoggingCosts:
             new_line += ";" + json.dumps(str(','.join(map(str, trajectory.curvilinear.theta))), default=default)
             # log velocity & acceleration
             new_line += ";" + json.dumps(str(','.join(map(str, cartesian.v))), default=default)
+            new_line += ";" + json.dumps(str(desired_velocity), default=default)
             new_line += ";" + json.dumps(str(','.join(map(str, cartesian.a))), default=default)
 
             # # log frenet coordinates (distance to reference path)

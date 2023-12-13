@@ -165,7 +165,7 @@ class ReactivePlannerCpp(Planner):
 
         name = "velocity_offset"
         if name in self.cost_weights.keys() and self.cost_weights[name] > 0:
-            self.handler.add_cost_function(cf.CalculateVelocityOffsetCost(name, self.cost_weights[name], self._desired_speed))
+            self.handler.add_cost_function(cf.CalculateVelocityOffsetCost(name, self.cost_weights[name], self.desired_velocity))
 
     def set_reference_and_coordinate_system(self, reference_path: np.ndarray):
         """
@@ -224,7 +224,7 @@ class ReactivePlannerCpp(Planner):
             x_0_lon = self.x_cl[0]
 
         self.msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
-        self.msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
+        self.msg_logger.debug('Desired velocity is {} m/s'.format(self.desired_velocity))
 
         # Initialization of while loop
         optimal_trajectory = None

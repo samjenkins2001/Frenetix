@@ -101,7 +101,7 @@ class Planner:
         self.occlusion_module = None
         self.goal_message = "Planner is in time step 0!"
 
-        self._desired_speed = None
+        self.desired_velocity = None
         self._desired_d = 0.
         # self.max_seen_costs = 1
 
@@ -296,7 +296,7 @@ class Planner:
         :param v_limit: limit velocity due to behavior planner in m/s
         :return: velocity in m/s
         """
-        self._desired_speed = desired_velocity
+        self.desired_velocity = desired_velocity
 
         min_v = max(0.01, current_speed - 0.5 * self.vehicle_params.a_max * self.horizon)
         max_v = min(min(current_speed + (self.vehicle_params.a_max / 7.0) * self.horizon, v_limit),
@@ -622,7 +622,7 @@ class Planner:
             self.logger.log(optimal_trajectory, time_step=self.x_0.time_step,
                             infeasible_kinematics=self._infeasible_count_kinematics,
                             percentage_kinematics=self.infeasible_kinematics_percentage, planning_time=planning_time,
-                            ego_vehicle=self.ego_vehicle_history[-1])
+                            ego_vehicle=self.ego_vehicle_history[-1], desired_velocity=self.desired_velocity)
             self.logger.log_predicition(self.predictions)
         if self.save_all_traj and self.logger:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step)

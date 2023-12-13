@@ -71,7 +71,7 @@ class ReactivePlannerPython(Planner):
         """
 
         self.msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(self.x_cl[0], self.x_cl[1]))
-        self.msg_logger.debug('Desired velocity is {} m/s'.format(self._desired_speed))
+        self.msg_logger.debug('Desired velocity is {} m/s'.format(self.desired_velocity))
 
         # Initialization of while loop
         optimal_trajectory = None
