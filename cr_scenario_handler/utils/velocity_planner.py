@@ -67,9 +67,15 @@ class VelocityPlanner:
         """Calculate the goal's s position based on goal centers."""
         goal_s_position = None
         for goals in goal_centers:
-            curvilinear_coords = self.coordinate_system.ccosy.convert_to_curvilinear_coords(goals[0], goals[1])[0]
-            if goal_s_position is None or curvilinear_coords < goal_s_position:
+            try:
+                curvilinear_coords = self.coordinate_system.ccosy.convert_to_curvilinear_coords(goals[0], goals[1])[0]
+            except:
+                curvilinear_coords = None
+                print("Convert to curvilinear coords failed due to projection domain!")
+
+            if curvilinear_coords is None or goal_s_position is None or (curvilinear_coords < goal_s_position):
                 goal_s_position = curvilinear_coords
+
         return goal_s_position
 
     def set_new_scenario_and_planning_problem(self, scenario, planning_problem, coordinate_system):
@@ -95,6 +101,11 @@ class VelocityPlanner:
                     return x_0.velocity
 
         if self.used_goal_metric == "time_step":
+            return x_0.velocity
+
+        if not self.goal_s_position and self.default_goal_velocity:
+            return self.default_goal_velocity
+        elif not self.goal_s_position:
             return x_0.velocity
 
         distance_to_goal = self.goal_s_position - s_position
