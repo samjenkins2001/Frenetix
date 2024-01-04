@@ -113,8 +113,10 @@ class VelocityPlanner:
 
         if remaining_time > 0.0:
             return distance_to_goal / remaining_time
-        else:
+        elif self.default_goal_velocity:
             return self.default_goal_velocity
+        else:
+            return x_0.velocity
 
     def _is_in_goal(self, x_0) -> bool:
         """Check if the vehicle is within the goal region."""
