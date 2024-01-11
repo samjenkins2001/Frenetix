@@ -20,7 +20,8 @@ module_path = os.path.dirname(
 )
 sys.path.append(module_path)
 
-from wale_net_lite.wale_net import WaleNet, Prediction
+from prediction.main import WaleNet
+from wale_net_lite.wale_net import Prediction
 from cr_scenario_handler.utils.sensor_model import get_visible_objects, get_obstacles_in_radius
 
 from frenetix_motion_planner.utility import reachable_set
@@ -32,7 +33,7 @@ msg_logger = logging.getLogger("Simulation_logger")
 
 def load_prediction(scenario, mode, config=None):
     if mode == "walenet":
-        predictor = load_walenet(scenario=scenario)
+        predictor = WaleNet(scenario=scenario)
     elif mode == "ground_truth":
         predictor = Prediction(scenario=scenario)
     else:

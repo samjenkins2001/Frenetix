@@ -22,7 +22,7 @@ commonroad-route-planner = { git = "https://gitlab.lrz.de/av2.0/commonroad/commo
 commonroad-drivability-checker = { git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-drivability-checker.git", branch = "development" }
 
 frenetix = ">=0.1.2"
-
+wale-net = ">=3.0.3"
 matplotlib = ">=3.8.1"
 numpy = ">=1.24.2"
 methodtools = "^0.4.7"
