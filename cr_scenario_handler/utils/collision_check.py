@@ -160,6 +160,11 @@ def collision_check_prediction(
             # create a time variant collision object for the predicted vehicle
             traj = [[x[i], y[i], pred_orientation[i]] for i in range(pred_length)]
 
+            if len(traj) <= 2:
+                # commonroad_dc.collision.trajectory_queries.trajectory_queries.OBBSumException:
+                # Invalid input trajectory_preprocess_obb_sum: Input trajectory must consists of at least two time steps
+                continue
+
             prediction_collision_object_raw = create_tvobstacle(
                 traj_list=traj,
                 box_length=length / 2,

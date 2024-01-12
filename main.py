@@ -30,9 +30,12 @@ def start_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cp
         simulation.run_simulation()
 
     except Exception as e:
-        simulation.close_processes()
+        try:
+            simulation.close_processes()
+        except:
+            pass
         error_traceback = traceback.format_exc()  # This gets the entire error traceback
-        with open('logs/log_failures.csv', 'a', newline='') as f:
+        with open(os.path.join(logs_path, 'log_failures.csv'), 'a', newline='') as f:
             writer = csv.writer(f)
             current_time = datetime.now().strftime('%H:%M:%S')
             # Check if simulation is not None before trying to access current_timestep
@@ -41,7 +44,6 @@ def start_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cp
                              "Error time: " + str(current_time) + "\n" +
                              "In Scenario Timestep: " + current_timestep + "\n" +
                              "CODE ERROR: " + str(e) + error_traceback + "\n\n\n\n"])
-            raise Exception
 
 
 def main():
