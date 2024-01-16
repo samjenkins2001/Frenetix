@@ -82,6 +82,15 @@ class VelocityPlanner:
         # Reinitializing with new scenario and planning problem
         self.__init__(scenario, planning_problem, coordinate_system)
 
+    @staticmethod
+    def clip_velocity(theoretically_desired_velocity, current_velocity, max_value=50, clip_value=5):
+        # Define the lower and upper bounds
+        lower_bound = max(current_velocity - clip_value, 0)
+        upper_bound = min(current_velocity + clip_value, max_value)
+
+        # Clip the value x within the bounds
+        return max(min(theoretically_desired_velocity, upper_bound), lower_bound)
+
     def calculate_desired_velocity(self, x_0, s_position) -> float:
         """
         Calculate the desired velocity based on the vehicle's position and the goal.
@@ -89,6 +98,7 @@ class VelocityPlanner:
         Args:
             x_0: Current state of the vehicle.
             s_position: Current position in the coordinate system.
+            clip_value: clips velocity to prevent exploding velocity offset costs
 
         Returns:
             float: The calculated desired velocity.
@@ -96,7 +106,7 @@ class VelocityPlanner:
         if self.used_goal_metric != "time_step":
             if self._is_in_goal(x_0):
                 if self.default_goal_velocity:
-                    return self.default_goal_velocity
+                    return self.clip_velocity(self.default_goal_velocity, x_0.velocity)
                 else:
                     return x_0.velocity
 
@@ -104,7 +114,7 @@ class VelocityPlanner:
             return x_0.velocity
 
         if not self.goal_s_position and self.default_goal_velocity:
-            return self.default_goal_velocity
+            return self.clip_velocity(self.default_goal_velocity, x_0.velocity)
         elif not self.goal_s_position:
             return x_0.velocity
 
@@ -112,9 +122,9 @@ class VelocityPlanner:
         remaining_time = round(self._calculate_remaining_time(x_0), 3)
 
         if remaining_time > 0.0:
-            return distance_to_goal / remaining_time
+            return self.clip_velocity(distance_to_goal / remaining_time, x_0.velocity)
         elif self.default_goal_velocity:
-            return self.default_goal_velocity
+            return self.clip_velocity(self.default_goal_velocity, x_0.velocity)
         else:
             return x_0.velocity
 
