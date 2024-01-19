@@ -274,6 +274,7 @@ class DataLoggingCosts:
         self.trajectories_header = None
         self.prediction_header = None
         self.collision_header = None
+        self.save_unweighted_costs = config.debug.save_unweighted_costs
 
         self.path_logs = path_logs
         self._cost_list_length = None
@@ -614,7 +615,10 @@ class DataLoggingCosts:
         # log costs
         for cost_template in self.cost_names_list:
             if cost_template in cost_list_names:
-                new_line += ";" + json.dumps(str(trajectory.costMap[cost_template][1]), default=default)
+                if not self.save_unweighted_costs:
+                    new_line += ";" + json.dumps(str(trajectory.costMap[cost_template][1]), default=default)
+                else:
+                    new_line += ";" + json.dumps(str(trajectory.costMap[cost_template][0]), default=default)
             else:
                 new_line += ";" + json.dumps(str(0), default=default)
 
