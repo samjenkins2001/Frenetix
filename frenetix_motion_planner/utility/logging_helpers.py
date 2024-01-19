@@ -265,7 +265,8 @@ class DataLoggingCosts:
     # ----------------------------------------------------------------------------------------------------------
     # CONSTRUCTOR ----------------------------------------------------------------------------------------------
     # ----------------------------------------------------------------------------------------------------------
-    def __init__(self, path_logs: str, config: Configuration, scenario: Scenario, planning_problem: PlanningProblem, header_only: bool = False, save_all_traj: bool = False, cost_params: dict = None) -> None:
+    def __init__(self, path_logs: str, config, scenario: Scenario, planning_problem: PlanningProblem,
+                 header_only: bool = False, save_all_traj: bool = False, cost_params: dict = None) -> None:
         """"""
 
         self.save_all_traj = save_all_traj
