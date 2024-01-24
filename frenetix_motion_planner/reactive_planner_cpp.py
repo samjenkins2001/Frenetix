@@ -200,8 +200,8 @@ class ReactivePlannerCpp(Planner):
         x_0_lat = None
         if self.x_cl is None:
             initial_state = frenetix.TrajectorySample(
-                x0=float(self.x_0.position[0]),
-                y0=float(self.x_0.position[1]),
+                x0=np.float64(self.x_0.position[0]),
+                y0=np.float64(self.x_0.position[1]),
                 orientation0=self.x_0.orientation,
                 acceleration0=self.x_0.acceleration,
                 velocity0=self.x_0.velocity
@@ -216,9 +216,11 @@ class ReactivePlannerCpp(Planner):
 
             initial_state_computation.evaluate_trajectory(initial_state)
 
-            x_0_lat = [initial_state.curvilinear.d, initial_state.curvilinear.d_dot, initial_state.curvilinear.d_ddot]
-            x_0_lon = [initial_state.curvilinear.s, initial_state.curvilinear.s_dot, initial_state.curvilinear.s_ddot]
+            x_0_lat = [np.float64(initial_state.curvilinear.d), np.float64(initial_state.curvilinear.d_dot),
+                       np.float64(initial_state.curvilinear.d_ddot)]
 
+            x_0_lon = [np.float64(initial_state.curvilinear.s), np.float64(initial_state.curvilinear.s_dot),
+                       np.float64(initial_state.curvilinear.s_ddot)]
         else:
             x_0_lat = self.x_cl[1]
             x_0_lon = self.x_cl[0]
