@@ -96,7 +96,7 @@ def main():
     delete_former_logs = False
     if delete_former_logs:
         shutil.rmtree(logs_path, ignore_errors=True)
-        os.makedirs(logs_path, exist_ok=True)
+    os.makedirs(logs_path, exist_ok=True)
     if not os.path.exists(os.path.join(logs_path, "score_overview.csv")):
         with open(os.path.join(logs_path, "score_overview.csv"), 'a') as file:
             line = "scenario;agent;timestep;status;message\n"

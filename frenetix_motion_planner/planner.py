@@ -30,8 +30,6 @@ from cr_scenario_handler.utils import helper_functions as hf
 from cr_scenario_handler.utils.collision_check import collision_check_prediction
 
 from commonroad_dc.boundary.boundary import create_road_boundary_obstacle
-import commonroad_dc.pycrcc as pycrcc
-from commonroad_dc.collision.collision_detection.pycrcc_collision_dispatch import create_collision_object
 from commonroad_dc.collision.trajectory_queries.trajectory_queries import trajectory_preprocess_obb_sum, \
                                                                           trajectories_collision_static_obstacles
 
@@ -321,6 +319,8 @@ class Planner:
         )
         trajectory._ego_risk = ego_risk
         trajectory._obst_risk = obst_risk
+        if self.use_occ_model:
+            setattr(trajectory, 'harm_occ_module', obst_harm_occ)
         return trajectory
 
     def trajectory_collision_check(self, feasible_trajectories):
@@ -379,6 +379,11 @@ class Planner:
             trajectory._coll_detected = collision_detected
 
             if not collision_detected and boundary_harm == 0:
+                if self.use_occ_model:
+                    metric, safety_check = self.occlusion_module.trajectory_safety_assessment(trajectory)
+                    if safety_check is False:
+                        continue
+
                 return trajectory
 
         return None
@@ -639,18 +644,6 @@ class Planner:
         #
         #         if self.max_seen_costs < self._optimal_cost:
         #             self.max_seen_costs = self._optimal_cost
-
-        # calc potential phantom harm of optimal trajectory
-        if optimal_trajectory is not None and self.occlusion_module is not None:
-            self.occlusion_module.occ_phantom_module.analyze_trajectory_harm(optimal_trajectory)
-
-        # plot optimal trajectory in occlusion plot
-        if self.occlusion_module is not None:
-            if self.occlusion_module.occ_plot is not None:
-                self.occlusion_module.occ_plot.plot_trajectories(optimal_trajectory, color='k', zorder=100)
-                self.occlusion_module.occ_plot.save_plot_to_file()
-                if self.occlusion_module.occ_plot.interactive_plot is True:
-                    self.occlusion_module.occ_plot.pause()
 
     def set_stopping_point(self, stop_s_coordinate):
         """

@@ -6,6 +6,7 @@ __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
 from copy import deepcopy
+import numpy as np
 
 from commonroad.geometry.shape import Rectangle
 from commonroad.planning.planning_problem import PlanningProblem
@@ -15,7 +16,6 @@ from commonroad_route_planner.route_planner import RoutePlanner
 
 import cr_scenario_handler.utils.multiagent_logging as lh
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
-from cr_scenario_handler.utils import helper_functions as hf
 import cr_scenario_handler.utils.goalcheck as gc
 from cr_scenario_handler.utils.utils_coordinate_system import smooth_ref_path, extend_ref_path
 from cr_scenario_handler.utils.velocity_planner import VelocityPlanner
@@ -23,6 +23,8 @@ from cr_scenario_handler.utils.velocity_planner import VelocityPlanner
 from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
 from frenetix_motion_planner.state import ReactivePlannerState
+
+from frenetix_occlusion.interface import FOInterface
 
 # msg_logger = logging.getLogger("Message_logger")
 
@@ -85,9 +87,10 @@ class FrenetPlannerInterface(PlannerInterface):
 
         self.x_cl = None
         self.desired_velocity = None
-        self.occlusion_module = None
+        self.oap_interface = None
         self.behavior_module = None
         self.route_planner = None
+        self.occlusion_module = None
 
         # Set reference path
         if not self.config_sim.behavior.use_behavior_planner:
@@ -117,13 +120,14 @@ class FrenetPlannerInterface(PlannerInterface):
         # **************************
         # Initialize Occlusion Module
         # **************************
-        # if config.occlusion.use_occlusion_module:
-        #     self.occlusion_module = OcclusionModule(scenario, config, reference_path, log_path, self.planner)
+        if self.config_sim.occlusion.use_occlusion_module:
+            self.occlusion_module = FOInterface(scenario, self.reference_path, self.config_sim.vehicle, self.DT)
 
         # **************************
         # Set External Planner Setups
         # **************************
-        self.planner.update_externals(x_0=self.x_0, reference_path=self.reference_path, goal_area=self.goal_area)
+        self.planner.update_externals(x_0=self.x_0, reference_path=self.reference_path, goal_area=self.goal_area,
+                                      occlusion_module=self.occlusion_module)
         self.x_cl = self.planner.x_cl
 
         # ***************************
@@ -131,6 +135,8 @@ class FrenetPlannerInterface(PlannerInterface):
         # ***************************
         self.velocity_planner = VelocityPlanner(scenario=scenario, planning_problem=planning_problem,
                                                 coordinate_system=self.coordinate_system)
+
+
 
     @property
     def all_trajectories(self):
@@ -202,6 +208,15 @@ class FrenetPlannerInterface(PlannerInterface):
                     using the vehicle center for the position: If error == 0
                 None: Otherwise
         """
+        if self.occlusion_module is not None:
+            self.occlusion_module.evaluate_scenario(predictions=self.planner.predictions,
+                                                    ego_pos=self.x_0.position,
+                                                    ego_v=self.x_0.velocity,
+                                                    ego_orientation=self.x_0.orientation,
+                                                    ego_pos_cl=np.array([self.x_cl[0][0], self.x_cl[1][0]]),
+                                                    timestep=current_timestep,
+                                                    cosy_cl=self.coordinate_system.ccosy)
+
         # plan trajectory
         optimal_trajectory_pair = self.planner.plan()
 

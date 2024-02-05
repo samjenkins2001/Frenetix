@@ -8,7 +8,6 @@ __status__ = "Beta"
 # python packages
 import time
 import numpy as np
-import copy
 from itertools import product
 from typing import List
 
@@ -24,6 +23,8 @@ import frenetix.trajectory_functions.feasability_functions as ff
 import frenetix.trajectory_functions.cost_functions as cf
 
 from frenetix_motion_planner.planner import Planner
+
+from frenetix_occlusion.metrics.utils.convert_dynamic_obstacle import convert_traj_to_dyn_obstacle
 
 # get logger
 # msg_logger = logging.getLogger("Message_logger")
@@ -291,13 +292,6 @@ class ReactivePlannerCpp(Planner):
             self.msg_logger.debug(
                 'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
 
-            # *****************************
-            # Optional: Use Occlusion Model
-            # *****************************
-            if self.use_occ_model and feasible_trajectories:
-                self.occlusion_module.calc_costs(feasible_trajectories)
-                feasible_trajectories = sorted(feasible_trajectories, key=lambda traj: traj.cost, reverse=False)
-
             # ******************************************
             # Check Feasible Trajectories for Collisions
             # ******************************************
@@ -343,6 +337,23 @@ class ReactivePlannerCpp(Planner):
         # ************************************
         if optimal_trajectory is not None and self.log_risk:
             optimal_trajectory = self.set_risk_costs(optimal_trajectory)
+
+        if self.use_occ_model:
+            bike = [obst for obst in self.scenario.obstacles if obst.obstacle_type.value == 'bicycle']
+
+            # calc distance
+            # load polygons from prediction
+            try:
+                ego_dyn_obstacle = convert_traj_to_dyn_obstacle(optimal_trajectory, self.vehicle_params)
+                ego_poly = ego_dyn_obstacle.occupancy_at_time(0).shape.shapely_object
+                other_poly = bike[0].occupancy_at_time(self.x_0.time_step).shape.shapely_object
+
+                # calculate distance between objects
+                distance = np.round(ego_poly.distance(other_poly), 3)
+            except:
+                distance = np.inf
+            setattr(optimal_trajectory, 'cost', distance)
+            self.msg_logger.debug("Distance to risky occlusion: " + str(distance))
 
         self.optimal_trajectory = optimal_trajectory
 

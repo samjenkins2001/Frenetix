@@ -461,7 +461,7 @@ class DataLoggingCosts:
                 new_line += ";;"
 
             # log occ module harm
-            if hasattr(trajectory, "harm_occ_module") and  trajectory.harm_occ_module is not None:
+            if hasattr(trajectory, "harm_occ_module") and trajectory.harm_occ_module is not None:
                 new_line += ";" + json.dumps(str(trajectory.harm_occ_module), default=default)
             else:
                 new_line += ";"

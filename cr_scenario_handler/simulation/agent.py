@@ -108,9 +108,6 @@ class Agent:
         self.planner_interface = planner_interface(self.id, self.config_planner, self.config, self.scenario,
                                                    self.planning_problem, self.log_path, self.mod_path)
 
-        if self.config.occlusion.use_occlusion_module:
-            raise NotImplementedError
-
         self.agent_state = AgentState(planning_problem=planning_problem, reference_path=self.reference_path,
                                       coordinate_system=self.coordinate_system)
         if planning_problem.initial_state.time_step == 0:
@@ -143,6 +140,7 @@ class Agent:
     @all_trajectories.setter
     def all_trajectories(self, traj):
         self._all_trajectories = traj
+
     @property
     def status(self):
         return self.agent_state.status
@@ -171,7 +169,7 @@ class Agent:
                                                                                self.vehicle_history[-1],
                                                                                time_step,
                                                                                self.config,
-                                                                               occlusion_module=None,
+                                                                               occlusion_module=self.planner_interface.occlusion_module,
                                                                                ego_id=self.id,
                                                                                msg_logger=self.msg_logger)
         else:
