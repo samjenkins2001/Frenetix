@@ -540,6 +540,15 @@ class Simulation:
         """
         running = True
         while running:
+
+            if self.config_simulation.occlusion.use_occlusion_module:
+                if self.agents[0].planner_interface.occlusion_module is not None:
+                    for agent in self.agents[0].planner_interface.occlusion_module.agent_manager.real_agents:
+                        if agent.commonroad_dynamic_obstacle not in self.scenario.obstacles:
+                            self.scenario.add_objects(agent.commonroad_dynamic_obstacle)
+
+                self._set_collision_check()
+
             self.global_timestep += 1
             # self.process_times["simulation_steps"][self.global_timestep] = {}
             self.process_times = {}

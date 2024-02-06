@@ -365,9 +365,13 @@ def prediction_preprocessing(scenario, ego_state, time_step, config, occlusion_m
     if config.prediction.calc_visible_area:
         try:
             if config.occlusion.use_occlusion_module:
-                raise NotImplementedError("ignore_vehicles_in_cone_angle")
-                # visible_obstacles, visible_area = occlusion_module.vis_module.get_visible_area_and_objects(
-                # time_step=time_step, ego_state=ego_state)
+                occlusion_module.sensor_model.calc_visible_and_occluded_area(timestep=time_step,
+                                                                             ego_pos=ego_state.initial_state.position,
+                                                                             ego_orientation=ego_state.initial_state.orientation,
+                                                                             obstacles=occlusion_module.fo_obstacles)
+                visible_obstacles = occlusion_module.sensor_model.visible_objects_timestep
+                visible_area = occlusion_module.sensor_model.visible_area
+
             else:
                 visible_obstacles, visible_area = get_visible_objects(
                     scenario=scenario,
