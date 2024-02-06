@@ -24,8 +24,6 @@ import frenetix.trajectory_functions.cost_functions as cf
 
 from frenetix_motion_planner.planner import Planner
 
-from frenetix_occlusion.metrics.utils.convert_dynamic_obstacle import convert_traj_to_dyn_obstacle
-
 # get logger
 # msg_logger = logging.getLogger("Message_logger")
 

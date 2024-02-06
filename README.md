@@ -4,20 +4,22 @@
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/) [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/) [![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-390/)
 
 
-# Frenetix Motion Planner
+# Frenetix Motion Planner & Multi-agent Scenario Handler
 
-This repository includes a Frenet trajectory planning algorithm in the [CommonRoad](https://commonroad.in.tum.de/) scenario format.
+This repository includes a Frenet trajectory planning algorithm and a [Multi-agent Simulation Framework](cr_scenario_handler/README.md) in the [CommonRoad](https://commonroad.in.tum.de/) scenario format.
 The trajectories are generated according to the sampling-based approach in [1-5] including two different implementations.
 The Repo provides a python-based and a C++-accelerated Motion Planner [Frenetix](https://github.com/TUM-AVS/Frenetix/) implementation.
 
-# Standard Planner Initialization
+
+<details>
+<summary> <h2> 🔧 Requirements & Pre-installation Steps </h2> </summary>
 
 ### Requirements
 The software is  developed and tested on recent versions of Linux. We strongly recommend to use [Ubuntu 22.04](https://ubuntu.com/download/desktop) or higher.
 For the python installation, we suggest the usage of Virtual Environment with Python 3.11, Python 3.10 or Python 3.9
 For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
 
-### Installation & Run Code
+### Pre-installation Steps
 1. Make sure that the following **dependencies** are installed on your system for the C++ implementation:
    * [Eigen3](https://eigen.tuxfamily.org/dox/) 
      * On Ubuntu: `sudo apt-get install libeigen3-dev`
@@ -34,11 +36,27 @@ For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
     * Source & Install the package via pip: `source venv/bin/activate` & `pip install -r .`
     * [Frenetix](https://pypi.org/project/frenetix/) should be installed automatically. If not please write [rainer.trauth@tum.de](mailto:rainer.trauth@tum.de).
 
-4. **Optional**: Download additional Scenarios:
-    * Clone commonroad scenarios on the **same level** as commonroad-reactive-planner --> not into commonroad-reactive-planner with: 
-      * `git clone https://gitlab.lrz.de/tum-cps/commonroad-scenarios.git`
+4. **Optional**: Download additional Scenarios [here](https://gitlab.lrz.de/tum-cps/commonroad-scenarios.git)
 
-5. **Change** Configurations in _configurations/defaults/*.yaml_ if needed. 
+</details>
+
+
+<details>
+<summary> <h2> 🚗🛣️🚙 Multi-agent Simulation Framework </h2> </summary>
+
+
+The manual of the Multi-agent Simulation Framework can be found [here](cr_scenario_handler/README.md).
+
+
+</details>
+
+
+
+
+<details>
+<summary> <h2> 🚀🚀🚀 Frenetix-Motion-Planner Step-by-Step Manual </h2> </summary>
+
+1. Do the **Requirements & Pre-installation Steps**
 
 6. **Change** Settings in **main.py** if needed. Note that not all configuration combinations may work. The following options are available:
    1. **use_cpp**: If _True_: The C++ Frenet Implementations will be used. 
@@ -46,15 +64,15 @@ For the development IDE we suggest [PyCharm](http://www.jetbrains.com/pycharm/)
    3. **evaluation_pipeline**: If _True_: Run many scenarios in a row. Set **scenario folder** accordingly.
    4. **use_specific_scenario_list**: If _True_: Run a specific scenario list. Example in _example_scenarios/scenario_list.csv_. Make sure all scnearios in the list are in the scenario folder.
 
-7. **Run** the planner with `python3 main.py`
-8. **Logs** and **Plots** can be found in _/logs/<scenario_name>_
+
+<details>
+<summary> <h2> 🚸 Occlusion-aware Module </h2> </summary>
 
 
-<figure style="border: 2px solid #cccccc; padding: 10px; display: inline-block;">
-<img src="doc/images/ZAM_Tjunction-1_8_T-1_038.png" alt="reactive-planner" width="600" />
-  <figcaption style="text-align: center; margin-top: 10px;">Multi-agent Simulation example</figcaption>
-</figure>
+<img src="doc/images/pedestrians.png" alt="reactive-planner" width="400" />
 
+
+Also checkout the external Occlusion-aware Module [here](https://github.com/TUM-AVS/Frenetix-Occlusion).
 
 
 </details>
@@ -80,11 +98,13 @@ Detailed documentation of the functionality behind the single modules can be fou
 
 4. [Behavior Planner](behavior_planner/README.md)
 
-5. [Occlusion-aware Module](frenetix_motion_planner/occlusion_planning/README.md)
+5. [Occlusion-aware Module](https://github.com/TUM-AVS/Frenetix-Occlusion)
 
 6. [Wale-Net](https://github.com/TUMFTM/Wale-Net)
 
 7. [Risk-Assessment](https://github.com/TUMFTM/EthicalTrajectoryPlanning)
+
+8. [Reinforcement Learning Module Extension](https://github.com/TUM-AVS/Frenetix-RL)
 
 </details>
 
@@ -93,6 +113,13 @@ Detailed documentation of the functionality behind the single modules can be fou
 
 [Rainer Trauth](mailto:rainer.trauth@tum.de),
 Institute of Automotive Technology,
+School of Engineering and Design,
+Technical University of Munich,
+85748 Garching,
+Germany
+
+[Marc Kaufeld](mailto:marc.kaufeld@tum.de),
+Professorship Autonomous Vehicle Systems,
 School of Engineering and Design,
 Technical University of Munich,
 85748 Garching,
@@ -111,16 +138,16 @@ Germany
 <summary> <h2> 📃 Citation </h2> </summary>
    
 If you use this repository for any academic work, please cite our code:
+- [Analytical Planner Paper](https://arxiv.org/abs/2402.01443)
 
 ```bibtex
-@misc{GitHubRepo,
-  author = {Rainer Trauth},
-  title = {Frenetix Motion Planner},
-  year = {2023},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  doi = {10.5281/zenodo.10078062},
-  url = {https://github.com/TUM-AVS/Frenetix-Motion-Planner}
+@misc{frenetix2024,
+      title={Frenetix Motion Planner: High-Performance and Modular Trajectory Planning Algorithm for Complex Autonomous Driving Scenarios}, 
+      author={Korbinian Moller and Rainer Trauth and Gerald Wuersching and Johannes Betz},
+      year={2024},
+      eprint={2402.01443},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO}
 }
 ```
 </details>

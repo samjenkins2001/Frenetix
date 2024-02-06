@@ -1,39 +1,30 @@
-__author__ = "Rainer Trauth"
+__author__ = "Marc Kaufeld"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
-__maintainer__ = "Rainer Trauth"
-__email__ = "rainer.trauth@tum.de"
+__maintainer__ = "Marc Kaufeld"
+__email__ = "marc.kaufeld@tum.de"
 __status__ = "Beta"
 
+import csv
 import json
-from typing import List
-
-import os
-import sys
 import logging
+import os
+import sqlite3
+import sys
+
 from omegaconf import DictConfig, ListConfig
 
-from cr_scenario_handler.utils.configuration import Configuration
-import sqlite3
-
 from cr_scenario_handler.utils.agent_status import AgentStatus, TIMEOUT
-
-# KEYS: großbuchstaben
-# Logging:
-# SCENARIO, AGENT_ID, TIMESTEP
-#
-# Tabellen:
-# Meta: Config
-#
-# TIMEING:
-# Timestep,
-#
+from cr_scenario_handler.utils.configuration import Configuration
 
 
 class SimulationLogger:
-
+    """
+        Simulation logging object, which writes the data collected during the simulation to a sql database
+    """
     @staticmethod
     def _convert_config(config: Configuration) -> dict:
+        """converts config to dict for writing configinto sql database"""
         data = dict()
         for item in config.__dict__:
             # print(item)
@@ -46,14 +37,12 @@ class SimulationLogger:
                 if isinstance(val, ListConfig):
                     val = list(val)
 
-                # print(f"name={it} type={type(val)}")
-
                 data[item][it] = val
 
         return data
 
     def __init__(self, config):
-
+        """"""
 
         self.config = config
         self.eval_conf = config.evaluation
@@ -74,17 +63,9 @@ class SimulationLogger:
             PRAGMA journal_mode = OFF;
             PRAGMA temp_store = MEMORY;
         """)
-        # PRAGMA locking_mode = EXCLUSIVE;
         self.con.commit()
 
         self.create_tables()
-
-        # os.makedirs(log_path, exist_ok=True)
-        # self.time_header= None
-        # self.time_file = "performance_measures.csv"
-
-        # self.set_performance_header()
-    # def set_performance_header(self):
 
     def create_tables(self):
         if self.log_time:
@@ -118,7 +99,7 @@ class SimulationLogger:
                         PRIMARY KEY(scenario, batch, time_step)
                        ) STRICT
                    """)
-            self.con.commit()
+
 
         # Table for general information (Scenarios
         self.con.execute("""
@@ -150,8 +131,41 @@ class SimulationLogger:
             ) STRICT
         """)
 
+        if self.eval_conf.evaluate_simulation:
 
-    def log_results(self,agents ):
+            columns = ' ANY, '.join(key for key, value in self.eval_conf.criticality_metrics.items() if value==True) + ' ANY,'
+            self.con.execute("""
+                CREATE TABLE IF NOT EXISTS scenario_evaluation(
+                    scenario TEXT NOT NULL,
+                    agent_id INT NOT NULL,
+                    original_planning_problem INTEGER NOT NULL,
+                    timestep INT NOT NULL,""" 
+                    f"{columns}"
+                   """ PRIMARY KEY(scenario, agent_id, timestep)
+                ) STRICT 
+            """)
+
+
+        self.con.commit()
+
+
+    def log_evaluation(self, results):
+        """
+        Log the criticality evaluation results
+         """
+        data = []
+        for (agent_id, t) in results.index:
+            orig_pp = True if agent_id in self.original_planning_problem_id else False
+            data.append([self.scenario, agent_id+10, orig_pp, t] + list(results.loc[(agent_id, t)]))
+        text = "INSERT INTO scenario_evaluation VALUES(" + "?," *len(data[0])
+        text = text[:-1] + ")"
+        self.con.executemany(text, data)
+        self.con.commit()
+
+    def log_results(self,agents):
+        """
+        Log the planning results of the simulation
+         """
         data = []
         for agent in agents:
             orig_pp = True if agent.id in self.original_planning_problem_id else False
@@ -161,6 +175,9 @@ class SimulationLogger:
         self.con.commit()
 
     def log_meta(self, agent_ids, original_planning_problem_id, batch_names, duration_init, config_sim, config_planner):
+        """
+        Log the meta information of the simulation
+        """
         self.original_planning_problem_id = original_planning_problem_id
         conf_sim = json.dumps(SimulationLogger._convert_config(config_sim))
         conf_plan = json.dumps(SimulationLogger._convert_config(config_planner))
@@ -169,10 +186,11 @@ class SimulationLogger:
         self.con.commit()
 
     def update_meta(self, **kwargs):
+        """
+        Update the meta table with additional entries in the kwargs-dict
+         """
         tmp = self.con.execute("select * from meta")
-        cursor = self.con.cursor()
         cols = [tmp.description[i][0] for i in range(len(tmp.description))]
-        cols2update = [key for key in kwargs.keys() if key in cols]
         cols2update = ""
         data = []
         for key, value in kwargs.items():
@@ -183,7 +201,15 @@ class SimulationLogger:
         self.con.execute(f"UPDATE meta SET {cols2update} WHERE scenario = ?", data +[self.scenario])
         self.con.commit()
 
+
     def log_global_time(self, timestep, time_dict):
+        """
+        Log global computation performance
+        :param timestep: current timestep to log
+        :param time_dict: dict with data to be logged
+        :return:
+        """
+
         data = [self.scenario, timestep,
                 time_dict.pop("total_sim_step"),
                 time_dict.pop("preprocessing"),
@@ -197,6 +223,12 @@ class SimulationLogger:
 
 
     def log_batch_time(self,time_step, time_dict):
+        """
+        Log batch computation performance
+        :param timestep: current timestep to log
+        :param time_dict: dict with data to be logged
+        :return:
+        """
         data = []
         for batch_name, process_times in time_dict.items():
             data.append([self.scenario,batch_name,
@@ -211,57 +243,41 @@ class SimulationLogger:
         self.con.commit()
 
 
-    # def log_meta(self, scenario, config):
-    #     self.con.execute("INSERT INTO meta Values(?, ?)"(scenario.scenario_id, ))
-    #     self.con.commit()
+    def write_csv(self, table:str, file_name: str, value: str = "*"):
+        """
+        Writes database table to csv file
+        :param table: table to export
+        :param file_name: filename
+        :param value: column to export ("*" := all columns)
+        :return:
+        """
+        res = self.con.execute(f"SELECT {value} from {table}")
+        rows = res.fetchall()
+
+        # Get column names
+        column_names = [description[0] for description in res.description]
+
+        # Specify the CSV file path
+        csv_file_path = os.path.join(self.config.simulation.mod_path, file_name + '.csv')
+
+        # Write data to CSV file
+        with open(csv_file_path, 'a', newline='') as csv_file:
+            csv_writer = csv.writer(csv_file)
+
+            # Write header
+            csv_writer.writerow(column_names)
+
+            # Write data
+            csv_writer.writerows(rows)
+
+    def close(self):
+        """close sim_logger"""
+        self.con.close()
 
 
-def init_log(log_path: str):
-    """Create log file for simulation-level logging and write the header.
 
-    The log file will contain the following fields:
-    time_step: The time step of this log entry.
-    domain_time: The time step expressed in simulated time.
-    total_planning_time: The wall clock time required for executing the planner step of all agents.
-    total_synchronization_time: The wall clock time required for synchronizing the agents.
-    agent_ids: A list of the IDs of all agents in the simulation.
-    agent_states: A list of the return values of the agents' step function,
-        in the same order as the agent_ids
-
-    :param log_path: Base path the log file is written to
-    """
-
-    os.makedirs(log_path, exist_ok=True)
-
-    with open(os.path.join(log_path, "execution_logs.csv"), "w+") as log_file:
-        log_file.write("time_step;domain_time;total_planning_time;total_synchronization_time;agent_ids;agent_states;")
-
-
-def append_log(log_path: str, time_step: int, domain_time: float, total_planning_time: float,
-               total_synchronization_time: float, agent_ids: List[int], agent_states: List[int]):
-    """Write the log entry for one simulation step.
-
-    :param log_path: Path to the directory containing the log file
-    :param time_step: Number of the current time step
-    :param domain_time: Current time inside the simulation
-    :param total_planning_time: Wall clock time for stepping all agents
-    :param total_synchronization_time: Wall clock time for exchanging dummy obstacles
-    :param agent_ids: List of all agent ids in the scenario
-    :param agent_states: Return codes from all agents
-    """
-
-    entry = "\n"
-    entry += str(time_step) + ";"
-    entry += str(domain_time) + ";"
-    entry += str(total_planning_time) + ";"
-    entry += str(total_synchronization_time) + ";"
-    entry += str(agent_ids) + ";"
-    entry += str(agent_states) + ";"
-
-    with open(os.path.join(log_path, "execution_logs.csv"), "a") as log_file:
-        log_file.write(entry)
-
-
+#
+#
 def logger_initialization(config: Configuration, log_path, logger = "Simulation_logger") -> logging.Logger:
     """
     Message Logger Initialization

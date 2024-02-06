@@ -19,11 +19,12 @@ class PlannerInterface(ABC):
         """Wrappers providing a consistent interface for different planners.
         To be implemented for every specific planner.
 
-        :param config: Object containing the configuration of the planner.
-        :param scenario: The commonroad scenario to be simulated.
-        :param planning_problem: The PlanningProblem for this planner.
-        :param log_path: Path the planner's log files will be written to.
-        :param mod_path: Working directory for the planner.
+        :param config_planner: The configuration object for the trajectory planner.
+        :param config_sim: The configuration object for the simulation framework
+        :param scenario: The scenario to be solved. May not contain the ego obstacle.
+        :param planning_problem: The planning problem of the ego vehicle.
+        :param log_path: Path for writing planner-specific log files to.
+        :param mod_path: Working directory of the planner.
         """
         self.planner = None
         self.reference_path = None

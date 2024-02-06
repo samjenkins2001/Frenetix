@@ -299,44 +299,48 @@ def visualize_multiagent_scenario_at_timestep(scenario: Scenario,
         if agent.status != AgentStatus.RUNNING:
             continue
         # visualize optimal trajectory
-        if agent.vehicle_history[-1].prediction is not None:
-            rnd.ax.plot([i.position[0] for i in agent.vehicle_history[-1].prediction.trajectory.state_list],
-                        [i.position[1] for i in agent.vehicle_history[-1].prediction.trajectory.state_list],
-                        color='k', marker='x', markersize=1.5, zorder=21, linewidth=2.0, label='optimal trajectory')
+        history = [i for i in agent.vehicle_history if i.initial_state.time_step == timestep]
+        if history:
+            history = history[0]
 
-        if agent.traj_set is not None and agent.config_planner.debug.draw_traj_set:
-        # if traj_set_dict is not None and traj_set_dict[agent.obstacle_id] is not None:
-        #     traj_set = traj_set_dict[agent.obstacle_id]
+            if history.prediction is not None and config.visualization.draw_calc_traj:
+                rnd.ax.plot([i.position[0] for i in history.prediction.trajectory.state_list],
+                            [i.position[1] for i in history.prediction.trajectory.state_list],
+                            color='k' , marker='x', markersize=1.5, zorder=21, linewidth=2.0, label='optimal trajectory')
 
-            valid_traj = [obj for obj in agent.traj_set if obj.valid is True and obj.feasible is True]
-            invalid_traj = [obj for obj in agent.traj_set if obj.valid is False or obj.feasible is False]
+        if agent.all_trajectories is not None and agent.config_planner.debug.draw_traj_set:
+            valid_traj = [obj for obj in agent.all_trajectories if obj.valid is True and obj.feasible is True]
+            invalid_traj = [obj for obj in agent.all_trajectories if obj.valid is False or obj.feasible is False]
             norm = matplotlib.colors.Normalize(
                 vmin=0,
                 vmax=len(valid_traj),
                 clip=True,
             )
             mapper = cm.ScalarMappable(norm=norm, cmap=green_to_red_colormap())
-            step = int(len(invalid_traj) / 100) if int(len(invalid_traj) / 100) > 2 else 1
-            for idx, val in enumerate(valid_traj):
+            # step_inv = int(len(invalid_traj) / 50) if int(len(invalid_traj) / 50) > 2 else 1
+            step_val = int(len(valid_traj)/50)  if int(len(valid_traj) / 50) > 2 else 1
+            step_inv=step_val
+            for idx in range(0, len(valid_traj), step_val):
+                val = valid_traj[idx]
                 if not val._coll_detected:
                     color = mapper.to_rgba(idx)
+                    color = lightcolors[idx % len(lightcolors)]
                     plt.plot(val.cartesian.x, val.cartesian.y,
                              color=color, zorder=20, linewidth=1.0, alpha=1.0, picker=False)
                 else:
                     plt.plot(val.cartesian.x, val.cartesian.y,
                              color='cyan', zorder=20, linewidth=1.0, alpha=0.8, picker=False)
-            for ival in range(0, len(invalid_traj), step):
+            for ival in range(0, len(invalid_traj), step_inv):
                 plt.plot(invalid_traj[ival].cartesian.x, invalid_traj[ival].cartesian.y,
                          color="#808080", zorder=19, linewidth=0.8, alpha=0.4, picker=False)
 
-
-        if agent.reference_path is not None:
+        if agent.reference_path is not None and config.visualization.draw_reference_path:
 
             rnd.ax.plot(agent.reference_path[:, 0], agent.reference_path[:, 1], color='g', marker='.', markersize=1, zorder=19, linewidth=0.8,
                         label='reference path')
 
     # visualize predictions
-    if predictions is not None:
+    if predictions is not None and config.visualization.draw_predictions:
         draw_uncertain_predictions(predictions, rnd.ax)
 
     if save or gif:

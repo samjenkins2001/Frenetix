@@ -13,7 +13,16 @@ save_gif: False
 plot_window_dyn: 30
 # draw obstacles with vehicle icons
 draw_icons: True
+# show vehicle ids
 show_labels: True
+# show reference path
+draw_reference_path: True
+# show predictions
+draw_predictions: False
+# show planning problem
+draw_planning_problem: True
+# show optimal calculated trajectory
+draw_calc_traj: False
 
 # List of vehicle IDs for which to create individual plots, or create them for all vehicles
 show_all_individual_plots: False

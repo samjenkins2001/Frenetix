@@ -319,8 +319,6 @@ class Planner:
         )
         trajectory._ego_risk = ego_risk
         trajectory._obst_risk = obst_risk
-        if self.use_occ_model:
-            setattr(trajectory, 'harm_occ_module', obst_harm_occ)
         return trajectory
 
     def trajectory_collision_check(self, feasible_trajectories):

@@ -38,7 +38,8 @@ class FrenetPlannerInterface(PlannerInterface):
 
         Implements the PlannerInterface.
 
-        :param config: The configuration object.
+        :param config_planner: The configuration object for the trajectory planner.
+        :param config_sim: The configuration object for the simulation framework
         :param scenario: The scenario to be solved. May not contain the ego obstacle.
         :param planning_problem: The planning problem of the ego vehicle.
         :param log_path: Path for writing planner-specific log files to.
@@ -88,17 +89,16 @@ class FrenetPlannerInterface(PlannerInterface):
 
         self.x_cl = None
         self.desired_velocity = None
-        self.oap_interface = None
+        self.occlusion_module = None
         self.behavior_module = None
         self.route_planner = None
-        self.occlusion_module = None
 
         # Set reference path
         if not self.config_sim.behavior.use_behavior_planner:
             self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
             self.reference_path = self.route_planner.plan_routes().retrieve_shortest_route().reference_path
-            #
-            try:  # works in py3.11
+
+            try:
                 self.reference_path, _ = self.route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
                                                                                   initial_position_cart=self.x_0.position,
                                                                                   additional_lenght_in_meters=10.0)
@@ -137,8 +137,6 @@ class FrenetPlannerInterface(PlannerInterface):
         # ***************************
         self.velocity_planner = VelocityPlanner(scenario=scenario, planning_problem=planning_problem,
                                                 coordinate_system=self.coordinate_system)
-
-
 
     @property
     def all_trajectories(self):
@@ -179,16 +177,11 @@ class FrenetPlannerInterface(PlannerInterface):
         """
         self.scenario = scenario
 
-        # TODO Behavior Planner in simulation oder hier?
         if not self.config_sim.behavior.use_behavior_planner:
             # set desired velocity
             self.desired_velocity = self.velocity_planner.calculate_desired_velocity(self.x_0, self.x_cl[0][0])
         else:
             raise NotImplementedError
-            # behavior = behavior_modul.execute(predictions=predictions, ego_state=x_0, time_step=current_count)
-            # desired_velocity = behavior_modul.desired_velocity
-            # self.reference_path = behavior_modul.reference_path
-        # End TODO
 
         self.planner.update_externals(scenario=scenario, x_0=self.x_0, x_cl=self.x_cl,
                                       desired_velocity=self.desired_velocity, predictions=predictions)

@@ -17,13 +17,15 @@ from commonroad.planning.planning_problem import PlanningProblem
 
 # commonroad-io
 from commonroad.scenario.scenario import Scenario
+
 # scenario handler
 import cr_scenario_handler.planner_interfaces as planner_interfaces
 import cr_scenario_handler.utils.multiagent_helpers as hf
 import cr_scenario_handler.utils.prediction_helpers as ph
 import cr_scenario_handler.utils.visualization as visu
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
-from cr_scenario_handler.utils.collision_report import coll_report
+from cr_scenario_handler.evaluation.collision_report import coll_report
+from cr_scenario_handler.evaluation.agent_evaluation import evaluate
 from cr_scenario_handler.utils.agent_status import AgentStatus, AgentState
 from cr_scenario_handler.utils.visualization import visualize_agent_at_timestep
 
@@ -41,9 +43,12 @@ class Agent:
         :param agent_id: The agent ID, equal to the obstacle_id of the
             DynamicObstacle it is represented by.
         :param planning_problem: The planning problem of this agent.
-        :param config: The configuration.
+        :param scenario: The scenario to be solved. May not contain the ego obstacle.
+        :param config_planner: The configuration object for the trajectory planner.
+        :param config_sim: The configuration object for the simulation framework
+        :param msg_logger: Logger for msg-printing
         :param log_path: Path for logging and visualization.
-        :param mod_path: working directory of the planner, containing planner configuration.
+        :param mod_path: Working directory of the planner.
         """
         # Agent id, equals the id of the dummy obstacle
         self.dt = scenario.dt
@@ -255,6 +260,7 @@ class Agent:
                     self.msg_logger.critical(
                         f"Agent {self.id}: No Kinematic Feasible and Optimal Trajectory Available!")
                     self.agent_state.log_error(timestep)
+                    self.postprocessing()
 
     def postprocessing(self):
         """ Execute post-simulation tasks.
@@ -265,6 +271,11 @@ class Agent:
         self.msg_logger.info(f"Agent {self.id}: timestep {self.agent_state.last_timestep}: {self.agent_state.message}")
         self.msg_logger.debug(f"Agent {self.id} current goal message: {self.agent_state.goal_message}")
         self.msg_logger.debug(f"Agent {self.id}: {self.agent_state.goal_checker_status}")
+
+        if self.config.evaluation.evaluate_agents:
+            evaluate(self.scenario, self.planning_problem, self.id, self.record_state_list, self.record_input_list,
+                     self.config, self.log_path,
+                     )
 
         # plot final trajectory
         show = (self.config_visu.show_all_individual_final_trajectories or

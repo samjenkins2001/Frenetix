@@ -1,9 +1,16 @@
 [tool.poetry]
 name = "frenetix-motion-planner"
 version = "2024.1"
-description = "Frenetix Motion Planner: Sampling-based Frenet Planner"
-authors = ["Institute of Automotive Technology, Technical University of Munich"]
-license = "GNU LESSER GENERAL PUBLIC LICENSE"
+description = "Frenetix Motion Planner: Sampling-based Frenet Planner & Multi-agent CommonRoad Scenario Handler"
+license = "LGPL-3.0-or-later"
+authors = [
+    "Rainer Trauth <rainer.trauth@tum.de>",
+    "Marc Kaufeld <marc.kaufeld@tum.de>",
+]
+maintainers = [
+    "Rainer Trauth <rainer.trauth@tum.de>",
+    "Marc Kaufeld <marc.kaufeld@tum.de>",
+]
 readme = "README.md"
 
 packages = [

@@ -65,7 +65,7 @@ def get_scenario_list(scenario_name, scenario_folder, evaluation_pipeline, examp
         scenario_name (str): considered scenario
         scenario_folder(str): folder of the scenarios
         evaluation_pipeline (bool): use evaluation pipeline
-        example_scenarios_list (str): path to scenario list
+        example_scenarios_list: path to scenario list
         use_specific_scenario_list (bool) use scenario list boolean
     """
     scenario_files = []
@@ -74,7 +74,7 @@ def get_scenario_list(scenario_name, scenario_folder, evaluation_pipeline, examp
     elif not use_specific_scenario_list and evaluation_pipeline:
         scenario_files = [f.split(".")[-2] for f in listdir(scenario_folder) if isfile(join(scenario_folder, f))]
         random.shuffle(scenario_files)
-    elif use_specific_scenario_list and evaluation_pipeline:
+    elif use_specific_scenario_list and evaluation_pipeline and example_scenarios_list:
         scenario_files = read_scenario_list(example_scenarios_list)
         random.shuffle(scenario_files)
     elif use_specific_scenario_list and not evaluation_pipeline:
