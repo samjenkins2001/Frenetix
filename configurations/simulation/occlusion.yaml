@@ -1,30 +1,67 @@
+#############################################################################
+# PLEASE FIND INFORMATION HERE: https://github.com/TUM-AVS/Frenetix-Occlusion
+#############################################################################
+
 use_occlusion_module: False # Does not work in every combination, e.g. multiagent
-scope: 30 # "sensor_radius" uses sensor radius from prediction or custom number
 
-# phantom pedestrians (activate or deactivate the Occlusion Phantom Module (OPM))
-use_phantom_module: True
-create_real_pedestrians: [] # Scenario1[9, 25] Scenario2[68, 150] Scenario3[33] Scenario4[62, 102], leave empty if no real pedestrian shall be created
-max_harm: 1 # Set maximum harm Limit. Set to 1.0 to deactivate
+# sensor model settings
+sensor_model:
+  sensor_radius: 50
+  sensor_angle: 360
 
-# visibility estimation (activate or deactivate the Occlusion Visibility Estimator (OVE))
-use_visibility_estimator: True
+plot: False
 
-# uncertainty map evaluation (activate or deactivate the Occlusion Uncertainty Map Evaluator (OUME))
-use_uncertainty_map_evaluator: True
+metrics:
+  activated_metrics: # all available metrics: ['hr', 'ttc', 'be', 'ttce', 'dce', 'wttc', 'cp']
+    - 'hr'
+    - 'ttc'
+    - 'be'
+    - 'ttce'
+    - 'dce'
+    - 'wttc'
+    - 'cp'
 
-# show/save occlusion debug plots
-show_occlusion_plot: True # create Occlusion Plots and save them
-interactive_plot: False # Show Plot during runtime - might be slow
-plot_backend: "TkAgg" # Qt5Agg or TkAgg
-plot_window_dyn: 25 # plot vehicle position with x_y distance in meters
+  metric_thresholds:
+    harm: 1
+    risk: 1
+    be: null
+    cp: null
+    ttc: null
+    wttc: null
+    ttce: null
+    dce: null
 
-# detailed plots
-plot_opm_traj: False # Plot relative trajectory costs of Phantom Module
-plot_opm_ped: False # Plot phantom pedestrians
-plot_oume_traj: False # Plot relative trajectory costs of UncertaintyMapEvaluator
-plot_oume_map: False # Plot uncertainty Map of UncertaintyMapEvaluator
-plot_ove_traj: False # Plot relative trajectory costs of VisibilityEstimator
-plot_ove_map: False # Plot uncertainty Map of VisibilityEstimator
+spawn_locator:
+  spawn_points_behind_turn: True
+  spawn_point_behind_dynamic_obstacle: True
+  spawn_point_behind_static_obstacle: True
+  max_dynamic_spawn_points: 1
+  max_static_spawn_points: 1
 
-# create occlusion module evaluation plot
-evaluate_occ: True
+agent_manager:
+  prediction:
+    variance_factor: 1.05
+    size_factor_length_s: 1.2
+    size_factor_width_s: 1.3
+    size_factor_length_l: 1.4
+    size_factor_width_l: 2.5
+  bicycle:
+    default_velocity: 5.0
+    length: 2.0
+    width: 0.9
+    wheelbase: 1.3
+  car:
+    default_velocity: 10.0
+    length: 4.8
+    width: 2.0
+    wheelbase: 2.5
+  truck:
+    default_velocity: 10.0
+    length: 9.0
+    width: 2.5
+    wheelbase: 7.0
+  pedestrian:
+    default_velocity: 1.4
+    length: 0.3
+    width: 0.5
+

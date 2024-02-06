@@ -5,6 +5,7 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
+import os
 from copy import deepcopy
 import numpy as np
 
@@ -121,7 +122,8 @@ class FrenetPlannerInterface(PlannerInterface):
         # Initialize Occlusion Module
         # **************************
         if self.config_sim.occlusion.use_occlusion_module:
-            self.occlusion_module = FOInterface(scenario, self.reference_path, self.config_sim.vehicle, self.DT)
+            self.occlusion_module = FOInterface(scenario, self.reference_path, self.config_sim.vehicle, self.DT,
+                                                os.path.join(self.mod_path, "configurations", "simulation", "occlusion.yaml"))
 
         # **************************
         # Set External Planner Setups

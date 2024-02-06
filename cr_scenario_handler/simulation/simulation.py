@@ -541,7 +541,7 @@ class Simulation:
         running = True
         while running:
 
-            if self.config_simulation.occlusion.use_occlusion_module:
+            if self.config.occlusion.use_occlusion_module:
                 if self.agents[0].planner_interface.occlusion_module is not None:
                     for agent in self.agents[0].planner_interface.occlusion_module.agent_manager.real_agents:
                         if agent.commonroad_dynamic_obstacle not in self.scenario.obstacles:

@@ -44,6 +44,7 @@ def start_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cp
                              "Error time: " + str(current_time) + "\n" +
                              "In Scenario Timestep: " + current_timestep + "\n" +
                              "CODE ERROR: " + str(e) + error_traceback + "\n\n\n\n"])
+            print(error_traceback)
 
 
 def main():
