@@ -128,7 +128,9 @@ class Planner:
         self._sampling_max = config_plan.planning.sampling_max
         self.sampling_handler = SamplingHandler(dt=self.dT, max_sampling_number=config_plan.planning.sampling_max,
                                                 t_min=config_plan.planning.t_min, horizon=self.horizon,
-                                                delta_d_max=config_plan.planning.d_max, delta_d_min=config_plan.planning.d_min)
+                                                delta_d_max=config_plan.planning.d_max,
+                                                delta_d_min=config_plan.planning.d_min,
+                                                d_ego_pos=config_plan.planning.d_ego_pos)
 
         self.stopping_s = None
 
@@ -210,6 +212,8 @@ class Planner:
             self.set_reach_set(reach_set)
         if behavior is not None:
             self.set_behavior(behavior)
+        if self.sampling_handler.d_ego_pos:
+            self.sampling_handler.set_d_sampling(self.x_cl[1][0])
 
     def set_reach_set(self, reach_set):
         self.reach_set = reach_set

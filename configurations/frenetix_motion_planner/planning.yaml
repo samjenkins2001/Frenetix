@@ -22,10 +22,11 @@ emergency_mode: "stopping"  # "stopping" or "min_risk" if None of both, "min_ris
 t_min: 1.1
 
 # velocity sampling interval
-v_min: 0 # is calculated with current velodity & acc limits
+v_min: 0 # is calculated with current velocity & acc limits
 v_max: 0
 
 # lateral sampling interval
+d_ego_pos: True
 d_min: -3
 d_max: 3
 
