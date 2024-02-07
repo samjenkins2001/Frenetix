@@ -46,7 +46,8 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
                                   timestep: int, config, log_path: str,
                                   traj_set=None, optimal_traj=None, ref_path: np.ndarray = None,
                                   rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
-                                  visible_area=None, occlusion_map=None, save: bool = False, show: bool = False, gif: bool = False):
+                                  visible_area=None, occlusion_map=None, save: bool = False, show: bool = False, gif: bool = False,
+                                  replanning_counter: int = 0):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -108,7 +109,7 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
 
     # visualize optimal trajectory
     if optimal_traj:
-        optimal_traj_positions = np.array([(state.position[0], state.position[1]) for state in optimal_traj.state_list])
+        optimal_traj_positions = np.array([(state.position[0], state.position[1]) for state in optimal_traj.state_list[0+replanning_counter:]])
         rnd.ax.plot(optimal_traj_positions[:, 0], optimal_traj_positions[:, 1], 'kx-', markersize=1.5, zorder=21, linewidth=2.0)
 
     # draw visible sensor area
@@ -131,7 +132,7 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
         rnd.ax.legend(handles, labels, loc="upper right", title="Occlusion")
 
     # visualize sampled trajectory bundle
-    if traj_set is not None:
+    if traj_set is not None and replanning_counter == 0:
         valid_traj = [obj for obj in traj_set if obj.valid is True and obj.feasible is True]
         invalid_traj = [obj for obj in traj_set if obj.valid is False or obj.feasible is False]
         norm = matplotlib.colors.Normalize(

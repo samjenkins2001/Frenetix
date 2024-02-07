@@ -25,7 +25,7 @@ from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
 from frenetix_motion_planner.state import ReactivePlannerState
 
-from frenetix_occlusion.interface import FOInterface
+#from frenetix_occlusion.interface import FOInterface
 
 # msg_logger = logging.getLogger("Message_logger")
 
@@ -51,6 +51,8 @@ class FrenetPlannerInterface(PlannerInterface):
         self.id = agent_id
         self.config_sim.simulation.ego_agent_id = agent_id
         self.DT = self.config_plan.planning.dt
+        self.replanning_counter = 0
+        self.replanning_traj = None
 
         self.planning_problem = planning_problem
         self.log_path = log_path
@@ -121,9 +123,9 @@ class FrenetPlannerInterface(PlannerInterface):
         # **************************
         # Initialize Occlusion Module
         # **************************
-        if self.config_sim.occlusion.use_occlusion_module:
-            self.occlusion_module = FOInterface(scenario, self.reference_path, self.config_sim.vehicle, self.DT,
-                                                os.path.join(self.mod_path, "configurations", "simulation", "occlusion.yaml"))
+        #if self.config_sim.occlusion.use_occlusion_module:
+            #self.occlusion_module = FOInterface(scenario, self.reference_path, self.config_sim.vehicle, self.DT,
+         #                                       os.path.join(self.mod_path, "configurations", "simulation", "occlusion.yaml"))
 
         # **************************
         # Set External Planner Setups
@@ -203,32 +205,60 @@ class FrenetPlannerInterface(PlannerInterface):
                     using the vehicle center for the position: If error == 0
                 None: Otherwise
         """
-        if self.occlusion_module is not None:
-            self.occlusion_module.evaluate_scenario(predictions=self.planner.predictions,
-                                                    ego_pos=self.x_0.position,
-                                                    ego_v=self.x_0.velocity,
-                                                    ego_orientation=self.x_0.orientation,
-                                                    ego_pos_cl=np.array([self.x_cl[0][0], self.x_cl[1][0]]),
-                                                    timestep=current_timestep,
-                                                    cosy_cl=self.coordinate_system.ccosy)
 
-        # plan trajectory
-        optimal_trajectory_pair = self.planner.plan()
+        if int(self.replanning_counter / self.config_plan.planning.replanning_frequency) == 1:
+            self.replanning_counter = 0
 
-        if not optimal_trajectory_pair:
-            # Could not plan feasible trajectory
-            self.msg_logger.critical("No Kinematic Feasible and Optimal Trajectory Available!")
-            return None
+        if self.replanning_counter == 0 or self.config_plan.planning.replanning_frequency < 2:
+            if self.occlusion_module is not None:
+                self.occlusion_module.evaluate_scenario(predictions=self.planner.predictions,
+                                                        ego_pos=self.x_0.position,
+                                                        ego_v=self.x_0.velocity,
+                                                        ego_orientation=self.x_0.orientation,
+                                                        ego_pos_cl=np.array([self.x_cl[0][0], self.x_cl[1][0]]),
+                                                        timestep=current_timestep,
+                                                        cosy_cl=self.coordinate_system.ccosy)
 
-        # record the new state for planner-internal logging
-        self.planner.record_state_and_input(optimal_trajectory_pair[0].state_list[1])
+            # plan trajectory
+            optimal_trajectory_pair = self.planner.plan()
 
-        # update init state and curvilinear state
-        self.x_0 = deepcopy(self.planner.record_state_list[-1])
-        self.x_cl = (optimal_trajectory_pair[2][1], optimal_trajectory_pair[3][1])
+            if not optimal_trajectory_pair:
+                # Could not plan feasible trajectory
+                self.msg_logger.critical("No Kinematic Feasible and Optimal Trajectory Available!")
+                return None
 
-        self.msg_logger.info(f"current time step: {current_timestep}")
-        self.msg_logger.info(f"current velocity: {self.x_0.velocity}")
-        self.msg_logger.info(f"current target velocity: {self.desired_velocity}")
+            # record the new state for planner-internal logging
+            self.planner.record_state_and_input(optimal_trajectory_pair[0].state_list[1])
 
-        return optimal_trajectory_pair[0]
+            # update init state and curvilinear state
+            self.x_0 = deepcopy(self.planner.record_state_list[-1])
+            self.x_cl = (optimal_trajectory_pair[2][1], optimal_trajectory_pair[3][1])
+
+            self.msg_logger.info(f"current time step: {current_timestep}")
+            self.msg_logger.info(f"current velocity: {self.x_0.velocity}")
+            self.msg_logger.info(f"current target velocity: {self.desired_velocity}")
+
+            self.replanning_traj = optimal_trajectory_pair
+            selected_trajectory = optimal_trajectory_pair[0]
+
+        else:
+
+            # record the new state for planner-internal logging
+            self.planner.record_state_and_input(self.replanning_traj[0].state_list[1+self.replanning_counter])
+
+            # update init state and curvilinear state
+            self.x_0 = deepcopy(self.planner.record_state_list[-1])
+            self.x_cl = (self.replanning_traj[2][1+self.replanning_counter], self.replanning_traj[3][1+self.replanning_counter])
+
+            current_ego_vehicle = self.planner.convert_state_list_to_commonroad_object(self.trajectory_pair[0].state_list[self.replanning_counter:],
+                                                                                       self.config_sim.simulation.ego_agent_id)
+            self.planner.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
+
+            self.msg_logger.info(f"current time step: {current_timestep}")
+            self.msg_logger.info(f"current velocity: {self.x_0.velocity}")
+            self.msg_logger.info(f"current target velocity: {self.desired_velocity}")
+            selected_trajectory = self.replanning_traj
+
+        self.replanning_counter += 1
+
+        return selected_trajectory, self.replanning_counter-1

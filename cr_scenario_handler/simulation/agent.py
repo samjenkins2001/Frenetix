@@ -229,7 +229,7 @@ class Agent:
                 # Execute Planner
                 # **************************
                 comp_time_start = time.time()
-                trajectory = self.planner_interface.step_interface(timestep)
+                trajectory, replanning_counter = self.planner_interface.step_interface(timestep)
                 comp_time_end = time.time()
                 # END TIMER
                 self.planning_times.append(comp_time_end - comp_time_start)
@@ -254,7 +254,8 @@ class Agent:
                                                     predictions=self.predictions,
                                                     visible_area=self.visible_area,
                                                     plot_window=self.config_visu.plot_window_dyn, save=self.save_plot,
-                                                    show=self.show_plot, gif=self.gif)
+                                                    show=self.show_plot, gif=self.gif,
+                                                    replanning_counter=replanning_counter)
 
                 else:
                     self.msg_logger.critical(

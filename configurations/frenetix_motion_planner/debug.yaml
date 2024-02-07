@@ -16,6 +16,6 @@ activate_logging: True
 msg_log_mode: INFO
 
 # use multiprocessing True/False
-multiproc: False
+multiproc: True
 # number of workers for multiprocessing
 num_workers: 6

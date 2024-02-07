@@ -9,6 +9,8 @@ planning_horizon: 3.0
 # velocity threshold (in m/s) for switching to low velocity mode
 low_vel_mode_threshold: 2.0
 
+replanning_frequency: 4 # 3 e.g. means three steps with one trajectory before calculating a new one.
+
 # emergency trajectory mode
 emergency_mode: "stopping"  # "stopping" or "min_risk" if None of both, "min_risk" is activated
 
