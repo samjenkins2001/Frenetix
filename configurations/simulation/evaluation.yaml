@@ -12,7 +12,7 @@ radius: 100
 tau: 2
 # max laterale deceleration
 a_max_lat: 8
-# available measures for evaluation (Use=True, Ignore=False)
+# available measures for evaluation (Use=True, Ignore=False, only if evaluate_simulation=True)
 criticality_metrics:
     # Headway
     hw: False

@@ -212,7 +212,6 @@ class AgentBatch(Process):
                                              "record_state_list": agent.record_state_list[-1],
                                              "record_input_list": agent.record_input_list[-1],
                                              "planning_times": agent.planning_times[-1],
-                                             "all_trajectories": agent.all_trajectories
                                              }
 
     def _check_completion(self):

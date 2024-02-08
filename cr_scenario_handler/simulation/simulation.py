@@ -538,7 +538,6 @@ class Simulation:
                 self._set_collision_check()
 
             self.global_timestep += 1
-            # self.process_times["simulation_steps"][self.global_timestep] = {}
             self.process_times = {}
             step_time_start = time.perf_counter()
             running = self.step_sequential_simulation()
@@ -565,7 +564,6 @@ class Simulation:
         while running:
             self.global_timestep += 1
 
-            # self.process_times["simulation_steps"][self.global_timestep] = {}
             self.process_times = {}
             step_time_start = time.perf_counter()
 

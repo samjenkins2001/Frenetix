@@ -33,7 +33,15 @@ class SimulationLogger:
             for it in ii.__dict__:
                 val = ii.__dict__[it]
                 if isinstance(val, DictConfig):
-                    val = dict(val)
+                    valdic = dict()
+                    for key, value in val.items():
+                        if isinstance(value, ListConfig):
+                            valdic[key] = list(value)
+                        elif isinstance(value, DictConfig):
+                            valdic[key] = dict(value)
+                        else:
+                            valdic[key] = value
+                    val = valdic
                 if isinstance(val, ListConfig):
                     val = list(val)
 
@@ -54,6 +62,8 @@ class SimulationLogger:
         self.scenario = self.config.simulation.name_scenario
 
         os.makedirs(self.log_path, exist_ok=True)
+        if os.path.exists(os.path.join(self.log_path,"simulation.db")):
+            os.remove(os.path.join(self.log_path, "simulation.db") )
 
         self.con = sqlite3.connect(os.path.join(self.log_path, "simulation.db"), timeout=TIMEOUT,
                                                 isolation_level="EXCLUSIVE"
