@@ -254,6 +254,9 @@ class FrenetPlannerInterface(PlannerInterface):
                                                                                        self.config_sim.simulation.ego_agent_id)
             self.planner.set_ego_vehicle_state(current_ego_vehicle=current_ego_vehicle)
 
+            self.planner.plan_postprocessing(optimal_trajectory=self.planner.optimal_trajectory, planning_time=0.0,
+                                             replanning_counter=self.replanning_counter)
+
             self.msg_logger.info(f"current time step: {current_timestep}")
             self.msg_logger.info(f"current velocity: {self.x_0.velocity}")
             self.msg_logger.info(f"current target velocity: {self.desired_velocity}")

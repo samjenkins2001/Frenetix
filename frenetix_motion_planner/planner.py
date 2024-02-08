@@ -621,7 +621,7 @@ class Planner:
 
         return x_0_lon, x_0_lat
 
-    def plan_postprocessing(self, optimal_trajectory, planning_time):
+    def plan_postprocessing(self, optimal_trajectory, planning_time, replanning_counter=0):
         # **************************
         # Logging
         # **************************
@@ -629,7 +629,8 @@ class Planner:
             self.logger.log(optimal_trajectory, time_step=self.x_0.time_step,
                             infeasible_kinematics=self._infeasible_count_kinematics,
                             percentage_kinematics=self.infeasible_kinematics_percentage, planning_time=planning_time,
-                            ego_vehicle=self.ego_vehicle_history[-1], desired_velocity=self.desired_velocity)
+                            ego_vehicle=self.ego_vehicle_history[-1], desired_velocity=self.desired_velocity,
+                            replanning_counter=replanning_counter)
             self.logger.log_predicition(self.predictions)
         if self.save_all_traj and self.logger:
             self.logger.log_all_trajectories(self.all_traj, self.x_0.time_step)
