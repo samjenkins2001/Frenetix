@@ -225,7 +225,7 @@ class FrenetPlannerInterface(PlannerInterface):
             if not optimal_trajectory_pair:
                 # Could not plan feasible trajectory
                 self.msg_logger.critical("No Kinematic Feasible and Optimal Trajectory Available!")
-                return None
+                return None, self.replanning_counter
 
             # record the new state for planner-internal logging
             self.planner.record_state_and_input(optimal_trajectory_pair[0].state_list[1])
