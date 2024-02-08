@@ -17,7 +17,7 @@ from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.prediction.prediction import TrajectoryPrediction
 from commonroad.geometry.shape import Rectangle
 from commonroad.scenario.scenario import Scenario
-from commonroad.scenario.state import CustomState, InputState
+from commonroad.scenario.state import CustomState, InputState, InitialState
 from commonroad.scenario.trajectory import Trajectory
 
 from frenetix_motion_planner.state import ReactivePlannerState
@@ -25,7 +25,7 @@ from frenetix_motion_planner.sampling_matrix import SamplingHandler
 from frenetix_motion_planner.utility.logging_helpers import DataLoggingCosts
 from frenetix_motion_planner.trajectories import TrajectorySample
 
-from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, interpolate_angle
+from cr_scenario_handler.utils.utils_coordinate_system import interpolate_angle
 from cr_scenario_handler.utils import helper_functions as hf
 from cr_scenario_handler.utils.collision_check import collision_check_prediction
 
@@ -501,7 +501,17 @@ class Planner:
         shape = Rectangle(self.vehicle_params.length, self.vehicle_params.width)
         # get trajectory prediction
         prediction = TrajectoryPrediction(trajectory, shape)
-        return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, trajectory.state_list[0], prediction)
+
+        init_state = trajectory.state_list[0]
+        initial_state = InitialState(position=init_state.position,
+                                     orientation=init_state.orientation,
+                                     velocity=init_state.velocity,
+                                     acceleration=init_state.acceleration,
+                                     yaw_rate=init_state.yaw_rate,
+                                     slip_angle=0.0,
+                                     time_step=init_state.time_step)
+
+        return DynamicObstacle(obstacle_id, ObstacleType.CAR, shape, initial_state, prediction)
 
     def create_coll_object(self, trajectory, vehicle_params, ego_state):
         """Create a collision_object of the trajectory for collision checking with road
