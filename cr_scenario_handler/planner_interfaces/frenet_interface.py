@@ -16,6 +16,7 @@ from commonroad.scenario.scenario import Scenario
 from commonroad_route_planner.route_planner import RoutePlanner
 
 import cr_scenario_handler.utils.multiagent_logging as lh
+from behavior_planner.behavior_module import BehaviorModule
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 import cr_scenario_handler.utils.goalcheck as gc
 from cr_scenario_handler.utils.utils_coordinate_system import smooth_ref_path, extend_ref_path
@@ -53,6 +54,7 @@ class FrenetPlannerInterface(PlannerInterface):
         self.DT = self.config_plan.planning.dt
         self.replanning_counter = 0
         self.replanning_traj = None
+        self.behavior_module_state = None
 
         self.planning_problem = planning_problem
         self.log_path = log_path
@@ -99,33 +101,38 @@ class FrenetPlannerInterface(PlannerInterface):
         if not self.config_sim.behavior.use_behavior_planner:
             self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
             self.reference_path = self.route_planner.plan_routes().retrieve_shortest_route().reference_path
-
-            try:
-                self.reference_path, _ = self.route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
-                                                                                  initial_position_cart=self.x_0.position,
-                                                                                  additional_lenght_in_meters=10.0)
-            except:
-                self.reference_path = extend_ref_path(self.reference_path, self.x_0.position)
         else:
-            raise NotImplementedError
+            self.behavior_modul = BehaviorModule(scenario=scenario,
+                                                 planning_problem=planning_problem,
+                                                 init_ego_state=x_0,
+                                                 dt=config_planner.planning.dt,
+                                                 config=config_sim)
+            self.reference_path = self.behavior_modul.reference_path
 
-        # TODO: Achieve a stable route planner version
+        try:
+            self.reference_path, _ = self.route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
+                                                                              initial_position_cart=self.x_0.position,
+                                                                              additional_lenght_in_meters=10.0)
+        except:
+            self.reference_path = extend_ref_path(self.reference_path, self.x_0.position)
+
         self.reference_path = smooth_ref_path(self.reference_path)
 
         end_velocity = getattr(getattr(self.planning_problem.goal.state_list[0], 'velocity', None), 'end', 5)
         additional_lenght_in_meters = end_velocity * (config_planner.planning.planning_horizon + 1.0)
-        self.reference_path, _ = self.route_planner.extend_reference_path_at_end(reference_path=self.reference_path,
-                                                                                 final_position=self.reference_path[-1],
-                                                                                 additional_lenght_in_meters=additional_lenght_in_meters)
+        self.reference_path, _ = (self.route_planner.
+                                  extend_reference_path_at_end(reference_path=self.reference_path,
+                                                               final_position=self.reference_path[-1],
+                                                               additional_lenght_in_meters=additional_lenght_in_meters))
 
         self.goal_area = gc.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
 
         # **************************
         # Initialize Occlusion Module
         # **************************
-        #if self.config_sim.occlusion.use_occlusion_module:
-            #self.occlusion_module = FOInterface(scenario, self.reference_path, self.config_sim.vehicle, self.DT,
-         #                                       os.path.join(self.mod_path, "configurations", "simulation", "occlusion.yaml"))
+        # if self.config_sim.occlusion.use_occlusion_module:
+        #   self.occlusion_module = FOInterface(scenario, self.reference_path, self.config_sim.vehicle, self.DT,
+        #                            os.path.join(self.mod_path, "configurations", "simulation", "occlusion.yaml"))
 
         # **************************
         # Set External Planner Setups
@@ -183,7 +190,13 @@ class FrenetPlannerInterface(PlannerInterface):
             # set desired velocity
             self.desired_velocity = self.velocity_planner.calculate_desired_velocity(self.x_0, self.x_cl[0][0])
         else:
-            raise NotImplementedError
+            # raise NotImplementedError
+            behavior = self.behavior_modul.execute(predictions=predictions, ego_state=self.x_0, time_step=self.DT)
+            self.desired_velocity = behavior.desired_velocity
+            if behavior.reference_path is not None:
+                self.reference_path = behavior.reference_path
+            self.behavior_module_state = behavior.behavior_planner_state
+        # End TODO
 
         self.planner.update_externals(scenario=scenario, x_0=self.x_0, x_cl=self.x_cl,
                                       desired_velocity=self.desired_velocity, predictions=predictions)

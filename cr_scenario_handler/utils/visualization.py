@@ -7,6 +7,7 @@ __status__ = "Beta"
 
 import os
 from typing import List, Union, Dict
+from PIL import Image
 
 import matplotlib
 from matplotlib import pyplot as plt
@@ -43,11 +44,11 @@ lightcolors = ["#ffd569", "#f8ff69", "#c6ff69", "#94ff69", "#69ff70",
 
 
 def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningProblem, ego: DynamicObstacle,
-                                  timestep: int, config, log_path: str,
-                                  traj_set=None, optimal_traj=None, ref_path: np.ndarray = None,
-                                  rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
-                                  visible_area=None, occlusion_map=None, save: bool = False, show: bool = False, gif: bool = False,
-                                  replanning_counter: int = 0):
+                                timestep: int, config, log_path: str,
+                                traj_set=None, optimal_traj=None, ref_path: np.ndarray = None,
+                                rnd: MPRenderer = None, predictions: dict = None, plot_window: int = None,
+                                visible_area=None, occlusion_map=None, save: bool = False, show: bool = False, gif: bool = False,
+                                replanning_counter: int = 0):
     """
     Function to visualize planning result from the reactive planner for a given time step
     :param scenario: CommonRoad scenario object
@@ -384,8 +385,29 @@ def make_gif(scenario: Scenario, time_steps: Union[range, List[int]],
         im_path = os.path.join(path_images, str(scenario.scenario_id) + f"_{step}.png")
         filenames.append(im_path)
 
+    img_width = 0
+    img_height = 0
+
     for filename in filenames:
-        images.append(iio.imread(filename))
+        img = Image.open(filename)
+        width, height = img.size
+
+        if not img_width:
+            img_width = width
+            img_height = height
+
+        # Calculate the area to crop
+        left = 0
+        top = 0
+        right = img_width if width != img_width else width
+        bottom = img_height if height != img_height else height
+
+        # Crop the image
+        img_cropped = img.crop((left, top, right, bottom))
+
+        # Convert the PIL image to an array for imageio
+        img_array = np.array(img_cropped)
+        images.append(img_array)
 
     iio.imwrite(os.path.join(log_path, str(scenario.scenario_id) + ".gif"),
                 images, duration=duration)
