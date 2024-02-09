@@ -25,7 +25,7 @@ class BehaviorModule(object):
     TODO: Include FSM
     """
 
-    def __init__(self, scenario, planning_problem, init_ego_state, dt, config):
+    def __init__(self, scenario, planning_problem, init_ego_state, dt, config, log_path):
         """ Init Behavior Module.
 
         Args:
@@ -39,9 +39,9 @@ class BehaviorModule(object):
         # load config
         self.BM_state.config = config
         self.behavior_config = self.BM_state.config.behavior
-        self.behavior_config.behavior_log_path_scenario = os.path.join(self.BM_state.config.behavior.behavior_log_path,
-                                                                       str(scenario.scenario_id))
-        os.makedirs(self.behavior_config.behavior_log_path_scenario, exist_ok=True)
+        self.BM_state.config.behavior.behavior_log_path = os.path.join(log_path, "behavior_logs")
+
+        os.makedirs(self.behavior_config.behavior_log_path, exist_ok=True)
 
         # init behavior planner and load scenario information
         self.VP_state = self.BM_state.VP_state  # velocity planner information

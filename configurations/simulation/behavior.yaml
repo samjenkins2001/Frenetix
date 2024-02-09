@@ -2,7 +2,6 @@
 use_behavior_planner: False  # WARNING: This is a Beta Version
 
 # Behavior Logging
-behavior_log_path: "logs/behavior_logs"  # folder with scenario ID is added during runtime
 behavior_log_mode: DEBUG  # Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
 archive_previous_logs: False
 minimal_logging: False
