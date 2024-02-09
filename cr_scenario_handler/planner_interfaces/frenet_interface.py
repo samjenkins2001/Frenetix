@@ -101,29 +101,29 @@ class FrenetPlannerInterface(PlannerInterface):
         if not self.config_sim.behavior.use_behavior_planner:
             self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
             self.reference_path = self.route_planner.plan_routes().retrieve_shortest_route().reference_path
+
+            try:
+                self.reference_path, _ = self.route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
+                                                                                  initial_position_cart=self.x_0.position,
+                                                                                  additional_lenght_in_meters=10.0)
+            except:
+                self.reference_path = extend_ref_path(self.reference_path, self.x_0.position)
+
+            self.reference_path = smooth_ref_path(self.reference_path)
+
+            end_velocity = getattr(getattr(self.planning_problem.goal.state_list[0], 'velocity', None), 'end', 5)
+            additional_lenght_in_meters = end_velocity * (config_planner.planning.planning_horizon + 1.0)
+            self.reference_path, _ = (self.route_planner.
+                                      extend_reference_path_at_end(reference_path=self.reference_path,
+                                                                   final_position=self.reference_path[-1],
+                                                                   additional_lenght_in_meters=additional_lenght_in_meters))
         else:
             self.behavior_modul = BehaviorModule(scenario=scenario,
                                                  planning_problem=planning_problem,
                                                  init_ego_state=x_0,
                                                  dt=config_planner.planning.dt,
                                                  config=config_sim)
-            self.reference_path = self.behavior_modul.reference_path
-
-        try:
-            self.reference_path, _ = self.route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
-                                                                              initial_position_cart=self.x_0.position,
-                                                                              additional_lenght_in_meters=10.0)
-        except:
-            self.reference_path = extend_ref_path(self.reference_path, self.x_0.position)
-
-        self.reference_path = smooth_ref_path(self.reference_path)
-
-        end_velocity = getattr(getattr(self.planning_problem.goal.state_list[0], 'velocity', None), 'end', 5)
-        additional_lenght_in_meters = end_velocity * (config_planner.planning.planning_horizon + 1.0)
-        self.reference_path, _ = (self.route_planner.
-                                  extend_reference_path_at_end(reference_path=self.reference_path,
-                                                               final_position=self.reference_path[-1],
-                                                               additional_lenght_in_meters=additional_lenght_in_meters))
+            self.reference_path = smooth_ref_path(self.behavior_modul.reference_path)
 
         self.goal_area = gc.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
 
