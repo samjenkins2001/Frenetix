@@ -14,6 +14,7 @@ from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.scenario import Scenario
 from commonroad_route_planner.route_planner import RoutePlanner
+from commonroad_route_planner.utility.route_extension.route_extendor import RouteExtendor
 
 import cr_scenario_handler.utils.multiagent_logging as lh
 from behavior_planner.behavior_module import BehaviorModule
@@ -26,7 +27,7 @@ from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
 from frenetix_motion_planner.state import ReactivePlannerState
 
-#from frenetix_occlusion.interface import FOInterface
+# from frenetix_occlusion.interface import FOInterface
 
 # msg_logger = logging.getLogger("Message_logger")
 
@@ -100,23 +101,14 @@ class FrenetPlannerInterface(PlannerInterface):
         # Set reference path
         if not self.config_sim.behavior.use_behavior_planner:
             self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
-            self.reference_path = self.route_planner.plan_routes().retrieve_shortest_route().reference_path
+            shortest_route = self.route_planner.plan_routes().retrieve_shortest_route(retrieve_shortest=True)
 
-            try:
-                self.reference_path, _ = self.route_planner.extend_reference_path_at_start(reference_path=self.reference_path,
-                                                                                  initial_position_cart=self.x_0.position,
-                                                                                  additional_lenght_in_meters=10.0)
-            except:
-                self.reference_path = extend_ref_path(self.reference_path, self.x_0.position)
+            # Init route extendor
+            route_extendor: RouteExtendor = RouteExtendor(shortest_route)
+            # Extend reference path at start and end
+            route_extendor.extend_reference_path_at_start_and_end()
 
-            self.reference_path = smooth_ref_path(self.reference_path)
-
-            end_velocity = getattr(getattr(self.planning_problem.goal.state_list[0], 'velocity', None), 'end', 5)
-            additional_lenght_in_meters = end_velocity * (config_planner.planning.planning_horizon + 1.0)
-            self.reference_path, _ = (self.route_planner.
-                                      extend_reference_path_at_end(reference_path=self.reference_path,
-                                                                   final_position=self.reference_path[-1],
-                                                                   additional_lenght_in_meters=additional_lenght_in_meters))
+            self.reference_path = smooth_ref_path(route_extendor.route.reference_path)
         else:
             self.behavior_modul = BehaviorModule(scenario=scenario,
                                                  planning_problem=planning_problem,
