@@ -104,7 +104,7 @@ class FrenetPlannerInterface(PlannerInterface):
             shortest_route = self.route_planner.plan_routes().retrieve_shortest_route(retrieve_shortest=True)
 
             # Init route extendor
-            route_extendor: RouteExtendor = RouteExtendor(shortest_route, extrapolation_length=20)
+            route_extendor: RouteExtendor = RouteExtendor(shortest_route, extrapolation_length=50)
             # Extend reference path at start and end
             route_extendor.extend_reference_path_at_start_and_end()
 
