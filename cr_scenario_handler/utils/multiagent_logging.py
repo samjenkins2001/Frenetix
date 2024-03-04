@@ -62,12 +62,11 @@ class SimulationLogger:
         self.scenario = self.config.simulation.name_scenario
 
         os.makedirs(self.log_path, exist_ok=True)
-        if os.path.exists(os.path.join(self.log_path,"simulation.db")):
-            os.remove(os.path.join(self.log_path, "simulation.db") )
+        if os.path.exists(os.path.join(self.log_path, "simulation.db")) and not config.simulation.evaluation_pipeline:
+            os.remove(os.path.join(self.log_path, "simulation.db"))
 
         self.con = sqlite3.connect(os.path.join(self.log_path, "simulation.db"), timeout=TIMEOUT,
-                                                isolation_level="EXCLUSIVE"
-                                   )
+                                                isolation_level="EXCLUSIVE")
 
         self.con.executescript("""
             PRAGMA journal_mode = OFF;

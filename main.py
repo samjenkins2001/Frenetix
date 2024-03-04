@@ -12,13 +12,16 @@ from cr_scenario_handler.utils.general import get_scenario_list
 
 def run_simulation_wrapper(scenario_info):
     scenario_file, scenario_folder, mod_path, logs_path, use_cpp = scenario_info
-    start_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False)
+    start_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False,
+                     evaluation_pipeline=True)
 
 
-def start_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False, count=0):
+def start_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cpp, start_multiagent=False,
+                     evaluation_pipeline=False, count=0):
     log_path = os.path.join(logs_path, scenario_name)
     config_sim = ConfigurationBuilder.build_sim_configuration(scenario_name, scenario_folder, mod_path)
     config_sim.simulation.use_multiagent = start_multiagent
+    config_sim.simulation.evaluation_pipeline = evaluation_pipeline
 
     config_planner = ConfigurationBuilder.build_frenetplanner_configuration(scenario_name)
     config_planner.debug.use_cpp = use_cpp
@@ -115,7 +118,7 @@ def main():
             count = 0
             for scenario_file in scenario_files:
                 start_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp,
-                                 start_multiagent, count)
+                                 start_multiagent, evaluation_pipeline=True, count=count)
                 count += 1
 
     else:
