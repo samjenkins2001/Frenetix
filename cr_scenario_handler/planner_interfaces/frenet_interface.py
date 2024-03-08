@@ -14,7 +14,7 @@ from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.scenario import Scenario
 from commonroad_route_planner.route_planner import RoutePlanner
-from commonroad_route_planner.utility.route_extension.route_extendor import RouteExtendor
+from commonroad_route_planner.frenet_tools.route_extendor import RouteExtendor
 
 import cr_scenario_handler.utils.multiagent_logging as lh
 from behavior_planner.behavior_module import BehaviorModule
@@ -100,7 +100,8 @@ class FrenetPlannerInterface(PlannerInterface):
 
         # Set reference path
         if not self.config_sim.behavior.use_behavior_planner:
-            self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem)
+            self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem,
+                                              extended_search=False)
             shortest_route = self.route_planner.plan_routes().retrieve_shortest_route(retrieve_shortest=True)
 
             # Init route extendor
