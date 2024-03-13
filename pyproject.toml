@@ -26,11 +26,12 @@ packages = [
 python = ">=3.9,<3.12"
 
 # internal, will be resolved when we publish it.
-commonroad-route-planner = { git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-route-planner.git", branch = "develop" }
+
 commonroad-drivability-checker = { git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-drivability-checker.git", branch = "development" }
 frenetix = { git = "https://gitlab.lrz.de/motionplanning1/frenetperformanceplannerfunctions.git", branch = "develop" }
 
 # frenetix-occlusion = ">=2024.1.2"
+commonroad-route-planner = ">=2024.1"
 
 wale-net = ">=3.0.3"
 matplotlib = "^3.8.1"
