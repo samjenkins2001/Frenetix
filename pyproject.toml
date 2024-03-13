@@ -28,8 +28,8 @@ python = ">=3.9,<3.12"
 # internal, will be resolved when we publish it.
 
 commonroad-drivability-checker = { git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-drivability-checker.git", branch = "development" }
-frenetix = { git = "https://gitlab.lrz.de/motionplanning1/frenetperformanceplannerfunctions.git", branch = "develop" }
 
+frenetix = ">=0.2.0"
 # frenetix-occlusion = ">=2024.1.2"
 commonroad-route-planner = ">=2024.1"
 
