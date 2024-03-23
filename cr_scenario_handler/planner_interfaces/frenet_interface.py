@@ -8,6 +8,7 @@ __status__ = "Beta"
 import os
 from copy import deepcopy
 import numpy as np
+import concurrent.futures
 
 from commonroad.geometry.shape import Rectangle
 from commonroad.planning.planning_problem import PlanningProblem
@@ -106,10 +107,26 @@ class FrenetPlannerInterface(PlannerInterface):
 
             # Init route extendor
             route_extendor: RouteExtendor = RouteExtendor(shortest_route, extrapolation_length=50)
+
             # Extend reference path at start and end
-            route_extendor.extend_reference_path_at_start_and_end()
+            def extend_reference_path():
+                route_extendor.extend_reference_path_at_start_and_end()
+
+            # Set the maximum wait time (in seconds)
+            wait_time = 3
+
+            # Use ThreadPoolExecutor to execute the function in a separate thread
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(extend_reference_path)
+                try:
+                    # Wait for the specified time for the function to complete
+                    future.result(timeout=wait_time)
+                except concurrent.futures.TimeoutError:
+                    print(f"The operation didn't complete in {wait_time} seconds and was skipped.")
+                    # Optional: Handle the timeout case as needed
 
             self.reference_path = smooth_ref_path(route_extendor.route.reference_path)
+
         else:
             self.behavior_modul = BehaviorModule(scenario=scenario,
                                                  planning_problem=planning_problem,
