@@ -5,23 +5,20 @@ __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
-import os
 from copy import deepcopy
 import numpy as np
-import concurrent.futures
 
 from commonroad.geometry.shape import Rectangle
 from commonroad.planning.planning_problem import PlanningProblem
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
 from commonroad.scenario.scenario import Scenario
 from commonroad_route_planner.route_planner import RoutePlanner
-from commonroad_route_planner.frenet_tools.route_extendor import RouteExtendor
 
 import cr_scenario_handler.utils.multiagent_logging as lh
 from behavior_planner.behavior_module import BehaviorModule
 from cr_scenario_handler.planner_interfaces.planner_interface import PlannerInterface
 import cr_scenario_handler.utils.goalcheck as gc
-from cr_scenario_handler.utils.utils_coordinate_system import smooth_ref_path, extend_ref_path
+from cr_scenario_handler.utils.utils_coordinate_system import smooth_ref_path, extend_ref_path_both_ends
 from cr_scenario_handler.utils.velocity_planner import VelocityPlanner
 
 from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
@@ -105,27 +102,14 @@ class FrenetPlannerInterface(PlannerInterface):
                                               extended_search=False)
             shortest_route = self.route_planner.plan_routes().retrieve_shortest_route(retrieve_shortest=True)
 
-            # Init route extendor
-            route_extendor: RouteExtendor = RouteExtendor(shortest_route, extrapolation_length=50)
+            # # Init route extendor
+            # route_extendor: RouteExtendor = RouteExtendor(shortest_route, extrapolation_length=50)
+            #
+            # # Extend reference path at start and end
+            # route_extendor.extend_reference_path_at_start_and_end()
+            reference_path = extend_ref_path_both_ends(shortest_route.reference_path)
 
-            # Extend reference path at start and end
-            def extend_reference_path():
-                route_extendor.extend_reference_path_at_start_and_end()
-
-            # Set the maximum wait time (in seconds)
-            wait_time = 3
-
-            # Use ThreadPoolExecutor to execute the function in a separate thread
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(extend_reference_path)
-                try:
-                    # Wait for the specified time for the function to complete
-                    future.result(timeout=wait_time)
-                except concurrent.futures.TimeoutError:
-                    print(f"The operation didn't complete in {wait_time} seconds and was skipped.")
-                    # Optional: Handle the timeout case as needed
-
-            self.reference_path = smooth_ref_path(route_extendor.route.reference_path)
+            self.reference_path = smooth_ref_path(reference_path)
 
         else:
             self.behavior_modul = BehaviorModule(scenario=scenario,
