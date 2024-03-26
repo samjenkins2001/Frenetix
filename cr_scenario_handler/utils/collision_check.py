@@ -124,7 +124,7 @@ def collision_check_prediction(
         bool: True if the trajectory collides with a prediction.
     """
     # check every obstacle in the predictions
-    for obstacle in scenario.obstacles:
+    for obstacle in scenario.static_obstacles:  # INFO: If the prediction is bad, sometimes its better to not check coll
         obstacle_id = obstacle.obstacle_id
         if obstacle_id not in predictions:  # or obstacle.state_at_time(time_step).velocity > 5:
             continue
