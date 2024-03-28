@@ -27,11 +27,11 @@ python = ">=3.9,<3.12"
 
 # internal, will be resolved when we publish it.
 
-commonroad-drivability-checker = { git = "https://gitlab.lrz.de/av2.0/commonroad/commonroad-drivability-checker.git", branch = "development" }
+commonroad-drivability-checker = "^2024.1"
+commonroad-route-planner = ">=2024.1"
 
 frenetix = ">=0.2.0"
 # frenetix-occlusion = ">=2024.1.2"
-commonroad-route-planner = ">=2024.1"
 
 wale-net = ">=3.0.3"
 matplotlib = "^3.8.1"
@@ -48,7 +48,7 @@ pandas = "^2.0.3"
 triangle = ">=20200424"
 psutil = ">=5.9.6"
 
-commonroad-io = ">=2023.4"
+commonroad-io = "==2023.4"
 commonroad-vehicle-models = "^3.0.2"
 
 [tool.poetry.group.docs]
