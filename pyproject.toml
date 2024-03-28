@@ -48,7 +48,7 @@ pandas = "^2.0.3"
 triangle = ">=20200424"
 psutil = ">=5.9.6"
 
-commonroad-io = "==2023.4"
+commonroad-io = ">=2024.1"
 commonroad-vehicle-models = "^3.0.2"
 
 [tool.poetry.group.docs]
