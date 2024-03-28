@@ -393,8 +393,8 @@ class Simulation:
                                  shape, center_lanelet_assignment=lanelet_assigned)
         )
         # otherwise prediction of this obstacle not available not used
-        dummy_obstacle.prediction.final_time_step += 1
-        dummy_obstacle.prediction.initial_time_step += 1
+        # dummy_obstacle.prediction.final_time_step += 1
+        # dummy_obstacle.prediction.initial_time_step += 1
         return dummy_obstacle
 
     def _load_external_modules(self):

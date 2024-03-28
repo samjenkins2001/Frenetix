@@ -28,7 +28,7 @@ python = ">=3.9,<3.12"
 # internal, will be resolved when we publish it.
 
 commonroad-drivability-checker = "^2024.1"
-commonroad-route-planner = ">=2024.1.1"
+commonroad-route-planner = "^2024.1.1"
 
 frenetix = ">=0.2.0"
 # frenetix-occlusion = ">=2024.1.2"

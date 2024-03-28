@@ -10,7 +10,7 @@ from shapely.geometry import LineString, Point
 
 # commonroad imports
 from commonroad.geometry.shape import Rectangle
-from commonroad.scenario.traffic_sign_interpreter import TrafficSigInterpreter
+from commonroad.scenario.traffic_sign_interpreter import TrafficSignInterpreter
 from commonroad.scenario.lanelet import LaneletType
 from commonroad.scenario.traffic_sign import SupportedTrafficSignCountry
 
@@ -112,7 +112,7 @@ def get_lanelet_information(scenario, reference_path_ids, ego_state, country: Su
         int: current_lanelet_id, speed_limit
         str: street setting ('Highway', 'Country', 'Urban)
     """
-    traffic_signs = TrafficSigInterpreter(country=country, lanelet_network=scenario.lanelet_network)
+    traffic_signs = TrafficSignInterpreter(country=country, lanelet_network=scenario.lanelet_network)
 
     current_position = ego_state.position
     current_lanelets = scenario.lanelet_network.find_lanelet_by_position([current_position])[0]
