@@ -94,7 +94,7 @@ class GoalReachedChecker:
             self._check_time_step(normalized_state, goal_state, state_status)
             self.status.append(state_status)
             if not self.position_flagg:
-                self.position_flagg = state_status["position"]
+                self.position_flagg = state_status.get("position", False)
 
     def goal_reached_status(self, AgentStatus):
         """Get the goal status."""
