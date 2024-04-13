@@ -199,7 +199,9 @@ class Agent:
             self.agent_state.log_timelimit(timestep)
             self.postprocessing()
 
-        elif self.planner_interface.planner.x_cl[0][0] > self.agent_state.goal_checker.last_goal_position:
+        elif (self.planner_interface.planner.x_cl[0][0] -
+              self.planner_interface.planner.x_0.velocity * self.scenario.dt >
+              self.agent_state.goal_checker.last_goal_position):
             self.agent_state.log_max_s_position(timestep)
             self.planning_times.append(0)
             self.postprocessing()
