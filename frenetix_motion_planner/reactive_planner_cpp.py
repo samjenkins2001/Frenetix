@@ -183,6 +183,23 @@ class ReactivePlannerCpp(Planner):
         if self.logger:
             self.logger.sql_logger.write_reference_path(reference_path)
 
+    def _get_cartesian_state(self) -> frenetix.CartesianPlannerState:
+        return frenetix.CartesianPlannerState(self.x_0.position, self.x_0.orientation, self.x_0.velocity, self.x_0.acceleration, self.x_0.steering_angle)
+
+    def _compute_standstill_trajectory(self) -> frenetix.TrajectorySample:
+        """
+        Computes a standstill trajectory if the vehicle is already at velocity 0
+        :return: The TrajectorySample for a standstill trajectory
+        """
+
+        ps = frenetix.PlannerState(
+            self._get_cartesian_state(),
+            frenetix.CurvilinearPlannerState(self.x_cl[0], self.x_cl[1]),
+            self.vehicle_params.wheelbase
+        )
+
+        return frenetix.TrajectorySample.compute_standstill_trajectory(self.coordinate_system_cpp, ps, self.dT, self.horizon)
+
     def plan(self) -> tuple:
         """
         Plans an optimal trajectory
@@ -198,28 +215,15 @@ class ReactivePlannerCpp(Planner):
         x_0_lon = None
         x_0_lat = None
         if self.x_cl is None:
-            initial_state = frenetix.TrajectorySample(
-                x0=np.float64(self.x_0.position[0]),
-                y0=np.float64(self.x_0.position[1]),
-                orientation0=self.x_0.orientation,
-                acceleration0=self.x_0.acceleration,
-                velocity0=self.x_0.velocity
+            x_cl_new = frenetix.compute_initial_state(
+                coordinate_system=self.coordinate_system_cpp,
+                x_0=self._get_cartesian_state(),
+                wheelbase=self.vehicle_params.wheelbase,
+                low_velocity_mode=self._LOW_VEL_MODE
             )
 
-            initial_state_computation = frenetix.trajectory_functions.ComputeInitialState(
-                coordinateSystem=self.coordinate_system_cpp,
-                wheelBase=self.vehicle_params.wheelbase,
-                steeringAngle=self.x_0.steering_angle,
-                lowVelocityMode=self._LOW_VEL_MODE
-            )
-
-            initial_state_computation.evaluate_trajectory(initial_state)
-
-            x_0_lat = [np.float64(initial_state.curvilinear.d), np.float64(initial_state.curvilinear.d_dot),
-                       np.float64(initial_state.curvilinear.d_ddot)]
-
-            x_0_lon = [np.float64(initial_state.curvilinear.s), np.float64(initial_state.curvilinear.s_dot),
-                       np.float64(initial_state.curvilinear.s_ddot)]
+            x_0_lat = x_cl_new.x0_lat
+            x_0_lon = x_cl_new.x0_lon
         else:
             x_0_lat = self.x_cl[1]
             x_0_lon = self.x_cl[0]
@@ -306,6 +310,15 @@ class ReactivePlannerCpp(Planner):
             self._infeasible_count_kinematics))
         self.msg_logger.debug('Rejected {} infeasible trajectories due to collisions'.format(
             self.infeasible_count_collision))
+
+        # ************************************************
+        # Fall back to standstill trajectory if applicable
+        # ************************************************
+        if optimal_trajectory is None and self.x_0.velocity <= 0.1:
+            self.msg_logger.warning('Planning standstill for the current scenario')
+            if self.logger:
+                self.logger.trajectory_number = self.x_0.time_step
+            optimal_trajectory = self._compute_standstill_trajectory()
 
         # *******************************************
         # Find alternative Optimal Trajectory if None
