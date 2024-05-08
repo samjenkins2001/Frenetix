@@ -98,7 +98,9 @@ class FrenetPlannerInterface(PlannerInterface):
 
         # Set reference path
         if not self.config_sim.behavior.use_behavior_planner:
-            self.route_planner = RoutePlanner(scenario=scenario, planning_problem=planning_problem,
+            self.route_planner = RoutePlanner(lanelet_network=scenario.lanelet_network,
+                                              planning_problem=planning_problem,
+                                              scenario=scenario,
                                               extended_search=False)
             shortest_route = self.route_planner.plan_routes().retrieve_shortest_route(retrieve_shortest=True)
 
