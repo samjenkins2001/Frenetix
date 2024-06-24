@@ -170,6 +170,17 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
         rnd.ax.plot(ref_path[:, 0], ref_path[:, 1], color='g', marker='.', markersize=1, zorder=19, linewidth=0.8,
                     label='reference path')
 
+    # visualize behavior states
+    if hasattr(config, 'behavior'):
+        if config.behavior.use_behavior_planner and config.behavior.visualize_states:
+            rnd.f.texts = []  # remove the texts, otherwise they are stacking
+            # TODO get the behavior states via the dict the behavior planner is returning and not via the config object
+            behavior_text_left = f'behavior_state_static: {str(config.behavior.behavior_state_static)}\n' \
+                                 f'situation_state_static: {str(config.behavior.situation_state_static)}\n'\
+                                 f'behavior_state_dynamic: {str(config.behavior.behavior_state_dynamic)}\n' \
+                                 f'situation_state_dynamic: {str(config.behavior.situation_state_dynamic)}'
+            rnd.f.text(0.15, 0.85, behavior_text_left, ha='left', va='top', fontsize=12)
+
     # save as .png file
     if config.visualization.save_plots or save or gif:
         plot_dir = os.path.join(log_path, "plots")

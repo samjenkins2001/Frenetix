@@ -120,7 +120,7 @@ class FrenetPlannerInterface(PlannerInterface):
                                                  dt=config_planner.planning.dt,
                                                  config=config_sim,
                                                  log_path=self.log_path)
-            self.reference_path = smooth_ref_path(self.behavior_modul.reference_path)
+            self.reference_path = self.behavior_modul.reference_path
 
         self.goal_area = gc.get_goal_area_shape_group(planning_problem=planning_problem, scenario=scenario)
 

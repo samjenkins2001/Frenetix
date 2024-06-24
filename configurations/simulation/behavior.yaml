@@ -1,6 +1,22 @@
 # Use Behavior Planner
 use_behavior_planner: False  # WARNING: This is a Beta Version
 
+# general configs
+replanning_frequency: 3  # time steps # TODO hard coded, should match with configurations/frenetix_motion_planner/planning.yaml > replanning_frequency
+
+# path_planner configs
+dist_between_points: 0.125  # m
+preparation_time: 3  # s, time of a static preparation state
+goal_time: 2  # s, time of a static goal state
+
+# velocity_planner configs
+#min_TTC_to_preceading_vehicle: 3.0
+safety_distance_buffer: 2  # seconds of safety distance to the other car
+comfortable_deceleration_rate: 3.4  # m/s^2
+
+# stop_point configs
+default_time_horizon: 2  # s
+
 # Behavior Logging
 behavior_log_mode: DEBUG  # Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
 archive_previous_logs: False
