@@ -1,17 +1,24 @@
-__author__ = "Luca Troncone, Rainer Trauth"
+__author__ = "Moritz Ellermann, Rainer Trauth"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
 __email__ = "rainer.trauth@tum.de"
 __status__ = "Beta"
 
+# general imports
+import copy
 from itertools import zip_longest
 import numpy as np
 import logging
 
-import behavior_planner.utils.helper_functions as hf
+# commonroad imports
+from commonroad.geometry.shape import Polygon, ShapeGroup
+from commonroad_route_planner.route_generation_strategies.default_generation_strategy import DefaultGenerationStrategy
 
 from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem, smooth_ref_path
+
+# project imports
+import behavior_planner.utils.helper_functions as hf
 
 # get logger
 behavior_message_logger = logging.getLogger("Behavior_logger")
@@ -42,22 +49,129 @@ class PathPlanner(object):
         self.FSM_state = BM_state.FSM_state
         self.PP_state = BM_state.PP_state
 
+        # execute common road route planning
+        self._clac_global_nav_route()
+
         # route planning
-        self.route_planner = RoutePlan(lanelet_network=BM_state.scenario.lanelet_network,
-                                       global_nav_route=BM_state.global_nav_route,
-                                       config_sim=self.BM_state.config)
+        self.route_planner = RoutePlan(lanelet_network=self.BM_state.scenario.lanelet_network,
+                                       global_nav_route=self.BM_state.global_nav_route,
+                                       config_sim=self.BM_state.config,
+                                       country=self.BM_state.country,
+                                       street_setting_scenario=self.BM_state.street_setting)
         self.PP_state.route_plan_ids = self.route_planner.global_nav_path_ids
 
         self.PP_state.cl_nav_coordinate_system = self.route_planner.cl_nav_coordinate_system
 
         # reference path planning
-        self.reference_path_planner = ReferencePath(lanelet_network=BM_state.scenario.lanelet_network,
-                                                    global_nav_route=BM_state.global_nav_route,
-                                                    BM_state=BM_state)
+        self.reference_path_planner = ReferencePath(lanelet_network=self.BM_state.scenario.lanelet_network,
+                                                    global_nav_route=self.BM_state.global_nav_route,
+                                                    BM_state=self.BM_state)
 
         self.PP_state.reference_path = self.reference_path_planner.reference_path
         self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
         self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
+
+    def _clac_global_nav_route(self):
+        general_route = hf.get_shortest_route_cr(self.BM_state.scenario, self.BM_state.planning_problem)
+        last_route_part = copy.deepcopy(general_route)
+        my_reference_path_parts = [copy.deepcopy(general_route.reference_path)]
+        my_planning_problem = copy.deepcopy(self.BM_state.planning_problem)
+
+        lane_change_section_lanelets = []
+        for lane_change in hf.retrieve_glb_nav_path_lane_changes(self.BM_state.scenario, last_route_part):
+            if len(lane_change) >= 3:
+                lane_change_section_lanelets += lane_change[1:-1]
+        if len(lane_change_section_lanelets) > 0:
+            midpoints = []
+            for lanelet_idx in lane_change_section_lanelets:
+                interval = [0, 0]
+                for idx, point in enumerate(last_route_part.reference_path):
+                    if self.BM_state.scenario.lanelet_network.find_lanelet_by_id(lanelet_idx).polygon.contains_point(np.array(point)):
+                        if interval[0] == 0:
+                            interval[0] = idx
+                        interval[1] = idx
+                    else:
+                        if interval[0] != 0:
+                            break
+                midpoint_idx = interval[0] + int((interval[1] - interval[0]) / 2)
+                midpoints.append(last_route_part.reference_path[midpoint_idx])
+
+            # buffer for overlapping path points
+            overlap_buffer = 2
+            for midpoint in midpoints:
+                # set the goal state to the end of the previous section
+                goal_region_size = (1 / 2) / 2
+                my_planning_problem.goal._lanelets_of_goal_position = None
+                my_planning_problem.goal.state_list[0].position = ShapeGroup([Polygon(np.array([
+                    [midpoint[0] - goal_region_size, midpoint[1] - goal_region_size],
+                    [midpoint[0] + goal_region_size, midpoint[1] - goal_region_size],
+                    [midpoint[0] + goal_region_size, midpoint[1] + goal_region_size],
+                    [midpoint[0] - goal_region_size, midpoint[1] + goal_region_size],
+                    [midpoint[0] - goal_region_size, midpoint[1] - goal_region_size]
+                ]))])
+
+                # Do the first planning
+                my_reference_path_parts[-1] = copy.deepcopy(
+                    hf.get_shortest_route_cr(self.BM_state.scenario, my_planning_problem).reference_path)
+                # cut the path to matching length
+                cutting_points = [0, len(my_reference_path_parts[-1]) - 1]
+                for i in range(len(my_reference_path_parts[-1]) - 1):
+                    if len(my_reference_path_parts) > 1:
+                        candidate = np.linalg.norm(
+                            my_planning_problem.initial_state.position - my_reference_path_parts[-1][i])
+                        curr_best = np.linalg.norm(
+                            my_planning_problem.initial_state.position - my_reference_path_parts[-1][cutting_points[0]])
+                        if candidate < curr_best:
+                            cutting_points[0] = i
+                    candidate = np.linalg.norm(midpoint - my_reference_path_parts[-1][i])
+                    curr_best = np.linalg.norm(midpoint - my_reference_path_parts[-1][cutting_points[1]])
+                    if candidate < curr_best:
+                        cutting_points[1] = i
+                cutting_points[1] = min(cutting_points[1] + 1 + overlap_buffer, len(my_reference_path_parts[-1]))
+                my_reference_path_parts[-1] = my_reference_path_parts[-1][cutting_points[0]:cutting_points[1]]
+
+                # set the initial state to the beginning of the next section
+                my_planning_problem.initial_state.position = midpoint
+                midpoint_lanelet = [id for id in self.BM_state.scenario.lanelet_network.find_lanelet_by_position([midpoint])[0]
+                                    if id in general_route.lanelet_ids][0]
+                closest_center_vec = self.BM_state.scenario.lanelet_network.find_lanelet_by_id(midpoint_lanelet).center_vertices[0]
+                curr_best = np.linalg.norm(
+                            midpoint - self.BM_state.scenario.lanelet_network.find_lanelet_by_id(midpoint_lanelet).center_vertices[0])
+                for idx, point in enumerate(self.BM_state.scenario.lanelet_network.find_lanelet_by_id(midpoint_lanelet).center_vertices[1:]):
+                    candidate = np.linalg.norm(midpoint - point)
+                    if candidate < curr_best:
+                        curr_best = candidate
+                        closest_center_vec = np.array([
+                            point[0] - self.BM_state.scenario.lanelet_network.find_lanelet_by_id(midpoint_lanelet).center_vertices[idx - 1][0],
+                            point[1] - self.BM_state.scenario.lanelet_network.find_lanelet_by_id(midpoint_lanelet).center_vertices[idx - 1][1]])
+                my_planning_problem.initial_state.orientation = hf.angle_of_vector(closest_center_vec)
+                # set the goal state to the end of the next section
+                my_planning_problem.goal = copy.deepcopy(self.BM_state.planning_problem.goal)
+
+                # Do the second planning
+                last_route_part = hf.get_shortest_route_cr(self.BM_state.scenario, my_planning_problem)
+                my_reference_path_parts.append(copy.deepcopy(last_route_part.reference_path))
+                # cut the path to matching length
+                cutting_point = 0
+                for i in range(len(my_reference_path_parts[-1]) - 1):
+                    candidate = np.linalg.norm(
+                        my_planning_problem.initial_state.position - my_reference_path_parts[-1][i])
+                    curr_best = np.linalg.norm(
+                        my_planning_problem.initial_state.position - my_reference_path_parts[-1][cutting_point])
+                    if candidate < curr_best:
+                        cutting_point = i
+                cutting_point = max(0, cutting_point - overlap_buffer)
+                my_reference_path_parts[-1] = my_reference_path_parts[-1][cutting_point:]
+
+        my_reference_path = hf.concatenate_reference_path_parts(my_reference_path_parts)
+        my_reference_path = hf.extend_points(my_reference_path,
+                                             step_size=self.BM_state.config.behavior.dist_between_points,
+                                             dist_to_inter=self.BM_state.config.behavior.distance_self_intersection)
+        my_reference_path = hf.smooth_reference_path(my_reference_path)
+
+        # generate new Route with the calculated ReferencePath
+        self.BM_state.global_nav_route = DefaultGenerationStrategy.update_route(general_route, my_reference_path)
+        self.BM_state.global_nav_route.reference_path = my_reference_path
 
     def execute_route_planning(self):
         """ Execute path planners static goal planning along the navigation route. Time horizont is the CC Scenario
@@ -99,13 +213,16 @@ class PathPlanner(object):
 class RoutePlan(object):
     """ Route Plan: object holding static route plan and navigation route."""
 
-    def __init__(self, lanelet_network, global_nav_route, config_sim):
+    def __init__(self, lanelet_network, global_nav_route, config_sim, country, street_setting_scenario="Urban"):
 
         self.lanelet_network = lanelet_network
         self.global_nav_route = global_nav_route
         self.global_nav_path = global_nav_route.reference_path
         self.global_nav_path_ids = global_nav_route.lanelet_ids
+        self.config_sim = config_sim
         self.cl_nav_coordinate_system = CoordinateSystem(reference=self.global_nav_path, config_sim=config_sim)
+        self.country = country
+        self.street_setting_scenario = street_setting_scenario
 
         self.static_route_plan = None
 
@@ -123,7 +240,7 @@ class RoutePlan(object):
         """Creates a plan of all static intermediate goals. Sets beginning and end point with the cl cosy coordinate s
         along the reference path.
 
-        TODO: at the moment only traffic lights, stop and yield sign and lane merges are detected
+        TODO: detect turns, crosswalk and road exits
         """
         self.static_route_plan = []
 
@@ -141,13 +258,38 @@ class RoutePlan(object):
                 if static_goal is not None:
                     goal = None
                     prep = None
+
+                    # static goal length depends on the estimated speed
+                    preparation_time = self.config_sim.behavior.preparation_time
+                    goal_time = self.config_sim.behavior.goal_time
+
+                    speed_factor = hf.get_speed_limit(
+                        [static_goal.get('goal_lanelet_id')] +
+                        self.lanelet_network.find_lanelet_by_id(static_goal.get('goal_lanelet_id')).predecessor,
+                        self.lanelet_network, self.country)
+                    # TODO hard coded values
+                    if self.street_setting_scenario == "Highway":
+                        speed_factor = 130 if speed_factor is None else speed_factor
+                        speed_factor = min(130, speed_factor)  # don't exceed Richtgeschwindigkeit
+                    elif self.street_setting_scenario == "Country":
+                        speed_factor = 100 if speed_factor is None else speed_factor
+                    elif self.street_setting_scenario == "Urban":
+                        speed_factor = 50 if speed_factor is None else speed_factor
+
+                    static_prep_goal_length = speed_factor / 3.6 * preparation_time
+                    static_goal_length = speed_factor / 3.6 * goal_time
+
                     # all static goals with stop line
-                    if static_goal.get('type') in ['StopSign', 'YieldSign', 'TrafficLight']:
-                        distance = 20
-                        start_s = max([0.001, static_goal.get('stop_position_s') - distance])
-                        start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
-                        end_s = static_goal.get('position_s')
-                        end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
+                    if static_goal.get('type') in ['StopSign', 'YieldSign', 'TrafficLight', 'Crosswalk']:
+                        start_s = max([0.001, static_goal.get('stop_position_s') - static_goal_length])
+                        try:
+                            start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                            end_s = static_goal.get('position_s')
+                            end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
                         traffic_sign_object = self.lanelet_network.find_traffic_light_by_id(static_goal.get('id'))
                         goal = StaticGoal(goal_type=static_goal.get('type'),
                                           start_s=start_s,
@@ -156,43 +298,58 @@ class RoutePlan(object):
                                           end_xy=end_xy,
                                           stop_point_s=static_goal.get('stop_position_s'),
                                           stop_point_xy=static_goal.get('stop_position_xy'),
-                                          goal_object=traffic_sign_object)
-                        prep_start_xy =\
-                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                                max([0.001, start_s - 10]), 0).tolist()
-                        prep_end_xy = \
-                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                                          goal_object=traffic_sign_object,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+                        try:
+                            prep_start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
+                                    max([0.001, start_s - static_prep_goal_length]), 0).tolist()
+                            prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=max([0.001, start_s - 10]),
+                                          start_s=max([0.001, start_s - static_prep_goal_length]),
                                           start_xy=prep_start_xy,
                                           end_s=start_s,
                                           end_xy=prep_end_xy,
                                           stop_point_s=static_goal.get('stop_position_s'),
                                           stop_point_xy=static_goal.get('stop_position_xy'),
-                                          goal_object=traffic_sign_object)
+                                          goal_object=traffic_sign_object,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
 
                     # all static goals with a lane change maneuver
                     elif static_goal.get('type') in ['LaneMerge', 'RoadExit']:
-                        distance = 50
-                        start_s = max([0.001, static_goal.get('position_s') - distance])
-                        start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
-                        end_s = static_goal.get('position_s')
-                        end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
+                        start_s = max([0.001, static_goal.get('position_s') - static_goal_length])
+                        try:
+                            start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                            end_s = static_goal.get('position_s')
+                            end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
                         goal = StaticGoal(goal_type=static_goal.get('type'),
                                           start_s=start_s,
                                           start_xy=start_xy,
                                           end_s=end_s,
-                                          end_xy=end_xy)
-                        prep_start_xy = \
-                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                                max([0.001, start_s - 10]), 0).tolist()
-                        prep_end_xy = \
-                            self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                                          end_xy=end_xy,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+                        try:
+                            prep_start_xy = \
+                                self.cl_nav_coordinate_system.convert_to_cartesian_coords(
+                                    max([0.001, start_s - static_prep_goal_length]), 0).tolist()
+                            prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=max([0.001, start_s - 10]),
+                                          start_s=max([0.001, start_s - static_prep_goal_length]),
                                           start_xy=prep_start_xy,
                                           end_s=start_s,
-                                          end_xy=prep_end_xy)
+                                          end_xy=prep_end_xy,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
 
                     # intersections
                     elif static_goal.get('type') == 'Intersection':
@@ -200,16 +357,23 @@ class RoutePlan(object):
                                           start_s=static_goal.get('start_s'),
                                           start_xy=static_goal.get('start_xy'),
                                           end_s=static_goal.get('end_s'),
-                                          end_xy=static_goal.get('end_xy'))
-                        prep_start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                            max([0.001, static_goal.get('start_s') - 10]), 0).tolist()
-                        prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                            static_goal.get('start_s'), 0).tolist()
+                                          end_xy=static_goal.get('end_xy'),
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+                        try:
+                            prep_start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
+                                max([0.001, static_goal.get('start_s') - static_prep_goal_length]), 0).tolist()
+                            prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
+                                static_goal.get('start_s'), 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
                         prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=max([0.001, static_goal.get('start_s') - 10]),
+                                          start_s=max([0.001, static_goal.get('start_s') - static_prep_goal_length]),
                                           start_xy=prep_start_xy,
                                           end_s=static_goal.get('start_s'),
-                                          end_xy=prep_end_xy)
+                                          end_xy=prep_end_xy,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
                     self.static_route_plan += [prep, goal]
 
         # sort goals for cl cosy coordinate s
@@ -263,14 +427,16 @@ class RoutePlan(object):
                                                       'position_s': traffic_sign_position_s,
                                                       'position_xy': traffic_sign_position_xy,
                                                       'stop_position_s': stop_position_s,
-                                                      'stop_position_xy': stop_position_xy}]
+                                                      'stop_position_xy': stop_position_xy,
+                                                      'goal_lanelet_id': lanelet_id}]
                             if traffic_sign_element.traffic_sign_element_id.name == 'STOP':
                                 self.stop_signs += [{'id': traffic_sign_id,
                                                      'type': 'StopSign',
                                                      'position_s': traffic_sign_position_s,
                                                      'position_xy': traffic_sign_position_xy,
                                                      'stop_position_s': stop_position_s,
-                                                     'stop_position_xy': stop_position_xy}]
+                                                     'stop_position_xy': stop_position_xy,
+                                                     'goal_lanelet_id': lanelet_id}]
 
             if lanelet.stop_line.traffic_light_ref is not None:
                 for traffic_light_id in lanelet.stop_line.traffic_light_ref:
@@ -298,7 +464,8 @@ class RoutePlan(object):
                                                      'position_xy': traffic_light_position_xy,
                                                      'stop_position_xy': stop_position_xy,
                                                      'position_s': traffic_light_position_s,
-                                                     'stop_position_s': stop_position_s}]
+                                                     'stop_position_s': stop_position_s,
+                                                     'goal_lanelet_id': lanelet_id}]
 
     def _look_for_lane_merges(self):
         self.lane_merges = []
@@ -323,7 +490,8 @@ class RoutePlan(object):
                             continue
                         self.lane_merges += [{'type': 'LaneMerge',
                                               'position_xy': lanelet.center_vertices[0],
-                                              'position_s': merging_point_s}]
+                                              'position_s': merging_point_s,
+                                              'goal_lanelet_id': lanelet_id}]
 
     def _look_for_intersections(self):
         self.intersections = []
@@ -363,7 +531,8 @@ class RoutePlan(object):
                                                 'start_xy': start_xy,
                                                 'start_s': start_s,
                                                 'end_xy': end_xy,
-                                                'end_s': end_s}]
+                                                'end_s': end_s,
+                                                'goal_lanelet_id': lanelet_id}]
 
     def _look_for_road_exits(self):
 
@@ -390,6 +559,7 @@ class RoutePlan(object):
         else:
             for i in range(len(self.static_route_plan)-1):
                 # remove yield signs at active traffic lights
+                # TODO prefer Traffic lights before StopSigns before YieldSigns before intersections
                 if self.static_route_plan[i].start_s == self.static_route_plan[i+1].start_s:
                     if self.static_route_plan[i].goal_type == 'TrafficLight' and \
                             self.static_route_plan[i+1].goal_type == 'YieldSign':
@@ -459,9 +629,11 @@ class ReferencePath(object):
                                                                  self.BM_state.PP_state.route_plan_ids)
 
         # create base reference path
-        base_ref_path = hf.compute_straight_reference_path(self.lanelet_network, base_lanelet_ids)
         self.list_ids_ref_path = base_lanelet_ids
-        self.reference_path = base_ref_path  # smooth_ref_path(base_ref_path)
+
+        self.list_ids_ref_path = global_nav_route.lanelet_ids
+        self.reference_path = global_nav_route.reference_path
+
         # update curvilinear reference coordinate system
         self._update_cl_ref_coordinate_system()
 
@@ -475,21 +647,21 @@ class ReferencePath(object):
                                                              self.BM_state.PP_state.route_plan_ids)
         old_ref_path_ids = self.list_ids_ref_path[:self.list_ids_ref_path.index(current_lanelet_id)+1]
         self.list_ids_ref_path = old_ref_path_ids + new_path_ids
-        new_path = hf.compute_straight_reference_path(self.lanelet_network, new_path_ids)
+        new_path = hf.compute_straight_reference_path(self.lanelet_network, new_path_ids,
+                                                      self.BM_state.config.behavior.dist_between_points)
         # cut old and new path at current position
         cut_idx_old = np.argmin([np.linalg.norm(x) for x in (np.subtract(old_path, ego_state.position))])
         cut_idx_new = np.argmin([np.linalg.norm(x) for x in (np.subtract(new_path, ego_state.position))])
         old_path = old_path[:cut_idx_old + self.BM_state.future_factor, :]
         new_path = new_path[self.BM_state.future_factor + cut_idx_new + number_vertices_lane_change:, :]
         # create final reference path
-        self.reference_path = np.concatenate((old_path, new_path), axis=0)
-        # self.reference_path = smooth_ref_path(reference_path)
+        reference_path = np.concatenate((old_path, new_path), axis=0)
+        self.reference_path = smooth_ref_path(reference_path)
 
 
 class StaticGoal(object):
     def __init__(self, goal_type, start_s=None, start_xy=None, end_s=None, end_xy=None, stop_point_s=None,
-                 stop_point_xy=None, goal_object=None):
-
+                 stop_point_xy=None, goal_object=None, goal_lanelet_id=None):
         self.goal_type = goal_type
         self.start_s = start_s
         self.start_xy = start_xy
@@ -498,3 +670,4 @@ class StaticGoal(object):
         self.stop_point_s = stop_point_s
         self.stop_point_xy = stop_point_xy
         self.goal_object = goal_object
+        self.goal_lanelet_id = goal_lanelet_id

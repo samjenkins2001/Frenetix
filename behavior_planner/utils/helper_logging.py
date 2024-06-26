@@ -1,4 +1,4 @@
-__author__ = "Luca Troncone, Rainer Trauth"
+__author__ = "Moritz Ellermann, Rainer Trauth"
 __copyright__ = "TUM Institute of Automotive Technology"
 __version__ = "1.0"
 __maintainer__ = "Rainer Trauth"
@@ -24,13 +24,14 @@ class BehaviorLogger(object):
                 "situation_state_static",
                 "behavior_state_dynamic",
                 "situation_state_dynamic",
+                "velocity",
+                "goal_velocity",
+                "desired_velocity",
                 "situation_time_step_counter",
                 "lane_change_target_lanelet_id",
                 "nav_lane_changes_left",
                 "nav_lane_changes_right",
                 "overtaking",
-                "velocity",
-                "goal_velocity",
                 "velocity_mode",
                 "TTC",
                 "MAX",
@@ -48,6 +49,30 @@ class BehaviorLogger(object):
                 "behavior_state_dynamic",
                 "situation_state_dynamic",
                 "situation_time_step_counter",
+                "velocity",
+                "goal_velocity",
+                "desired_velocity",
+                "velocity_mode",
+                "TTC",
+                "MAX",
+                "speed_limit_default",
+                "speed_limit",
+                "change_velocity_for_lane_change",
+                "traffic_light_state",
+                "slowing_car_for_traffic_light",
+                "waiting_for_green_light",
+                "closest_preceding_vehicle",
+                "dist_preceding_veh",
+                "vel_preceding_veh",
+                "ttc_conditioned",
+                "ttc_relative",
+                "safety_dist",
+                "stop_distance",
+                "dist_to_tl",
+                "condition_factor",
+                "lon_dyn_cond_factor",
+                "lat_dyn_cond_factor",
+                "visual_cond_factor",
                 "lane_change_target_lanelet_id",
                 "nav_lane_changes_left",
                 "nav_lane_changes_right",
@@ -73,35 +98,12 @@ class BehaviorLogger(object):
                 "turn_clear",
                 "crosswalk_clear",
                 "stop_yield_sign_clear",
-                "velocity",
-                "speed_limit_default",
-                "speed_limit",
-                "goal_velocity",
-                "velocity_mode",
-                "TTC",
-                "MAX",
-                "change_velocity_for_lane_change",
-                "traffic_light_state",
-                "slowing_car_for_traffic_light",
-                "waiting_for_green_light",
-                "closest_preceding_vehicle",
-                "dist_preceding_veh",
-                "vel_preceding_veh",
-                "ttc_conditioned",
-                "ttc_relative",
-                "safety_dist",
-                "stop_distance",
-                "dist_to_tl",
-                "condition_factor",
-                "lon_dyn_cond_factor",
-                "lat_dyn_cond_factor",
-                "visual_cond_factor",
                 "reference_path"
             ]
 
         # Define the path for the log file
-        self._message_log_file_path = os.path.join(self._behavior_config.behavior_log_path, "messages.log")
-        self._data_log_file_path = os.path.join(self._behavior_config.behavior_log_path, "data.csv")
+        self._message_log_file_path = os.path.join(self._behavior_config.behavior_log_path_scenario, "messages.log")
+        self._data_log_file_path = os.path.join(self._behavior_config.behavior_log_path_scenario, "data.csv")
 
         if behavior_config.archive_previous_logs:
             with (open(self._data_log_file_path, "r") as file):
@@ -109,18 +111,18 @@ class BehaviorLogger(object):
                     # header length of minimal logging >= header length of previous log
                     if len(self._column_headers) >= len(file.read().split("\n", 1)[0].split(";")):
                         self._data_archive_log_file_path = os.path.join(
-                            self._behavior_config.behavior_log_path, "data_previous_minimal.csv")
+                            self._behavior_config.behavior_log_path_scenario, "data_previous_minimal.csv")
                     else:
                         self._data_archive_log_file_path = os.path.join(
-                            self._behavior_config.behavior_log_path, "data_previous.csv")
+                            self._behavior_config.behavior_log_path_scenario, "data_previous.csv")
                 else:
                     # header length of normal logging > header length of previous log
                     if len(self._column_headers) > len(file.read().split("\n", 1)[0].split(";")):
                         self._data_archive_log_file_path = os.path.join(
-                            self._behavior_config.behavior_log_path, "data_previous_minimal.csv")
+                            self._behavior_config.behavior_log_path_scenario, "data_previous_minimal.csv")
                     else:
                         self._data_archive_log_file_path = os.path.join(
-                            self._behavior_config.behavior_log_path, "data_previous.csv")
+                            self._behavior_config.behavior_log_path_scenario, "data_previous.csv")
         else:
             self._data_archive_log_file_path = ""
             self._data_archive_log_file_path = ""
