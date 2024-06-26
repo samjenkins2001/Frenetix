@@ -257,7 +257,9 @@ class Agent:
                                                     ref_path=self.planner_interface.reference_path,
                                                     predictions=self.predictions,
                                                     visible_area=self.visible_area,
-                                                    plot_window=self.config_visu.plot_window_dyn, save=self.save_plot,
+                                                    plot_window=self.config_visu.plot_window_dyn,
+                                                    behavior_module_state=self.planner_interface.behavior_module_state,
+                                                    save=self.save_plot,
                                                     show=self.show_plot, gif=self.gif,
                                                     replanning_counter=replanning_counter)
 

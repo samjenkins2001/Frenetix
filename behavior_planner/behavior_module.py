@@ -110,10 +110,10 @@ class BehaviorModule(object):
 
         return: behavior_output (BehaviorOutput): Class holding all information for Reactive Planner
         """
-        if (ego_state.time_step > 0 and
-                not (time_step / self.behavior_config.replanning_frequency == 1 or
-                     self.behavior_config.replanning_frequency < 2)):
-            return copy.deepcopy(self.behavior_output)
+        # if (ego_state.time_step > 0 and
+        #         not (time_step / self.behavior_config.replanning_frequency == 1 or
+        #              self.behavior_config.replanning_frequency < 2)):
+        #     return copy.deepcopy(self.behavior_output)
 
         # start timer
         timer = time.time()
@@ -501,7 +501,9 @@ class BehaviorPlannerState(object):
         self.lane_change_target_lanelet_id = None  # string
 
         # Velocity Planner
-        # self.goal_velocity = None  # string  # passed separately
+        self.velocity = None  # float
+        self.goal_velocity = None  # float
+        self.desired_velocity = None  # float  # also passed separately
         self.TTC = None  # float
         self.MAX = None  # float
 
@@ -514,7 +516,7 @@ class BehaviorPlannerState(object):
         self.visual_cond_factor = None  # factor to express visual driving conditions; ∈ [0,1]
 
         # Path Planner
-        # self.reference_path = None  # list of tuples of floats  # passed separately
+        # self.reference_path = None  # list of tuples of floats  # just passed separately
         self.reference_path_ids = None  # list of strings
 
     def set_values(self, BM_state):
@@ -535,7 +537,9 @@ class BehaviorPlannerState(object):
         self.waiting_for_green_light = BM_state.FSM_state.waiting_for_green_light  # boolean
 
         # Velocity Planner
-        # self.goal_velocity = BM_state.VP_state.goal_velocity  # string  # passed separately
+        self.velocity = BM_state.ego_state.velocity if BM_state.ego_state is not None else BM_state.init_velocity  # float
+        self.goal_velocity = BM_state.VP_state.goal_velocity  # float
+        self.desired_velocity = BM_state.VP_state.desired_velocity  # float
         self.TTC = BM_state.VP_state.TTC  # float
         self.MAX = BM_state.VP_state.MAX  # float
 
