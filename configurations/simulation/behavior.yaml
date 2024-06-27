@@ -13,8 +13,10 @@ distance_self_intersection: 10 # m, shorten extension of ref path by this if sel
 
 # velocity_planner configs
 #min_TTC_to_preceading_vehicle: 3.0
-safety_distance_buffer: 2  # seconds of safety distance to the other car
+safety_distance_buffer: 2  # s, safety distance to the other car relative to speed
+replanning_freq_override: 1  # s, time used to calculate the maximum acceleration limit  # set to None to ignore
 comfortable_deceleration_rate: 3.4  # m/s^2
+zero_velocity_threshold: 0.278  # m/s, slower desired velocities are set to 0
 
 # stop_point configs
 default_time_horizon: 2  # s

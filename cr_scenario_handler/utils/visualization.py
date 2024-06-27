@@ -67,6 +67,7 @@ def visualize_agent_at_timestep(scenario: Scenario, planning_problem: PlanningPr
     :param visible_area: Visible Area for plotting (optional)
     :param occlusion_map: Occlusion map information to plot (optional)
     will visualize on the existing object)
+    :param behavior_module_state: state of the behavior module as dict (optional)
     :param save_path: Path to save plot as .png (optional)
     """
     # Only create renderer if not passed in

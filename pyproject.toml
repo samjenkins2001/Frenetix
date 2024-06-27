@@ -32,7 +32,7 @@ commonroad-route-planner = "~2024.2.0"
 commonroad-io = "~2024.1"
 commonroad-vehicle-models = "^3.0.2"
 
-frenetix = "~0.3.0"
+frenetix = "~0.3.1"
 # frenetix-occlusion = ">=2024.1.2"
 
 wale-net = "~3.0.3"

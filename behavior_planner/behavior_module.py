@@ -45,6 +45,9 @@ class BehaviorModule(object):
         self.BM_state.config = config
         self.behavior_config = config.behavior
         self.behavior_config.behavior_log_path_scenario = os.path.join(log_path, "behavior_logs")
+        if self.behavior_config.replanning_freq_override is not None:
+            self.behavior_config.replanning_frequency = (self.behavior_config.replanning_freq_override /
+                                                         self.behavior_config.dt)
 
         os.makedirs(self.behavior_config.behavior_log_path_scenario, exist_ok=True)
 
@@ -87,10 +90,6 @@ class BehaviorModule(object):
         self.behavior_output = BehaviorOutput(self.BM_state)
         self.reference_path = self.BM_state.PP_state.reference_path
         self.desired_velocity = None
-        self.stop_point = {
-            "pos_s": self.BM_state.ref_position_s,
-            "velocity": self.BM_state.init_velocity
-        }
         self.flags = {"stopping_for_traffic_light": None,
                       "waiting_for_green_light": None
                       }
@@ -110,10 +109,10 @@ class BehaviorModule(object):
 
         return: behavior_output (BehaviorOutput): Class holding all information for Reactive Planner
         """
-        # if (ego_state.time_step > 0 and
-        #         not (time_step / self.behavior_config.replanning_frequency == 1 or
-        #              self.behavior_config.replanning_frequency < 2)):
-        #     return copy.deepcopy(self.behavior_output)
+        if int(ego_state.time_step % self.behavior_config.replanning_frequency) == 0:
+            self.BM_state.plan_dynamics_only = False
+        else:
+            self.BM_state.plan_dynamics_only = True
 
         # start timer
         timer = time.time()
@@ -136,11 +135,12 @@ class BehaviorModule(object):
         self.ego_FSM.execute()
 
         # execute path planner
-        if self.FSM_state.do_lane_change:
-            self.path_planner.execute_lane_change()
-        if self.FSM_state.undo_lane_change:
-            self.path_planner.undo_lane_change()
-        self.reference_path = self.PP_state.reference_path
+        if not self.BM_state.plan_dynamics_only:
+            if self.FSM_state.do_lane_change:
+                self.path_planner.execute_lane_change()
+            if self.FSM_state.undo_lane_change:
+                self.path_planner.undo_lane_change()
+            self.reference_path = self.PP_state.reference_path
 
         # calculate stopping points
         self._calculate_stopping_point()
@@ -152,18 +152,12 @@ class BehaviorModule(object):
         # update behavior output; input for reactive planner
         self.behavior_output.reference_path = self.reference_path
         self.behavior_output.desired_velocity = self.desired_velocity
-        self.behavior_output.stop_point_s = self.stop_point.get("pos_s")
-        self.behavior_output.desired_velocity_stop_point = self.stop_point.get("velocity")
+        self.behavior_output.stop_point_s = self.BM_state.stop_point_s
+        self.behavior_output.desired_velocity_stop_point = self.BM_state.desired_velocity_stop_point
         self.behavior_output.behavior_planner_state = self.BM_state.BP_state.set_values(self.BM_state)
 
         # end timer
         timer = time.time() - timer
-
-        # set current States vor Visualization TODO change to update visuals via passed object
-        self.behavior_config.behavior_state_static = self.FSM_state.behavior_state_static
-        self.behavior_config.situation_state_static = self.FSM_state.situation_state_static
-        self.behavior_config.behavior_state_dynamic = self.FSM_state.behavior_state_dynamic
-        self.behavior_config.situation_state_dynamic = self.FSM_state.situation_state_dynamic
 
         # logging
         self.behavior_message_logger.debug("VP velocity mode: " + str(self.VP_state.velocity_mode))
@@ -202,11 +196,6 @@ class BehaviorModule(object):
                 ego_state.position[0], ego_state.position[1])[0]
         except:
             self.behavior_message_logger.error("Ego position out of reference path coordinate system projection domain")
-        try:
-            self.BM_state.ref_position_s = self.PP_state.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                ego_state.position[0], ego_state.position[1])[0]
-        except:
-            self.behavior_message_logger.error("Ego position out of navigation route coordinate system projection domain")
 
     def _collect_necessary_information(self):
         self.BM_state.current_lanelet_id, self.BM_state.speed_limit, self.BM_state.street_setting_scenario = \
@@ -248,27 +237,27 @@ class BehaviorModule(object):
                 if self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state.startswith("Waiting"):
                     # Don't move: WaitingForGreenLight, WaitingForCrosswalkClearance,
                     # WaitingForStopYieldSignClearance, WaitingForTurnClearance
-                    self.stop_point["pos_s"] = self.BM_state.ref_position_s
-                    self.stop_point["velocity"] = 0.0
+                    self.BM_state.stop_point_s = self.BM_state.ref_position_s
+                    self.BM_state.desired_velocity_stop_point = 0.0
                 elif self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state == "Stopping":
                     # set stop point to nearest from static goal or detected vehicle
                     if ttc_stopping_stop_point_s >= self.BM_state.current_static_goal.stop_point_s:
                         # aim to stop at the stop point of the traffic light, crosswalk or traffic sign
-                        self.stop_point["pos_s"] = self.BM_state.current_static_goal.stop_point_s
-                        self.stop_point["velocity"] = 0.0
+                        self.BM_state.stop_point_s = self.BM_state.current_static_goal.stop_point_s
+                        self.BM_state.desired_velocity_stop_point = 0.0
                     else:
                         # car in front of ego vehicle, stop behind the car in front
-                        self.stop_point["pos_s"] = ttc_stopping_stop_point_s
+                        self.BM_state.stop_point_s = ttc_stopping_stop_point_s
                         # don't accelerate during stopping
-                        self.stop_point["velocity"] = min(self.VP_state.vel_preceding_veh, self.stop_point["velocity"])
+                        self.BM_state.desired_velocity_stop_point = min(self.VP_state.vel_preceding_veh, self.BM_state.desired_velocity_stop_point)
                 else:
                     # use TTC as measure for stopping point calculation
-                    self.stop_point["pos_s"] = ttc_stopping_stop_point_s
-                    self.stop_point["velocity"] = self.VP_state.vel_preceding_veh
+                    self.BM_state.stop_point_s = ttc_stopping_stop_point_s
+                    self.BM_state.desired_velocity_stop_point = self.VP_state.vel_preceding_veh
             else:
                 # use TTC as measure for stopping point calculation
-                self.stop_point["pos_s"] = ttc_stopping_stop_point_s
-                self.stop_point["velocity"] = self.VP_state.vel_preceding_veh
+                self.BM_state.stop_point_s = ttc_stopping_stop_point_s
+                self.BM_state.desired_velocity_stop_point = self.VP_state.vel_preceding_veh
         else:
             # no car in front of ego vehicle
             if self.FSM_state.behavior_state_static in ["PrepareTrafficLight", "TrafficLight",
@@ -278,52 +267,52 @@ class BehaviorModule(object):
                 # Situation States of 'Prepare' behavior states
                 if self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state.startswith("Observing"):
                     # ObservingTrafficLight, ObservingCrosswalk, ObservingStopYieldSign
-                    self.stop_point["pos_s"] = self.BM_state.current_static_goal.stop_point_s
-                    self.stop_point["velocity"] = self.VP_state.goal_velocity
+                    self.BM_state.stop_point_s = self.BM_state.current_static_goal.stop_point_s
+                    self.BM_state.desired_velocity_stop_point = self.VP_state.goal_velocity
                 elif self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state == "SlowingDown":
-                    self.stop_point["pos_s"] = self.BM_state.current_static_goal.stop_point_s
-                    self.stop_point["velocity"] = 0.0
+                    self.BM_state.stop_point_s = self.BM_state.current_static_goal.stop_point_s
+                    self.BM_state.desired_velocity_stop_point = 0.0
                 # Situation States of behavior states
                 elif self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state == "GreenLight":
-                    self.stop_point["pos_s"] = max(
+                    self.BM_state.stop_point_s = max(
                         self.BM_state.current_static_goal.stop_point_s,
                         self.VP_state.comfortable_stopping_distance,
                         self.BM_state.ego_state.velocity * self.behavior_config.default_time_horizon
                     )
-                    self.stop_point["velocity"] = self.VP_state.goal_velocity
+                    self.BM_state.desired_velocity_stop_point = self.VP_state.goal_velocity
                 elif self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state.endswith("Clear"):
                     # CrosswalkClear, StopYieldSignClear, TurnClear
-                    self.stop_point["pos_s"] = max(
+                    self.BM_state.stop_point_s = max(
                         self.BM_state.current_static_goal.stop_point_s,
                         self.VP_state.comfortable_stopping_distance,
                         self.BM_state.ego_state.velocity * self.behavior_config.default_time_horizon
                     )
-                    self.stop_point["velocity"] = self.VP_state.goal_velocity
+                    self.BM_state.desired_velocity_stop_point = self.VP_state.goal_velocity
                 elif self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state == "Stopping":
-                    self.stop_point["pos_s"] = self.BM_state.current_static_goal.stop_point_s
-                    self.stop_point["velocity"] = 0.0
+                    self.BM_state.stop_point_s = self.BM_state.current_static_goal.stop_point_s
+                    self.BM_state.desired_velocity_stop_point = 0.0
                 elif self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state.startswith("Waiting"):
                     # Don't move: WaitingForGreenLight, WaitingForCrosswalkClearance,
                     # WaitingForStopYieldSignClearance, WaitingForTurnClearance
-                    self.stop_point["pos_s"] = self.BM_state.ref_position_s
-                    self.stop_point["velocity"] = 0.0
+                    self.BM_state.stop_point_s = self.BM_state.ref_position_s
+                    self.BM_state.desired_velocity_stop_point = 0.0
                 elif self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state == "ContinueDriving":
-                    self.stop_point["pos_s"] = max(
+                    self.BM_state.stop_point_s = max(
                         self.VP_state.comfortable_stopping_distance,
                         self.BM_state.ego_state.velocity * self.behavior_config.default_time_horizon
                     )
-                    self.stop_point["velocity"] = self.VP_state.goal_velocity
+                    self.BM_state.desired_velocity_stop_point = self.VP_state.goal_velocity
                 else:
                     self.behavior_message_logger.warning(
                         f"'{self.ego_FSM.FSM_street_setting.cur_state.FSM_static.cur_state.cur_state}'"
                         f" is not a valid Situation State for {self.FSM_state.behavior_state_static}")
             else:
-                self.stop_point["pos_s"] = max(
+                self.BM_state.stop_point_s = max(
                     self.VP_state.comfortable_stopping_distance,
                     self.BM_state.ego_state.velocity * self.behavior_config.default_time_horizon
                 )
-                self.stop_point["velocity"] = self.VP_state.goal_velocity
-        self.stop_point["pos_s"] -= self.BM_state.vehicle_params.length / 2
+                self.BM_state.desired_velocity_stop_point = self.VP_state.goal_velocity
+        self.BM_state.stop_point_s -= self.BM_state.vehicle_params.length / 2
 
 
 class BehaviorModuleState(object):
@@ -336,6 +325,7 @@ class BehaviorModuleState(object):
         self.scenario = None
         self.planning_problem = None
         self.priority_right = None
+        self.plan_dynamics_only = None
 
         # Behavior Module inputs
         self.ego_state = None
@@ -365,6 +355,10 @@ class BehaviorModuleState(object):
         self.nav_lane_changes_left = 0
         self.nav_lane_changes_right = 0
         self.overtaking = None
+
+        # stop point
+        self.stop_point_s = None
+        self.desired_velocity_stop_point = None
 
 
 class FSMState(object):
@@ -479,7 +473,6 @@ class PathPlannerState(object):
         self.reference_path = None
         self.reference_path_ids = None
         self.cl_ref_coordinate_system = None
-        self.cl_nav_coordinate_system = None
 
 
 class BehaviorPlannerState(object):

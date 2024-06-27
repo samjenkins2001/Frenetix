@@ -49,29 +49,478 @@ class PathPlanner(object):
         self.FSM_state = BM_state.FSM_state
         self.PP_state = BM_state.PP_state
 
-        # execute common road route planning
-        self._clac_global_nav_route()
+        # reference path planning
+        self.reference_path_planner = ReferencePath(lanelet_network=self.BM_state.scenario.lanelet_network,
+                                                    BM_state=self.BM_state,
+                                                    config_sim=self.BM_state.config)
 
         # route planning
         self.route_planner = RoutePlan(lanelet_network=self.BM_state.scenario.lanelet_network,
                                        global_nav_route=self.BM_state.global_nav_route,
                                        config_sim=self.BM_state.config,
+                                       ccosy=self.reference_path_planner.cl_ref_coordinate_system,
                                        country=self.BM_state.country,
                                        street_setting_scenario=self.BM_state.street_setting)
+
+        self.PP_state.cl_ref_coordinate_system = self.route_planner.cl_ref_coordinate_system
+
+        self.PP_state.reference_path = self.reference_path_planner.reference_path
+        self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
+        self.PP_state.route_plan_ids = self.route_planner.global_nav_path_ids
+        self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
+
+    def execute_route_planning(self):
+        """ Execute path planners static goal planning along the navigation route. Time horizont is the CC Scenario
+        Returns: route plan with static goals along navigation route
+        """
+        self.route_planner.execute_static_planning()
+
+        self.PP_state.static_route_plan = self.route_planner.static_route_plan
         self.PP_state.route_plan_ids = self.route_planner.global_nav_path_ids
 
-        self.PP_state.cl_nav_coordinate_system = self.route_planner.cl_nav_coordinate_system
-
-        # reference path planning
-        self.reference_path_planner = ReferencePath(lanelet_network=self.BM_state.scenario.lanelet_network,
-                                                    global_nav_route=self.BM_state.global_nav_route,
-                                                    BM_state=self.BM_state)
+    def execute_lane_change(self):
+        """ Execute reference path planner and do lane change maneuver
+        Returns: updated reference_path, updated curvilinear reference coordinate system
+        """
+        self.reference_path_planner.create_lane_change(ego_state=self.BM_state.ego_state,
+                                                       current_lanelet_id=self.BM_state.current_lanelet_id,
+                                                       goal_lanelet_id=self.FSM_state.lane_change_target_lanelet_id)
+        self.FSM_state.initiated_lane_change = True
 
         self.PP_state.reference_path = self.reference_path_planner.reference_path
         self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
         self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
 
-    def _clac_global_nav_route(self):
+    def undo_lane_change(self):
+        """ Execute reference path planner and do lane change maneuver
+        Returns: updated reference_path, updated curvilinear reference coordinate system
+        """
+        self.reference_path_planner.create_lane_change(ego_state=self.BM_state.ego_state,
+                                                       current_lanelet_id=self.BM_state.current_lanelet_id,
+                                                       goal_lanelet_id=self.BM_state.current_lanelet_id)
+        #self.FSM_state.lane_change_right_abort = None
+        #self.FSM_state.lane_change_left_abort = None
+
+        self.PP_state.reference_path = self.reference_path_planner.reference_path
+        self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
+        self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
+
+
+class RoutePlan(object):
+    """ Route Plan: object holding static route plan and navigation route."""
+
+    def __init__(self, lanelet_network, global_nav_route, config_sim, ccosy, country, street_setting_scenario="Urban"):
+
+        self.lanelet_network = lanelet_network
+        self.global_nav_route = global_nav_route
+        self.global_nav_path = global_nav_route.reference_path
+        self.global_nav_path_ids = global_nav_route.lanelet_ids
+        self.config_sim = config_sim
+        self.cl_ref_coordinate_system = ccosy
+        self.country = country
+        self.street_setting_scenario = street_setting_scenario
+
+        self.static_route_plan = None
+
+        self.yield_signs = []
+        self.stop_signs = []
+        self.traffic_lights = []
+        self.turns = []
+        self.road_exits = []
+        self.lane_merges = []
+        self.intersections = []
+
+        self.execute_static_planning()
+
+    def execute_static_planning(self):
+        """Creates a plan of all static intermediate goals. Sets beginning and end point with the cl cosy coordinate s
+        along the reference path.
+
+        TODO: detect turns, crosswalk and road exits
+        """
+        self.static_route_plan = []
+
+        self._look_for_traffic_lights_and_signs()
+        self._look_for_lane_merges()
+        self._look_for_intersections()
+        # self.look_for_road_exits()
+        # self.look_for_turns()
+
+        for (stop_sign, yield_sign, traffic_light, road_exit, lane_merge, intersection) in \
+                zip_longest(self.stop_signs, self.yield_signs, self.traffic_lights, self.road_exits, self.lane_merges,
+                            self.intersections):
+            for static_goal in (stop_sign, yield_sign, traffic_light, road_exit, lane_merge, intersection):
+
+                if static_goal is not None:
+                    goal = None
+                    prep = None
+
+                    # static goal length depends on the estimated speed
+                    preparation_time = self.config_sim.behavior.preparation_time
+                    goal_time = self.config_sim.behavior.goal_time
+
+                    speed_factor = hf.get_speed_limit(
+                        [static_goal.get('goal_lanelet_id')] +
+                        self.lanelet_network.find_lanelet_by_id(static_goal.get('goal_lanelet_id')).predecessor,
+                        self.lanelet_network, self.country)
+                    # TODO hard coded values
+                    if self.street_setting_scenario == "Highway":
+                        speed_factor = 130 if speed_factor is None else speed_factor
+                        speed_factor = min(130, speed_factor)  # don't exceed Richtgeschwindigkeit
+                    elif self.street_setting_scenario == "Country":
+                        speed_factor = 100 if speed_factor is None else speed_factor
+                    elif self.street_setting_scenario == "Urban":
+                        speed_factor = 50 if speed_factor is None else speed_factor
+
+                    static_prep_goal_length = speed_factor / 3.6 * preparation_time
+                    static_goal_length = speed_factor / 3.6 * goal_time
+
+                    # all static goals with stop line
+                    if static_goal.get('type') in ['StopSign', 'YieldSign', 'TrafficLight', 'Crosswalk']:
+                        start_s = max([0.001, static_goal.get('stop_position_s') - static_goal_length])
+                        try:
+                            start_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                            end_s = static_goal.get('position_s')
+                            end_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
+                        traffic_sign_object = self.lanelet_network.find_traffic_light_by_id(static_goal.get('id'))
+                        goal = StaticGoal(goal_type=static_goal.get('type'),
+                                          start_s=start_s,
+                                          start_xy=start_xy,
+                                          end_s=end_s,
+                                          end_xy=end_xy,
+                                          stop_point_s=static_goal.get('stop_position_s'),
+                                          stop_point_xy=static_goal.get('stop_position_xy'),
+                                          goal_object=traffic_sign_object,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+                        try:
+                            prep_start_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(
+                                    max([0.001, start_s - static_prep_goal_length]), 0).tolist()
+                            prep_end_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
+                        prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
+                                          start_s=max([0.001, start_s - static_prep_goal_length]),
+                                          start_xy=prep_start_xy,
+                                          end_s=start_s,
+                                          end_xy=prep_end_xy,
+                                          stop_point_s=static_goal.get('stop_position_s'),
+                                          stop_point_xy=static_goal.get('stop_position_xy'),
+                                          goal_object=traffic_sign_object,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+
+                    # all static goals with a lane change maneuver
+                    elif static_goal.get('type') in ['LaneMerge', 'RoadExit']:
+                        start_s = max([0.001, static_goal.get('position_s') - static_goal_length])
+                        try:
+                            start_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                            end_s = static_goal.get('position_s')
+                            end_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
+                        goal = StaticGoal(goal_type=static_goal.get('type'),
+                                          start_s=start_s,
+                                          start_xy=start_xy,
+                                          end_s=end_s,
+                                          end_xy=end_xy,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+                        try:
+                            prep_start_xy = \
+                                self.cl_ref_coordinate_system.convert_to_cartesian_coords(
+                                    max([0.001, start_s - static_prep_goal_length]), 0).tolist()
+                            prep_end_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
+                        prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
+                                          start_s=max([0.001, start_s - static_prep_goal_length]),
+                                          start_xy=prep_start_xy,
+                                          end_s=start_s,
+                                          end_xy=prep_end_xy,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+
+                    # intersections
+                    elif static_goal.get('type') == 'Intersection':
+                        goal = StaticGoal(goal_type=static_goal.get('type'),
+                                          start_s=static_goal.get('start_s'),
+                                          start_xy=static_goal.get('start_xy'),
+                                          end_s=static_goal.get('end_s'),
+                                          end_xy=static_goal.get('end_xy'),
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+                        try:
+                            prep_start_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(
+                                max([0.001, static_goal.get('start_s') - static_prep_goal_length]), 0).tolist()
+                            prep_end_xy = self.cl_ref_coordinate_system.convert_to_cartesian_coords(
+                                static_goal.get('start_s'), 0).tolist()
+                        except AttributeError:
+                            behavior_message_logger.error(
+                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
+                            continue
+                        prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
+                                          start_s=max([0.001, static_goal.get('start_s') - static_prep_goal_length]),
+                                          start_xy=prep_start_xy,
+                                          end_s=static_goal.get('start_s'),
+                                          end_xy=prep_end_xy,
+                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
+                    self.static_route_plan += [prep, goal]
+
+        # sort goals for cl cosy coordinate s
+        self.static_route_plan.sort(key=lambda x: x.start_s)
+        self._straighten_static_route_plan()
+
+    def _look_for_traffic_lights_and_signs(self):
+        self.yield_signs = []
+        self.stop_signs = []
+        self.traffic_lights = []
+
+        for lanelet_id in self.global_nav_path_ids:
+            lanelet = self.lanelet_network.find_lanelet_by_id(lanelet_id)
+            if lanelet.stop_line is None:
+                continue
+            # center point of stop line
+            stop_position_x = (lanelet.stop_line.start[0] + lanelet.stop_line.end[0]) / 2
+            stop_position_y = (lanelet.stop_line.start[1] + lanelet.stop_line.end[1]) / 2
+            stop_position_xy = [stop_position_x, stop_position_y]
+            try:
+                stop_position_s = self.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+                    stop_position_x, stop_position_y)[0]
+            except:
+                behavior_message_logger.error("PP stop line position of traffic sign or light is out of projection domain")
+                stop_position_s = None
+
+            if lanelet.stop_line.traffic_sign_ref is not None:
+                for traffic_sign_id in lanelet.stop_line.traffic_sign_ref:
+                    if traffic_sign_id is not None:
+                        traffic_sign = self.lanelet_network.find_traffic_sign_by_id(traffic_sign_id)
+                        traffic_sign_position_xy = [traffic_sign.position[0], traffic_sign.position[1]]
+                        try:
+                            traffic_sign_position_s = self.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+                                traffic_sign_position_xy[0], traffic_sign_position_xy[1])[0]
+                        except:
+                            behavior_message_logger.error("PP position of traffic sign is out of projection domain")
+                            traffic_sign_position_s = None
+                        for traffic_sign_element in traffic_sign.traffic_sign_elements:
+
+                            if stop_position_s is None and traffic_sign_position_s is not None:
+                                stop_position_s = traffic_sign_position_s
+                            elif stop_position_s is not None and traffic_sign_position_s is None:
+                                traffic_sign_position_s = stop_position_s
+                            elif stop_position_s is None and traffic_sign_position_s is None:
+                                behavior_message_logger.warning("PP traffic sign is out of projection domain")
+                                continue
+
+                            if traffic_sign_element.traffic_sign_element_id.name == 'YIELD':
+                                self.yield_signs += [{'id': traffic_sign_id,
+                                                      'type': 'YieldSign',
+                                                      'position_s': traffic_sign_position_s,
+                                                      'position_xy': traffic_sign_position_xy,
+                                                      'stop_position_s': stop_position_s,
+                                                      'stop_position_xy': stop_position_xy,
+                                                      'goal_lanelet_id': lanelet_id}]
+                            if traffic_sign_element.traffic_sign_element_id.name == 'STOP':
+                                self.stop_signs += [{'id': traffic_sign_id,
+                                                     'type': 'StopSign',
+                                                     'position_s': traffic_sign_position_s,
+                                                     'position_xy': traffic_sign_position_xy,
+                                                     'stop_position_s': stop_position_s,
+                                                     'stop_position_xy': stop_position_xy,
+                                                     'goal_lanelet_id': lanelet_id}]
+
+            if lanelet.stop_line.traffic_light_ref is not None:
+                for traffic_light_id in lanelet.stop_line.traffic_light_ref:
+                    if traffic_light_id is not None:
+                        traffic_light = self.lanelet_network.find_traffic_light_by_id(traffic_light_id)
+                        traffic_light_position_xy = [traffic_light.position[0], traffic_light.position[1]]
+                        try:
+                            traffic_light_position_s = self.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+                                traffic_light.position[0], traffic_light.position[1])[0]
+                        except:
+                            behavior_message_logger.warning('PP traffic light position out of projection domain')
+                            traffic_light_position_s = None
+
+                        if stop_position_s is None and traffic_light_position_s is not None:
+                            stop_position_s = traffic_light_position_s
+                        elif stop_position_s is not None and traffic_light_position_s is None:
+                            traffic_light_position_s = stop_position_s
+                        elif stop_position_s is None and traffic_light_position_s is None:
+                            behavior_message_logger.warning("PP traffic light is out of projection domain")
+                            continue
+
+                        if traffic_light.active:
+                            self.traffic_lights += [{'id': traffic_light_id,
+                                                     'type': 'TrafficLight',
+                                                     'position_xy': traffic_light_position_xy,
+                                                     'stop_position_xy': stop_position_xy,
+                                                     'position_s': traffic_light_position_s,
+                                                     'stop_position_s': stop_position_s,
+                                                     'goal_lanelet_id': lanelet_id}]
+
+    def _look_for_lane_merges(self):
+        self.lane_merges = []
+
+        for lanelet_id in self.global_nav_path_ids:
+            lanelet = self.lanelet_network.find_lanelet_by_id(lanelet_id)
+            if len(lanelet.predecessor) > 1:  # one of the driven lanelets has two predecessors
+                pred1 = self.lanelet_network.find_lanelet_by_id(lanelet.predecessor[0])
+                pred2 = self.lanelet_network.find_lanelet_by_id(lanelet.predecessor[1])
+                if np.allclose(pred1.center_vertices[-1], pred2.center_vertices[-1]):  # same end point of merging lanes
+                    orient1 = pred1.center_vertices[1] - pred1.center_vertices[0]
+                    orient2 = pred2.center_vertices[1] - pred2.center_vertices[0]
+                    orient1 = orient1 / np.linalg.norm(orient1)
+                    orient2 = orient2 / np.linalg.norm(orient2)
+                    if np.allclose(orient1, orient2, atol=0.1):  # similar orientation or merging lanes
+                        try:
+                            merging_point_s = self.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+                                lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
+                        except:
+                            merging_point_s = None
+                            behavior_message_logger.error("PP merging point is out of projection domain")
+                            continue
+                        self.lane_merges += [{'type': 'LaneMerge',
+                                              'position_xy': lanelet.center_vertices[0],
+                                              'position_s': merging_point_s,
+                                              'goal_lanelet_id': lanelet_id}]
+
+    def _look_for_intersections(self):
+        self.intersections = []
+
+        for intersection in self.lanelet_network.intersections:
+            for lanelet_id in self.global_nav_path_ids:
+                for intersection_element in intersection.incomings:
+                    if (lanelet_id in intersection_element.successors_left) or \
+                            (lanelet_id in intersection_element.successors_right) or \
+                            (lanelet_id in intersection_element.successors_straight):
+                        lanelet = self.lanelet_network.find_lanelet_by_id(lanelet_id)
+                        start_xy = lanelet.center_vertices[0].tolist()
+                        try:
+                            start_s = self.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+                                lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
+                        except:
+                            start_s = None
+                            behavior_message_logger.error("PP start of intersection out of projection domain")
+                        end_xy = lanelet.center_vertices[-1].tolist()
+                        try:
+                            end_s = self.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+                                lanelet.center_vertices[-1][0], lanelet.center_vertices[-1][1])[0]
+                        except:
+                            end_s = None
+                            behavior_message_logger.error("PP end of intersection out of projection domain")
+
+                        if start_s is None and end_s is not None:
+                            start_s = max([0.001, end_s - 15])
+                        elif start_s is not None and end_s is None:
+                            end_s = start_s + 15
+                        elif start_s is None and end_s is None:
+                            behavior_message_logger.warning("PP intersection is out of projection domain")
+                            continue
+
+                        self.intersections += [{'id': intersection_element.incoming_id,
+                                                'type': 'Intersection',
+                                                'start_xy': start_xy,
+                                                'start_s': start_s,
+                                                'end_xy': end_xy,
+                                                'end_s': end_s,
+                                                'goal_lanelet_id': lanelet_id}]
+
+    def _look_for_road_exits(self):
+
+        return self.road_exits
+
+    def _look_for_turns(self):
+
+        return self.turns
+
+    def _straighten_static_route_plan(self):
+        """Checks for overlapping static goals and straightens them out and fills gaps between goals with StaticDefault.
+        """
+
+        end_nav_path_s = self.cl_ref_coordinate_system.convert_to_curvilinear_coords(
+            self.global_nav_path[-1][0],
+            self.global_nav_path[-1][1])[0]
+        # if no static goal object was found on reference path add only StaticDefault
+        if len(self.static_route_plan) == 0:
+            self.static_route_plan = [StaticGoal(goal_type='StaticDefault',
+                                                 start_s=0,
+                                                 start_xy=self.global_nav_path[0],
+                                                 end_s=end_nav_path_s,
+                                                 end_xy=self.global_nav_path[-1])]
+        else:
+            for i in range(len(self.static_route_plan)-1):
+                # remove yield signs at active traffic lights
+                # TODO prefer Traffic lights before StopSigns before YieldSigns before intersections
+                if self.static_route_plan[i].start_s == self.static_route_plan[i+1].start_s:
+                    if self.static_route_plan[i].goal_type == 'TrafficLight' and \
+                            self.static_route_plan[i+1].goal_type == 'YieldSign':
+                        self.static_route_plan = self.static_route_plan[:i+1] + self.static_route_plan[i+2:]
+                    elif self.static_route_plan[i].goal_type == 'YieldSign' and \
+                            self.static_route_plan[i+1].goal_type == 'TrafficLight':
+                        self.static_route_plan = self.static_route_plan[:i] + self.static_route_plan[i+1:]
+                    if self.static_route_plan[i].goal_type == 'PrepareTrafficLight' and \
+                            self.static_route_plan[i+1].goal_type == 'PrepareYieldSign':
+                        self.static_route_plan = self.static_route_plan[:i+1] + self.static_route_plan[i+2:]
+                    elif self.static_route_plan[i].goal_type == 'PrepareYieldSign' and \
+                            self.static_route_plan[i+1].goal_type == 'PrepareTrafficLight':
+                        self.static_route_plan = self.static_route_plan[:i] + self.static_route_plan[i+1:]
+                # no goals with s < 0
+                if self.static_route_plan[i].start_s < 0:
+                    self.static_route_plan[i].start_s = 0
+                # cut overlapping goals
+                if self.static_route_plan[i].end_s > self.static_route_plan[i+1].start_s:
+                    if self.static_route_plan[i+1].goal_type[:7] == 'Prepare':
+                        self.static_route_plan[i+1].start_s = self.static_route_plan[i].end_s
+                    else:
+                        self.static_route_plan[i].end_s = self.static_route_plan[i+1].start_s
+                        self.static_route_plan[i].end_xy = self.static_route_plan[i+1].start_xy
+                # fill with StaticDefault
+                elif self.static_route_plan[i].end_s < self.static_route_plan[i+1].start_s:
+                    goal = StaticGoal(goal_type='StaticDefault',
+                                      start_s=self.static_route_plan[i].end_s,
+                                      end_s=self.static_route_plan[i+1].start_s)
+                    self.static_route_plan += [goal]
+
+            self.static_route_plan.sort(key=lambda x: x.start_s)
+        # add StaticDefault at beginning
+        if self.static_route_plan[0].start_s > 0:
+            self.static_route_plan = [StaticGoal(goal_type='StaticDefault',
+                                                 start_s=0,
+                                                 start_xy=self.global_nav_path[0],
+                                                 end_s=self.static_route_plan[0].start_s,
+                                                 end_xy=self.static_route_plan[0].start_xy)] + self.static_route_plan
+        # add StaticDefault at end
+        if self.static_route_plan[-1].end_s != end_nav_path_s:
+            self.static_route_plan += [StaticGoal(goal_type='StaticDefault',
+                                                  start_s=self.static_route_plan[-1].end_s,
+                                                  start_xy=self.static_route_plan[-1].end_xy,
+                                                  end_s=end_nav_path_s,
+                                                  end_xy=self.global_nav_path[-1])]
+        return self.static_route_plan
+
+
+class ReferencePath(object):
+    """ Reference Path: object holding the reference path for the reactive planner. Creates straight base reference path
+    with initialization."""
+    def __init__(self, lanelet_network, BM_state, config_sim):
+
+        self.BM_state = BM_state
+        self.lanelet_network = lanelet_network
+        self.config_sim = config_sim
+
+        self.global_nav_route = None
+        self.reference_path = None
+        self.list_ids_ref_path = None
+        self.cl_ref_coordinate_system = None
+
+        self._calc_global_nav_route()
+
+    def _calc_global_nav_route(self):
         general_route = hf.get_shortest_route_cr(self.BM_state.scenario, self.BM_state.planning_problem)
         last_route_part = copy.deepcopy(general_route)
         my_reference_path_parts = [copy.deepcopy(general_route.reference_path)]
@@ -169,476 +618,17 @@ class PathPlanner(object):
                                              dist_to_inter=self.BM_state.config.behavior.distance_self_intersection)
         my_reference_path = hf.smooth_reference_path(my_reference_path)
 
-        # generate new Route with the calculated ReferencePath
-        self.BM_state.global_nav_route = DefaultGenerationStrategy.update_route(general_route, my_reference_path)
-        self.BM_state.global_nav_route.reference_path = my_reference_path
-
-    def execute_route_planning(self):
-        """ Execute path planners static goal planning along the navigation route. Time horizont is the CC Scenario
-        Returns: route plan with static goals along navigation route
-        """
-        self.route_planner.execute_static_planning()
-
-        self.PP_state.static_route_plan = self.route_planner.static_route_plan
-        self.PP_state.route_plan_ids = self.route_planner.global_nav_path_ids
-
-    def execute_lane_change(self):
-        """ Execute reference path planner and do lane change maneuver
-        Returns: updated reference_path, updated curvilinear reference coordinate system
-        """
-        self.reference_path_planner.create_lane_change(ego_state=self.BM_state.ego_state,
-                                                       current_lanelet_id=self.BM_state.current_lanelet_id,
-                                                       goal_lanelet_id=self.FSM_state.lane_change_target_lanelet_id)
-        self.FSM_state.initiated_lane_change = True
-
-        self.PP_state.reference_path = self.reference_path_planner.reference_path
-        self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
-        self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
-
-    def undo_lane_change(self):
-        """ Execute reference path planner and do lane change maneuver
-        Returns: updated reference_path, updated curvilinear reference coordinate system
-        """
-        self.reference_path_planner.create_lane_change(ego_state=self.BM_state.ego_state,
-                                                       current_lanelet_id=self.BM_state.current_lanelet_id,
-                                                       goal_lanelet_id=self.BM_state.current_lanelet_id)
-        #self.FSM_state.lane_change_right_abort = None
-        #self.FSM_state.lane_change_left_abort = None
-
-        self.PP_state.reference_path = self.reference_path_planner.reference_path
-        self.PP_state.reference_path_ids = self.reference_path_planner.list_ids_ref_path
-        self.PP_state.cl_ref_coordinate_system = self.reference_path_planner.cl_ref_coordinate_system
-
-
-class RoutePlan(object):
-    """ Route Plan: object holding static route plan and navigation route."""
-
-    def __init__(self, lanelet_network, global_nav_route, config_sim, country, street_setting_scenario="Urban"):
-
-        self.lanelet_network = lanelet_network
-        self.global_nav_route = global_nav_route
-        self.global_nav_path = global_nav_route.reference_path
-        self.global_nav_path_ids = global_nav_route.lanelet_ids
-        self.config_sim = config_sim
-        self.cl_nav_coordinate_system = CoordinateSystem(reference=self.global_nav_path, config_sim=config_sim)
-        self.country = country
-        self.street_setting_scenario = street_setting_scenario
-
-        self.static_route_plan = None
-
-        self.yield_signs = []
-        self.stop_signs = []
-        self.traffic_lights = []
-        self.turns = []
-        self.road_exits = []
-        self.lane_merges = []
-        self.intersections = []
-
-        self.execute_static_planning()
-
-    def execute_static_planning(self):
-        """Creates a plan of all static intermediate goals. Sets beginning and end point with the cl cosy coordinate s
-        along the reference path.
-
-        TODO: detect turns, crosswalk and road exits
-        """
-        self.static_route_plan = []
-
-        self._look_for_traffic_lights_and_signs()
-        self._look_for_lane_merges()
-        self._look_for_intersections()
-        # self.look_for_road_exits()
-        # self.look_for_turns()
-
-        for (stop_sign, yield_sign, traffic_light, road_exit, lane_merge, intersection) in \
-                zip_longest(self.stop_signs, self.yield_signs, self.traffic_lights, self.road_exits, self.lane_merges,
-                            self.intersections):
-            for static_goal in (stop_sign, yield_sign, traffic_light, road_exit, lane_merge, intersection):
-
-                if static_goal is not None:
-                    goal = None
-                    prep = None
-
-                    # static goal length depends on the estimated speed
-                    preparation_time = self.config_sim.behavior.preparation_time
-                    goal_time = self.config_sim.behavior.goal_time
-
-                    speed_factor = hf.get_speed_limit(
-                        [static_goal.get('goal_lanelet_id')] +
-                        self.lanelet_network.find_lanelet_by_id(static_goal.get('goal_lanelet_id')).predecessor,
-                        self.lanelet_network, self.country)
-                    # TODO hard coded values
-                    if self.street_setting_scenario == "Highway":
-                        speed_factor = 130 if speed_factor is None else speed_factor
-                        speed_factor = min(130, speed_factor)  # don't exceed Richtgeschwindigkeit
-                    elif self.street_setting_scenario == "Country":
-                        speed_factor = 100 if speed_factor is None else speed_factor
-                    elif self.street_setting_scenario == "Urban":
-                        speed_factor = 50 if speed_factor is None else speed_factor
-
-                    static_prep_goal_length = speed_factor / 3.6 * preparation_time
-                    static_goal_length = speed_factor / 3.6 * goal_time
-
-                    # all static goals with stop line
-                    if static_goal.get('type') in ['StopSign', 'YieldSign', 'TrafficLight', 'Crosswalk']:
-                        start_s = max([0.001, static_goal.get('stop_position_s') - static_goal_length])
-                        try:
-                            start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
-                            end_s = static_goal.get('position_s')
-                            end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
-                        except AttributeError:
-                            behavior_message_logger.error(
-                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
-                            continue
-                        traffic_sign_object = self.lanelet_network.find_traffic_light_by_id(static_goal.get('id'))
-                        goal = StaticGoal(goal_type=static_goal.get('type'),
-                                          start_s=start_s,
-                                          start_xy=start_xy,
-                                          end_s=end_s,
-                                          end_xy=end_xy,
-                                          stop_point_s=static_goal.get('stop_position_s'),
-                                          stop_point_xy=static_goal.get('stop_position_xy'),
-                                          goal_object=traffic_sign_object,
-                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
-                        try:
-                            prep_start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                                    max([0.001, start_s - static_prep_goal_length]), 0).tolist()
-                            prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
-                        except AttributeError:
-                            behavior_message_logger.error(
-                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
-                            continue
-                        prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=max([0.001, start_s - static_prep_goal_length]),
-                                          start_xy=prep_start_xy,
-                                          end_s=start_s,
-                                          end_xy=prep_end_xy,
-                                          stop_point_s=static_goal.get('stop_position_s'),
-                                          stop_point_xy=static_goal.get('stop_position_xy'),
-                                          goal_object=traffic_sign_object,
-                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
-
-                    # all static goals with a lane change maneuver
-                    elif static_goal.get('type') in ['LaneMerge', 'RoadExit']:
-                        start_s = max([0.001, static_goal.get('position_s') - static_goal_length])
-                        try:
-                            start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
-                            end_s = static_goal.get('position_s')
-                            end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(end_s, 0).tolist()
-                        except AttributeError:
-                            behavior_message_logger.error(
-                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
-                            continue
-                        goal = StaticGoal(goal_type=static_goal.get('type'),
-                                          start_s=start_s,
-                                          start_xy=start_xy,
-                                          end_s=end_s,
-                                          end_xy=end_xy,
-                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
-                        try:
-                            prep_start_xy = \
-                                self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                                    max([0.001, start_s - static_prep_goal_length]), 0).tolist()
-                            prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(start_s, 0).tolist()
-                        except AttributeError:
-                            behavior_message_logger.error(
-                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
-                            continue
-                        prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=max([0.001, start_s - static_prep_goal_length]),
-                                          start_xy=prep_start_xy,
-                                          end_s=start_s,
-                                          end_xy=prep_end_xy,
-                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
-
-                    # intersections
-                    elif static_goal.get('type') == 'Intersection':
-                        goal = StaticGoal(goal_type=static_goal.get('type'),
-                                          start_s=static_goal.get('start_s'),
-                                          start_xy=static_goal.get('start_xy'),
-                                          end_s=static_goal.get('end_s'),
-                                          end_xy=static_goal.get('end_xy'),
-                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
-                        try:
-                            prep_start_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                                max([0.001, static_goal.get('start_s') - static_prep_goal_length]), 0).tolist()
-                            prep_end_xy = self.cl_nav_coordinate_system.convert_to_cartesian_coords(
-                                static_goal.get('start_s'), 0).tolist()
-                        except AttributeError:
-                            behavior_message_logger.error(
-                                f"PP start or stop s_position of {static_goal.get('type')} is out of projection domain")
-                            continue
-                        prep = StaticGoal(goal_type='Prepare' + static_goal.get('type'),
-                                          start_s=max([0.001, static_goal.get('start_s') - static_prep_goal_length]),
-                                          start_xy=prep_start_xy,
-                                          end_s=static_goal.get('start_s'),
-                                          end_xy=prep_end_xy,
-                                          goal_lanelet_id=static_goal.get('goal_lanelet_id'))
-                    self.static_route_plan += [prep, goal]
-
-        # sort goals for cl cosy coordinate s
-        self.static_route_plan.sort(key=lambda x: x.start_s)
-        self._straighten_static_route_plan()
-
-    def _look_for_traffic_lights_and_signs(self):
-        self.yield_signs = []
-        self.stop_signs = []
-        self.traffic_lights = []
-
-        for lanelet_id in self.global_nav_path_ids:
-            lanelet = self.lanelet_network.find_lanelet_by_id(lanelet_id)
-            if lanelet.stop_line is None:
-                continue
-            # center point of stop line
-            stop_position_x = (lanelet.stop_line.start[0] + lanelet.stop_line.end[0]) / 2
-            stop_position_y = (lanelet.stop_line.start[1] + lanelet.stop_line.end[1]) / 2
-            stop_position_xy = [stop_position_x, stop_position_y]
-            try:
-                stop_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                    stop_position_x, stop_position_y)[0]
-            except:
-                behavior_message_logger.error("PP stop line position of traffic sign or light is out of projection domain")
-                stop_position_s = None
-
-            if lanelet.stop_line.traffic_sign_ref is not None:
-                for traffic_sign_id in lanelet.stop_line.traffic_sign_ref:
-                    if traffic_sign_id is not None:
-                        traffic_sign = self.lanelet_network.find_traffic_sign_by_id(traffic_sign_id)
-                        traffic_sign_position_xy = [traffic_sign.position[0], traffic_sign.position[1]]
-                        try:
-                            traffic_sign_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                                traffic_sign_position_xy[0], traffic_sign_position_xy[1])[0]
-                        except:
-                            behavior_message_logger.error("PP position of traffic sign is out of projection domain")
-                            traffic_sign_position_s = None
-                        for traffic_sign_element in traffic_sign.traffic_sign_elements:
-
-                            if stop_position_s is None and traffic_sign_position_s is not None:
-                                stop_position_s = traffic_sign_position_s
-                            elif stop_position_s is not None and traffic_sign_position_s is None:
-                                traffic_sign_position_s = stop_position_s
-                            elif stop_position_s is None and traffic_sign_position_s is None:
-                                behavior_message_logger.warning("PP traffic sign is out of projection domain")
-                                continue
-
-                            if traffic_sign_element.traffic_sign_element_id.name == 'YIELD':
-                                self.yield_signs += [{'id': traffic_sign_id,
-                                                      'type': 'YieldSign',
-                                                      'position_s': traffic_sign_position_s,
-                                                      'position_xy': traffic_sign_position_xy,
-                                                      'stop_position_s': stop_position_s,
-                                                      'stop_position_xy': stop_position_xy,
-                                                      'goal_lanelet_id': lanelet_id}]
-                            if traffic_sign_element.traffic_sign_element_id.name == 'STOP':
-                                self.stop_signs += [{'id': traffic_sign_id,
-                                                     'type': 'StopSign',
-                                                     'position_s': traffic_sign_position_s,
-                                                     'position_xy': traffic_sign_position_xy,
-                                                     'stop_position_s': stop_position_s,
-                                                     'stop_position_xy': stop_position_xy,
-                                                     'goal_lanelet_id': lanelet_id}]
-
-            if lanelet.stop_line.traffic_light_ref is not None:
-                for traffic_light_id in lanelet.stop_line.traffic_light_ref:
-                    if traffic_light_id is not None:
-                        traffic_light = self.lanelet_network.find_traffic_light_by_id(traffic_light_id)
-                        traffic_light_position_xy = [traffic_light.position[0], traffic_light.position[1]]
-                        try:
-                            traffic_light_position_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                                traffic_light.position[0], traffic_light.position[1])[0]
-                        except:
-                            behavior_message_logger.warning('PP traffic light position out of projection domain')
-                            traffic_light_position_s = None
-
-                        if stop_position_s is None and traffic_light_position_s is not None:
-                            stop_position_s = traffic_light_position_s
-                        elif stop_position_s is not None and traffic_light_position_s is None:
-                            traffic_light_position_s = stop_position_s
-                        elif stop_position_s is None and traffic_light_position_s is None:
-                            behavior_message_logger.warning("PP traffic light is out of projection domain")
-                            continue
-
-                        if traffic_light.active:
-                            self.traffic_lights += [{'id': traffic_light_id,
-                                                     'type': 'TrafficLight',
-                                                     'position_xy': traffic_light_position_xy,
-                                                     'stop_position_xy': stop_position_xy,
-                                                     'position_s': traffic_light_position_s,
-                                                     'stop_position_s': stop_position_s,
-                                                     'goal_lanelet_id': lanelet_id}]
-
-    def _look_for_lane_merges(self):
-        self.lane_merges = []
-
-        for lanelet_id in self.global_nav_path_ids:
-            lanelet = self.lanelet_network.find_lanelet_by_id(lanelet_id)
-            if len(lanelet.predecessor) > 1:  # one of the driven lanelets has two predecessors
-                pred1 = self.lanelet_network.find_lanelet_by_id(lanelet.predecessor[0])
-                pred2 = self.lanelet_network.find_lanelet_by_id(lanelet.predecessor[1])
-                if np.allclose(pred1.center_vertices[-1], pred2.center_vertices[-1]):  # same end point of merging lanes
-                    orient1 = pred1.center_vertices[1] - pred1.center_vertices[0]
-                    orient2 = pred2.center_vertices[1] - pred2.center_vertices[0]
-                    orient1 = orient1 / np.linalg.norm(orient1)
-                    orient2 = orient2 / np.linalg.norm(orient2)
-                    if np.allclose(orient1, orient2, atol=0.1):  # similar orientation or merging lanes
-                        try:
-                            merging_point_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                                lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
-                        except:
-                            merging_point_s = None
-                            behavior_message_logger.error("PP merging point is out of projection domain")
-                            continue
-                        self.lane_merges += [{'type': 'LaneMerge',
-                                              'position_xy': lanelet.center_vertices[0],
-                                              'position_s': merging_point_s,
-                                              'goal_lanelet_id': lanelet_id}]
-
-    def _look_for_intersections(self):
-        self.intersections = []
-
-        for intersection in self.lanelet_network.intersections:
-            for lanelet_id in self.global_nav_path_ids:
-                for intersection_element in intersection.incomings:
-                    if (lanelet_id in intersection_element.successors_left) or \
-                            (lanelet_id in intersection_element.successors_right) or \
-                            (lanelet_id in intersection_element.successors_straight):
-                        lanelet = self.lanelet_network.find_lanelet_by_id(lanelet_id)
-                        start_xy = lanelet.center_vertices[0].tolist()
-                        try:
-                            start_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                                lanelet.center_vertices[0][0], lanelet.center_vertices[0][1])[0]
-                        except:
-                            start_s = None
-                            behavior_message_logger.error("PP start of intersection out of projection domain")
-                        end_xy = lanelet.center_vertices[-1].tolist()
-                        try:
-                            end_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-                                lanelet.center_vertices[-1][0], lanelet.center_vertices[-1][1])[0]
-                        except:
-                            end_s = None
-                            behavior_message_logger.error("PP end of intersection out of projection domain")
-
-                        if start_s is None and end_s is not None:
-                            start_s = max([0.001, end_s - 15])
-                        elif start_s is not None and end_s is None:
-                            end_s = start_s + 15
-                        elif start_s is None and end_s is None:
-                            behavior_message_logger.warning("PP intersection is out of projection domain")
-                            continue
-
-                        self.intersections += [{'id': intersection_element.incoming_id,
-                                                'type': 'Intersection',
-                                                'start_xy': start_xy,
-                                                'start_s': start_s,
-                                                'end_xy': end_xy,
-                                                'end_s': end_s,
-                                                'goal_lanelet_id': lanelet_id}]
-
-    def _look_for_road_exits(self):
-
-        return self.road_exits
-
-    def _look_for_turns(self):
-
-        return self.turns
-
-    def _straighten_static_route_plan(self):
-        """Checks for overlapping static goals and straightens them out and fills gaps between goals with StaticDefault.
-        """
-
-        end_nav_path_s = self.cl_nav_coordinate_system.convert_to_curvilinear_coords(
-            self.global_nav_path[-1][0],
-            self.global_nav_path[-1][1])[0]
-        # if no static goal object was found on reference path add only StaticDefault
-        if len(self.static_route_plan) == 0:
-            self.static_route_plan = [StaticGoal(goal_type='StaticDefault',
-                                                 start_s=0,
-                                                 start_xy=self.global_nav_path[0],
-                                                 end_s=end_nav_path_s,
-                                                 end_xy=self.global_nav_path[-1])]
-        else:
-            for i in range(len(self.static_route_plan)-1):
-                # remove yield signs at active traffic lights
-                # TODO prefer Traffic lights before StopSigns before YieldSigns before intersections
-                if self.static_route_plan[i].start_s == self.static_route_plan[i+1].start_s:
-                    if self.static_route_plan[i].goal_type == 'TrafficLight' and \
-                            self.static_route_plan[i+1].goal_type == 'YieldSign':
-                        self.static_route_plan = self.static_route_plan[:i+1] + self.static_route_plan[i+2:]
-                    elif self.static_route_plan[i].goal_type == 'YieldSign' and \
-                            self.static_route_plan[i+1].goal_type == 'TrafficLight':
-                        self.static_route_plan = self.static_route_plan[:i] + self.static_route_plan[i+1:]
-                    if self.static_route_plan[i].goal_type == 'PrepareTrafficLight' and \
-                            self.static_route_plan[i+1].goal_type == 'PrepareYieldSign':
-                        self.static_route_plan = self.static_route_plan[:i+1] + self.static_route_plan[i+2:]
-                    elif self.static_route_plan[i].goal_type == 'PrepareYieldSign' and \
-                            self.static_route_plan[i+1].goal_type == 'PrepareTrafficLight':
-                        self.static_route_plan = self.static_route_plan[:i] + self.static_route_plan[i+1:]
-                # no goals with s < 0
-                if self.static_route_plan[i].start_s < 0:
-                    self.static_route_plan[i].start_s = 0
-                # cut overlapping goals
-                if self.static_route_plan[i].end_s > self.static_route_plan[i+1].start_s:
-                    if self.static_route_plan[i+1].goal_type[:7] == 'Prepare':
-                        self.static_route_plan[i+1].start_s = self.static_route_plan[i].end_s
-                    else:
-                        self.static_route_plan[i].end_s = self.static_route_plan[i+1].start_s
-                        self.static_route_plan[i].end_xy = self.static_route_plan[i+1].start_xy
-                # fill with StaticDefault
-                elif self.static_route_plan[i].end_s < self.static_route_plan[i+1].start_s:
-                    goal = StaticGoal(goal_type='StaticDefault',
-                                      start_s=self.static_route_plan[i].end_s,
-                                      end_s=self.static_route_plan[i+1].start_s)
-                    self.static_route_plan += [goal]
-
-            self.static_route_plan.sort(key=lambda x: x.start_s)
-        # add StaticDefault at beginning
-        if self.static_route_plan[0].start_s > 0:
-            self.static_route_plan = [StaticGoal(goal_type='StaticDefault',
-                                                 start_s=0,
-                                                 start_xy=self.global_nav_path[0],
-                                                 end_s=self.static_route_plan[0].start_s,
-                                                 end_xy=self.static_route_plan[0].start_xy)] + self.static_route_plan
-        # add StaticDefault at end
-        if self.static_route_plan[-1].end_s != end_nav_path_s:
-            self.static_route_plan += [StaticGoal(goal_type='StaticDefault',
-                                                  start_s=self.static_route_plan[-1].end_s,
-                                                  start_xy=self.static_route_plan[-1].end_xy,
-                                                  end_s=end_nav_path_s,
-                                                  end_xy=self.global_nav_path[-1])]
-        return self.static_route_plan
-
-
-class ReferencePath(object):
-    """ Reference Path: object holding the reference path for the reactive planner. Creates straight base reference path
-    with initialization."""
-    def __init__(self, lanelet_network, global_nav_route, BM_state):
-
-        self.BM_state = BM_state
-        self.lanelet_network = lanelet_network
-
-        self.cl_ref_coordinate_system = None
-        self.reference_path = None
-        self.list_ids_ref_path = None
-
-        self._create_base_ref_path(global_nav_route)
-
-    def _create_base_ref_path(self, global_nav_route):
-        # create lanelet list for straight base route
-        base_lanelet_ids = hf.create_consecutive_lanelet_id_list(self.lanelet_network,
-                                                                 global_nav_route.lanelet_ids[0],
-                                                                 self.BM_state.PP_state.route_plan_ids)
-
-        # create base reference path
-        self.list_ids_ref_path = base_lanelet_ids
-
-        self.list_ids_ref_path = global_nav_route.lanelet_ids
-        self.reference_path = global_nav_route.reference_path
-
-        # update curvilinear reference coordinate system
+        # generate new Route with the calculated ReferencePath and set class variables accordingly
+        self.global_nav_route = DefaultGenerationStrategy.update_route(general_route, my_reference_path)
+        self.global_nav_route.reference_path = my_reference_path
+        self.reference_path = self.global_nav_route.reference_path
+        self.list_ids_ref_path = self.global_nav_route.lanelet_ids
         self._update_cl_ref_coordinate_system()
+        # update BM_state
+        self.BM_state.global_nav_route = self.global_nav_route
 
     def _update_cl_ref_coordinate_system(self):
-        self.cl_ref_coordinate_system = CoordinateSystem(reference=self.reference_path, config_sim=self.BM_state.config)
+        self.cl_ref_coordinate_system = CoordinateSystem(reference=self.reference_path, config_sim=self.config_sim)
 
     def create_lane_change(self, ego_state, current_lanelet_id, goal_lanelet_id, number_vertices_lane_change=6):
         old_path = self.reference_path[:]
@@ -657,6 +647,7 @@ class ReferencePath(object):
         # create final reference path
         reference_path = np.concatenate((old_path, new_path), axis=0)
         self.reference_path = smooth_ref_path(reference_path)
+        self._update_cl_ref_coordinate_system()
 
 
 class StaticGoal(object):

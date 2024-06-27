@@ -148,8 +148,8 @@ def get_lanelet_information(scenario, reference_path_ids, ego_state, country: Su
         for lanelet_id in current_lanelets:
             if lanelet_id in reference_path_ids:
                 current_lanelet = lanelet_id
-            else:
-                current_lanelet = current_lanelets[0]
+        if current_lanelet is None:
+            current_lanelet = current_lanelets[0]
     else:
         print("no lanelets detected")
 

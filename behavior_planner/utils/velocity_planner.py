@@ -74,10 +74,6 @@ class VelocityPlanner(object):
         self._set_desired_velocity()
 
     def _set_desired_velocity(self):
-        if self.BM_state.time_step < 3 or self.VP_state.goal_velocity is None:  # wait till predictions are stabilized
-            self.VP_state.desired_velocity = self.BM_state.init_velocity
-            return
-
         # clip velocity to maximal accelerating and braking values
         self.VP_state.desired_velocity = self._clip_velocity()
 
@@ -102,16 +98,8 @@ class VelocityPlanner(object):
         # if self.FSM_state.slowing_car_for_traffic_light:
         #     self.VP_state.desired_velocity = 0
 
-        # prevent large velocity jumps
-        if self.BM_state.ego_state.velocity > 8.333:
-            if self.VP_state.desired_velocity > self.BM_state.ego_state.velocity * 1.33:
-                behavior_message_logger.debug("BP planner velocity too high, recommended velocity is: " +
-                                              str(self.BM_state.ego_state.velocity * 1.33))
-                self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 1.33
-            elif self.VP_state.desired_velocity < self.BM_state.ego_state.velocity * 0.67:
-                behavior_message_logger.debug("BP planner velocity too low, recommended velocity is: " +
-                                              str(self.BM_state.ego_state.velocity * 0.67))
-                self.VP_state.desired_velocity = self.BM_state.ego_state.velocity * 0.67
+        if self.VP_state.desired_velocity <= self.BM_state.config.behavior.zero_velocity_threshold:
+            self.VP_state.desired_velocity = 0
 
     def _clip_velocity(self):
         """
@@ -246,13 +234,13 @@ class VelocityPlanner(object):
         elif (dist >= 0 and v_ego >= 0 and v_other >= 0) or (dist < 0 and v_ego < 0 and v_other < 0):
             safety_dist += abs(ego_react_dist) + abs(ego_stop_dist) - abs(other_stop_dist)
             self.VP_state.min_safety_dist = safety_dist
-            safety_dist += v_ego * safety_dist_sec
+            safety_dist += (v_other + v_ego) / 2 * safety_dist_sec
 
         # ego vehicle drives in front of other vehicle (3)
         elif (dist >= 0 and v_ego < 0 and v_other < 0) or (dist < 0 and v_ego >= 0 and v_other >= 0):
             safety_dist += abs(other_react_dist) + abs(other_stop_dist) - abs(ego_stop_dist)
             self.VP_state.min_safety_dist = safety_dist
-            safety_dist += v_other * safety_dist_sec
+            safety_dist += (v_other + v_ego) / 2 * safety_dist_sec
             relevant = False
 
         # ego vehicle and other vehicle drive away from each other (4)

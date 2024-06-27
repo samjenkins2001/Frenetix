@@ -161,11 +161,12 @@ class Country(State):
     def execute(self):
         bhv_logger.debug("FSM Street Setting: Country")
         # FSM static
-        transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
-        if transition_static is not None:
-            self.FSM_static.transition(transition_static)
-            self.FSM_static.reset_current_state()
-        self.FSM_state.behavior_state_static = self.cur_state_static
+        if not self.BM_state.plan_dynamics_only:
+            transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
+            if transition_static is not None:
+                self.FSM_static.transition(transition_static)
+                self.FSM_static.reset_current_state()
+            self.FSM_state.behavior_state_static = self.cur_state_static
         # FSM dynamic
         transition_dynamic, self.cur_state_dynamic = self.logic_dynamic.execute(self.cur_state_dynamic)
         if transition_dynamic is not None:
@@ -178,7 +179,9 @@ class Country(State):
             self.FSM_state.no_auto_lane_change = True
         else:
             self.FSM_state.no_auto_lane_change = False
-        self.FSM_static.execute()
+
+        if not self.BM_state.plan_dynamics_only:
+            self.FSM_static.execute()
         self.FSM_dynamic.execute()
 
     def reset_state(self):
@@ -270,11 +273,12 @@ class Urban(State):
     def execute(self):
         bhv_logger.debug("FSM Street Setting: Urban")
         # FSM static
-        transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
-        if transition_static is not None:
-            self.FSM_static.transition(transition_static)
-            self.FSM_static.reset_current_state()
-        self.FSM_state.behavior_state_static = self.cur_state_static
+        if not self.BM_state.plan_dynamics_only:
+            transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
+            if transition_static is not None:
+                self.FSM_static.transition(transition_static)
+                self.FSM_static.reset_current_state()
+            self.FSM_state.behavior_state_static = self.cur_state_static
 
         # FSM dynamic
         transition_dynamic, self.cur_state_dynamic = self.logic_dynamic.execute(self.cur_state_dynamic)
@@ -289,7 +293,8 @@ class Urban(State):
         else:
             self.FSM_state.no_auto_lane_change = False
 
-        self.FSM_static.execute()
+        if not self.BM_state.plan_dynamics_only:
+            self.FSM_static.execute()
         self.FSM_dynamic.execute()
 
     def reset_state(self):
@@ -354,11 +359,12 @@ class Highway(State):
     def execute(self):
         bhv_logger.debug("FSM Street Setting: Highway")
         # FSM static
-        transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
-        if transition_static is not None:
-            self.FSM_static.transition(transition_static)
-            self.FSM_static.reset_current_state()
-        self.FSM_state.behavior_state_static = self.cur_state_static
+        if not self.BM_state.plan_dynamics_only:
+            transition_static, self.cur_state_static = self.logic_static.execute(self.cur_state_static)
+            if transition_static is not None:
+                self.FSM_static.transition(transition_static)
+                self.FSM_static.reset_current_state()
+            self.FSM_state.behavior_state_static = self.cur_state_static
         # FSM dynamic
         transition_dynamic, self.cur_state_dynamic = self.logic_dynamic.execute(self.cur_state_dynamic)
         if transition_dynamic is not None:
@@ -371,7 +377,9 @@ class Highway(State):
             self.FSM_state.no_auto_lane_change = True
         else:
             self.FSM_state.no_auto_lane_change = False
-        self.FSM_static.execute()
+
+        if not self.BM_state.plan_dynamics_only:
+            self.FSM_static.execute()
         self.FSM_dynamic.execute()
 
     def reset_state(self):
@@ -455,7 +463,7 @@ class PrepareLaneChangeLeft(State):
         self.logic.reset_state(state='IdentifyTargetLaneAndVehiclesOnTargetLane')
         self.FSM_situation.cur_state = self.FSM_situation.states[
             'IdentifyTargetLaneAndVehiclesOnTargetLane']
-        self.FSM_state.situation_state_dynamic = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
+        self.FSM_state.situation_state_dynamic = None
         self.FSM_state.situation_time_step_counter = 0
 
 
@@ -498,7 +506,7 @@ class LaneChangeLeft(State):
         self.cur_state = 'InitiateLaneChange'
         self.logic.reset_state(state='InitiateLaneChange')
         self.FSM_situation.cur_state = self.FSM_situation.states['InitiateLaneChange']
-        self.FSM_state.situation_state_dynamic = 'InitiateLaneChange'
+        self.FSM_state.situation_state_dynamic = None
         self.FSM_state.detected_lanelets = None
         self.FSM_state.situation_time_step_counter = 0
 
@@ -539,7 +547,7 @@ class PrepareLaneChangeRight(State):
         self.logic.reset_state(state='IdentifyTargetLaneAndVehiclesOnTargetLane')
         self.FSM_situation.cur_state = self.FSM_situation.states[
             'IdentifyTargetLaneAndVehiclesOnTargetLane']
-        self.FSM_state.situation_state_dynamic = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
+        self.FSM_state.situation_state_dynamic = None
         self.FSM_state.situation_time_step_counter = 0
 
 
@@ -582,7 +590,7 @@ class LaneChangeRight(State):
         self.cur_state = 'InitiateLaneChange'
         self.logic.reset_state(state='InitiateLaneChange')
         self.FSM_situation.cur_state = self.FSM_situation.states['InitiateLaneChange']
-        self.FSM_state.situation_state_dynamic = 'InitiateLaneChange'
+        self.FSM_state.situation_state_dynamic = None
         self.FSM_state.detected_lanelets = None
         self.FSM_state.situation_time_step_counter = 0
 
@@ -622,7 +630,7 @@ class PrepareLaneMerge(State):
         self.logic.reset_state(state='EstimateMergingLaneLengthAndEmergencyStopPoint')
         self.FSM_situation.cur_state = self.FSM_situation.states[
             'EstimateMergingLaneLengthAndEmergencyStopPoint']
-        self.FSM_state.situation_state_static = 'EstimateMergingLaneLengthAndEmergencyStopPoint'
+        self.FSM_state.situation_state_static = None
 
 
 class LaneMerge(State):
@@ -657,7 +665,7 @@ class LaneMerge(State):
         self.cur_state = 'InitiateLaneMerge'
         self.logic.reset_state(state='InitiateLaneMerge')
         self.FSM_situation.cur_state = self.FSM_situation.states['InitiateLaneMerge']
-        self.FSM_state.situation_state_static = 'InitiateLaneMerge'
+        self.FSM_state.situation_state_static = None
 
 
 class PrepareRoadExit(State):
@@ -693,7 +701,7 @@ class PrepareRoadExit(State):
         self.logic.reset_state(state='IdentifyTargetLaneAndVehiclesOnTargetLane')
         self.FSM_situation.cur_state = self.FSM_situation.states[
             'IdentifyTargetLaneAndVehiclesOnTargetLane']
-        self.FSM_state.situation_state_static = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
+        self.FSM_state.situation_state_static = None
 
 
 class RoadExit(State):
@@ -728,7 +736,7 @@ class RoadExit(State):
         self.cur_state = 'InitiateRoadExit'
         self.logic.reset_state(state='InitiateRoadExit')
         self.FSM_situation.cur_state = self.FSM_situation.states['InitiateRoadExit']
-        self.FSM_state.situation_state_static = 'InitiateRoadExit'
+        self.FSM_state.situation_state_static = None
 
 
 class PrepareIntersection(State):
@@ -781,7 +789,7 @@ class PrepareTurnLeft(State):
         self.cur_state = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
         self.logic.reset_state(state='IdentifyTargetLaneAndVehiclesOnTargetLane')
         self.FSM_situation.cur_state = self.FSM_situation.states['IdentifyTargetLaneAndVehiclesOnTargetLane']
-        self.FSM_state.situation_state_static = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
+        self.FSM_state.situation_state_static = None
 
 
 class TurnLeft(State):
@@ -829,7 +837,7 @@ class TurnLeft(State):
         self.cur_state = self.init_state
         self.logic.reset_state(state=self.init_state)
         self.FSM_situation.cur_state = self.FSM_situation.states[self.init_state]
-        self.FSM_state.situation_state_static = self.init_state
+        self.FSM_state.situation_state_static = None
 
 
 class PrepareTurnRight(State):
@@ -863,7 +871,7 @@ class PrepareTurnRight(State):
         self.cur_state = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
         self.logic.reset_state(state='IdentifyTargetLaneAndVehiclesOnTargetLane')
         self.FSM_situation.cur_state = self.FSM_situation.states['IdentifyTargetLaneAndVehiclesOnTargetLane']
-        self.FSM_state.situation_state_static = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
+        self.FSM_state.situation_state_static = None
 
 
 class TurnRight(State):
@@ -911,7 +919,7 @@ class TurnRight(State):
         self.cur_state = self.init_state
         self.logic.reset_state(state=self.init_state)
         self.FSM_situation.cur_state = self.FSM_situation.states[self.init_state]
-        self.FSM_state.situation_state_static = self.init_state
+        self.FSM_state.situation_state_static = None
 
 
 class PrepareOvertake(State):
@@ -950,7 +958,7 @@ class PrepareOvertake(State):
         self.cur_state = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
         self.logic.reset_state(state='IdentifyTargetLaneAndVehiclesOnTargetLane')
         self.FSM_situation.cur_state = self.FSM_situation.states['IdentifyTargetLaneAndVehiclesOnTargetLane']
-        self.FSM_state.situation_state_static = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
+        self.FSM_state.situation_state_static = None
 
 
 class Overtake(State):
@@ -983,7 +991,7 @@ class Overtake(State):
         self.cur_state = 'Overtaking'
         self.logic.reset_state(state='Overtaking')
         self.FSM_situation.cur_state = self.FSM_situation.states['Overtaking']
-        self.FSM_state.situation_state_static = 'Overtaking'
+        self.FSM_state.situation_state_static = None
 
 
 class FinishOvertake(State):
@@ -1022,7 +1030,7 @@ class FinishOvertake(State):
         self.cur_state = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
         self.logic.reset_state(state='IdentifyTargetLaneAndVehiclesOnTargetLane')
         self.FSM_situation.cur_state = self.FSM_situation.states['IdentifyTargetLaneAndVehiclesOnTargetLane']
-        self.FSM_state.situation_state_static = 'IdentifyTargetLaneAndVehiclesOnTargetLane'
+        self.FSM_state.situation_state_static = None
 
 
 class PrepareTrafficLight(State):
@@ -1062,7 +1070,7 @@ class PrepareTrafficLight(State):
         self.logic.reset_state(state='ObservingTrafficLight')
         self.FSM_situation.cur_state = self.FSM_situation.states[
             'ObservingTrafficLight']
-        self.FSM_state.situation_state_static = 'ObservingTrafficLight'
+        self.FSM_state.situation_state_static = None
 
 
 class TrafficLight(State):
@@ -1112,7 +1120,7 @@ class TrafficLight(State):
         self.cur_state = self.init_state
         self.logic.reset_state(state=self.init_state)
         self.FSM_situation.cur_state = self.FSM_situation.states[self.init_state]
-        self.FSM_state.situation_state_static = self.init_state
+        self.FSM_state.situation_state_static = None
 
 
 class PrepareCrosswalk(State):
@@ -1145,7 +1153,7 @@ class PrepareCrosswalk(State):
         self.cur_state = 'ObservingCrosswalk'
         self.logic.reset_state(state='ObservingCrosswalk')
         self.FSM_situation.cur_state = self.FSM_situation.states['ObservingCrosswalk']
-        self.FSM_state.situation_state_static = 'ObservingCrosswalk'
+        self.FSM_state.situation_state_static = None
 
 
 class Crosswalk(State):
@@ -1193,7 +1201,7 @@ class Crosswalk(State):
         self.cur_state = self.init_state
         self.logic.reset_state(state=self.init_state)
         self.FSM_situation.cur_state = self.FSM_situation.states[self.init_state]
-        self.FSM_state.situation_state_static = self.init_state
+        self.FSM_state.situation_state_static = None
 
 
 class PrepareStopSign(State):
@@ -1226,7 +1234,7 @@ class PrepareStopSign(State):
         self.cur_state = 'ObservingStopYieldSign'
         self.logic.reset_state(state='ObservingStopYieldSign')
         self.FSM_situation.cur_state = self.FSM_situation.states['ObservingStopYieldSign']
-        self.FSM_state.situation_state_static = 'ObservingStopYieldSign'
+        self.FSM_state.situation_state_static = None
 
 
 class StopSign(State):
@@ -1261,7 +1269,7 @@ class StopSign(State):
         self.cur_state = 'Stopping'
         self.logic.reset_state(state='Stopping')
         self.FSM_situation.cur_state = self.FSM_situation.states['Stopping']
-        self.FSM_state.situation_state_static = 'Stopping'
+        self.FSM_state.situation_state_static = None
 
 
 class PrepareYieldSign(State):
@@ -1294,7 +1302,7 @@ class PrepareYieldSign(State):
         self.cur_state = 'ObservingStopYieldSign'
         self.logic.reset_state(state='ObservingStopYieldSign')
         self.FSM_situation.cur_state = self.FSM_situation.states['ObservingStopYieldSign']
-        self.FSM_state.situation_state_static = 'ObservingStopYieldSign'
+        self.FSM_state.situation_state_static = None
 
 
 class YieldSign(State):
@@ -1342,7 +1350,7 @@ class YieldSign(State):
         self.cur_state = self.init_state
         self.logic.reset_state(state=self.init_state)
         self.FSM_situation.cur_state = self.FSM_situation.states[self.init_state]
-        self.FSM_state.situation_state_static = self.init_state
+        self.FSM_state.situation_state_static = None
 
 
 ####################################################################################################

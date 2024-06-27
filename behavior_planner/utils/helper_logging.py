@@ -49,6 +49,8 @@ class BehaviorLogger(object):
                 "behavior_state_dynamic",
                 "situation_state_dynamic",
                 "situation_time_step_counter",
+                "stop_point_s",
+                "desired_velocity_stop_point",
                 "velocity",
                 "goal_velocity",
                 "desired_velocity",
