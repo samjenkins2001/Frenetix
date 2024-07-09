@@ -20,7 +20,7 @@ module_path = os.path.dirname(
 )
 sys.path.append(module_path)
 
-from prediction.main import WaleNet
+from wale_net_lite.wale_net import WaleNet
 from wale_net_lite.wale_net import Prediction
 from cr_scenario_handler.utils.sensor_model import get_visible_objects, get_obstacles_in_radius
 

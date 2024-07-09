@@ -193,3 +193,13 @@ class TimeSampling(Sampling):
             samp = set(np.round(np.arange(self.minimum, self.maximum + self.dT, (step_size * self.dT)), 2))
             samp.discard(elem for elem in list(samp) if elem > round(self.maximum + self.dT, 2))
             self._sampling_vec.append(samp)
+
+
+
+# Why can the s-sampling method only be used if the velocity-sampling is deactivated, or why does longitudinal only depend on position and velocity range?
+# where are the polynomial coefficients generated from?
+# look into the kinematic check for rate of change of curvature/yaw when in a high risk scenario, in certain scenarios smoothness should not be required. ALSO is the kinematic check taylored to certain vehicles actuator capabilites?
+# could look into adaptive cost functions for different scenarios, cost functions on a spectrum (changes with weather / road conditions / allow user configurations for comfort and efficiency)
+# If there is no trajectory that avoids collision and adheres to road boundaries could we analyze the off road conditions and determine if shifting over the line is less risky than quickly stopping? (ie: large shoulder areas)
+
+

@@ -35,7 +35,7 @@ class ReactivePlannerCpp(Planner):
     def __init__(self, config_plan, config_sim, scenario, planning_problem, log_path, work_dir, msg_logger):
         """
         Constructor of the reactive planner
-        : param config: Configuration object holding all planner-relevant configurations
+        : param config_plan: Configuration object holding all planner-relevant configurations
         """
         super().__init__(config_plan, config_sim, scenario, planning_problem, log_path, work_dir, msg_logger)
 
@@ -54,8 +54,8 @@ class ReactivePlannerCpp(Planner):
         self.use_prediction = True
         self.predictions = predictions
         for key, pred in self.predictions.items():
-            num_steps = pred['pos_list'].shape[0]
-            predicted_path: List[frenetix.PoseWithCovariance] = [None] * num_steps
+            num_steps = pred['pos_list'].shape[0] #taking the amount of available predictions as num_of steps
+            predicted_path: List[frenetix.PoseWithCovariance] = [None] * num_steps #makes a list filled with none num_steps times.
 
             for time_step in range(num_steps):
                 # Ensure the position is in float64 format
@@ -205,7 +205,7 @@ class ReactivePlannerCpp(Planner):
         Plans an optimal trajectory
         :return: Optimal trajectory as tuple
         """
-        self._infeasible_count_kinematics = np.zeros(11)
+        self._infeasible_count_kinematics = np.zeros(11) #sets a numpy array of 11 0's
         self._collision_counter = 0
         self.infeasible_kinematics_percentage = 0
         # **************************************
@@ -214,8 +214,11 @@ class ReactivePlannerCpp(Planner):
         self.trajectory_handler_set_changing_functions()
         x_0_lon = None
         x_0_lat = None
-        if self.x_cl is None:
-            x_cl_new = frenetix.compute_initial_state(
+        if self.x_cl is None: #curvelinear planner state
+            ##########################################
+            #computing the localization of the vehicle
+            ##########################################
+            x_cl_new = frenetix.compute_initial_state( 
                 coordinate_system=self.coordinate_system_cpp,
                 x_0=self._get_cartesian_state(),
                 wheelbase=self.vehicle_params.wheelbase,
@@ -247,26 +250,28 @@ class ReactivePlannerCpp(Planner):
             # *************************************
             # Create & Evaluate Trajectories in Cpp
             # *************************************
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level).union({self.N*self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level).union({x_0_lon[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({x_0_lat[0]})))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level).union({self.N*self.dT}))) #time sampling
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level).union({x_0_lon[1]}))) #longitudinal displacement (velocity)
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({x_0_lat[0]}))) #lateral displacement
 
-            sampling_matrix = generate_sampling_matrix(t0_range=0.0,
-                                                       t1_range=t1_range,
-                                                       s0_range=x_0_lon[0],
-                                                       ss0_range=x_0_lon[1],
-                                                       sss0_range=x_0_lon[2],
-                                                       ss1_range=ss1_range,
-                                                       sss1_range=0,
-                                                       d0_range=x_0_lat[0],
-                                                       dd0_range=x_0_lat[1],
-                                                       ddd0_range=x_0_lat[2],
-                                                       d1_range=d1_range,
-                                                       dd1_range=0.0,
-                                                       ddd1_range=0.0)
+            sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
+                                                       t1_range=t1_range, #final time
+                                                       s0_range=x_0_lon[0], #specific longitudinal position
+                                                       ss0_range=x_0_lon[1], #initial longitudinal velocity
+                                                       sss0_range=x_0_lon[2], #initial longitudinal acceleration
+                                                       ss1_range=ss1_range, #possible velocity changes
+                                                       sss1_range=0, #possible acceleration changes
+                                                       d0_range=x_0_lat[0], #inital lateral displacement
+                                                       dd0_range=x_0_lat[1], #initial lateral velocity
+                                                       ddd0_range=x_0_lat[2], #initial lateral acceleration
+                                                       d1_range=d1_range, #lateral state displacement
+                                                       dd1_range=0.0, #lateral state velocity (derivative) -- 0 because we want to be parallel with the reference path
+                                                       ddd1_range=0.0) #lateral state acceleration (derivative)
+            # np.set_printoptions(threshold=np.inf)
+            # print(sampling_matrix)
 
             self.handler.reset_Trajectories()
-            self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
+            self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE) #generates new trajectories from new samping matrix
 
             if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
                                                         self.config_sim.simulation.multiprocessing):

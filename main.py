@@ -49,8 +49,16 @@ def start_simulation(scenario_name, scenario_folder, mod_path, logs_path, use_cp
                              "CODE ERROR: " + str(e) + error_traceback + "\n\n\n\n"])
             print(error_traceback)
 
+def find_directory_with_file(filename):
+    for root, dirs, files in os.walk("../commonroad-scenarios/scenarios"):
+        for file in files:
+            if file.startswith(filename):
+                return root
+    return None
+
 
 def main():
+    # import pdb; pdb.set_trace()
     if sys.platform == "darwin":
         os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -87,10 +95,13 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
-    scenario_name = "ZAM_Tjunction-1_100_T-1"  # do not add .xml format to the name
-    scenario_folder = os.path.join(stack_path, "commonroad-scenarios", "scenarios")
+    scenario_name = "DEU_B471-1_1_T-1"  # do not add .xml format to the name
+    scenario_folder = find_directory_with_file(scenario_name)
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
+    # **********************************************************************
+    # Getting the scenario list from general.py
+    # **********************************************************************
     scenario_files = get_scenario_list(scenario_name, scenario_folder, evaluation_pipeline, example_scenarios_list,
                                        use_specific_scenario_list)
 
@@ -107,14 +118,14 @@ def main():
             file.write(line)
 
     if evaluation_pipeline:
-        if not start_multiagent:
+        if not start_multiagent: #pipeline without multiagent
             num_workers = 8  # or any number you choose based on your resources and requirements
             with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
                 # Create a list of tuples that will be passed to start_simulation_wrapper
                 scenario_info_list = [(scenario_file, scenario_folder, mod_path, logs_path, use_cpp)
                                       for scenario_file in scenario_files]
                 results = executor.map(run_simulation_wrapper, scenario_info_list)
-        else:
+        else: #pipeline with multiagent
             count = 0
             for scenario_file in scenario_files:
                 start_simulation(scenario_file, scenario_folder, mod_path, logs_path, use_cpp,

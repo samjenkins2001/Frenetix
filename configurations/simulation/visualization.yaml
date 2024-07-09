@@ -1,5 +1,5 @@
 # Global multiagent visualization
-show_plots: False
+show_plots: True
 save_plots: True
 ref_path_debug: False
 

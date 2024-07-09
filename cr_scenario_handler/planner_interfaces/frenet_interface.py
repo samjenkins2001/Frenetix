@@ -21,7 +21,7 @@ import cr_scenario_handler.utils.goalcheck as gc
 from cr_scenario_handler.utils.utils_coordinate_system import smooth_ref_path, extend_ref_path_both_ends
 from cr_scenario_handler.utils.velocity_planner import VelocityPlanner
 
-from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
+# from frenetix_motion_planner.reactive_planner import ReactivePlannerPython
 from frenetix_motion_planner.reactive_planner_cpp import ReactivePlannerCpp
 from frenetix_motion_planner.state import ReactivePlannerState
 
@@ -69,8 +69,8 @@ class FrenetPlannerInterface(PlannerInterface):
 
         # Initialize planner
         self.planner = ReactivePlannerCpp(self.config_plan, self.config_sim, scenario, planning_problem, log_path, mod_path, self.msg_logger) \
-            if self.config_plan.debug.use_cpp else \
-              ReactivePlannerPython(self.config_plan, self.config_sim, scenario, planning_problem, log_path, mod_path, self.msg_logger)
+            # if self.config_plan.debug.use_cpp else \
+            #   ReactivePlannerPython(self.config_plan, self.config_sim, scenario, planning_problem, log_path, mod_path, self.msg_logger)
 
         problem_init_state = planning_problem.initial_state
 
