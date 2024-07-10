@@ -113,8 +113,8 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
         t0_range, t1_range, s0_range, ss0_range, sss0_range, ss1_range, sss1_range, d0_range, dd0_range, ddd0_range,
         d1_range, dd1_range, ddd1_range)]
 
-    # Use itertools.product to generate all combinations
-    combinations = list(itertools.product(*ranges))
+    # Use itertools.product to generate all combinations (if there are multiple values this is needed)
+    combinations = list(itertools.product(*ranges)) 
 
     msg_logger.debug('<ReactivePlanner>: %s trajectories sampled' % len(combinations))
     # Convert the list of combinations to a numpy array and return
@@ -196,7 +196,7 @@ class TimeSampling(Sampling):
 
 
 
-# Why can the s-sampling method only be used if the velocity-sampling is deactivated, or why does longitudinal only depend on position and velocity range?
+# Why can the s-sampling method only be used if the velocity-sampling is deactivated, or why does final longitudinal acceleration have to be set to 0?
 # where are the polynomial coefficients generated from?
 # look into the kinematic check for rate of change of curvature/yaw when in a high risk scenario, in certain scenarios smoothness should not be required. ALSO is the kinematic check taylored to certain vehicles actuator capabilites?
 # could look into adaptive cost functions for different scenarios, cost functions on a spectrum (changes with weather / road conditions / allow user configurations for comfort and efficiency)

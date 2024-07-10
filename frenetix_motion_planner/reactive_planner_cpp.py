@@ -10,6 +10,7 @@ import time
 import numpy as np
 from itertools import product
 from typing import List
+import pandas as pd
 
 # frenetix_motion_planner imports
 from frenetix_motion_planner.sampling_matrix import generate_sampling_matrix
@@ -250,9 +251,9 @@ class ReactivePlannerCpp(Planner):
             # *************************************
             # Create & Evaluate Trajectories in Cpp
             # *************************************
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level).union({self.N*self.dT}))) #time sampling
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level).union({x_0_lon[1]}))) #longitudinal displacement (velocity)
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({x_0_lat[0]}))) #lateral displacement
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level).union({self.N*self.dT}))) #time sampling (min is t_min, max is self.horizon)
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level).union({x_0_lon[1]}))) #longitudinal displacement (min is v min, max is v max)
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({x_0_lat[0]}))) #lateral displacement (delta_d min, delta_d max. Add lateral position if ego has position.)
 
             sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
                                                        t1_range=t1_range, #final time
@@ -267,6 +268,19 @@ class ReactivePlannerCpp(Planner):
                                                        d1_range=d1_range, #lateral state displacement
                                                        dd1_range=0.0, #lateral state velocity (derivative) -- 0 because we want to be parallel with the reference path
                                                        ddd1_range=0.0) #lateral state acceleration (derivative)
+            
+            sampling_array = np.array(sampling_matrix)
+            column_names = ['t0', 't1', 's0', 'ss0', 'sss0', 'ss1', 'sss1', 'd0', 'dd0', 'ddd0', 'd1', 'dd1', 'ddd1']
+            
+            run_id = 0
+            run_id = np.full((sampling_array.shape[0], 1), run_id)
+            matrix_with_id = np.hstack((sampling_array, run_id))
+            names_with_id = column_names + ['run_id']
+
+            sampling_dict = {names_with_id[i]: matrix_with_id[:, i] for i in range(matrix_with_id.shape[1])}
+
+            df = pd.DataFrame(sampling_dict)
+            df.to_csv('matrix_display.csv', index=False)
             # np.set_printoptions(threshold=np.inf)
             # print(sampling_matrix)
 
@@ -306,6 +320,7 @@ class ReactivePlannerCpp(Planner):
 
             # increase sampling level (i.e., density) if no optimal trajectory could be found
             samp_level += 1
+            run_id += 1
 
         planning_time = time.time() - t0
 
