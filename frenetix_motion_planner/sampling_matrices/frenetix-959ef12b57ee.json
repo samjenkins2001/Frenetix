@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "frenetix",
+  "private_key_id": "959ef12b57eeb1436347921bc168ed7588070174",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDLwgyqebgjIPcj\ns9iHjqYzu8uL6aAddYhYO+FQDznHHHmPURUMYhI05GPE5U5z0u2Bd3/OTCo0VaH2\nwOlUWVCzu0IKv2CZ34mST2/7/zGP6VkFzamnX6d2x0YKs8JFqdUwLOVJZrFtdBf0\nrxJMV+cFXdjbP+s7cFDdP9HjP9eZBCDwrXCOILiKkcaUObbl1LbO3j+gK5UN+UuU\n6i3Hy4A+zncoESQ+7XlzRX9DAF67b/wc4xXHnt80O2FfuLpkakhxjnR+lwoUTiFH\n3u2IHX/yDp/EwYm4e/jeHNEteXt1F7BoYLJ1iCFV9C7yiZZg5KSMsefk/ahUCNUc\nME5sGxVpAgMBAAECggEAFVNlxnjvXhPe8fhqjwON3yfGXcoxtSuePdfklN/HFREk\nouyiVpW0IJ+P1qWGYMaAj7adZI7hsvEMftpBgY/Ii8srVhsiJfC4why41Ifo3M5Y\nQCx+l3NCQIMKUGfwiyCDnONyCwzpwJIwSK6DLITdu9jO7+GggevXNtTtZ4rAyrWt\nV/gBqeJkIlXoRwH1S+v/YxppqVyvNpV46byxKLlp8IE70thrdEcRyY3DatRCekuo\nTL+H84kcJIv1TRDdvPvzsDt1jOCykIvJDo52oJl2mgVJ4CdfFvI4gCnSAGuiVVqA\n32y6KF1/GRhzYpDi0+plXg7bo5den4gQ8oBevNKIlQKBgQDpgg4NdOxxDV0k6oV8\nSg+Oc4kuZt8MpnuKz+6XNBcHpJhRwIN+q5QWMxrl+Jb1XjBRibEQ0vGWpcAYTfi0\n/OgLR29wCoEHWae0LK1xY5qV/PmhDsTgH5N2tSThoi3LN0HrBy6aQO9uNKvkhpXR\ncnN0FAeRt0H12freFqybRz1zDQKBgQDfYmfBARxkf5VUBvsxxumecHuLqqa1f2q8\n1WG99GTUV7KOPRmVUIYDTQWaxVC9XUft9o/Uaovfqr1jXJfEeEmDOFqcIFOTQh2L\nXu6FzBx1NxSbYYJP9P0Ezz58jkkhunyg7Z/yyW4p21R+5UaGbxw5kf07ADpqYkrI\nHWEX7xDEzQKBgQDDyzFNR0UaZkI7ugnDdbYlk+rq5YcRbGcatc8xKZRF7FVr9yhL\nBkNdeeyL+C1cAGYzeGjn2niIAONZfceUups3Gebu41/dceeUxAGKmiH8sen+igu6\ngb98Qddy+jG7u9Gh6JvC67/XgILBU7g7ruPv6PuPy0Gbi/M2VXzVlp6H4QKBgQC3\n6sdNyuJbhAeoZQ8QDptuDWJKvbgAGuYAjxaoVL1nbsTeA0Q7AU81DIcexHITVufP\n7n7A/vAmuOaxFh0Gb5rm5NEFVkA5L+gvRXvQwRp1D2JyA7hMqIJhIVhrKKLhmC7g\nOITGWj3PTHum9pI4QObWJ3J8z1VJHaBAXqAAGp6NyQKBgQDWf1EJBHlp3SB92YMJ\nq2Ec8N/yA0DStBM2v7e3hOuW4ebE1saQwDUuXhen18CQhdRuHkyIoXRNrE48vcGC\nCnkAEZa8fHjzyMnTac3cIljsj+1BjgMlOyNB8P/BUfc0+0rS4oNOEqqBskZH42mv\nV5DWUyoiDnQbXHcuk+zUor2rkw==\n-----END PRIVATE KEY-----\n",
+  "client_email": "frenetix-google-sheets@frenetix.iam.gserviceaccount.com",
+  "client_id": "109557803731388377164",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/frenetix-google-sheets%40frenetix.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

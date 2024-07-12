@@ -201,8 +201,8 @@ class ReactivePlannerCpp(Planner):
 
         return frenetix.TrajectorySample.compute_standstill_trajectory(self.coordinate_system_cpp, ps, self.dT, self.horizon)
     
-    def create_sampling_csv(self, dataframe, path):
-        dataframe.to_csv(path, mode='a', header=True, index=False)
+    def create_sampling_csv(self, dataframe, filename):
+        dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/{filename}", mode='a', header=False, index=False)
 
              
     def optimal_sampling_parameters(self, optimal_trajectory):
@@ -295,7 +295,7 @@ class ReactivePlannerCpp(Planner):
             
             column_names = ['t0_range', 't1_range', 's0_range', 'ss0_range', 'sss0_range', 'ss1_range', 'sss1_range', 'd0_range', 'dd0_range', 'ddd0_range', 'd1_range', 'dd1_range', 'ddd1_range']
             df = pd.DataFrame(sampling_matrix, columns=column_names)
-            # self.create_sampling_csv(df, "frenetix_motion_planner/sampling_matrices/sparse_matrix.csv")
+            # self.create_sampling_csv(df, "sparse_matrix.csv")
 
             #C++ code can't step through. Called after generating sampling matrix. Current trajectories reset then new ones generated.
             self.handler.reset_Trajectories()
@@ -339,6 +339,10 @@ class ReactivePlannerCpp(Planner):
                 optimal_sampling_parameters = self.optimal_sampling_parameters(sparse_optimal_trajectory)
                 optimal_lateral_displacement = optimal_sampling_parameters[-3]
 
+                optimal_array = optimal_sampling_parameters.reshape(1, -1)
+                sparse_optimal_df = pd.DataFrame(optimal_array, columns=column_names)
+                self.create_sampling_csv(sparse_optimal_df, "sparse_optimal.csv")
+
                 #Creating a sampling window for dense sampling
 
                 sampling_window_range = 1
@@ -354,7 +358,7 @@ class ReactivePlannerCpp(Planner):
 
                 
                 dense_df = pd.DataFrame(dense_sampling_matrix, columns=column_names)
-                # self.create_sampling_csv(dense_df, "frenetix_motion_planner/sampling_matrices/dense_matrix.csv")
+                # self.create_sampling_csv(dense_df, "dense_matrix.csv")
 
                 # import pdb; pdb.set_trace()
                 
@@ -390,6 +394,11 @@ class ReactivePlannerCpp(Planner):
                 # ******************************************
             
                 optimal_trajectory = self.trajectory_collision_check(dense_feasible_trajectories) #inputting a list of trajectory sample objects (Defined in the C++ Code)
+
+                dense_optimal_sampling = self.optimal_sampling_parameters(optimal_trajectory)
+                dense_optimal_array = dense_optimal_sampling.reshape(1, -1)
+                dense_optimal_df = pd.DataFrame(dense_optimal_array, columns=column_names)
+                self.create_sampling_csv(dense_optimal_df, "dense_optimal.csv")
 
             samp_level += 1
 
