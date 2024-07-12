@@ -1,0 +1,12 @@
+[submodule "thirdParty/taskflow"]
+	path = thirdParty/taskflow
+	url = https://github.com/taskflow/taskflow.git
+[submodule "thirdParty/eigen"]
+	path = thirdParty/eigen
+	url = https://gitlab.com/libeigen/eigen.git
+[submodule "thirdParty/pybind11"]
+	path = thirdParty/pybind11
+	url = https://github.com/pybind/pybind11.git
+[submodule "thirdParty/commonroad-drivability-checker"]
+	path = thirdParty/commonroad-drivability-checker
+	url = https://gitlab.lrz.de/tum-cps/commonroad-drivability-checker.git

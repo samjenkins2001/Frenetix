@@ -126,6 +126,7 @@ class Planner:
         # Set Sampling Parameters#
         self._sampling_min = config_plan.planning.sampling_min
         self._sampling_max = config_plan.planning.sampling_max
+        ##THIS is where density is defined for the Various Planner methods
         self.sampling_handler = SamplingHandler(dt=self.dT, max_sampling_number=config_plan.planning.sampling_max,
                                                 t_min=config_plan.planning.t_min, horizon=self.horizon,
                                                 delta_d_max=config_plan.planning.d_max,

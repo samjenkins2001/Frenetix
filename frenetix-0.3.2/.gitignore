@@ -1,0 +1,11 @@
+/src/python/frenetix/_version.py
+/build-python
+/dist
+
+*.egg-info
+*.so
+
+/venv*
+
+__pycache__
+

@@ -1,0 +1,89 @@
+name: Build wheels
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+  release:
+    types:
+      - published
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        #os: ["ubuntu-22.04", "windows-2022", "macos-12"]
+        # TODO: Windows build needs a Fortran compiler
+        os: ["ubuntu-22.04", "macos-12"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Required for setuptools_scm version detection
+          fetch-depth: 0
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.16.4
+        env:
+          # gcc is required for gfortran
+          CIBW_BEFORE_ALL_MACOS: >
+            brew install boost eigen libomp gcc
+
+          CIBW_ENVIRONMENT_MACOS: FC="$(brew --prefix gcc)/bin/gfortran"
+
+      # macOS arm64: Disabled due to missing Fortran compiler
+      #
+      #- name: Build wheels (macOS arm64)
+      #  uses: pypa/cibuildwheel@v2.16.2
+      #  if: ${{ startsWith(matrix.os, 'macos-12') }}
+      #  env:
+      #    CIBW_ARCHS: arm64
+
+      #    CIBW_BEFORE_ALL_MACOS: >
+      #      brew install boost eigen aarch64-elf-gcc &&
+      #      brew fetch --force --bottle-tag=arm64_monterey libomp &&
+      #      brew reinstall $(brew --cache --bottle-tag=arm64_monterey libomp)
+
+      #    CIBW_ENVIRONMENT_MACOS: FC="$(brew --prefix aarch64-elf-gcc)/bin/gfortran"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  make_sdist:
+    name: Make SDist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Required for setuptools_scm version detection
+          fetch-depth: 0
+
+      - name: Build SDist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+
+  upload_all:
+    needs: [build_wheels, make_sdist]
+    environment: pypi
+    permissions:
+      id-token: write
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: dist-*
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

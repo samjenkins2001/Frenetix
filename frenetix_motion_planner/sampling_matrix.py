@@ -114,7 +114,14 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
         d1_range, dd1_range, ddd1_range)]
 
     # Use itertools.product to generate all combinations (if there are multiple values this is needed)
+    #this is where the m x n is determined (all combinations of variables to create the conditions)
     combinations = list(itertools.product(*ranges)) 
+    ############################
+    # RULES
+    # *ranges unpacks the tuple values, each value is used as a seperate argument for itertools.product
+    # itertools.product generates the cartesian product of these arrays (all unique combinations of conditions)
+
+    ############################
 
     msg_logger.debug('<ReactivePlanner>: %s trajectories sampled' % len(combinations))
     # Convert the list of combinations to a numpy array and return
@@ -195,9 +202,6 @@ class TimeSampling(Sampling):
             self._sampling_vec.append(samp)
 
 
-
-# Why can the s-sampling method only be used if the velocity-sampling is deactivated, or why does final longitudinal acceleration have to be set to 0?
-# where are the polynomial coefficients generated from?
 # look into the kinematic check for rate of change of curvature/yaw when in a high risk scenario, in certain scenarios smoothness should not be required. ALSO is the kinematic check taylored to certain vehicles actuator capabilites?
 # could look into adaptive cost functions for different scenarios, cost functions on a spectrum (changes with weather / road conditions / allow user configurations for comfort and efficiency)
 # If there is no trajectory that avoids collision and adheres to road boundaries could we analyze the off road conditions and determine if shifting over the line is less risky than quickly stopping? (ie: large shoulder areas)

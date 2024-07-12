@@ -1,0 +1,116 @@
+__class__: <class 'frenetix._frenetix.TrajectorySample'>
+__delattr__: <method-wrapper '__delattr__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__dir__: <built-in method __dir__ of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__doc__: None
+__eq__: <method-wrapper '__eq__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__format__: <built-in method __format__ of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__ge__: <method-wrapper '__ge__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__getattribute__: <method-wrapper '__getattribute__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__getstate__: <bound method PyCapsule.__getstate__ of <frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>>
+__gt__: <method-wrapper '__gt__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__hash__: <method-wrapper '__hash__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__init__: <bound method PyCapsule.__init__ of <frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>>
+__init_subclass__: <built-in method __init_subclass__ of pybind11_type object at 0x345f3a0>
+__le__: <method-wrapper '__le__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__lt__: <method-wrapper '__lt__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__module__: frenetix._frenetix
+__ne__: <method-wrapper '__ne__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__new__: <built-in method __new__ of pybind11_type object at 0x1240d00>
+__reduce__: <built-in method __reduce__ of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__reduce_ex__: <built-in method __reduce_ex__ of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__repr__: <method-wrapper '__repr__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__setattr__: <method-wrapper '__setattr__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__setstate__: <bound method PyCapsule.__setstate__ of <frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>>
+__sizeof__: <built-in method __sizeof__ of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__str__: <method-wrapper '__str__' of frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>
+__subclasshook__: <built-in method __subclasshook__ of pybind11_type object at 0x345f3a0>
+_coll_detected: False
+_cost: 3.608758105114922
+_ego_risk: None
+_harm_occ_module: 0.0
+_obst_risk: None
+add_cost_value_to_list: <bound method PyCapsule.add_cost_value_to_list of <frenetix._frenetix.TrajectorySample object at 0x7fc9a1f175f0>>
+boundary_harm: 0.0
+cartesian: CartesianSample:
+       timeStep              x              y          theta       velocity   acceleration          kappa       kappaDot
+              0        8.98217        3.31665        0.35837       18.85765        0.62591        0.00027        0.00000
+              1       10.75446        3.98154        0.35948       19.00907        0.88353        0.00032        0.00005
+              2       12.54244        4.65477        0.36075       19.20915        1.11248        0.00034        0.00002
+              3       14.35031        5.33818        0.36207       19.45214        1.31263        0.00034       -0.00001
+              4       16.18180        6.03322        0.36333       19.73230        1.48407        0.00031       -0.00003
+              5       18.04014        6.74103        0.36447       20.04388        1.62704        0.00027       -0.00004
+              6       19.92807        7.46242        0.36547       20.38115        1.74100        0.00023       -0.00004
+              7       21.84782        8.19794        0.36627       20.73827        1.82507        0.00017       -0.00006
+              8       23.80112        8.94781        0.36675       21.10943        1.88137        0.00006       -0.00011
+              9       25.78926        9.71181        0.36695       21.48916        1.91239        0.00003       -0.00003
+             10       27.81290       10.48983        0.36730       21.87178        1.90961        0.00017        0.00014
+             11       29.87187       11.28222        0.36741       22.25053        1.86853       -0.00011       -0.00028
+             12       31.96613       12.08712        0.36558       22.61999        1.82243       -0.00084       -0.00073
+             13       34.09598       12.90080        0.36525       22.97751        1.75858        0.00082        0.00166
+             14       36.25704       13.73038        0.37213       23.31466        1.61520        0.00362        0.00280
+             15       38.44164       14.58856        0.37921       23.62256        1.45486        0.00252       -0.00110
+             16       40.64858       15.46974        0.38107       23.89891        1.29305        0.00059       -0.00193
+             17       42.87863       16.36274        0.38078       24.13857        1.09515       -0.00009       -0.00069
+             18       45.12951       17.26255        0.37972       24.33515        0.86529       -0.00025       -0.00016
+             19       47.39728       18.16661        0.37903       24.48271        0.60556       -0.00010        0.00015
+             20       49.67673       19.07391        0.37864       24.57546        0.31715       -0.00005        0.00005
+             21       51.96229       19.98289        0.37846       24.60765       -0.00000       -0.00001        0.00004
+             22       54.24893       20.89210        0.37845       24.60765       -0.00000       -0.00000        0.00001
+             23       56.53557       21.80131        0.37845       24.60765        0.00000        0.00000        0.00000
+             24       58.82220       22.71052        0.37845       24.60765        0.00000       -0.00000       -0.00000
+             25       61.10884       23.61973        0.37845       24.60765       -0.00000        0.00000        0.00000
+             26       63.39547       24.52895        0.37846       24.60765        0.00000       -0.00000       -0.00000
+             27       65.68210       25.43816        0.37844       24.60765       -0.00000       -0.00001       -0.00001
+             28       67.96875       26.34734        0.37845       24.60765       -0.00000        0.00001        0.00002
+             29       70.25537       27.25660        0.37851       24.60765        0.00000        0.00001       -0.00000
+             30       72.54197       28.16590        0.37836       24.60765       -0.00000        0.00001       -0.00000
+
+compute_standstill_trajectory: <built-in method compute_standstill_trajectory of PyCapsule object at 0x7fc9a39c2310>
+cost: 3.608758105114922
+costMap: {'distance_to_reference_path': (0.015653794424495066, 0.07826897212247533), 'lateral_jerk': (0.1340787353350034, 0.02681574706700068), 'longitudinal_jerk': (1.6295870420948533, 0.32591740841897066), 'prediction': (0.0, 0.0), 'velocity_offset': (3.177755977506475, 3.177755977506475)}
+curvilinear: CurviLinearSample:
+       timeStep              s              d          theta             dd            ddd             ss            sss
+              0      239.59530       -0.14493       -0.00247       -0.04661        0.09293       18.85759        0.62615
+              1      241.48821       -0.14858       -0.00135       -0.02576        0.11393       19.00906        0.88368
+              2      243.39873       -0.14997       -0.00009       -0.00167        0.12538       19.20915        1.11247
+              3      245.33147       -0.14887        0.00123        0.02383        0.12838       19.45213        1.31253
+              4      247.29040       -0.14521        0.00249        0.04919        0.12404       19.73224        1.48385
+              5      249.27896       -0.13908        0.00364        0.07303        0.11347       20.04375        1.62644
+              6      251.30000       -0.13069        0.00462        0.09424        0.09778       20.38090        1.74029
+              7      253.35580       -0.12035        0.00539        0.11188        0.07807       20.73795        1.82541
+              8      255.44807       -0.10846        0.00593        0.12527        0.05544       21.10915        1.88180
+              9      257.57791       -0.09546        0.00623        0.13394        0.03102       21.48876        1.90945
+             10      259.74591       -0.08184        0.00629        0.13763        0.00589       21.87102        1.90837
+             11      261.95202       -0.06810        0.00613        0.13632       -0.01882       22.25019        1.87855
+             12      264.19565       -0.05473        0.00576        0.13020       -0.04203       22.62053        1.82000
+             13      266.47563       -0.04220        0.00521        0.11968       -0.06260       22.97628        1.73272
+             14      268.79023       -0.03092        0.00452        0.10541       -0.07945       23.31170        1.61670
+             15      271.13711       -0.02122        0.00374        0.08823       -0.09146       23.62104        1.47194
+             16      273.51337       -0.01334        0.00290        0.06922       -0.09753       23.89856        1.29846
+             17      275.91556       -0.00739        0.00206        0.04968       -0.09655       24.13851        1.09623
+             18      278.33963       -0.00337        0.00128        0.03114       -0.08742       24.33514        0.86528
+             19      280.78096       -0.00107        0.00063        0.01533       -0.06902       24.48270        0.60559
+             20      283.23435       -0.00014        0.00017        0.00423       -0.04025       24.57546        0.31716
+             21      285.69403        0.00000       -0.00000       -0.00000       -0.00000       24.60765       -0.00000
+             22      288.15479        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+             23      290.61556        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+             24      293.07632        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+             25      295.53709        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+             26      297.99786        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+             27      300.45862        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+             28      302.91939        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+             29      305.38015        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+             30      307.84092        0.00000        0.00000        0.00000        0.00000       24.60765        0.00000
+
+dt: 0.1
+feasabilityMap: {'Acceleration Constraint': 0.0, 'Curvature Constraint': 0.0, 'Curvature Rate Constraint': 0.0, 'Yaw rate Constraint': 0.0}
+feasible: True
+harm_occ_module: 0.0
+sampling_parameters: [ 0.00000000e+00  2.10000000e+00  2.39595303e+02  1.88575940e+01
+  1.25229726e+00  2.46076513e+01  0.00000000e+00 -1.44926385e-01
+ -4.66103353e-02  1.85868967e-01  0.00000000e+00  0.00000000e+00
+  0.00000000e+00]
+trajectory_lat: <frenetix._frenetix.QuinticTrajectory object at 0x7fc9a309bfb0>
+trajectory_long: <frenetix._frenetix.QuarticTrajectory object at 0x7fc9690581b0>
+uniqueId: 16
+valid: True
