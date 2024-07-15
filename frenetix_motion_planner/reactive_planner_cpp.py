@@ -25,9 +25,6 @@ import frenetix.trajectory_functions.cost_functions as cf
 
 from frenetix_motion_planner.planner import Planner
 
-# get logger
-# msg_logger = logging.getLogger("Message_logger")
-
 
 class ReactivePlannerCpp(Planner):
     """
@@ -214,11 +211,83 @@ class ReactivePlannerCpp(Planner):
         ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level).union({longitude[1]})))
         d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
+    
+    def sampling_window(self, optimal_lat_displacement, window_size = 0.5, num_points = 100):
+        """
+        Adjust the sampling window around the optimal lateral displacement.
+        :param optimal_lat_displacement: Optimal lateral displacement found in sparse sampling.
+        :param window_size: The range around the optimal displacement to sample within.
+        :param num_points: Number of points to sample within the window.
+        :return: New d1_range for dense sampling.
+        """
+        return np.linspace(optimal_lat_displacement - window_size, optimal_lat_displacement + window_size, num=num_points)
+    
+
+    # def dense_plan(self) -> tuple:
+    #     # problem computing the dense trajectory which in hand is causing problems when finding the sparse trajectory.
+    #     samp_level += 1
+    #     dense_t1_range, dense_ss1_range, dense_d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)                
+
+    #     optimal_sampling_parameters = self.optimal_sampling_parameters(sparse_optimal_trajectory)
+    #     optimal_lateral_displacement = optimal_sampling_parameters[-3]
+    #     print(f"Optimal Sparse Lateral Displacement (post loop): {optimal_sampling_parameters[-3]}")
+
+    #     # optimal_array = optimal_sampling_parameters.reshape(1, -1)
+    #     # sparse_optimal_df = pd.DataFrame(optimal_array, columns=column_names)
+    #     # self.create_sampling_csv(sparse_optimal_df, "sparse_optimal.csv")
+
+    #     #Creating a sampling window for dense sampling
+
+    #     sampling_window_range = 1
+    #     # dense_s0_range = np.linspace()
+    #     dense_d0_range = np.linspace(optimal_lateral_displacement - sampling_window_range, optimal_lateral_displacement + sampling_window_range, num=5)
+
+    #     dense_sampling_matrix = generate_sampling_matrix(t0_range=0.0, t1_range=dense_t1_range, s0_range=x_0_lon[0], ss0_range=x_0_lon[1], sss0_range=x_0_lon[2], 
+    #                                                         ss1_range=dense_ss1_range, sss1_range=0, d0_range=dense_d0_range, dd0_range=x_0_lat[1], ddd0_range=x_0_lat[2], 
+    #                                                         d1_range=dense_d1_range, dd1_range=0.0, ddd1_range=0.0)
         
+    #     print(f"Dense Matrix is {dense_sampling_matrix.shape} AND Samp Min is: {samp_level}")
+        
+
+        
+    #     # dense_df = pd.DataFrame(dense_sampling_matrix, columns=column_names)
+    #     # self.create_sampling_csv(dense_df, "dense_matrix.csv")
+        
+    #     self.handler.reset_Trajectories()
+    #     self.handler.generate_trajectories(dense_sampling_matrix, self._LOW_VEL_MODE)
+
+    #     if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
+    #                                                 self.config_sim.simulation.multiprocessing):
+    #             self.handler.evaluate_all_current_functions(True)
+    #     else:
+    #         self.handler.evaluate_all_current_functions_concurrent(True)
+
+    #     feasible_trajectories = []
+    #     infeasible_trajectories = []
+    #     for trajectory in self.handler.get_sorted_trajectories():
+    #         if trajectory.feasible:
+    #             feasible_trajectories.append(trajectory)
+    #         elif trajectory.valid:
+    #             infeasible_trajectories.append(trajectory)
+
+    #     if len(feasible_trajectories) + len(infeasible_trajectories) < 1:
+    #         self.msg_logger.critical("No Valid Trajectories!")
+    #     else:
+    #         self.infeasible_kinematics_percentage = float(len(feasible_trajectories)
+    #                                                 / (len(feasible_trajectories) + len(infeasible_trajectories))) * 100
+
+    #     self.msg_logger.debug('Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
+    #     self.msg_logger.debug(
+    #         'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
+
+    #     # ******************************************
+    #     # Check Feasible Trajectories for Collisions
+    #     # ******************************************
+    
+    #     optimal_trajectory = self.trajectory_collision_check(feasible_trajectories) #inputting a list of trajectory sample objects (Defined in the C++ Code)
 
 
     def plan(self) -> tuple:
-        # import pdb; pdb.set_trace()
         # The plan function is called each time a trajectory is needed to be generated. 
         """
         Plans an optimal trajectory
@@ -266,17 +335,25 @@ class ReactivePlannerCpp(Planner):
 
         # Initial index of sampling set to use
         samp_level = self._sampling_min
+        dense_sampling = False
 
-        # sample until trajectory has been found or sampling sets are empty
-        while optimal_trajectory is None and samp_level < self._sampling_max:
+        while True:
 
             # *************************************
             # Create & Evaluate Trajectories in Cpp
             # *************************************
-            #defined in sampling_matrix line 148
+
             t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)
 
-            sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
+            # *************************************
+            # Create a sampling window around sparse sampling optimal lateral displacement
+            # *************************************
+            if dense_sampling:
+                optimal_sampling = self.optimal_sampling_parameters(optimal_trajectory)
+                optimal_lat_displacement = optimal_sampling[-3]
+                d1_range = self.sampling_window(optimal_lat_displacement, window_size=1.0, num_points=10)
+
+            sparse_sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
                                                        t1_range=t1_range, #final time
                                                        s0_range=x_0_lon[0], #specific longitudinal position
                                                        ss0_range=x_0_lon[1], #initial longitudinal velocity
@@ -290,16 +367,16 @@ class ReactivePlannerCpp(Planner):
                                                        dd1_range=0.0, #lateral state velocity (derivative) -- 0 because we want to be parallel with the reference path
                                                        ddd1_range=0.0) #lateral state acceleration (derivative)
             
-            print(f"Sparse Matrix is {sampling_matrix.shape} AND Samp Min is: {samp_level}")
+            print(f"Sparse Matrix is {sparse_sampling_matrix.shape} AND Samp Min is: {samp_level}")
             
             
             column_names = ['t0_range', 't1_range', 's0_range', 'ss0_range', 'sss0_range', 'ss1_range', 'sss1_range', 'd0_range', 'dd0_range', 'ddd0_range', 'd1_range', 'dd1_range', 'ddd1_range']
-            df = pd.DataFrame(sampling_matrix, columns=column_names)
+            # df = pd.DataFrame(sparse_sampling_matrix, columns=column_names)
             # self.create_sampling_csv(df, "sparse_matrix.csv")
 
             #C++ code can't step through. Called after generating sampling matrix. Current trajectories reset then new ones generated.
             self.handler.reset_Trajectories()
-            self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE) #generates new trajectories from new samping matrix
+            self.handler.generate_trajectories(sparse_sampling_matrix, self._LOW_VEL_MODE) #generates new trajectories from new samping matrix
 
             if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
                                                         self.config_sim.simulation.multiprocessing):
@@ -328,84 +405,27 @@ class ReactivePlannerCpp(Planner):
             # ******************************************
             # Check Feasible Trajectories for Collisions
             # ******************************************
-        
-            sparse_optimal_trajectory = self.trajectory_collision_check(feasible_trajectories) #inputting a list of trajectory sample objects (Defined in the C++ Code)
 
-            if sparse_optimal_trajectory is not None:
+            optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
 
+            if optimal_trajectory is not None and not dense_sampling:
+                dense_sampling = True
                 samp_level += 1
-                dense_t1_range, dense_ss1_range, dense_d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)                
+                continue
 
-                optimal_sampling_parameters = self.optimal_sampling_parameters(sparse_optimal_trajectory)
-                optimal_lateral_displacement = optimal_sampling_parameters[-3]
-
-                optimal_array = optimal_sampling_parameters.reshape(1, -1)
-                sparse_optimal_df = pd.DataFrame(optimal_array, columns=column_names)
-                self.create_sampling_csv(sparse_optimal_df, "sparse_optimal.csv")
-
-                #Creating a sampling window for dense sampling
-
-                sampling_window_range = 1
-                # dense_s0_range = np.linspace()
-                dense_d0_range = np.linspace(optimal_lateral_displacement - sampling_window_range, optimal_lateral_displacement + sampling_window_range, num=5)
-
-                dense_sampling_matrix = generate_sampling_matrix(t0_range=0.0, t1_range=dense_t1_range, s0_range=x_0_lon[0], ss0_range=x_0_lon[1], sss0_range=x_0_lon[2], 
-                                                                 ss1_range=dense_ss1_range, sss1_range=0, d0_range=dense_d0_range, dd0_range=x_0_lat[1], ddd0_range=x_0_lat[2], 
-                                                                 d1_range=dense_d1_range, dd1_range=0.0, ddd1_range=0.0)
-                
-                print(f"Dense Matrix is {dense_sampling_matrix.shape} AND Samp Min is: {samp_level}")
-                
-
-                
-                dense_df = pd.DataFrame(dense_sampling_matrix, columns=column_names)
-                # self.create_sampling_csv(dense_df, "dense_matrix.csv")
-
-                # import pdb; pdb.set_trace()
-                
-                self.handler.reset_Trajectories()
-                self.handler.generate_trajectories(dense_sampling_matrix, self._LOW_VEL_MODE)
-
-                if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
-                                                            self.config_sim.simulation.multiprocessing):
-                        self.handler.evaluate_all_current_functions(True)
-                else:
-                    self.handler.evaluate_all_current_functions_concurrent(True)
-
-                dense_feasible_trajectories = []
-                dense_infeasible_trajectories = []
-                for trajectory in self.handler.get_sorted_trajectories():
-                    if trajectory.feasible:
-                        dense_feasible_trajectories.append(trajectory)
-                    elif trajectory.valid:
-                        dense_infeasible_trajectories.append(trajectory)
-
-                if len(dense_feasible_trajectories) + len(dense_infeasible_trajectories) < 1:
-                    self.msg_logger.critical("No Valid Trajectories!")
-                else:
-                    self.infeasible_kinematics_percentage = float(len(dense_feasible_trajectories)
-                                                            / (len(dense_feasible_trajectories) + len(dense_infeasible_trajectories))) * 100
-
-                self.msg_logger.debug('Found {} feasible trajectories and {} infeasible trajectories'.format(dense_feasible_trajectories.__len__(), dense_infeasible_trajectories.__len__()))
-                self.msg_logger.debug(
-                    'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
-
-                # ******************************************
-                # Check Feasible Trajectories for Collisions
-                # ******************************************
-            
-                optimal_trajectory = self.trajectory_collision_check(dense_feasible_trajectories) #inputting a list of trajectory sample objects (Defined in the C++ Code)
-
-                dense_optimal_sampling = self.optimal_sampling_parameters(optimal_trajectory)
-                dense_optimal_array = dense_optimal_sampling.reshape(1, -1)
-                dense_optimal_df = pd.DataFrame(dense_optimal_array, columns=column_names)
-                self.create_sampling_csv(dense_optimal_df, "dense_optimal.csv")
-
-            samp_level += 1
+            if dense_sampling:
+                break
+            else:
+                samp_level += 1
+        
+            # sparse_optimal_trajectory = self.trajectory_collision_check(feasible_trajectories) #inputting a list of trajectory sample objects (Defined in the C++ Code)
+            # optimal_sampling_parameters = self.optimal_sampling_parameters(sparse_optimal_trajectory)
+            # print(f"Optimal Sparse Lateral Displacement: {optimal_sampling_parameters[-3]}")
 
 
         planning_time = time.time() - t0
 
-        self.transfer_infeasible_logging_information(dense_infeasible_trajectories)
+        self.transfer_infeasible_logging_information(infeasible_trajectories)
 
         self.msg_logger.debug('Rejected {} infeasible trajectories due to kinematics'.format(
             self._infeasible_count_kinematics))
@@ -424,14 +444,14 @@ class ReactivePlannerCpp(Planner):
         # *******************************************
         # Find alternative Optimal Trajectory if None
         # *******************************************
-        if optimal_trajectory is None and dense_feasible_trajectories:
+        if optimal_trajectory is None and feasible_trajectories:
             if self.config_plan.planning.emergency_mode == "stopping":
-                optimal_trajectory = self._select_stopping_trajectory(dense_feasible_trajectories, dense_sampling_matrix, x_0_lat[0])
+                optimal_trajectory = self._select_stopping_trajectory(feasible_trajectories, sampling_matrix, x_0_lat[0])
                 self.msg_logger.warning("No optimal trajectory available. Select stopping trajectory!")
             else:
-                for traje in dense_feasible_trajectories:
+                for traje in feasible_trajectories:
                     self.set_risk_costs(traje)
-                sort_risk = sorted(dense_feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk, reverse=False)
+                sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk, reverse=False)
                 self.msg_logger.warning("No optimal trajectory available. Select lowest risk trajectory!")
                 optimal_trajectory = sort_risk[0]
 
@@ -457,7 +477,7 @@ class ReactivePlannerCpp(Planner):
         # **************************
         # for visualization store all trajectories with validity level based on kinematic validity
         if self._draw_traj_set or self.save_all_traj:
-            self.all_traj = dense_feasible_trajectories + dense_infeasible_trajectories
+            self.all_traj = feasible_trajectories + infeasible_trajectories
 
         self.plan_postprocessing(optimal_trajectory=optimal_trajectory, planning_time=planning_time)
 
