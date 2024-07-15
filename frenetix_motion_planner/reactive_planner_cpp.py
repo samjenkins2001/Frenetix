@@ -198,13 +198,26 @@ class ReactivePlannerCpp(Planner):
 
         return frenetix.TrajectorySample.compute_standstill_trajectory(self.coordinate_system_cpp, ps, self.dT, self.horizon)
     
-    def create_sampling_csv(self, dataframe, filename):
-        dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/{filename}", mode='a', header=False, index=False)
+    def compute_vehicle_localization(self) -> tuple:
+        x_0_lon = None
+        x_0_lat = None
+        if self.x_cl is None:
+            x_cl_new = frenetix.compute_initial_state( 
+                coordinate_system=self.coordinate_system_cpp,
+                x_0=self._get_cartesian_state(),
+                wheelbase=self.vehicle_params.wheelbase,
+                low_velocity_mode=self._LOW_VEL_MODE
+            )
 
-             
-    def optimal_sampling_parameters(self, optimal_trajectory):
-        optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
-        return optimal_parameters
+            x_0_lat = x_cl_new.x0_lat
+            x_0_lon = x_cl_new.x0_lon
+        else:
+            x_0_lat = self.x_cl[1]
+            x_0_lon = self.x_cl[0]
+        return x_0_lat, x_0_lon
+    
+    def create_sampling_csv(self, dataframe: pd.DataFrame, filename: str):
+        dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/{filename}", mode='a', header=False, index=False)
     
     def initial_sampling_variables(self, samp_level: int, longitude: tuple, latitude: tuple) -> float:
         t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level).union({self.N*self.dT})))
@@ -212,7 +225,7 @@ class ReactivePlannerCpp(Planner):
         d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
     
-    def sampling_window(self, optimal_lat_displacement, window_size = 0.5, num_points = 100):
+    def sampling_window(self, optimal_trajectory: tuple, window_size: int = 1, num_points: int = 10) -> list:
         """
         Adjust the sampling window around the optimal lateral displacement.
         :param optimal_lat_displacement: Optimal lateral displacement found in sparse sampling.
@@ -220,72 +233,38 @@ class ReactivePlannerCpp(Planner):
         :param num_points: Number of points to sample within the window.
         :return: New d1_range for dense sampling.
         """
-        return np.linspace(optimal_lat_displacement - window_size, optimal_lat_displacement + window_size, num=num_points)
+        optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
+        optimal_lat_displacement = optimal_parameters[-3]
+        sampling_window = np.linspace(optimal_lat_displacement - window_size, optimal_lat_displacement + window_size, num=num_points)
+        return sampling_window
     
+    def get_feasibility(self, sampling_matrix) -> list:
+        self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
 
-    # def dense_plan(self) -> tuple:
-    #     # problem computing the dense trajectory which in hand is causing problems when finding the sparse trajectory.
-    #     samp_level += 1
-    #     dense_t1_range, dense_ss1_range, dense_d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)                
+        if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
+                                                    self.config_sim.simulation.multiprocessing):
+            self.handler.evaluate_all_current_functions(True)
+        else:
+            self.handler.evaluate_all_current_functions_concurrent(True)
 
-    #     optimal_sampling_parameters = self.optimal_sampling_parameters(sparse_optimal_trajectory)
-    #     optimal_lateral_displacement = optimal_sampling_parameters[-3]
-    #     print(f"Optimal Sparse Lateral Displacement (post loop): {optimal_sampling_parameters[-3]}")
+        feasible_trajectories = []
+        infeasible_trajectories = []
+        for trajectory in self.handler.get_sorted_trajectories():
+            if trajectory.feasible:
+                feasible_trajectories.append(trajectory)
+            elif trajectory.valid:
+                infeasible_trajectories.append(trajectory)
 
-    #     # optimal_array = optimal_sampling_parameters.reshape(1, -1)
-    #     # sparse_optimal_df = pd.DataFrame(optimal_array, columns=column_names)
-    #     # self.create_sampling_csv(sparse_optimal_df, "sparse_optimal.csv")
+        if len(feasible_trajectories) + len(infeasible_trajectories) < 1:
+            self.msg_logger.critical("No Valid Trajectories!")
+        else:
+            self.infeasible_kinematics_percentage = float(len(feasible_trajectories)
+                                                    / (len(feasible_trajectories) + len(infeasible_trajectories))) * 100
 
-    #     #Creating a sampling window for dense sampling
-
-    #     sampling_window_range = 1
-    #     # dense_s0_range = np.linspace()
-    #     dense_d0_range = np.linspace(optimal_lateral_displacement - sampling_window_range, optimal_lateral_displacement + sampling_window_range, num=5)
-
-    #     dense_sampling_matrix = generate_sampling_matrix(t0_range=0.0, t1_range=dense_t1_range, s0_range=x_0_lon[0], ss0_range=x_0_lon[1], sss0_range=x_0_lon[2], 
-    #                                                         ss1_range=dense_ss1_range, sss1_range=0, d0_range=dense_d0_range, dd0_range=x_0_lat[1], ddd0_range=x_0_lat[2], 
-    #                                                         d1_range=dense_d1_range, dd1_range=0.0, ddd1_range=0.0)
-        
-    #     print(f"Dense Matrix is {dense_sampling_matrix.shape} AND Samp Min is: {samp_level}")
-        
-
-        
-    #     # dense_df = pd.DataFrame(dense_sampling_matrix, columns=column_names)
-    #     # self.create_sampling_csv(dense_df, "dense_matrix.csv")
-        
-    #     self.handler.reset_Trajectories()
-    #     self.handler.generate_trajectories(dense_sampling_matrix, self._LOW_VEL_MODE)
-
-    #     if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
-    #                                                 self.config_sim.simulation.multiprocessing):
-    #             self.handler.evaluate_all_current_functions(True)
-    #     else:
-    #         self.handler.evaluate_all_current_functions_concurrent(True)
-
-    #     feasible_trajectories = []
-    #     infeasible_trajectories = []
-    #     for trajectory in self.handler.get_sorted_trajectories():
-    #         if trajectory.feasible:
-    #             feasible_trajectories.append(trajectory)
-    #         elif trajectory.valid:
-    #             infeasible_trajectories.append(trajectory)
-
-    #     if len(feasible_trajectories) + len(infeasible_trajectories) < 1:
-    #         self.msg_logger.critical("No Valid Trajectories!")
-    #     else:
-    #         self.infeasible_kinematics_percentage = float(len(feasible_trajectories)
-    #                                                 / (len(feasible_trajectories) + len(infeasible_trajectories))) * 100
-
-    #     self.msg_logger.debug('Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
-    #     self.msg_logger.debug(
-    #         'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
-
-    #     # ******************************************
-    #     # Check Feasible Trajectories for Collisions
-    #     # ******************************************
-    
-    #     optimal_trajectory = self.trajectory_collision_check(feasible_trajectories) #inputting a list of trajectory sample objects (Defined in the C++ Code)
-
+        self.msg_logger.debug('Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
+        self.msg_logger.debug(
+            'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
+        return feasible_trajectories, infeasible_trajectories
 
     def plan(self) -> tuple:
         # The plan function is called each time a trajectory is needed to be generated. 
@@ -300,58 +279,30 @@ class ReactivePlannerCpp(Planner):
         # Initialization of Cpp Frenet Functions
         # **************************************
         self.trajectory_handler_set_changing_functions()
-        # LINE 141 IN CODE
-        # Adding functions to handler to fill coordinates as well as adding a cost function (calculate collision probability, distance to obstacles, and velocity offset) 
-        x_0_lon = None
-        x_0_lat = None
-        if self.x_cl is None:
-            ##########################################
-            #computing the localization of the vehicle
-            ##########################################
-            x_cl_new = frenetix.compute_initial_state( 
-                coordinate_system=self.coordinate_system_cpp,
-                x_0=self._get_cartesian_state(),
-                wheelbase=self.vehicle_params.wheelbase,
-                low_velocity_mode=self._LOW_VEL_MODE
-            )
-            # computes initial state of the vehicle if there is none to begin with.
 
-            x_0_lat = x_cl_new.x0_lat
-            x_0_lon = x_cl_new.x0_lon
-
-        else:
-            x_0_lat = self.x_cl[1]
-            x_0_lon = self.x_cl[0]
-            # otherwise compute coordinates from curvelinear state, which is defined in the planner file
-            #This appear to be used in our current simulation
+        # **************************************
+        # Vehicle Localization
+        # **************************************
+        x_0_lat, x_0_lon = self.compute_vehicle_localization()
 
         self.msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
         self.msg_logger.debug('Desired velocity is {} m/s'.format(self.desired_velocity))
-
 
         optimal_trajectory = None
         sampling_matrix = None
         t0 = time.time()
 
-        # Initial index of sampling set to use
         samp_level = self._sampling_min
         dense_sampling = False
 
         while True:
 
-            # *************************************
-            # Create & Evaluate Trajectories in Cpp
-            # *************************************
-
             t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)
-
             # *************************************
             # Create a sampling window around sparse sampling optimal lateral displacement
             # *************************************
             if dense_sampling:
-                optimal_sampling = self.optimal_sampling_parameters(optimal_trajectory)
-                optimal_lat_displacement = optimal_sampling[-3]
-                d1_range = self.sampling_window(optimal_lat_displacement, window_size=1.0, num_points=10)
+                d1_range = self.sampling_window(optimal_trajectory)
 
             sparse_sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
                                                        t1_range=t1_range, #final time
@@ -369,38 +320,12 @@ class ReactivePlannerCpp(Planner):
             
             print(f"Sparse Matrix is {sparse_sampling_matrix.shape} AND Samp Min is: {samp_level}")
             
-            
             column_names = ['t0_range', 't1_range', 's0_range', 'ss0_range', 'sss0_range', 'ss1_range', 'sss1_range', 'd0_range', 'dd0_range', 'ddd0_range', 'd1_range', 'dd1_range', 'ddd1_range']
             # df = pd.DataFrame(sparse_sampling_matrix, columns=column_names)
             # self.create_sampling_csv(df, "sparse_matrix.csv")
 
-            #C++ code can't step through. Called after generating sampling matrix. Current trajectories reset then new ones generated.
             self.handler.reset_Trajectories()
-            self.handler.generate_trajectories(sparse_sampling_matrix, self._LOW_VEL_MODE) #generates new trajectories from new samping matrix
-
-            if not self.config_plan.debug.multiproc or (self.config_sim.simulation.use_multiagent and
-                                                        self.config_sim.simulation.multiprocessing):
-                self.handler.evaluate_all_current_functions(True)
-            else:
-                self.handler.evaluate_all_current_functions_concurrent(True) #our simulation is not multiproc or multiagent/multiprocessing, should we change this????
-
-            feasible_trajectories = []
-            infeasible_trajectories = []
-            for trajectory in self.handler.get_sorted_trajectories():
-                if trajectory.feasible:
-                    feasible_trajectories.append(trajectory)
-                elif trajectory.valid:
-                    infeasible_trajectories.append(trajectory)
-
-            if len(feasible_trajectories) + len(infeasible_trajectories) < 1:
-                self.msg_logger.critical("No Valid Trajectories!")
-            else:
-                self.infeasible_kinematics_percentage = float(len(feasible_trajectories)
-                                                        / (len(feasible_trajectories) + len(infeasible_trajectories))) * 100
-
-            self.msg_logger.debug('Found {} feasible trajectories and {} infeasible trajectories'.format(feasible_trajectories.__len__(), infeasible_trajectories.__len__()))
-            self.msg_logger.debug(
-                'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
+            feasible_trajectories, infeasible_trajectories = self.get_feasibility(sparse_sampling_matrix)
 
             # ******************************************
             # Check Feasible Trajectories for Collisions
@@ -408,19 +333,18 @@ class ReactivePlannerCpp(Planner):
 
             optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
 
+            # ******************************************
+            # Check if Dense Layer has been Computed
+            # ******************************************
+
             if optimal_trajectory is not None and not dense_sampling:
                 dense_sampling = True
                 samp_level += 1
                 continue
-
-            if dense_sampling:
+            elif dense_sampling:
                 break
             else:
                 samp_level += 1
-        
-            # sparse_optimal_trajectory = self.trajectory_collision_check(feasible_trajectories) #inputting a list of trajectory sample objects (Defined in the C++ Code)
-            # optimal_sampling_parameters = self.optimal_sampling_parameters(sparse_optimal_trajectory)
-            # print(f"Optimal Sparse Lateral Displacement: {optimal_sampling_parameters[-3]}")
 
 
         planning_time = time.time() - t0
