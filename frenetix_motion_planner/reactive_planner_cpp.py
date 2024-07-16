@@ -24,6 +24,7 @@ import frenetix.trajectory_functions.feasability_functions as ff
 import frenetix.trajectory_functions.cost_functions as cf
 
 from frenetix_motion_planner.planner import Planner
+from config import SCENARIO_NAME
 
 
 class ReactivePlannerCpp(Planner):
@@ -48,7 +49,7 @@ class ReactivePlannerCpp(Planner):
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
         self.window_size = 1
-        self.num_points = 5
+        self.num_points = 10
 
     def set_predictions(self, predictions: dict):
         self.use_prediction = True
@@ -218,16 +219,16 @@ class ReactivePlannerCpp(Planner):
             x_0_lon = self.x_cl[0]
         return x_0_lat, x_0_lon
     
-    def create_sampling_csv(self, dataframe: pd.DataFrame, filename: str):
+    def create_sampling_csv(self, dataframe: pd.DataFrame, filename: str, dense: bool):
         samp_level = self._sampling_min
         window_size = self.window_size
         points = self.num_points
         timestamp = time.strftime("%H")
         column_names = ['t0_range', 't1_range', 's0_range', 'ss0_range', 'sss0_range', 'ss1_range', 'sss1_range', 'd0_range', 'dd0_range', 'ddd0_range', 'd1_range', 'dd1_range', 'ddd1_range']
-        if filename.__contains__('dense'):
-            dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/dense/{filename}_{samp_level}_{window_size}_{points}_{timestamp}", mode='a', header=False, index=False)
+        if dense == True:
+            dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/dense/{filename}_{samp_level}", mode='a', header=False, index=False)
         else:
-            dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_{samp_level}_{window_size}_{points}_{timestamp}", mode='a', header=False, index=False)
+            dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_{samp_level}", mode='a', header=False, index=False)
     
     def initial_sampling_variables(self, samp_level: int, longitude: tuple, latitude: tuple) -> float:
         t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level).union({self.N*self.dT})))
@@ -306,14 +307,11 @@ class ReactivePlannerCpp(Planner):
         while True:
         
             t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)
-            # d1_range is 4 values 
             # *************************************
             # Create a sampling window around sparse sampling optimal lateral displacement
             # *************************************
             if dense_sampling:
-                d1_range = self.get_sampling_window(optimal_parameters[-3], self.window_size, self.num_points)
-                ss1_range = self.get_sampling_window(optimal_parameters[5], 1, 5)
-                t1_range = self.get_sampling_window(optimal_parameters[1], 1, 5)
+                t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)
             
             sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
                                                        t1_range=t1_range, #final time
@@ -333,10 +331,10 @@ class ReactivePlannerCpp(Planner):
             
             if dense_sampling:
                 df = pd.DataFrame(sampling_matrix)
-                self.create_sampling_csv(df, "dense_matrix.csv")
+                self.create_sampling_csv(df, f"{SCENARIO_NAME}", dense_sampling)
             else:
                 df = pd.DataFrame(sampling_matrix)
-                self.create_sampling_csv(df, "sparse_matrix.csv")
+                self.create_sampling_csv(df, f"{SCENARIO_NAME}", dense_sampling)
 
             self.handler.reset_Trajectories()
             feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
@@ -346,15 +344,16 @@ class ReactivePlannerCpp(Planner):
             # ******************************************
 
             optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
+            #needs to be outside of the loop in case an optimal trajectory isn't found first time through it is None.
             optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
 
             if dense_sampling == True:
                 reshaped_optimal_parameters = np.array(optimal_parameters).reshape(1, 13)
                 optimal_dense_df = pd.DataFrame(reshaped_optimal_parameters)
-                self.create_sampling_csv(optimal_dense_df, "optimal_dense_matrix.csv")
+                self.create_sampling_csv(optimal_dense_df, f"optimal_{SCENARIO_NAME}", dense_sampling)
             reshaped_optimal_parameters = np.array(optimal_parameters).reshape(1, 13)
             optimal_sparse_df = pd.DataFrame(reshaped_optimal_parameters)
-            self.create_sampling_csv(optimal_sparse_df, "optimal_sparse_matrix.csv")
+            self.create_sampling_csv(optimal_sparse_df, f"optimal_{SCENARIO_NAME}", dense_sampling)
 
             # ******************************************
             # Check if Dense Layer has been Computed

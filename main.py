@@ -8,6 +8,7 @@ import concurrent.futures
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 from cr_scenario_handler.utils.general import get_scenario_list
+from config import SCENARIO_NAME
 
 
 def run_simulation_wrapper(scenario_info):
@@ -95,7 +96,7 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
-    scenario_name = "DEU_B471-1_1_T-1"  # do not add .xml format to the name
+    scenario_name = SCENARIO_NAME  # do not add .xml format to the name
     scenario_folder = find_directory_with_file(scenario_name)
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
