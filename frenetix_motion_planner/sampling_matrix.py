@@ -129,7 +129,7 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
 
 
 class Sampling(ABC):
-    def __init__(self, minimum: float, maximum: float, max_density: int):
+    def __init__(self, minimum: float, maximum: float, max_density: int, dense_sampling: bool):
 
         assert maximum >= minimum
         assert isinstance(max_density, int)
@@ -138,6 +138,8 @@ class Sampling(ABC):
         self.minimum = minimum
         self.maximum = maximum
         self.max_density = max_density
+        self.dense_sampling = dense_sampling
+        self.dense_sampling = None
         self._sampling_vec = list()
         self._initialization()
 
@@ -145,60 +147,75 @@ class Sampling(ABC):
     def _initialization(self):
         pass
 
-    def to_range(self, sampling_stage: int = 0) -> set:
+    def to_range(self, sampling_stage: int = 0, dense_sampling: bool = False) -> set:
         """
         Obtain the sampling steps of a given sampling stage
         :param sampling_stage: The sampling stage to receive (>=0)
         :return: The set of sampling steps for the queried sampling stage
         """
+        self.dense_sampling = dense_sampling
         assert 0 <= sampling_stage < self.max_density, '<Sampling/to_range>: Provided sampling stage is' \
                                                            ' incorrect! stage = {}'.format(sampling_stage)
-        return self._sampling_vec[sampling_stage]
-
+        
+        if dense_sampling:
+            min_val = self.minimum + (self.maximum - self.minimum) * 0.4
+            max_val = self.maximum - (self.maximum - self.minimum) * 0.4
+            return set(np.linspace(min_val, max_val, len(self._sampling_vec[sampling_stage])))
+        else:
+            return self._sampling_vec[sampling_stage]
 
 class VelocitySampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, density: int):
-        super(VelocitySampling, self).__init__(minimum, maximum, density)
+    def __init__(self, minimum: float, maximum: float, density: int, dense_sampling: bool = False):
+        super(VelocitySampling, self).__init__(minimum, maximum, density, dense_sampling)
 
     def _initialization(self):
+        min_val = self.minimum if not self.dense_sampling else self.minimum + (self.maximum - self.minimum) * 0.4
+        max_val = self.maximum if not self.dense_sampling else self.maximum - (self.maximum - self.minimum) * 0.4
         n = 3
         for _ in range(self.max_density):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
+            self._sampling_vec.append(set(np.linspace(min_val, max_val, n)))
             n = (n * 2) - 1
 
 
 class LateralPositionSampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, density: int):
-        super(LateralPositionSampling, self).__init__(minimum, maximum, density)
+    def __init__(self, minimum: float, maximum: float, density: int, dense_sampling: bool = False):
+        super(LateralPositionSampling, self).__init__(minimum, maximum, density, dense_sampling)
 
     def _initialization(self):
+        print(self.dense_sampling)
+        min_val = self.minimum if not self.dense_sampling else self.minimum + (self.maximum - self.minimum) * 0.4
+        max_val = self.maximum if not self.dense_sampling else self.maximum - (self.maximum - self.minimum) * 0.4
         n = 3
         for _ in range(self.max_density):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
+            self._sampling_vec.append(set(np.linspace(min_val, max_val, n)))
             n = (n * 2) - 1
 
 
 class LongitudinalPositionSampling(Sampling):
-    def __init__(self, maximum: float,  minimum: float, density: int):
-        super(LongitudinalPositionSampling, self).__init__(maximum, minimum, density)
+    def __init__(self, maximum: float,  minimum: float, density: int, dense_sampling: bool = False):
+        super(LongitudinalPositionSampling, self).__init__(maximum, minimum, density, dense_sampling)
 
     def _initialization(self):
+        min_val = self.minimum if not self.dense_sampling else self.minimum + (self.maximum - self.minimum) * 0.4
+        max_val = self.maximum if not self.dense_sampling else self.maximum - (self.maximum - self.minimum) * 0.4
         n = 3
         for _ in range(self.max_density):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
+            self._sampling_vec.append(set(np.linspace(min_val, max_val, n)))
             n = (n * 2) - 1
 
 
 class TimeSampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, density: int, dT: float):
+    def __init__(self, minimum: float, maximum: float, density: int, dT: float, dense_sampling: bool = False):
         self.dT = dT
-        super(TimeSampling, self).__init__(minimum, maximum, density)
+        super(TimeSampling, self).__init__(minimum, maximum, density, dense_sampling)
 
     def _initialization(self):
+        min_val = self.minimum if not self.dense_sampling else self.minimum + (self.maximum - self.minimum) * 0.4
+        max_val = self.maximum if not self.dense_sampling else self.maximum - (self.maximum - self.minimum) * 0.4
         for i in range(self.max_density):
             step_size = int((1 / (i + 1)) / self.dT)
-            samp = set(np.round(np.arange(self.minimum, self.maximum + self.dT, (step_size * self.dT)), 2))
-            samp.discard(elem for elem in list(samp) if elem > round(self.maximum + self.dT, 2))
+            samp = set(np.round(np.arange(min_val, max_val + self.dT, (step_size * self.dT)), 2))
+            samp.discard(elem for elem in list(samp) if elem > round(max_val + self.dT, 2))
             self._sampling_vec.append(samp)
 
 

@@ -1,6 +1,7 @@
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
+from config import SCENARIO_NAME
 
 def upload_csv_to_google_sheets(csv_file_path, sheet_name):
     # Define the scope
@@ -33,7 +34,7 @@ def upload_csv_to_google_sheets(csv_file_path, sheet_name):
     worksheet.update([df.columns.values.tolist()] + df.values.tolist())
 
 if __name__ == "__main__":
-    filename = 'optimal_dense_matrix.csv_0_1_5_14'
+    filename = f'{SCENARIO_NAME}_1'
     csv_file_path = f'frenetix_motion_planner/sampling_matrices/dense/{filename}'
     sheet_name = f'{filename}'
     upload_csv_to_google_sheets(csv_file_path, sheet_name)

@@ -14,6 +14,7 @@ import pandas as pd
 
 # frenetix_motion_planner imports
 from frenetix_motion_planner.sampling_matrix import generate_sampling_matrix
+from frenetix_motion_planner.sampling_matrix import SamplingHandler
 
 from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem
 from cr_scenario_handler.utils.visualization import visualize_scenario_and_pp
@@ -230,10 +231,10 @@ class ReactivePlannerCpp(Planner):
         else:
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_{samp_level}", mode='a', header=False, index=False)
     
-    def initial_sampling_variables(self, samp_level: int, longitude: tuple, latitude: tuple) -> float:
-        t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level).union({self.N*self.dT})))
-        ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level).union({longitude[1]})))
-        d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level).union({latitude[0]})))
+    def initial_sampling_variables(self, samp_level: int, longitude: tuple, latitude: tuple, dense_sampling: bool = False) -> float:
+        t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level, dense_sampling).union({self.N*self.dT})))
+        ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level, dense_sampling).union({longitude[1]}))) # where min / max is set for v sampling window
+        d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level, dense_sampling).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
     
     def get_sampling_window(self, optimal_parameter: list, window_size: int, num_points: int) -> list:
@@ -276,6 +277,7 @@ class ReactivePlannerCpp(Planner):
             'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
         return feasible_trajectories, infeasible_trajectories
 
+
     def plan(self) -> tuple:
         """
         Plans an optimal trajectory
@@ -305,13 +307,16 @@ class ReactivePlannerCpp(Planner):
         dense_sampling = False
 
         while True:
-        
-            t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)
+            t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=False)
+            print(t1_range)
+            print(ss1_range)
+            print(d1_range)
             # *************************************
             # Create a sampling window around sparse sampling optimal lateral displacement
             # *************************************
             if dense_sampling:
-                t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat)
+                t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=True)
+                # all you have to do here is increase samp level while decreasing the "sampling window"
             
             sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
                                                        t1_range=t1_range, #final time
@@ -345,7 +350,8 @@ class ReactivePlannerCpp(Planner):
 
             optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
             #needs to be outside of the loop in case an optimal trajectory isn't found first time through it is None.
-            optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
+            if optimal_trajectory != None:
+                optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
 
             if dense_sampling == True:
                 reshaped_optimal_parameters = np.array(optimal_parameters).reshape(1, 13)
