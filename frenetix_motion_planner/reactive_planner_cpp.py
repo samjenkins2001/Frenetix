@@ -25,7 +25,7 @@ import frenetix.trajectory_functions.feasability_functions as ff
 import frenetix.trajectory_functions.cost_functions as cf
 
 from frenetix_motion_planner.planner import Planner
-from config import SCENARIO_NAME, MULTI_STAGE_SAMPLING
+from config import SCENARIO_NAME, MULTI_STAGE_SAMPLING, SAMPLING_DEPTH
 
 
 class ReactivePlannerCpp(Planner):
@@ -280,6 +280,32 @@ class ReactivePlannerCpp(Planner):
         self.msg_logger.debug(
             'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
         return feasible_trajectories, infeasible_trajectories
+    
+    def get_single_stage_sampling(self, x_0_lat, x_0_lon, sampling_variables):
+        t1_range = sampling_variables[0]
+        ss1_range = sampling_variables[1]
+        d1_range = sampling_variables[2]
+        sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
+                                                            t1_range=t1_range, #final time
+                                                            s0_range=x_0_lon[0], #specific longitudinal position
+                                                            ss0_range=x_0_lon[1], #initial longitudinal velocity
+                                                            sss0_range=x_0_lon[2], #initial longitudinal acceleration
+                                                            ss1_range=ss1_range, #possible velocity changes
+                                                            sss1_range=0, #possible acceleration changes
+                                                            d0_range=x_0_lat[0], #inital lateral displacement
+                                                            dd0_range=x_0_lat[1], #initial lateral velocity
+                                                            ddd0_range=x_0_lat[2], #initial lateral acceleration
+                                                            d1_range=d1_range, #lateral state displacement
+                                                            dd1_range=0.0, #lateral state velocity (derivative) -- 0 because we want to be parallel with the reference path
+                                                            ddd1_range=0.0) #lateral state acceleration (derivative)
+        self.handler.reset_Trajectories()
+        feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+        # ******************************************
+        # Check Feasible Trajectories for Collisions
+        # ******************************************
+        optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
+        return optimal_trajectory, feasible_trajectories, infeasible_trajectories
+
 
 
     def plan(self) -> tuple:
@@ -313,60 +339,71 @@ class ReactivePlannerCpp(Planner):
         optimal_parameters = None
 
         while True:
-            t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=False)
-
             if optimal_trajectory:
                 optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
             # *************************************
             # Create a sampling window around sparse sampling optimal lateral displacement
             # *************************************
             if dense_sampling and MULTI_STAGE_SAMPLING:
-                sampling_window = self.get_optimal_sampling_window(optimal_parameters)
-                t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=True, optimal_window=sampling_window)
-                # all you have to do here is increase samp level while decreasing the "sampling window"
+                print("ENTERING MULTI-STAGE SAMPLING")
+                optimal_trajectories = []
+                for level in range(SAMPLING_DEPTH):
+                    print(f"Sampling Stage: {level}")
+                    sampling_window = self.get_optimal_sampling_window(optimal_parameters)
+                    t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=True, optimal_window=sampling_window)
+                    # all you have to do here is increase samp level while decreasing the "sampling window", to do this I need change the dense_sampling_margin
             
-            sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
-                                                       t1_range=t1_range, #final time
-                                                       s0_range=x_0_lon[0], #specific longitudinal position
-                                                       ss0_range=x_0_lon[1], #initial longitudinal velocity
-                                                       sss0_range=x_0_lon[2], #initial longitudinal acceleration
-                                                       ss1_range=ss1_range, #possible velocity changes
-                                                       sss1_range=0, #possible acceleration changes
-                                                       d0_range=x_0_lat[0], #inital lateral displacement
-                                                       dd0_range=x_0_lat[1], #initial lateral velocity
-                                                       ddd0_range=x_0_lat[2], #initial lateral acceleration
-                                                       d1_range=d1_range, #lateral state displacement
-                                                       dd1_range=0.0, #lateral state velocity (derivative) -- 0 because we want to be parallel with the reference path
-                                                       ddd1_range=0.0) #lateral state acceleration (derivative)
+                    sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
+                                                            t1_range=t1_range, #final time
+                                                            s0_range=x_0_lon[0], #specific longitudinal position
+                                                            ss0_range=x_0_lon[1], #initial longitudinal velocity
+                                                            sss0_range=x_0_lon[2], #initial longitudinal acceleration
+                                                            ss1_range=ss1_range, #possible velocity changes
+                                                            sss1_range=0, #possible acceleration changes
+                                                            d0_range=x_0_lat[0], #inital lateral displacement
+                                                            dd0_range=x_0_lat[1], #initial lateral velocity
+                                                            ddd0_range=x_0_lat[2], #initial lateral acceleration
+                                                            d1_range=d1_range, #lateral state displacement
+                                                            dd1_range=0.0, #lateral state velocity (derivative) -- 0 because we want to be parallel with the reference path
+                                                            ddd1_range=0.0) #lateral state acceleration (derivative)
+                    
+                    print(f"Matrix is {sampling_matrix.shape} AND Samp Min is: {samp_level}")
             
-            print(f"Matrix is {sampling_matrix.shape} AND Samp Min is: {samp_level}")
+                    self.handler.reset_Trajectories()
+                    feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+
+                    # ******************************************
+                    # Add Trajectories to a list to ensure we can access outside of the Multi-Stage Sampling loop
+                    # ******************************************
+
+                    optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
+                    optimal_trajectories.append(optimal_trajectory)
+
+                    if optimal_trajectory != None:
+                        optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
+
+                    samp_level += 1
             
-            if dense_sampling:
-                df = pd.DataFrame(sampling_matrix)
-                self.create_sampling_csv(df, f"{SCENARIO_NAME}", dense_sampling)
             else:
-                df = pd.DataFrame(sampling_matrix)
-                self.create_sampling_csv(df, f"{SCENARIO_NAME}", dense_sampling)
+                sampling_variables = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=False)
+                optimal_trajectory, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(x_0_lat, x_0_lon, sampling_variables)
 
-            self.handler.reset_Trajectories()
-            feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
 
-            # ******************************************
-            # Check Feasible Trajectories for Collisions
-            # ******************************************
+            # if dense_sampling:
+            #     df = pd.DataFrame(sampling_matrix)
+            #     self.create_sampling_csv(df, f"{SCENARIO_NAME}", dense_sampling)
+            # else:
+            #     df = pd.DataFrame(sampling_matrix)
+            #     self.create_sampling_csv(df, f"{SCENARIO_NAME}", dense_sampling)
 
-            optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
-            #needs to be outside of the loop in case an optimal trajectory isn't found first time through it is None.
-            if optimal_trajectory != None:
-                optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
 
-            if dense_sampling == True:
-                reshaped_optimal_parameters = np.array(optimal_parameters).reshape(1, 13)
-                optimal_dense_df = pd.DataFrame(reshaped_optimal_parameters)
-                self.create_sampling_csv(optimal_dense_df, f"optimal_{SCENARIO_NAME}", dense_sampling)
-            reshaped_optimal_parameters = np.array(optimal_parameters).reshape(1, 13)
-            optimal_sparse_df = pd.DataFrame(reshaped_optimal_parameters)
-            self.create_sampling_csv(optimal_sparse_df, f"optimal_{SCENARIO_NAME}", dense_sampling)
+            # if dense_sampling == True:
+            #     reshaped_optimal_parameters = np.array(optimal_parameters).reshape(1, 13)
+            #     optimal_dense_df = pd.DataFrame(reshaped_optimal_parameters)
+            #     self.create_sampling_csv(optimal_dense_df, f"optimal_{SCENARIO_NAME}", dense_sampling)
+            # reshaped_optimal_parameters = np.array(optimal_parameters).reshape(1, 13)
+            # optimal_sparse_df = pd.DataFrame(reshaped_optimal_parameters)
+            # self.create_sampling_csv(optimal_sparse_df, f"optimal_{SCENARIO_NAME}", dense_sampling)
 
             # ******************************************
             # Check if Dense Layer has been Computed
@@ -374,7 +411,6 @@ class ReactivePlannerCpp(Planner):
 
             if optimal_trajectory is not None and not dense_sampling:
                 dense_sampling = True
-                samp_level += 1
                 continue
             elif dense_sampling:
                 break
