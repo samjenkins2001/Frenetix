@@ -25,7 +25,7 @@ import frenetix.trajectory_functions.feasability_functions as ff
 import frenetix.trajectory_functions.cost_functions as cf
 
 from frenetix_motion_planner.planner import Planner
-from config import SCENARIO_NAME
+from config import SCENARIO_NAME, MULTI_STAGE_SAMPLING
 
 
 class ReactivePlannerCpp(Planner):
@@ -227,35 +227,31 @@ class ReactivePlannerCpp(Planner):
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/dense/{filename}_{samp_level}", mode='a', header=False, index=False)
         else:
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_{samp_level}", mode='a', header=False, index=False)
-    
-    def initial_sampling_variables(self, samp_level: int, longitude: tuple, latitude: tuple, dense_sampling: bool, optimal_parameters: list) -> float:
-        if dense_sampling:
-            optimal_t1, optimal_ss1, optimal_d1 = optimal_parameters[1], optimal_parameters[5], optimal_parameters[-3]
 
-            min_t1, max_t1 = optimal_t1 - self.dense_sampling_margin, optimal_t1 + self.dense_sampling_margin
-            min_ss1, max_ss1 = optimal_ss1 - self.dense_sampling_margin, optimal_ss1 + self.dense_sampling_margin
-            min_d1, max_d1 = optimal_d1 - self.dense_sampling_margin, optimal_d1 + self.dense_sampling_margin
-            
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level, dense_sampling=True, min_val=min_t1, max_val=max_t1).union({self.N * self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level, dense_sampling=True, min_val=min_ss1, max_val=max_ss1).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level, dense_sampling=True, min_val=min_d1, max_val=max_d1).union({latitude[0]})))
+    def get_optimal_sampling_window(self, optimal_parameters: list) -> list:
+        optimal_window = []
+        optimal_t1, optimal_ss1, optimal_d1 = optimal_parameters[1], optimal_parameters[5], optimal_parameters[-3]
+        optimal_window.append([optimal_t1 - self.dense_sampling_margin, optimal_t1 + self.dense_sampling_margin])
+        optimal_window.append([optimal_ss1 - self.dense_sampling_margin, optimal_ss1 + self.dense_sampling_margin])
+        optimal_window.append([optimal_d1 - self.dense_sampling_margin, optimal_d1 + self.dense_sampling_margin])
+        return optimal_window
+    
+    def initial_sampling_variables(self, samp_level: int, longitude: tuple, latitude: tuple, dense_sampling: bool, optimal_window: list = None) -> float:
+        """
+        Get the initial sampling variables for sparse and dense sampling windows
+        :param dense_sampling boolean to determine if plan function is in the dense sampling phase
+        :param optimal window: Values based around the optimal sampling parameters determined in the sparse stage 
+        :return: New sampling parameters for sampling matrix generation
+        """
+        if dense_sampling:
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level, dense_sampling, min_val=optimal_window[0][0], max_val=optimal_window[0][1]).union({self.N * self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level, dense_sampling, min_val=optimal_window[1][0], max_val=optimal_window[1][1]).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level, dense_sampling, min_val=optimal_window[2][0], max_val=optimal_window[2][1]).union({latitude[0]})))
         else:
             t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(samp_level, dense_sampling).union({self.N*self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level, dense_sampling).union({longitude[1]}))) # where min / max is set for v sampling window
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(samp_level, dense_sampling).union({longitude[1]})))
             d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(samp_level, dense_sampling).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
-    
-    def get_sampling_window(self, optimal_parameter: list, window_size: int, num_points: int) -> list:
-        """
-        Adjust the sampling window around the optimal lateral displacement.
-        :param optimal_lat_displacement: Optimal lateral displacement found in sparse sampling.
-        :param window_size: The range around the optimal displacement to sample within.
-        :param num_points: Number of points to sample within the window.
-        :return: New d1_range for dense sampling.
-        """
-        optimal_value = float(optimal_parameter)
-        sampling_window = np.linspace(optimal_value - window_size, optimal_value + window_size, num=num_points)
-        return sampling_window
     
     def get_feasibility(self, sampling_matrix) -> list:
         self.handler.generate_trajectories(sampling_matrix, self._LOW_VEL_MODE)
@@ -317,16 +313,16 @@ class ReactivePlannerCpp(Planner):
         optimal_parameters = None
 
         while True:
-            t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=False, optimal_parameters = optimal_parameters)
+            t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=False)
 
             if optimal_trajectory:
                 optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
             # *************************************
             # Create a sampling window around sparse sampling optimal lateral displacement
             # *************************************
-            if dense_sampling:
-                t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=True, optimal_parameters = optimal_parameters)
-                print(d1_range)
+            if dense_sampling and MULTI_STAGE_SAMPLING:
+                sampling_window = self.get_optimal_sampling_window(optimal_parameters)
+                t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=True, optimal_window=sampling_window)
                 # all you have to do here is increase samp level while decreasing the "sampling window"
             
             sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
