@@ -50,6 +50,7 @@ class ReactivePlannerCpp(Planner):
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
         self.dense_sampling_margin = 1
+        self.dense_ratio = 0.5
 
     def set_predictions(self, predictions: dict):
         self.use_prediction = True
@@ -228,12 +229,13 @@ class ReactivePlannerCpp(Planner):
         else:
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_{samp_level}", mode='a', header=False, index=False)
 
-    def get_optimal_sampling_window(self, optimal_parameters: list) -> list:
+    def get_optimal_sampling_window(self, optimal_parameters: list, dense_ratio: float) -> list:
+        window_size = self.dense_sampling_margin * dense_ratio
         optimal_window = []
         optimal_t1, optimal_ss1, optimal_d1 = optimal_parameters[1], optimal_parameters[5], optimal_parameters[-3]
-        optimal_window.append([optimal_t1 - self.dense_sampling_margin, optimal_t1 + self.dense_sampling_margin])
-        optimal_window.append([optimal_ss1 - self.dense_sampling_margin, optimal_ss1 + self.dense_sampling_margin])
-        optimal_window.append([optimal_d1 - self.dense_sampling_margin, optimal_d1 + self.dense_sampling_margin])
+        optimal_window.append([optimal_t1 - window_size, optimal_t1 + window_size])
+        optimal_window.append([optimal_ss1 - window_size, optimal_ss1 + window_size])
+        optimal_window.append([optimal_d1 - window_size, optimal_d1 + window_size])
         return optimal_window
     
     def initial_sampling_variables(self, samp_level: int, longitude: tuple, latitude: tuple, dense_sampling: bool, optimal_window: list = None) -> float:
@@ -349,23 +351,24 @@ class ReactivePlannerCpp(Planner):
                 optimal_trajectories = []
                 for level in range(SAMPLING_DEPTH):
                     print(f"Sampling Stage: {level}")
-                    sampling_window = self.get_optimal_sampling_window(optimal_parameters)
+                    sampling_window = self.get_optimal_sampling_window(optimal_parameters, dense_ratio=self.dense_ratio)
                     t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=True, optimal_window=sampling_window)
+                    self.dense_sampling_margin * 0.8
                     # all you have to do here is increase samp level while decreasing the "sampling window", to do this I need change the dense_sampling_margin
             
-                    sampling_matrix = generate_sampling_matrix(t0_range=0.0, #initial time
-                                                            t1_range=t1_range, #final time
-                                                            s0_range=x_0_lon[0], #specific longitudinal position
-                                                            ss0_range=x_0_lon[1], #initial longitudinal velocity
-                                                            sss0_range=x_0_lon[2], #initial longitudinal acceleration
-                                                            ss1_range=ss1_range, #possible velocity changes
-                                                            sss1_range=0, #possible acceleration changes
-                                                            d0_range=x_0_lat[0], #inital lateral displacement
-                                                            dd0_range=x_0_lat[1], #initial lateral velocity
-                                                            ddd0_range=x_0_lat[2], #initial lateral acceleration
-                                                            d1_range=d1_range, #lateral state displacement
-                                                            dd1_range=0.0, #lateral state velocity (derivative) -- 0 because we want to be parallel with the reference path
-                                                            ddd1_range=0.0) #lateral state acceleration (derivative)
+                    sampling_matrix = generate_sampling_matrix(t0_range=0.0,
+                                                            t1_range=t1_range,
+                                                            s0_range=x_0_lon[0],
+                                                            ss0_range=x_0_lon[1],
+                                                            sss0_range=x_0_lon[2],
+                                                            ss1_range=ss1_range,
+                                                            sss1_range=0,
+                                                            d0_range=x_0_lat[0],
+                                                            dd0_range=x_0_lat[1],
+                                                            ddd0_range=x_0_lat[2],
+                                                            d1_range=d1_range,
+                                                            dd1_range=0.0,
+                                                            ddd1_range=0.0)
                     
                     print(f"Matrix is {sampling_matrix.shape} AND Samp Min is: {samp_level}")
             
