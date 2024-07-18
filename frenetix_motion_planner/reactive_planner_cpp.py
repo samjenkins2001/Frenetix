@@ -49,8 +49,6 @@ class ReactivePlannerCpp(Planner):
         self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
-        self.dense_sampling_margin = 1
-        self.dense_ratio = 0.5
 
     def set_predictions(self, predictions: dict):
         self.use_prediction = True
@@ -229,13 +227,12 @@ class ReactivePlannerCpp(Planner):
         else:
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_{samp_level}", mode='a', header=False, index=False)
 
-    def get_optimal_sampling_window(self, optimal_parameters: list, dense_ratio: float) -> list:
-        window_size = self.dense_sampling_margin * dense_ratio
+    def get_optimal_sampling_window(self, optimal_parameters: list, width_factor: float) -> list:
         optimal_window = []
         optimal_t1, optimal_ss1, optimal_d1 = optimal_parameters[1], optimal_parameters[5], optimal_parameters[-3]
-        optimal_window.append([optimal_t1 - window_size, optimal_t1 + window_size])
-        optimal_window.append([optimal_ss1 - window_size, optimal_ss1 + window_size])
-        optimal_window.append([optimal_d1 - window_size, optimal_d1 + window_size])
+        optimal_window.append([optimal_t1 - width_factor, optimal_t1 + width_factor])
+        optimal_window.append([optimal_ss1 - width_factor, optimal_ss1 + width_factor])
+        optimal_window.append([optimal_d1 - width_factor, optimal_d1 + width_factor])
         return optimal_window
     
     def initial_sampling_variables(self, samp_level: int, longitude: tuple, latitude: tuple, dense_sampling: bool, optimal_window: list = None) -> float:
@@ -339,6 +336,7 @@ class ReactivePlannerCpp(Planner):
         dense_sampling = False
 
         optimal_parameters = None
+        window_size = 1
 
         while True:
             if optimal_trajectory:
@@ -351,9 +349,10 @@ class ReactivePlannerCpp(Planner):
                 optimal_trajectories = []
                 for level in range(SAMPLING_DEPTH):
                     print(f"Sampling Stage: {level}")
-                    sampling_window = self.get_optimal_sampling_window(optimal_parameters, dense_ratio=self.dense_ratio)
+                    sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
+                    window_size = window_size * 0.5
+                    print(window_size)
                     t1_range, ss1_range, d1_range = self.initial_sampling_variables(samp_level, x_0_lon, x_0_lat, dense_sampling=True, optimal_window=sampling_window)
-                    self.dense_sampling_margin * 0.8
                     # all you have to do here is increase samp level while decreasing the "sampling window", to do this I need change the dense_sampling_margin
             
                     sampling_matrix = generate_sampling_matrix(t0_range=0.0,
