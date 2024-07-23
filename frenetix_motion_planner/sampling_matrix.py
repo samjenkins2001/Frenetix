@@ -15,11 +15,11 @@ msg_logger = logging.getLogger("Message_logger")
 
 
 class SamplingHandler:
-    def __init__(self, dt: float, max_sampling_number: int, t_min: float, horizon: float, delta_d_min: float,
+    def __init__(self, dt: float, spacing: float, t_min: float, horizon: float, delta_d_min: float,
                  delta_d_max: float, d_ego_pos: bool):
         self.dt = dt
-        self.max_sampling_number = max_sampling_number
-        self.s_sampling_mode = False
+        self.spacing = spacing
+        # self.s_sampling_mode = False
         self.d_ego_pos = d_ego_pos
 
         self.t_min = t_min
@@ -57,29 +57,29 @@ class SamplingHandler:
         :param t_min: minimum of sampled time horizon
         :param horizon: sampled time horizon
         """
-        self.t_sampling = TimeSampling(self.t_min, self.horizon, self.max_sampling_number, self.dt)
+        self.t_sampling = TimeSampling(self.t_min, self.horizon, self.spacing, self.dt)
 
     def set_d_sampling(self, lat_pos=None):
         """
         Sets sample parameters of lateral offset
         """
         if not self.d_ego_pos:
-            self.d_sampling = LateralPositionSampling(self.delta_d_min, self.delta_d_max, self.max_sampling_number)
+            self.d_sampling = LateralPositionSampling(self.delta_d_min, self.delta_d_max, self.spacing)
         else:
             self.d_sampling = LateralPositionSampling(lat_pos + self.delta_d_min, lat_pos + self.delta_d_max,
-                                                      self.max_sampling_number)
+                                                      self.spacing)
 
     def set_v_sampling(self, v_min, v_max):
         """
         Sets sample parameters of sampled velocity interval
         """
-        self.v_sampling = VelocitySampling(v_min, v_max, self.max_sampling_number)
+        self.v_sampling = VelocitySampling(v_min, v_max, self.spacing)
 
     def set_s_sampling(self, delta_s_min, delta_s_max):
         """
         Sets sample parameters of lateral offset
         """
-        self.s_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.max_sampling_number)
+        self.s_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.spacing)
 
 
 def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_range, ss1_range, sss1_range, d0_range,
@@ -129,15 +129,13 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
 
 
 class Sampling(ABC):
-    def __init__(self, minimum: float, maximum: float, max_density: int, dense_sampling: bool):
+    def __init__(self, minimum: float, maximum: float, spacing: float, dense_sampling: bool):
 
         assert maximum >= minimum
-        assert isinstance(max_density, int)
-        assert max_density > 0
 
         self.minimum = minimum
         self.maximum = maximum
-        self.max_density = max_density
+        self.spacing = spacing
         self.dense_sampling = dense_sampling
         self.dense_sampling = None
         self._sampling_vec = list()
@@ -147,67 +145,72 @@ class Sampling(ABC):
     def _initialization(self):
         pass
 
-    def to_range(self, sampling_stage: int = 0, dense_sampling: bool = False, min_val: float = None, max_val: float = None) -> set:
+    def to_range(self, spacing: float, dense_sampling: bool = False, min_val: float = None, max_val: float = None) -> set:
         """
         Obtain the sampling steps of a given sampling stage
         :param sampling_stage: The sampling stage to receive (>=0)
         :return: The set of sampling steps for the queried sampling stage
         """
         self.dense_sampling = dense_sampling
-        assert 0 <= sampling_stage < self.max_density, '<Sampling/to_range>: Provided sampling stage is' \
-                                                           ' incorrect! stage = {}'.format(sampling_stage)
+        self.spacing = spacing
+        # assert 0 <= sampling_stage < self.max_density, '<Sampling/to_range>: Provided sampling stage is' \
+        #                                                    ' incorrect! stage = {}'.format(sampling_stage)
         
         if dense_sampling:
             self.minimum = min_val
             self.maximum = max_val
-            return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[sampling_stage])))
+            return set(np.arange(self.minimum, self.maximum, self.spacing))
         else:
-            return self._sampling_vec[sampling_stage]
+            return set(np.arange(self.minimum, self.maximum, self.spacing))
 
 class VelocitySampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, density: int, dense_sampling: bool = False):
-        super(VelocitySampling, self).__init__(minimum, maximum, density, dense_sampling)
+    def __init__(self, minimum: float, maximum: float, spacing: float, dense_sampling: bool = False):
+        super(VelocitySampling, self).__init__(minimum, maximum, spacing, dense_sampling)
 
     def _initialization(self):
-        n = 3
-        for _ in range(self.max_density):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
-            n = (n * 2) - 1
+        self._sampling_vec = [set(np.arange(self.minimum, self.maximum, self.spacing))]
+        # n = 3
+        # for _ in range(self.max_density):
+        #     self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
+        #     n = (n * 2) - 1
 
 
 class LateralPositionSampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, density: int, dense_sampling: bool = False):
-        super(LateralPositionSampling, self).__init__(minimum, maximum, density, dense_sampling)
+    def __init__(self, minimum: float, maximum: float, spacing: float, dense_sampling: bool = False):
+        super(LateralPositionSampling, self).__init__(minimum, maximum, spacing, dense_sampling)
 
     def _initialization(self):
-        n = 3
-        for _ in range(self.max_density):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
-            n = (n * 2) - 1
+        self._sampling_vec = [set(np.arange(self.minimum, self.maximum, self.spacing))]
+        # n = 3
+        # for _ in range(self.max_density):
+        #     self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
+        #     n = (n * 2) - 1
 
 
 class LongitudinalPositionSampling(Sampling):
-    def __init__(self, maximum: float,  minimum: float, density: int, dense_sampling: bool = False):
-        super(LongitudinalPositionSampling, self).__init__(maximum, minimum, density, dense_sampling)
+    def __init__(self, maximum: float,  minimum: float, spacing: float, dense_sampling: bool = False):
+        super(LongitudinalPositionSampling, self).__init__(maximum, minimum, spacing, dense_sampling)
 
     def _initialization(self):
-        n = 3
-        for _ in range(self.max_density):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
-            n = (n * 2) - 1
+        self._sampling_vec = [set(np.arange(self.minimum, self.maximum, self.spacing))]
+        # n = 3
+        # for _ in range(self.max_density):
+        #     self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
+        #     n = (n * 2) - 1
 
 
 class TimeSampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, density: int, dT: float, dense_sampling: bool = False):
+    def __init__(self, minimum: float, maximum: float, spacing: float, dT: float, dense_sampling: bool = False):
         self.dT = dT
-        super(TimeSampling, self).__init__(minimum, maximum, density, dense_sampling)
+        super(TimeSampling, self).__init__(minimum, maximum, spacing, dense_sampling)
 
     def _initialization(self):
-        for i in range(self.max_density):
-            step_size = int((1 / (i + 1)) / self.dT)
-            samp = set(np.round(np.arange(self.minimum, self.maximum + self.dT, (step_size * self.dT)), 2))
-            samp.discard(elem for elem in list(samp) if elem > round(self.maximum + self.dT, 2))
-            self._sampling_vec.append(samp)
+        self._sampling_vec = [set(np.arange(self.minimum, self.maximum + self.dT, self.spacing))]
+        # for i in range(self.max_density):
+        #     step_size = int((1 / (i + 1)) / self.dT)
+        #     samp = set(np.round(np.arange(self.minimum, self.maximum + self.dT, (step_size * self.dT)), 2))
+        #     samp.discard(elem for elem in list(samp) if elem > round(self.maximum + self.dT, 2))
+        #     self._sampling_vec.append(samp)
 
 
 # look into the kinematic check for rate of change of curvature/yaw when in a high risk scenario, in certain scenarios smoothness should not be required. ALSO is the kinematic check taylored to certain vehicles actuator capabilites?

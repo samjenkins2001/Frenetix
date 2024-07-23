@@ -62,6 +62,7 @@ class Planner:
         self.config_plan, self.config_sim = config_plan, config_sim
         self.horizon = config_plan.planning.planning_horizon
         self.dT = config_plan.planning.dt
+        self.spacing = config_plan.planning.spacing
         self.N = int(config_plan.planning.planning_horizon / config_plan.planning.dt)
         self._check_valid_settings()
         self.vehicle_params = config_sim.vehicle
@@ -124,14 +125,15 @@ class Planner:
         # Sampling Initialization
         # **************************
         # Set Sampling Parameters#
-        self._sampling_min = config_plan.planning.sampling_min
-        self._sampling_max = config_plan.planning.sampling_max
+        # self._sampling_min = config_plan.planning.sampling_min
+        # self._sampling_max = config_plan.planning.sampling_max
         ##THIS is where density is defined for the Various Planner methods
-        self.sampling_handler = SamplingHandler(dt=self.dT, max_sampling_number=config_plan.planning.sampling_max,
+        self.sampling_handler = SamplingHandler(dt=self.dT, spacing = self.spacing,
                                                 t_min=config_plan.planning.t_min, horizon=self.horizon,
                                                 delta_d_max=config_plan.planning.d_max,
                                                 delta_d_min=config_plan.planning.d_min,
                                                 d_ego_pos=config_plan.planning.d_ego_pos)
+        # removed max_sampling_number=config_plan.planning.sampling_max
 
         self.stopping_s = None
 
@@ -301,7 +303,7 @@ class Planner:
         """
         self.desired_velocity = desired_velocity
 
-        min_v = max(0.001, current_speed - self.vehicle_params.a_max * self.horizon)
+        min_v = max(0.001, current_speed - self.vehicle_params.a_max * self.horizon) #uses horizon and current speed to calculate min
         max_v = min(min(current_speed + (self.vehicle_params.a_max / 6.0) * self.horizon, v_limit),
                     self.vehicle_params.v_max)
 
@@ -546,6 +548,7 @@ class Planner:
         assert self.dT > 0, 'provided dt is not correct! dt = {}'.format(self.dT)
         assert self.N > 0 and isinstance(self.N, int), 'N is not correct!'
         assert self.horizon > 0, 'provided t_h is not correct! dt = {}'.format(self.horizon)
+        assert self.spacing > 0, 'provided trajectory spacing is not correct! A value <=0 is impossible for planning.'
 
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""
