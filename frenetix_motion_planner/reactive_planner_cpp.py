@@ -371,6 +371,7 @@ class ReactivePlannerCpp(Planner):
                                                             ddd1_range=0.0)
                     
                     print(f"Matrix is {sampling_matrix.shape}")
+                    print(f"Trajectory Generated every {self.spacing} meters")
             
                     self.handler.reset_Trajectories()
                     feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
@@ -385,7 +386,7 @@ class ReactivePlannerCpp(Planner):
                     if optimal_trajectory != None:
                         optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
 
-                    # samp_level += 1
+                    self.spacing = self.spacing * 0.5
             
             else:
                 sampling_variables = self.initial_sampling_variables(x_0_lon, x_0_lat, dense_sampling=False)

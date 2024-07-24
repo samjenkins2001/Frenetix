@@ -48,8 +48,8 @@ class SamplingHandler:
         self.set_t_sampling()
         self.set_d_sampling()
 
-    def change_max_sampling_level(self, max_samp_lvl):
-        self.max_sampling_number = max_samp_lvl
+    # def change_max_sampling_level(self, max_samp_lvl):
+    #     self.max_sampling_number = max_samp_lvl
 
     def set_t_sampling(self):
         """
@@ -137,7 +137,6 @@ class Sampling(ABC):
         self.maximum = maximum
         self.spacing = spacing
         self.dense_sampling = dense_sampling
-        self.dense_sampling = None
         self._sampling_vec = list()
         self._initialization()
 
