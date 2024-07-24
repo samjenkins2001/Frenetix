@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 import numpy as np
 import math
 import logging
+from config import SAMPLING_DEPTH
 
 from commonroad.planning.planning_problem import PlanningProblem, GoalRegion
 from commonroad.scenario.obstacle import DynamicObstacle, ObstacleType
@@ -128,7 +129,7 @@ class Planner:
         # self._sampling_min = config_plan.planning.sampling_min
         # self._sampling_max = config_plan.planning.sampling_max
         ##THIS is where density is defined for the Various Planner methods
-        self.sampling_handler = SamplingHandler(dt=self.dT, spacing=self.spacing,
+        self.sampling_handler = SamplingHandler(dt=self.dT, spacing=self.spacing[0],
                                                 t_min=config_plan.planning.t_min, horizon=self.horizon,
                                                 delta_d_max=config_plan.planning.d_max,
                                                 delta_d_min=config_plan.planning.d_min,
@@ -548,7 +549,7 @@ class Planner:
         assert self.dT > 0, 'provided dt is not correct! dt = {}'.format(self.dT)
         assert self.N > 0 and isinstance(self.N, int), 'N is not correct!'
         assert self.horizon > 0, 'provided t_h is not correct! dt = {}'.format(self.horizon)
-        assert self.spacing > 0, 'provided trajectory spacing is not correct! A value <=0 is impossible for planning.'
+        assert len(self.spacing) >= SAMPLING_DEPTH, 'Need more spacing values, Sampling Depth > Spacing Values!.'
 
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""

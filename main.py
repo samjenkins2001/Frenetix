@@ -1,14 +1,16 @@
 import os
+import yaml
 import sys
 import csv
 import shutil
 from datetime import datetime
 import traceback
 import concurrent.futures
+from frenetix_motion_planner.planner import Planner
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 from cr_scenario_handler.utils.general import get_scenario_list
-from config import SCENARIO_NAME
+from config import SCENARIO_NAME, SAMPLING_DEPTH
 
 
 def run_simulation_wrapper(scenario_info):
@@ -57,6 +59,25 @@ def find_directory_with_file(filename):
                 return root
     return None
 
+def load_config(config_file):
+    with open(config_file, "r") as file:
+        return yaml.safe_load(file)
+    
+def get_user_input():
+    spacing_values = []
+    print(f'Multi-stage sampling depth is {SAMPLING_DEPTH}')
+    for i in range(SAMPLING_DEPTH):
+        spacing = float(input(f'Enter distance (meters) between trajectories for multi-stage sampling level {i + 1}: '))
+        spacing_values.append(spacing)
+    return spacing_values
+
+def update_planning_yaml(config, spacing_values):
+    config['spacing'] = spacing_values
+
+def save_config(config, config_file):
+    with open(config_file, 'w') as file:
+        yaml.safe_dump(config, file)
+
 
 def main():
     # import pdb; pdb.set_trace()
@@ -96,6 +117,13 @@ def main():
     # **********************************************************************
     # If the previous are set to "False", please specify a specific scenario
     # **********************************************************************
+
+    planning_file = 'configurations/frenetix_motion_planner/planning.yaml'
+    plan = load_config(planning_file)
+    spacing_values = get_user_input()
+    update_planning_yaml(plan, spacing_values)
+    save_config(plan, planning_file)
+
     scenario_name = SCENARIO_NAME  # do not add .xml format to the name
     scenario_folder = find_directory_with_file(scenario_name)
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
