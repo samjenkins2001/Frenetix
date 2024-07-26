@@ -25,7 +25,6 @@ import frenetix.trajectory_functions.feasability_functions as ff
 import frenetix.trajectory_functions.cost_functions as cf
 
 from frenetix_motion_planner.planner import Planner
-from config import SCENARIO_NAME, MULTI_STAGE_SAMPLING, SAMPLING_DEPTH, WIDTH_FACTOR
 
 
 class ReactivePlannerCpp(Planner):
@@ -234,21 +233,21 @@ class ReactivePlannerCpp(Planner):
         optimal_window.append([optimal_d1 - width_factor, optimal_d1 + width_factor])
         return optimal_window
     
-    def initial_sampling_variables(self, spacing: float, longitude: tuple, latitude: tuple, dense_sampling: bool, optimal_window: list = None) -> float:
+    def initial_sampling_variables(self, level: int, spacing: float, longitude: tuple, latitude: tuple, optimal_window: list = None) -> float:
         """
         Get the initial sampling variables for sparse and dense sampling windows
         :param dense_sampling boolean to determine if plan function is in the dense sampling phase
         :param optimal window: Values based around the optimal sampling parameters determined in the sparse stage 
         :return: New sampling parameters for sampling matrix generation
         """
-        if dense_sampling:
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(spacing, dense_sampling, min_val=optimal_window[0][0], max_val=optimal_window[0][1]).union({self.N * self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(spacing, dense_sampling, min_val=optimal_window[1][0], max_val=optimal_window[1][1]).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(spacing, dense_sampling, min_val=optimal_window[2][0], max_val=optimal_window[2][1]).union({latitude[0]})))
+        if level > 1:
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, spacing, min_val=optimal_window[0][0], max_val=optimal_window[0][1]).union({self.N * self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, spacing, min_val=optimal_window[1][0], max_val=optimal_window[1][1]).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, spacing, min_val=optimal_window[2][0], max_val=optimal_window[2][1]).union({latitude[0]})))
         else:
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(spacing, dense_sampling).union({self.N*self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(spacing, dense_sampling).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(spacing, dense_sampling).union({latitude[0]})))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, spacing).union({self.N*self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, spacing).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, spacing).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
     
     def get_feasibility(self, sampling_matrix) -> list:
@@ -283,6 +282,7 @@ class ReactivePlannerCpp(Planner):
         t1_range = sampling_variables[0]
         ss1_range = sampling_variables[1]
         d1_range = sampling_variables[2]
+
         sampling_matrix = generate_sampling_matrix(t0_range=0.0,
                                                             t1_range=t1_range,
                                                             s0_range=x_0_lon[0],
@@ -296,6 +296,10 @@ class ReactivePlannerCpp(Planner):
                                                             d1_range=d1_range,
                                                             dd1_range=0.0,
                                                             ddd1_range=0.0)
+    
+        
+        print(f"Matrix is {sampling_matrix.shape}")
+        print(f"Trajectory Generated every {self.spacing[0]} meters")
         self.handler.reset_Trajectories()
         feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
         # ******************************************
@@ -315,6 +319,7 @@ class ReactivePlannerCpp(Planner):
         self._collision_counter = 0
         self.infeasible_kinematics_percentage = 0
         self.spacing = self.config_plan.planning.spacing
+        self.sampling_depth = self.config_plan.planning.sampling_depth
         # **************************************
         # Initialization of Cpp Frenet Functions
         # **************************************
@@ -332,74 +337,74 @@ class ReactivePlannerCpp(Planner):
         sampling_matrix = None
         t0 = time.time()
 
-        # samp_level = self._sampling_min
-        dense_sampling = False
-
         optimal_parameters = None
         window_size = 1
 
-        while True:
-            if optimal_trajectory:
-                optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
+        while optimal_trajectory is None:
             # *************************************
             # Create a sampling window around sparse sampling optimal lateral displacement
             # *************************************
-            if dense_sampling and MULTI_STAGE_SAMPLING:
-                print("ENTERING MULTI-STAGE SAMPLING")
-                optimal_trajectories = []
-                for level in range(SAMPLING_DEPTH):
+            optimal_trajectories = []
+            for i in range(self.sampling_depth):
+                level = (i + 1)
+                index = (i - 1)
+                if level > 1:
                     print(f"Sampling Stage: {level}")
-                    sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
-                    window_size = window_size * WIDTH_FACTOR
-                    print(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
-                    t1_range, ss1_range, d1_range = self.initial_sampling_variables(self.spacing[level], x_0_lon, x_0_lat, dense_sampling=True, optimal_window=sampling_window)
-                    # all you have to do here is increase samp level while decreasing the "sampling window", to do this I need change the dense_sampling_margin
+                    if optimal_trajectories and optimal_trajectories[index] is not None:
+                        optimal_parameters = getattr(optimal_trajectories[index], 'sampling_parameters')
+                        window_size = window_size * self.width_factor
+                        sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
+                        print(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
+                        t1_range, ss1_range, d1_range = self.initial_sampling_variables(level, self.spacing[i], x_0_lon, x_0_lat, optimal_window=sampling_window)
+                
+                        sampling_matrix = generate_sampling_matrix(t0_range=0.0,
+                                                                t1_range=t1_range,
+                                                                s0_range=x_0_lon[0],
+                                                                ss0_range=x_0_lon[1],
+                                                                sss0_range=x_0_lon[2],
+                                                                ss1_range=ss1_range,
+                                                                sss1_range=0,
+                                                                d0_range=x_0_lat[0],
+                                                                dd0_range=x_0_lat[1],
+                                                                ddd0_range=x_0_lat[2],
+                                                                d1_range=d1_range,
+                                                                dd1_range=0.0,
+                                                                ddd1_range=0.0)
+                        
+                        print(f"Matrix is {sampling_matrix.shape}")
+                        print(f"Trajectory Generated every {self.spacing[i]} meters")
+                
+                        self.handler.reset_Trajectories()
+                        feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+
+                        # ******************************************
+                        # Add Trajectories to a list to ensure we can access outside of the Multi-Stage Sampling loop
+                        # ******************************************
+
+                        optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
+                        if optimal_trajectory is not None:
+                            optimal_trajectories.append(optimal_trajectory)
+
+                    else:
+                        self.spacing = [s * 0.5 for s in self.spacing]
+                        window_size += 1
+                        print(f"No optimal trajectory found. Increasing window size to {window_size} and reducing spacing to {self.spacing}")
+                        break
+                
+                else:
+                    print(f"Sampling Stage: 1")
+                    sampling_variables = self.initial_sampling_variables(level, self.spacing[0], x_0_lon, x_0_lat) 
+                    optimal_trajectory, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(x_0_lat, x_0_lon, sampling_variables)
+                    if optimal_trajectory is not None:
+                        optimal_trajectories.append(optimal_trajectory)
+                    else:
+                        self.spacing = [s * 0.5 for s in self.spacing]
+                        window_size += 1
+                        print(f"No optimal trajectory found. Increasing window size to {window_size} and reducing spacing to {self.spacing}")
+                        break
             
-                    sampling_matrix = generate_sampling_matrix(t0_range=0.0,
-                                                            t1_range=t1_range,
-                                                            s0_range=x_0_lon[0],
-                                                            ss0_range=x_0_lon[1],
-                                                            sss0_range=x_0_lon[2],
-                                                            ss1_range=ss1_range,
-                                                            sss1_range=0,
-                                                            d0_range=x_0_lat[0],
-                                                            dd0_range=x_0_lat[1],
-                                                            ddd0_range=x_0_lat[2],
-                                                            d1_range=d1_range,
-                                                            dd1_range=0.0,
-                                                            ddd1_range=0.0)
-                    
-                    print(f"Matrix is {sampling_matrix.shape}")
-                    print(f"Trajectory Generated every {self.spacing[level]} meters")
-            
-                    self.handler.reset_Trajectories()
-                    feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
-
-                    # ******************************************
-                    # Add Trajectories to a list to ensure we can access outside of the Multi-Stage Sampling loop
-                    # ******************************************
-
-                    optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
-                    optimal_trajectories.append(optimal_trajectory)
-
-                    if optimal_trajectory != None:
-                        optimal_parameters = getattr(optimal_trajectory, 'sampling_parameters')
-            
-            else:
-                sampling_variables = self.initial_sampling_variables(self.spacing[0], x_0_lon, x_0_lat, dense_sampling=False)
-                optimal_trajectory, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(x_0_lat, x_0_lon, sampling_variables)
-
-            # ******************************************
-            # Check if Dense Layer has been Computed
-            # ******************************************
-
-            if optimal_trajectory is not None and not dense_sampling:
-                dense_sampling = True
+            if optimal_trajectory is None:
                 continue
-            elif dense_sampling:
-                break
-            else:
-                self.spacing = self.spacing * 0.8
 
 
         planning_time = time.time() - t0
