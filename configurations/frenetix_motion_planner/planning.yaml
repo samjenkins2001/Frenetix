@@ -15,6 +15,10 @@ spacing:
 - 0.8
 - 0.5
 t_min: 1.1
+trajectories:
+- 0.0
+- 0.0
+- 0.0
 v_max: 0
 v_min: 0
 width_factor: 0.9

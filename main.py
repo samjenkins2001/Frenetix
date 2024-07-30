@@ -65,14 +65,18 @@ def load_config(config_file):
     
 def get_user_input():
     spacing_values = []
+    num_trajectories = []
     print(f'Multi-stage sampling depth is {SAMPLING_DEPTH}')
     for i in range(SAMPLING_DEPTH):
         spacing = float(input(f'Enter distance (meters) between trajectories for multi-stage sampling level {i + 1}: '))
+        # trajectories = float(input(f'Enter number of trajectories you would like generated at sampling level {i + 1}: '))
         spacing_values.append(spacing)
+        # num_trajectories.append(trajectories)
     return spacing_values
 
 def update_planning_yaml(config, spacing_values):
     config['spacing'] = spacing_values
+    # config['trajectories'] = trajectories
 
 def save_config(config, config_file):
     with open(config_file, 'w') as file:

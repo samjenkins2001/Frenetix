@@ -65,6 +65,7 @@ class Planner:
         self.width_factor = config_plan.planning.width_factor
         self.sampling_depth = config_plan.planning.sampling_depth
         self.spacing = config_plan.planning.spacing
+        self.num_trajectories = config_plan.planning.trajectories
         self.N = int(config_plan.planning.planning_horizon / config_plan.planning.dt)
         self._check_valid_settings()
         self.vehicle_params = config_sim.vehicle
@@ -130,7 +131,8 @@ class Planner:
         # self._sampling_min = config_plan.planning.sampling_min
         # self._sampling_max = config_plan.planning.sampling_max
         ##THIS is where density is defined for the Various Planner methods
-        self.sampling_handler = SamplingHandler(dt=self.dT, spacing=self.spacing, sampling_depth=self.sampling_depth,
+        self.sampling_handler = SamplingHandler(dt=self.dT, spacing=self.spacing, num_trajectories = self.num_trajectories,
+                                                sampling_depth=self.sampling_depth,
                                                 t_min=config_plan.planning.t_min, horizon=self.horizon,
                                                 delta_d_max=config_plan.planning.d_max,
                                                 delta_d_min=config_plan.planning.d_min,
