@@ -82,6 +82,7 @@ class SamplingHandler:
         self.s_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.sampling_depth, self.spacing)
 
 
+
 def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_range, ss1_range, sss1_range, d0_range,
                              dd0_range, ddd0_range, d1_range, dd1_range, ddd1_range):
     """
@@ -129,12 +130,14 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
 
 
 class Sampling(ABC):
-    def __init__(self, minimum: float, maximum: float):
+    def __init__(self, minimum: float, maximum: float, sampling_depth: int, spacing: list):
 
         assert maximum >= minimum
 
         self.minimum = minimum
         self.maximum = maximum
+        self.sampling_depth = sampling_depth
+        self.spacing = spacing
         self._sampling_vec = list()
         self._initialization()
 
@@ -146,7 +149,7 @@ class Sampling(ABC):
     def _regenerate_sampling_vec(self):
         pass
 
-    def to_range(self, level: int, spacing: list, min_val: float = None, max_val: float = None) -> set:
+    def to_range(self, level: int, spacing: list, best_mult: int, min_val: float = None, max_val: float = None) -> set:
         """
         Obtain the sampling steps of a given sampling stage
         :param sampling_stage: The sampling stage to receive (>=0)
@@ -179,8 +182,9 @@ class VelocitySampling(Sampling):
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
         n = 3
-        for _ in range(self.sampling_depth):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, n)))
+        for i in range(self.sampling_depth):
+            steps = int(round((self.maximum - self.minimum) / (self.spacing[i] * mult))) + 1
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
             n = (n * 2) - 1
 
 
@@ -188,6 +192,7 @@ class LateralPositionSampling(Sampling):
     def __init__(self, minimum: float, maximum: float, sampling_depth: int, spacing: list):
         self.sampling_depth = sampling_depth
         self.spacing = spacing
+        self.mult = 1.0
         super(LateralPositionSampling, self).__init__(minimum, maximum)
 
     def _initialization(self):
@@ -200,6 +205,10 @@ class LateralPositionSampling(Sampling):
             steps = int(round((self.maximum - self.minimum) / self.spacing[i])) + 1
             self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
             n = (n * 2) - 1
+            
+    def set_mult(self, mult):
+        self.mult = mult
+        self._regenerate_sampling_vec()
 
 
 class LongitudinalPositionSampling(Sampling):

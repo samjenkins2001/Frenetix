@@ -41,6 +41,9 @@ from frenetix_motion_planner.utility.load_json import (
     load_risk_json
 )
 
+from reactive_planner_cpp import ReactivePlannerCpp
+from sampling_matrix import generate_sampling_matrix
+
 # get logger
 msg_logger = logging.getLogger("Message_logger")
 
@@ -314,6 +317,49 @@ class Planner:
         self.sampling_handler.set_v_sampling(min_v, max_v)
 
         self.msg_logger.info('Sampled interval of velocity: {} m/s - {} m/s'.format(min_v, max_v))
+
+    def find_optimal_velo_mult(self, x_0_lat, x_0_lon):
+        best_mult = None
+        best_trajectory = None
+        best_trajectory_quality = float('inf')  # Assume lower is better for quality metric
+
+        for mult in np.arange(1, 8, 0.1):
+            self.sampling_handler.v_sampling.set_mult(mult)
+
+            sampling_variables = ReactivePlannerCpp.initial_sampling_variables(1, self.spacing, x_0_lon, x_0_lat)
+            sampling_matrix = generate_sampling_matrix(
+                t0_range=0.0,
+                t1_range=sampling_variables[0],
+                s0_range=x_0_lon[0],
+                ss0_range=x_0_lon[1],
+                sss0_range=x_0_lon[2],
+                ss1_range=sampling_variables[1],
+                sss1_range=0,
+                d0_range=x_0_lat[0],
+                dd0_range=x_0_lat[1],
+                ddd0_range=x_0_lat[2],
+                d1_range=sampling_variables[2],
+                dd1_range=0.0,
+                ddd1_range=0.0
+            )
+
+            feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+            optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
+
+            if optimal_trajectory is not None:
+                trajectory_quality = self.evaluate_trajectory_quality(optimal_trajectory)
+
+                if trajectory_quality < best_trajectory_quality:
+                    best_trajectory_quality = trajectory_quality
+                    best_mult = mult
+                    best_trajectory = optimal_trajectory
+
+        self.msg_logger.info(f"Best mult value: {best_mult} with trajectory quality: {best_trajectory_quality}")
+        return best_mult, best_trajectory
+
+    def evaluate_trajectory_quality(self, trajectory):
+        # Implement this method based on your criteria for trajectory quality
+        return trajectory.cost
 
     def set_risk_costs(self, trajectory):
 
