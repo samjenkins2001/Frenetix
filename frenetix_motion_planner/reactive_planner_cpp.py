@@ -235,7 +235,7 @@ class ReactivePlannerCpp(Planner):
         optimal_window.append([optimal_d1 - width_factor, optimal_d1 + width_factor])
         return optimal_window
     
-    def initial_sampling_variables(self, level: int, spacing: list, best_mult: int, longitude: tuple, latitude: tuple, optimal_window: list = None) -> float:
+    def initial_sampling_variables(self, level: int, spacing: list, longitude: tuple, latitude: tuple, optimal_window: list = None) -> float:
         """
         Get the initial sampling variables for sparse and dense sampling windows
         :param dense_sampling boolean to determine if plan function is in the dense sampling phase
@@ -244,11 +244,11 @@ class ReactivePlannerCpp(Planner):
         """
         if level > 1:
             t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, spacing, min_val=optimal_window[0][0], max_val=optimal_window[0][1]).union({self.N * self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, spacing, best_mult, min_val=optimal_window[1][0], max_val=optimal_window[1][1]).union({longitude[1]})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, spacing, min_val=optimal_window[1][0], max_val=optimal_window[1][1]).union({longitude[1]})))
             d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, spacing, min_val=optimal_window[2][0], max_val=optimal_window[2][1]).union({latitude[0]})))
         else:
             t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, spacing).union({self.N*self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, spacing, best_mult).union({longitude[1]})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, spacing).union({longitude[1]})))
             d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, spacing).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
     
@@ -348,7 +348,6 @@ class ReactivePlannerCpp(Planner):
         self.msg_logger.debug('Initial state is: lon = {} / lat = {}'.format(x_0_lon, x_0_lat))
         self.msg_logger.debug('Desired velocity is {} m/s'.format(self.desired_velocity))
 
-        self.best_mult, _ = self.find_optimal_velo_mult(x_0_lat, x_0_lon)
 
         optimal_trajectory = None
         sampling_matrix = None
@@ -372,7 +371,7 @@ class ReactivePlannerCpp(Planner):
                             window_size = window_size * self.width_factor
                             sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
                             print(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
-                            t1_range, ss1_range, d1_range = self.initial_sampling_variables(level, self.spacing, self.best_mult, x_0_lon, x_0_lat, optimal_window=sampling_window)
+                            t1_range, ss1_range, d1_range = self.initial_sampling_variables(level, self.spacing, x_0_lon, x_0_lat, optimal_window=sampling_window)
                     
                             sampling_matrix = generate_sampling_matrix(t0_range=0.0,
                                                                     t1_range=t1_range,
@@ -410,7 +409,7 @@ class ReactivePlannerCpp(Planner):
 
                 else:
                     print(f"Sampling Stage: 1")
-                    sampling_variables = self.initial_sampling_variables(level, self.spacing, self.best_mult, x_0_lon, x_0_lat)
+                    sampling_variables = self.initial_sampling_variables(level, self.spacing, x_0_lon, x_0_lat)
                     optimal_trajectory, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(x_0_lat, x_0_lon, sampling_variables)
                     if optimal_trajectory is not None:
                         optimal_trajectories.append(optimal_trajectory)

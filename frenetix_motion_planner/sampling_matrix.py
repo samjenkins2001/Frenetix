@@ -130,14 +130,12 @@ def generate_sampling_matrix(*, t0_range, t1_range, s0_range, ss0_range, sss0_ra
 
 
 class Sampling(ABC):
-    def __init__(self, minimum: float, maximum: float, sampling_depth: int, spacing: list):
+    def __init__(self, minimum: float, maximum: float):
 
         assert maximum >= minimum
 
         self.minimum = minimum
         self.maximum = maximum
-        self.sampling_depth = sampling_depth
-        self.spacing = spacing
         self._sampling_vec = list()
         self._initialization()
 
@@ -149,7 +147,7 @@ class Sampling(ABC):
     def _regenerate_sampling_vec(self):
         pass
 
-    def to_range(self, level: int, spacing: list, best_mult: int, min_val: float = None, max_val: float = None) -> set:
+    def to_range(self, level: int, spacing: list, min_val: float = None, max_val: float = None) -> set:
         """
         Obtain the sampling steps of a given sampling stage
         :param sampling_stage: The sampling stage to receive (>=0)
@@ -182,8 +180,14 @@ class VelocitySampling(Sampling):
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
         n = 3
+        mult = [5, 4, 3, 2, 1]
+        ######################################
+        # current strategy is to arbitralily multiply spacing value by a multiplier to allow for feasible velocity sampling
+        # TODO
+        # Change the multiplier to a more accurate algorithm
+        ######################################
         for i in range(self.sampling_depth):
-            steps = int(round((self.maximum - self.minimum) / (self.spacing[i] * mult))) + 1
+            steps = int(round((self.maximum - self.minimum) / (self.spacing[i] * mult[i]))) + 1
             self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
             n = (n * 2) - 1
 

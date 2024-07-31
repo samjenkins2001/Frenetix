@@ -9,11 +9,11 @@ replanning_frequency: 3
 sampling_depth: 3
 sampling_max: 2
 sampling_min: 0
-scenario_name: DEU_B471-1_1_T-1
+scenario_name: DEU_A99-1_2_T-1
 spacing:
 - 1.0
 - 0.8
-- 0.5
+- 0.3
 t_min: 1.1
 trajectories:
 - 0.0
