@@ -69,14 +69,14 @@ def get_user_input():
     print(f'Multi-stage sampling depth is {SAMPLING_DEPTH}')
     for i in range(SAMPLING_DEPTH):
         spacing = float(input(f'Enter distance (meters) between trajectories for multi-stage sampling level {i + 1}: '))
-        # trajectories = float(input(f'Enter number of trajectories you would like generated at sampling level {i + 1}: '))
+        trajectories = float(input(f'Enter number of trajectories you would like generated at sampling level {i + 1}: '))
         spacing_values.append(spacing)
-        # num_trajectories.append(trajectories)
-    return spacing_values
+        num_trajectories.append(trajectories)
+    return spacing_values, num_trajectories
 
-def update_planning_yaml(config, spacing_values):
+def update_planning_yaml(config, spacing_values, trajectories):
     config['spacing'] = spacing_values
-    # config['trajectories'] = trajectories
+    config['trajectories'] = trajectories
 
 def save_config(config, config_file):
     with open(config_file, 'w') as file:
@@ -124,8 +124,8 @@ def main():
 
     planning_file = 'configurations/frenetix_motion_planner/planning.yaml'
     plan = load_config(planning_file)
-    spacing_values = get_user_input()
-    update_planning_yaml(plan, spacing_values)
+    spacing_values, num_trajectories = get_user_input()
+    update_planning_yaml(plan, spacing_values, num_trajectories)
     save_config(plan, planning_file)
 
     scenario_name = SCENARIO_NAME  # do not add .xml format to the name

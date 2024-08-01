@@ -12,7 +12,7 @@ collision_report: True
 activate_logging: True
 
 # Messages Logging
-# Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL
+# Options: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL, SAMPLING
 msg_log_mode: INFO
 
 # use multiprocessing True/False

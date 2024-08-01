@@ -11,12 +11,12 @@ import numpy as np
 from itertools import product
 from typing import List
 import pandas as pd
+import yaml
 import pdb
 from pdb import set_trace
 
 # frenetix_motion_planner imports
 from frenetix_motion_planner.sampling_matrix import generate_sampling_matrix
-from frenetix_motion_planner.sampling_matrix import SamplingHandler
 
 from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem
 from cr_scenario_handler.utils.visualization import visualize_scenario_and_pp
@@ -299,8 +299,8 @@ class ReactivePlannerCpp(Planner):
                                                             d1_range=d1_range,
                                                             dd1_range=0.0,
                                                             ddd1_range=0.0)
-        print(f"Matrix is {sampling_matrix.shape}")
-        print(f"Trajectory Generated every {self.spacing[0]} meters")
+        self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
+        self.msg_logger.info(f"Trajectory Generated every {self.spacing[0]} meters")
         self.handler.reset_Trajectories()
         feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
         # ******************************************
@@ -364,13 +364,13 @@ class ReactivePlannerCpp(Planner):
             for i in range(self.sampling_depth):
                 level = (i + 1) # Adds 1 to the sampling depth index for UI purposes
                 if level > 1:
-                    print(f"Sampling Stage: {level}")
+                    self.msg_logger.info(f"Sampling Stage: {level}")
                     if len(optimal_trajectories) == i:
                         if optimal_trajectories[i - 1] != None:
                             optimal_parameters = getattr(optimal_trajectories[i - 1], 'sampling_parameters')
                             window_size = window_size * self.width_factor
                             sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
-                            print(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
+                            self.msg_logger.info(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
                             t1_range, ss1_range, d1_range = self.initial_sampling_variables(level, self.spacing, x_0_lon, x_0_lat, optimal_window=sampling_window)
                     
                             sampling_matrix = generate_sampling_matrix(t0_range=0.0,
@@ -387,8 +387,8 @@ class ReactivePlannerCpp(Planner):
                                                                     dd1_range=0.0,
                                                                     ddd1_range=0.0)
                             
-                            print(f"Matrix is {sampling_matrix.shape}")
-                            print(f"Trajectory Generated every {self.spacing[i]} meters")
+                            self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
+                            self.msg_logger.info(f"Trajectory Generated every {self.spacing[i]} meters")
                     
                             self.handler.reset_Trajectories()
                             feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
@@ -408,7 +408,7 @@ class ReactivePlannerCpp(Planner):
                                 optimal_trajectories.append(optimal_trajectory)
 
                 else:
-                    print(f"Sampling Stage: 1")
+                    self.msg_logger.info(f"Sampling Stage: 1")
                     sampling_variables = self.initial_sampling_variables(level, self.spacing, x_0_lon, x_0_lat)
                     optimal_trajectory, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(x_0_lat, x_0_lon, sampling_variables)
                     if optimal_trajectory is not None:

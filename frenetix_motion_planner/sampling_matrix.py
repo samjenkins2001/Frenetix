@@ -180,14 +180,13 @@ class VelocitySampling(Sampling):
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
         n = 3
-        mult = [5, 4, 3, 2, 1]
         ######################################
         # current strategy is to arbitralily multiply spacing value by a multiplier to allow for feasible velocity sampling
         # TODO
         # Change the multiplier to a more accurate algorithm
         ######################################
         for i in range(self.sampling_depth):
-            steps = int(round((self.maximum - self.minimum) / (self.spacing[i] * mult[i]))) + 1
+            steps = int((self.maximum - self.minimum) / 1) + 1
             self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
             n = (n * 2) - 1
 
