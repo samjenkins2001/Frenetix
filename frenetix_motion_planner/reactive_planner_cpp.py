@@ -372,7 +372,7 @@ class ReactivePlannerCpp(Planner):
                             sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
                             self.msg_logger.info(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
                             t1_range, ss1_range, d1_range = self.initial_sampling_variables(level, self.spacing, x_0_lon, x_0_lat, optimal_window=sampling_window)
-                    
+
                             sampling_matrix = generate_sampling_matrix(t0_range=0.0,
                                                                     t1_range=t1_range,
                                                                     s0_range=x_0_lon[0],
@@ -386,6 +386,7 @@ class ReactivePlannerCpp(Planner):
                                                                     d1_range=d1_range,
                                                                     dd1_range=0.0,
                                                                     ddd1_range=0.0)
+                            
                             
                             self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
                             self.msg_logger.info(f"Trajectory Generated every {self.spacing[i]} meters")
