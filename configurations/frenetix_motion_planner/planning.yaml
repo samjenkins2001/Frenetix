@@ -17,8 +17,8 @@ ss1_spacing:
 - 2.0
 t_min: 1.1
 trajectories:
-- 80.0
-- 800.0
+- 100.0
+- 500.0
 v_max: 0
 v_min: 0
 width_factor: 0.9

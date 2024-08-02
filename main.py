@@ -64,23 +64,23 @@ def load_config(config_file):
         return yaml.safe_load(file)
     
 def get_user_input():
-    d1_spacing_values = []
-    ss1_spacing_values = []
+    # d1_spacing_values = []
+    # ss1_spacing_values = []
     num_trajectories = []
     print(f'Multi-stage sampling depth is {SAMPLING_DEPTH}')
     for i in range(SAMPLING_DEPTH):
-        d1_spacing = float(input(f'Enter distance (meters) between trajectories for multi-stage sampling level {i + 1}: '))
-        ss1_spacing = float(input(f'Enter speed (m/s) between trajectories for multi-stage sampling level {i + 1}: '))
-        # trajectories = float(input(f'Enter number of trajectories you would like generated at sampling level {i + 1}: '))
-        d1_spacing_values.append(d1_spacing)
-        ss1_spacing_values.append(ss1_spacing)
-        # num_trajectories.append(trajectories)
-    return d1_spacing_values, ss1_spacing_values
+        # d1_spacing = float(input(f'Enter distance (meters) between trajectories for multi-stage sampling level {i + 1}: '))
+        # ss1_spacing = float(input(f'Enter speed (m/s) between trajectories for multi-stage sampling level {i + 1}: '))
+        trajectories = float(input(f'Enter number of trajectories you would like generated at sampling level {i + 1}: '))
+        # d1_spacing_values.append(d1_spacing)
+        # ss1_spacing_values.append(ss1_spacing)
+        num_trajectories.append(trajectories)
+    return num_trajectories
 
-def update_planning_yaml(config, d1_spacing_values, ss1_spacing_values):
-    config['d1_spacing'] = d1_spacing_values
-    config['ss1_spacing'] = ss1_spacing_values
-    # config['trajectories'] = trajectories
+def update_planning_yaml(config, trajectories):
+    # config['d1_spacing'] = d1_spacing_values
+    # config['ss1_spacing'] = ss1_spacing_values
+    config['trajectories'] = trajectories
 
 def save_config(config, config_file):
     with open(config_file, 'w') as file:
@@ -128,8 +128,8 @@ def main():
 
     planning_file = 'configurations/frenetix_motion_planner/planning.yaml'
     plan = load_config(planning_file)
-    d1_spacing_values, ss1_spacing_values = get_user_input()
-    update_planning_yaml(plan, d1_spacing_values, ss1_spacing_values)
+    num_trajectories = get_user_input()
+    update_planning_yaml(plan, num_trajectories)
     save_config(plan, planning_file)
 
     scenario_name = SCENARIO_NAME  # do not add .xml format to the name
