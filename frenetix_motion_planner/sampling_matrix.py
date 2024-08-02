@@ -15,10 +15,11 @@ msg_logger = logging.getLogger("Message_logger")
 
 
 class SamplingHandler:
-    def __init__(self, dt: float, spacing: list, num_trajectories: list, sampling_depth: int, t_min: float, horizon: float, delta_d_min: float,
+    def __init__(self, dt: float, d1_spacing: list, ss1_spacing: list, num_trajectories: list, sampling_depth: int, t_min: float, horizon: float, delta_d_min: float,
                  delta_d_max: float, d_ego_pos: bool):
         self.dt = dt
-        self.spacing = spacing
+        self.d1_spacing = d1_spacing
+        self.ss1_spacing = ss1_spacing
         self.num_trajectories = num_trajectories
         self.sampling_depth = sampling_depth
         self.d_ego_pos = d_ego_pos
@@ -58,28 +59,28 @@ class SamplingHandler:
         :param t_min: minimum of sampled time horizon
         :param horizon: sampled time horizon
         """
-        self.t_sampling = TimeSampling(self.t_min, self.horizon, self.dt, self.sampling_depth, self.spacing)
+        self.t_sampling = TimeSampling(self.t_min, self.horizon, self.dt, self.sampling_depth)
 
     def set_d_sampling(self, lat_pos=None):
         """
         Sets sample parameters of lateral offset
         """
         if not self.d_ego_pos:
-            self.d_sampling = LateralPositionSampling(self.delta_d_min, self.delta_d_max, self.sampling_depth, self.spacing)
+            self.d_sampling = LateralPositionSampling(self.delta_d_min, self.delta_d_max, self.sampling_depth, self.d1_spacing)
         else:
-            self.d_sampling = LateralPositionSampling(lat_pos + self.delta_d_min, lat_pos + self.delta_d_max, self.sampling_depth, self.spacing)
+            self.d_sampling = LateralPositionSampling(lat_pos + self.delta_d_min, lat_pos + self.delta_d_max, self.sampling_depth, self.d1_spacing)
 
     def set_v_sampling(self, v_min, v_max):
         """
         Sets sample parameters of sampled velocity interval
         """
-        self.v_sampling = VelocitySampling(v_min, v_max, self.sampling_depth, self.spacing, self.num_trajectories)
+        self.v_sampling = VelocitySampling(v_min, v_max, self.sampling_depth, self.ss1_spacing)
 
     def set_s_sampling(self, delta_s_min, delta_s_max):
         """
         Sets sample parameters of lateral offset
         """
-        self.s_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.sampling_depth, self.spacing)
+        self.s_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.sampling_depth)
 
 
 
@@ -152,6 +153,8 @@ class Sampling(ABC):
     def _initialization(self):
         pass
 
+    # Spacing updates are not currently implemented in the Planner
+
     @abstractmethod
     def _regenerate_sampling_vec(self):
         pass
@@ -159,19 +162,22 @@ class Sampling(ABC):
     def get_sampling_vec(self):
         return self._sampling_vec
 
-    def to_range(self, level: int, spacing: list, min_val: float = None, max_val: float = None) -> set:
+    def to_range(self, level: int, d1_spacing: list = [0], ss1_spacing: list = [0], min_val: float = None, max_val: float = None) -> set:
         """
         Obtain the sampling steps of a given sampling stage
         :param sampling_stage: The sampling stage to receive (>=0)
         :return: The set of sampling steps for the queried sampling stage
         """
-        if self.spacing != spacing:
-            self.spacing = spacing
-            self._regenerate_sampling_vec()
+        # if self.d1_spacing != d1_spacing and self.ss1_spacing != ss1_spacing:
+        #     self.d1_spacing = d1_spacing
+        #     self.ss1_spacing = ss1_spacing
+        #     self._regenerate_sampling_vec()
+        self.d1_spacing = d1_spacing
+        self.ss1_spacing = ss1_spacing
 
         
-        assert 0 < len(self.spacing), '<Sampling/to_range>: Provided sampling spacing is' \
-                                                            ' incorrect! spacing = {}'.format(self.spacing)
+        assert 0 < len(self.d1_spacing), '<Sampling/to_range>: Provided lateral sampling spacing is' \
+                                                            ' incorrect! spacing = {}'.format(self.d1_spacing)
         
         if level > 1:
             self.minimum = min_val
@@ -182,67 +188,42 @@ class Sampling(ABC):
             return self._sampling_vec[level - 1]
 
 class VelocitySampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, sampling_depth: int, spacing: list, num_trajectories: list):
-        self.spacing = spacing
+    def __init__(self, minimum: float, maximum: float, sampling_depth: int, ss1_spacing: list):
+        self.ss1_spacing = ss1_spacing
         self.sampling_depth = sampling_depth
-        self.num_trajectories = num_trajectories
         super(VelocitySampling, self).__init__(minimum, maximum)
 
     def _initialization(self):
         self._regenerate_sampling_vec()
+        # self.set_shared_sampling_vec(self._sampling_vec)
 
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
-        divisor_range = np.arange(self.minimum, self.maximum, 0.1)
-        #######################################################
-        # TODO: Find a way to access values of past _sampling_vectors
-        #######################################################
-        vec = self.get_shared_sampling_vec()
-        t1 = vec[0]
-        d1 = vec[1]
-        n = 3
         for i in range(self.sampling_depth):
-            target_size = self.num_trajectories[i] / ((len(t1) + 1) * (len(d1) + 1))
-            smallest_diff = float("inf")
-            best_steps = None
-            
-            for divisor in divisor_range:
-                steps = int((self.maximum - self.minimum) / divisor) + 1
-                set_size = len(set(np.linspace(self.minimum, self.maximum, steps))) + 1
-
-                difference = abs(set_size - target_size)
-                if difference < smallest_diff:
-                    smallest_diff = difference
-                    best_steps = set_size
-
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, best_steps)))
-            vec2 = set(np.linspace(self.minimum, self.maximum, best_steps))
-            n = (n * 2) - 1
+            steps = int(round((self.maximum - self.minimum) / self.ss1_spacing[i])) + 1
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
 
 
 class LateralPositionSampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, sampling_depth: int, spacing: list):
+    def __init__(self, minimum: float, maximum: float, sampling_depth: int, d1_spacing: list):
         self.sampling_depth = sampling_depth
-        self.spacing = spacing
+        self.d1_spacing = d1_spacing
         super(LateralPositionSampling, self).__init__(minimum, maximum)
 
     def _initialization(self):
         self._regenerate_sampling_vec()
-        self.set_shared_sampling_vec(self._sampling_vec)
+        # self.set_shared_sampling_vec(self._sampling_vec)
 
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
-        n = 3
         for i in range(self.sampling_depth):
-            steps = int(round((self.maximum - self.minimum) / self.spacing[i])) + 1
+            steps = int(round((self.maximum - self.minimum) / self.d1_spacing[i])) + 1
             self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
-            n = (n * 2) - 1
 
 
 class LongitudinalPositionSampling(Sampling):
-    def __init__(self, maximum: float,  minimum: float, sampling_depth: int, spacing: list):
+    def __init__(self, maximum: float,  minimum: float, sampling_depth: int):
         self.sampling_depth = sampling_depth
-        self.spacing = spacing
         super(LongitudinalPositionSampling, self).__init__(maximum, minimum)
 
     def _initialization(self):
@@ -257,15 +238,14 @@ class LongitudinalPositionSampling(Sampling):
 
 
 class TimeSampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, dT: float, sampling_depth: int, spacing: list):
+    def __init__(self, minimum: float, maximum: float, dT: float, sampling_depth: int):
         self.dT = dT
         self.sampling_depth = sampling_depth
-        self.spacing = spacing
         super(TimeSampling, self).__init__(minimum, maximum)
 
     def _initialization(self):
         self._regenerate_sampling_vec()
-        self.set_shared_sampling_vec(self._sampling_vec)
+        # self.set_shared_sampling_vec(self._sampling_vec)
 
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []

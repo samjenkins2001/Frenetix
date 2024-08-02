@@ -228,6 +228,7 @@ class ReactivePlannerCpp(Planner):
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_", mode='a', header=False, index=False)
 
     def get_optimal_sampling_window(self, optimal_parameters: list, width_factor: float) -> list:
+        ## Change this from width factor to the spacing values for d1
         optimal_window = []
         optimal_t1, optimal_ss1, optimal_d1 = optimal_parameters[1], optimal_parameters[5], optimal_parameters[-3]
         optimal_window.append([optimal_t1 - width_factor, optimal_t1 + width_factor])
@@ -235,7 +236,7 @@ class ReactivePlannerCpp(Planner):
         optimal_window.append([optimal_d1 - width_factor, optimal_d1 + width_factor])
         return optimal_window
     
-    def initial_sampling_variables(self, level: int, spacing: list, longitude: tuple, latitude: tuple, optimal_window: list = None) -> float:
+    def initial_sampling_variables(self, level: int, d1_spacing: list, ss1_spacing: list, longitude: tuple, latitude: tuple, optimal_window: list = None) -> float:
         """
         Get the initial sampling variables for sparse and dense sampling windows
         :param dense_sampling boolean to determine if plan function is in the dense sampling phase
@@ -243,13 +244,13 @@ class ReactivePlannerCpp(Planner):
         :return: New sampling parameters for sampling matrix generation
         """
         if level > 1:
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, spacing, min_val=optimal_window[0][0], max_val=optimal_window[0][1]).union({self.N * self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, spacing, min_val=optimal_window[1][0], max_val=optimal_window[1][1]).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, spacing, min_val=optimal_window[2][0], max_val=optimal_window[2][1]).union({latitude[0]})))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, min_val=optimal_window[0][0], max_val=optimal_window[0][1]).union({self.N * self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, ss1_spacing, min_val=optimal_window[1][0], max_val=optimal_window[1][1]).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, d1_spacing, min_val=optimal_window[2][0], max_val=optimal_window[2][1]).union({latitude[0]})))
         else:
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, spacing).union({self.N*self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, spacing).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, spacing).union({latitude[0]})))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level).union({self.N*self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, ss1_spacing).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, d1_spacing).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
     
     def get_feasibility(self, sampling_matrix) -> list:
@@ -300,7 +301,7 @@ class ReactivePlannerCpp(Planner):
                                                             dd1_range=0.0,
                                                             ddd1_range=0.0)
         self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
-        self.msg_logger.info(f"Trajectory Generated every {self.spacing[0]} meters")
+        self.msg_logger.info(f"Trajectory Generated every {self.d1_spacing[0]} meters")
         self.handler.reset_Trajectories()
         feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
         # ******************************************
@@ -333,7 +334,8 @@ class ReactivePlannerCpp(Planner):
         self._infeasible_count_kinematics = np.zeros(11)
         self._collision_counter = 0
         self.infeasible_kinematics_percentage = 0
-        self.spacing = self.config_plan.planning.spacing
+        self.d1_spacing = self.config_plan.planning.d1_spacing
+        self.ss1_spacing = self.config_plan.planning.ss1_spacing
         self.sampling_depth = self.config_plan.planning.sampling_depth
         # **************************************
         # Initialization of Cpp Frenet Functions
@@ -371,7 +373,7 @@ class ReactivePlannerCpp(Planner):
                             window_size = window_size * self.width_factor
                             sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
                             self.msg_logger.info(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
-                            t1_range, ss1_range, d1_range = self.initial_sampling_variables(level, self.spacing, x_0_lon, x_0_lat, optimal_window=sampling_window)
+                            t1_range, ss1_range, d1_range = self.initial_sampling_variables(level, self.d1_spacing, self.ss1_spacing, x_0_lon, x_0_lat, optimal_window=sampling_window)
 
                             sampling_matrix = generate_sampling_matrix(t0_range=0.0,
                                                                     t1_range=t1_range,
@@ -389,7 +391,7 @@ class ReactivePlannerCpp(Planner):
                             
                             
                             self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
-                            self.msg_logger.info(f"Trajectory Generated every {self.spacing[i]} meters")
+                            self.msg_logger.info(f"Lateral Trajectory Generated every {self.d1_spacing[i]} meters")
                     
                             self.handler.reset_Trajectories()
                             feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
@@ -410,7 +412,7 @@ class ReactivePlannerCpp(Planner):
 
                 else:
                     self.msg_logger.info(f"Sampling Stage: 1")
-                    sampling_variables = self.initial_sampling_variables(level, self.spacing, x_0_lon, x_0_lat)
+                    sampling_variables = self.initial_sampling_variables(level, self.d1_spacing, self.ss1_spacing, x_0_lon, x_0_lat)
                     optimal_trajectory, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(x_0_lat, x_0_lon, sampling_variables)
                     if optimal_trajectory is not None:
                         optimal_trajectories.append(optimal_trajectory)

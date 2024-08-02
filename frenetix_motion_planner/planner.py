@@ -64,7 +64,8 @@ class Planner:
         self.dT = config_plan.planning.dt
         self.width_factor = config_plan.planning.width_factor
         self.sampling_depth = config_plan.planning.sampling_depth
-        self.spacing = config_plan.planning.spacing
+        self.d1_spacing = config_plan.planning.d1_spacing
+        self.ss1_spacing = config_plan.planning.ss1_spacing
         self.num_trajectories = config_plan.planning.trajectories
         self.N = int(config_plan.planning.planning_horizon / config_plan.planning.dt)
         self._check_valid_settings()
@@ -131,7 +132,8 @@ class Planner:
         # self._sampling_min = config_plan.planning.sampling_min
         # self._sampling_max = config_plan.planning.sampling_max
         ##THIS is where density is defined for the Various Planner methods
-        self.sampling_handler = SamplingHandler(dt=self.dT, spacing=self.spacing, num_trajectories = self.num_trajectories,
+        self.sampling_handler = SamplingHandler(dt=self.dT, d1_spacing=self.d1_spacing, ss1_spacing = self.ss1_spacing,
+                                                num_trajectories = self.num_trajectories,
                                                 sampling_depth=self.sampling_depth,
                                                 t_min=config_plan.planning.t_min, horizon=self.horizon,
                                                 delta_d_max=config_plan.planning.d_max,
@@ -552,7 +554,7 @@ class Planner:
         assert self.dT > 0, 'provided dt is not correct! dt = {}'.format(self.dT)
         assert self.N > 0 and isinstance(self.N, int), 'N is not correct!'
         assert self.horizon > 0, 'provided t_h is not correct! dt = {}'.format(self.horizon)
-        assert len(self.spacing) >= self.sampling_depth, 'Need more spacing values, Sampling Depth > Spacing Values!.'
+        assert len(self.d1_spacing) >= self.sampling_depth, 'Need more spacing values, Sampling Depth > Spacing Values!.'
 
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""
