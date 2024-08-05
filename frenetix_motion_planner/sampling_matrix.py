@@ -15,11 +15,9 @@ msg_logger = logging.getLogger("Message_logger")
 
 
 class SamplingHandler:
-    def __init__(self, dt: float, d1_spacing: list, ss1_spacing: list, num_trajectories: list, sampling_depth: int, t_min: float, horizon: float, delta_d_min: float,
+    def __init__(self, dt: float, num_trajectories: list, sampling_depth: int, t_min: float, horizon: float, delta_d_min: float,
                  delta_d_max: float, d_ego_pos: bool):
         self.dt = dt
-        self.d1_spacing = d1_spacing
-        self.ss1_spacing = ss1_spacing
         self.num_trajectories = num_trajectories
         self.sampling_depth = sampling_depth
         self.d_ego_pos = d_ego_pos
@@ -49,9 +47,6 @@ class SamplingHandler:
 
         self.set_t_sampling()
         self.set_d_sampling()
-
-    # def change_max_sampling_level(self, max_samp_lvl):
-    #     self.max_sampling_number = max_samp_lvl
 
     def set_t_sampling(self):
         """
@@ -142,6 +137,8 @@ class Sampling(ABC):
         self.maximum = maximum
         self.sampling_depth = sampling_depth
         self.num_trajectories = num_trajectories
+        self.d1_spacing = None
+        self.ss1_spacing = None
         self._sampling_vec = list()
         self._initialization()
     
@@ -161,38 +158,17 @@ class Sampling(ABC):
 
     def get_sampling_vec(self):
         return self._sampling_vec
-
-    def to_range(self, level: int, d1_spacing: list = [0], ss1_spacing: list = [0], min_val: float = None, max_val: float = None) -> set:
-        """
-        Obtain the sampling steps of a given sampling stage
-        :param sampling_stage: The sampling stage to receive (>=0)
-        :return: The set of sampling steps for the queried sampling stage
-        """
-        # if self.d1_spacing != d1_spacing and self.ss1_spacing != ss1_spacing:
-        #     self.d1_spacing = d1_spacing
-        #     self.ss1_spacing = ss1_spacing
-        #     self._regenerate_sampling_vec()
-        # self.d1_spacing = d1_spacing
-        # self.ss1_spacing = ss1_spacing
-
-        
-        assert 0 < len(self.d1_spacing), '<Sampling/to_range>: Provided lateral sampling spacing is' \
-                                                            ' incorrect! spacing = {}'.format(self.d1_spacing)
-        
-        if level > 1:
-            self.minimum = min_val
-            self.maximum = max_val
-            return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
-        else:
-            return self._sampling_vec[level - 1]
-        
-    def find_factor_pairs(goal):
+    
+    def find_factor_pairs(self, goal, tolerance):
         factor_pairs = []
 
-        for i in range(1, int(goal**0.5) + 1):
-            if goal % i == 0:
+        for i in range(1, goal + tolerance + 1):
+            if i > goal + tolerance:
+                break
+            if goal - tolerance <= i * (goal // i) <= goal + tolerance:
                 factor_pairs.append([i, goal // i])
         
+        factor_pairs.sort(key=lambda x: abs(x[0] - x[1]))
         return factor_pairs
     
         
@@ -200,55 +176,67 @@ class Sampling(ABC):
         vec = self.get_shared_sampling_vec()
         t1 = vec[stage]
         goal = int(self.num_trajectories[stage] / (len(t1) + 1))
-        combinations = self.find_factor_pairs(goal)
-        d1_values = []
-        ss1_values = []
-        #
-        # If not optimal trajectory is found switch d1 and ss1 combonation values and try again
-        #
-        for i in len(combinations):
-            d1_spacing = combinations[i][0]
-            d1_values.append(d1_spacing)
-            ss1_spacing = combinations[i][1]
-            ss1_values.append(ss1_spacing)
-        return d1_values, ss1_values
+        combinations = self.find_factor_pairs(goal, tolerance=20)
+        return combinations
+        # d1_values = []
+        # ss1_values = []
+        # for i in range(len(combinations)):
+        #     d1_spacing = combinations[i][0]
+        #     d1_values.append(d1_spacing)
+        #     ss1_spacing = combinations[i][1]
+        #     ss1_values.append(ss1_spacing)
+        # return d1_values, ss1_values
 
+    def to_range(self, level: int, min_val: float = None, max_val: float = None, d1_spacing: int = None, ss1_spacing: int = None) -> set:
+        """
+        Obtain the sampling steps of a given sampling stage
+        :param sampling_stage: The sampling stage to receive (>=0)
+        :return: The set of sampling steps for the queried sampling stage
+        """
+        self.d1_spacing = d1_spacing
+        self.ss1_spacing = ss1_spacing
 
+        
+        assert 0 < len(self.num_trajectories), '<Sampling/to_range>: Provided trajectories are' \
+                                                            ' incorrect! trajectories = {}'.format(self.num_trajectories)
+        
+        if level > 1:
+            self.minimum = min_val
+            self.maximum = max_val
+            return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
+        else:
+            return self._sampling_vec[level - 1]
 
 class VelocitySampling(Sampling):
     def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
-        # self.ss1_spacing = ss1_spacing
         self.num_trajectories = num_trajectories
         super(VelocitySampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories)
 
     def _initialization(self):
         self._regenerate_sampling_vec()
-        self.set_shared_sampling_vec(self._sampling_vec)
 
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
+        if self.ss1_spacing == None:
+                self.ss1_spacing = self.get_spacing(0)[0][1]
         for i in range(self.sampling_depth):
-            _, self.ss1_spacing = self.get_spacing(i)
-            steps = int(round((self.maximum - self.minimum) / self.ss1_spacing[i])) + 1
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing - 1))))
 
 
 class LateralPositionSampling(Sampling):
     def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
-        # self.d1_spacing = d1_spacing
         self.num_trajectories = num_trajectories
         super(LateralPositionSampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories)
 
     def _initialization(self):
         self._regenerate_sampling_vec()
-        self.set_shared_sampling_vec(self._sampling_vec)
 
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
+        if self.d1_spacing == None:
+                self.d1_spacing = self.get_spacing(0)[0][0]
         for i in range(self.sampling_depth):
-            self.d1_spacing, _ = self.get_spacing(i)
-            steps = int(round((self.maximum - self.minimum) / self.d1_spacing[i])) + 1
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing - 1))))
 
 
 class LongitudinalPositionSampling(Sampling):
