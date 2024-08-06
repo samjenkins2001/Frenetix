@@ -553,7 +553,7 @@ class Planner:
         assert self.dT > 0, 'provided dt is not correct! dt = {}'.format(self.dT)
         assert self.N > 0 and isinstance(self.N, int), 'N is not correct!'
         assert self.horizon > 0, 'provided t_h is not correct! dt = {}'.format(self.horizon)
-        assert self.sampling_depth > 0, 'Need at least single stage sampling, Sampling Depth = 0!.'
+        assert 6 > self.sampling_depth > 0, 'Sampling depth is either too large or 0. Cannot have sampling depth > 5 due to limited time sampling data in sampling vector generation'
 
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""

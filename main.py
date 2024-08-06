@@ -10,7 +10,6 @@ from frenetix_motion_planner.planner import Planner
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 from cr_scenario_handler.utils.general import get_scenario_list
-from config import SCENARIO_NAME, SAMPLING_DEPTH
 
 
 def run_simulation_wrapper(scenario_info):
@@ -63,12 +62,12 @@ def load_config(config_file):
     with open(config_file, "r") as file:
         return yaml.safe_load(file)
     
-def get_user_input():
+def get_user_input(config):
     # d1_spacing_values = []
     # ss1_spacing_values = []
     num_trajectories = []
-    print(f'Multi-stage sampling depth is {SAMPLING_DEPTH}')
-    for i in range(SAMPLING_DEPTH):
+    print(f"Multi-stage sampling depth is {config['sampling_depth']}")
+    for i in range(config['sampling_depth']):
         # d1_spacing = float(input(f'Enter distance (meters) between trajectories for multi-stage sampling level {i + 1}: '))
         # ss1_spacing = float(input(f'Enter speed (m/s) between trajectories for multi-stage sampling level {i + 1}: '))
         trajectories = float(input(f'Enter number of trajectories you would like generated at sampling level {i + 1}: '))
@@ -81,6 +80,7 @@ def update_planning_yaml(config, trajectories):
     # config['d1_spacing'] = d1_spacing_values
     # config['ss1_spacing'] = ss1_spacing_values
     config['trajectories'] = trajectories
+    return config['scenario']
 
 def save_config(config, config_file):
     with open(config_file, 'w') as file:
@@ -128,18 +128,17 @@ def main():
 
     planning_file = 'configurations/frenetix_motion_planner/planning.yaml'
     plan = load_config(planning_file)
-    num_trajectories = get_user_input()
-    update_planning_yaml(plan, num_trajectories)
+    num_trajectories = get_user_input(plan)
+    scenario = update_planning_yaml(plan, num_trajectories)
     save_config(plan, planning_file)
 
-    scenario_name = SCENARIO_NAME  # do not add .xml format to the name
-    scenario_folder = find_directory_with_file(scenario_name)
+    scenario_folder = find_directory_with_file(scenario)
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")
 
     # **********************************************************************
     # Getting the scenario list from general.py
     # **********************************************************************
-    scenario_files = get_scenario_list(scenario_name, scenario_folder, evaluation_pipeline, example_scenarios_list,
+    scenario_files = get_scenario_list(scenario, scenario_folder, evaluation_pipeline, example_scenarios_list,
                                        use_specific_scenario_list)
 
     # ***************************************************
