@@ -228,8 +228,25 @@ class ReactivePlannerCpp(Planner):
         else:
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_", mode='a', header=False, index=False)
 
+    def find_factor_pairs(self, goal, tolerance):
+        factor_pairs = []
+
+        for i in range(1, goal + tolerance + 1):
+            if i > goal + tolerance:
+                break
+            if goal - tolerance <= i * (goal // i) <= goal + tolerance:
+                factor_pairs.append([i, goal // i])
+        
+        factor_pairs.sort(key=lambda x: abs(x[0] - x[1]))
+        return factor_pairs
+    
+        
+    def get_spacing(self, stage: int, t1_len: int):
+        goal = int(self.num_trajectories[stage] / t1_len)
+        combinations = self.find_factor_pairs(goal, tolerance=20)
+        return combinations
+
     def get_optimal_sampling_window(self, optimal_parameters: list, width_factor: float) -> list:
-        ## Change this from width factor to the spacing values for d1
         optimal_window = []
         optimal_t1, optimal_ss1, optimal_d1 = optimal_parameters[1], optimal_parameters[5], optimal_parameters[-3]
         optimal_window.append([optimal_t1 - width_factor, optimal_t1 + width_factor])
@@ -281,6 +298,27 @@ class ReactivePlannerCpp(Planner):
         self.msg_logger.debug(
             'Percentage of valid & feasible trajectories: %s %%' % str(self.infeasible_kinematics_percentage))
         return feasible_trajectories, infeasible_trajectories
+    
+    def sampling_matrix(self, t1_range, ss1_range, d1_range, x_0_lon, x_0_lat):
+        sampling_matrix = generate_sampling_matrix(t0_range = 0,
+                                                        t1_range=t1_range,
+                                                        s0_range=x_0_lon[0],
+                                                        ss0_range=x_0_lon[1],
+                                                        sss0_range=x_0_lon[2],
+                                                        ss1_range=ss1_range,
+                                                        sss1_range=0,
+                                                        d0_range=x_0_lat[0],
+                                                        dd0_range=x_0_lat[1],
+                                                        ddd0_range=x_0_lat[2],
+                                                        d1_range=d1_range,
+                                                        dd1_range=0.0,
+                                                        ddd1_range=0.0)
+        self.handler.reset_Trajectories()
+        feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+        optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
+        return sampling_matrix, optimal_trajectory, feasible_trajectories, infeasible_trajectories
+    
+
 
     
     def get_single_stage_sampling(self, x_0_lat, x_0_lon, sampling_variables):
@@ -288,28 +326,11 @@ class ReactivePlannerCpp(Planner):
         ss1_range = sampling_variables[1]
         d1_range = sampling_variables[2]
 
-        sampling_matrix = generate_sampling_matrix(t0_range=0.0,
-                                                            t1_range=t1_range,
-                                                            s0_range=x_0_lon[0],
-                                                            ss0_range=x_0_lon[1],
-                                                            sss0_range=x_0_lon[2],
-                                                            ss1_range=ss1_range,
-                                                            sss1_range=0,
-                                                            d0_range=x_0_lat[0],
-                                                            dd0_range=x_0_lat[1],
-                                                            ddd0_range=x_0_lat[2],
-                                                            d1_range=d1_range,
-                                                            dd1_range=0.0,
-                                                            ddd1_range=0.0)
-        self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
-        # self.msg_logger.info(f"Trajectory Generated every {self.d1_spacing[0]} meters")
-        self.handler.reset_Trajectories()
-        feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
-        # ******************************************
-        # Check Feasible Trajectories for Collisions
-        # ******************************************
-        optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
-        return optimal_trajectory, feasible_trajectories, infeasible_trajectories
+        matrix, optimal, feas, infes = self.sampling_matrix(t1_range, ss1_range, d1_range, x_0_lon, x_0_lat)
+        if optimal is not None:
+            return optimal, matrix, sampling_variables, feas, infes
+        else:
+            return None
     
     def get_alternate_traj(self, optimal_trajectory, feasible_trajectories, sampling_matrix, lat):
         if optimal_trajectory is None and feasible_trajectories:
@@ -335,9 +356,11 @@ class ReactivePlannerCpp(Planner):
         self._infeasible_count_kinematics = np.zeros(11)
         self._collision_counter = 0
         self.infeasible_kinematics_percentage = 0
+        self.optimal_trajectories = []
         # self.d1_spacing = self.config_plan.planning.d1_spacing
         # self.ss1_spacing = self.config_plan.planning.ss1_spacing
         self.sampling_depth = self.config_plan.planning.sampling_depth
+        self.t1_len = self.config_plan.planning.t1_len
         # **************************************
         # Initialization of Cpp Frenet Functions
         # **************************************
@@ -359,8 +382,7 @@ class ReactivePlannerCpp(Planner):
         optimal_parameters = None
         window_size = 1
 
-        optimal_trajectories = []
-        while len(optimal_trajectories) != self.sampling_depth:
+        while len(self.optimal_trajectories) != self.sampling_depth:
             # *************************************
             # Create a sampling window around sparse sampling optimal lateral displacement
             # *************************************
@@ -368,17 +390,16 @@ class ReactivePlannerCpp(Planner):
                 level = (i + 1) # Adds 1 to the sampling depth index for UI purposes
                 if level > 1:
                     self.msg_logger.info(f"Sampling Stage: {level}")
-                    if len(optimal_trajectories) == i:
-                        if optimal_trajectories[i - 1] != None:
-                            optimal_parameters = getattr(optimal_trajectories[i - 1], 'sampling_parameters')
+                    if len(self.optimal_trajectories) == i: #This never happens
+                        if self.optimal_trajectories[i - 1] != None:
+                            optimal_parameters = getattr(self.optimal_trajectories[i - 1], 'sampling_parameters')
                             window_size = window_size * self.width_factor
                             sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
                             self.msg_logger.info(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
 
-                            spacing_combos = Sampling.get_spacing(i)
+                            spacing_combos = self.get_spacing(i, self.t1_len[level])
                             best_pair = None
 
-                            #Finding the best Factor pair if not optimal trajectory originally
                             for pair in spacing_combos:
                                 d1_spacing = pair[0]
                                 ss1_spacing = pair[1]
@@ -399,54 +420,54 @@ class ReactivePlannerCpp(Planner):
                                                                         dd1_range=0.0,
                                                                         ddd1_range=0.0)
                                 
-                                
-                                self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
-                                # self.msg_logger.info(f"Lateral Trajectory Generated every {self.d1_spacing[i]} meters")
-                        
                                 self.handler.reset_Trajectories()
                                 feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
-
-                                # ******************************************
-                                # Add Trajectories to a list to ensure we can access outside of the Multi-Stage Sampling loop
-                                # ******************************************
-
                                 optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
-                                if optimal_trajectory:
-                                    optimal_trajectories.append(optimal_trajectory)
+                                if optimal_trajectory is not None:
                                     best_pair = pair
+                                    print(best_pair)
                                     break
                             
+                            if optimal_trajectory is not None:
+                                self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
+                                self.optimal_trajectories.append(optimal_trajectory)
 
-                            if optimal_trajectory is None and self.x_0.velocity <= 0.1:
+                            elif optimal_trajectory is None and self.x_0.velocity <= 0.1:
                                 optimal_trajectory = self._compute_standstill_trajectory()
-                                optimal_trajectories.append(optimal_trajectory)
+                                self.optimal_trajectories.append(optimal_trajectory)
                             else:
                                 optimal_trajectory = self.get_alternate_traj(optimal_trajectory, feasible_trajectories, sampling_matrix, x_0_lat)
-                                optimal_trajectories.append(optimal_trajectory)
+                                self.optimal_trajectories.append(optimal_trajectory)
+                                
 
                 else:
                     self.msg_logger.info(f"Sampling Stage: 1")
-                    sampling = Sampling()
-                    spacing_combos = sampling.get_spacing(stage = i)
+                    spacing_combos = self.get_spacing(i, self.t1_len[0])
                     best_pair = None
 
-                    #Finding the best Factor pair if not optimal trajectory originally
                     for pair in spacing_combos:
                         d1_spacing = pair[0]
                         ss1_spacing = pair[1]
                         test_sampling_variables = self.initial_sampling_variables(level, x_0_lon, x_0_lat, d1_spacing=d1_spacing, ss1_spacing=ss1_spacing)
-                        optimal_trajectory, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(x_0_lat, x_0_lon, test_sampling_variables)
-                        if optimal_trajectory:
-                            optimal_trajectories.append(optimal_trajectory)
+                        optimal_trajectory, sampling_matrix, sampling_params, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(x_0_lat, x_0_lon, test_sampling_variables)
+                        if optimal_trajectory is not None:
                             best_pair = pair
+                            print(best_pair)
                             break
-
-                    if optimal_trajectory is None and self.x_0.velocity <= 0.1:
+                    
+                    if optimal_trajectory is not None:
+                        self.msg_logger.info(f"Matrix is {sampling_matrix.shape}")
+                        self.handler.reset_Trajectories()
+                        feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+                        optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
+                        self.optimal_trajectories.append(optimal_trajectory)
+                    
+                    elif optimal_trajectory is None and self.x_0.velocity <= 0.1:
                         optimal_trajectory = self._compute_standstill_trajectory()
-                        optimal_trajectories.append(optimal_trajectory)
+                        self.optimal_trajectories.append(optimal_trajectory)
                     else:
                         optimal_trajectory = self.get_alternate_traj(optimal_trajectory, feasible_trajectories, sampling_matrix, x_0_lat)
-                        optimal_trajectories.append(optimal_trajectory)
+                        self.optimal_trajectories.append(optimal_trajectory)
 
 
 
@@ -459,33 +480,10 @@ class ReactivePlannerCpp(Planner):
         self.msg_logger.debug('Rejected {} infeasible trajectories due to collisions'.format(
             self.infeasible_count_collision))
 
-        # ************************************************
-        # Fall back to standstill trajectory if applicable
-        # ************************************************
-        # if optimal_trajectory is None and self.x_0.velocity <= 0.1:
-        #     self.msg_logger.warning('Planning standstill for the current scenario')
-        #     if self.logger:
-        #         self.logger.trajectory_number = self.x_0.time_step
-        #     optimal_trajectory = self._compute_standstill_trajectory()
-
-        # # *******************************************
-        # # Find alternative Optimal Trajectory if None
-        # # *******************************************
-        # if optimal_trajectory is None and feasible_trajectories:
-        #     if self.config_plan.planning.emergency_mode == "stopping":
-        #         optimal_trajectory = self._select_stopping_trajectory(feasible_trajectories, sampling_matrix, x_0_lat[0])
-        #         self.msg_logger.warning("No optimal trajectory available. Select stopping trajectory!")
-        #     else:
-        #         for traje in feasible_trajectories:
-        #             self.set_risk_costs(traje)
-        #         sort_risk = sorted(feasible_trajectories, key=lambda traj: traj._ego_risk + traj._obst_risk, reverse=False)
-        #         self.msg_logger.warning("No optimal trajectory available. Select lowest risk trajectory!")
-        #         optimal_trajectory = sort_risk[0]
-
         # ******************************************
         # Update Trajectory Pair & Commonroad Object
         # ******************************************
-        self.trajectory_pair = self._compute_trajectory_pair(optimal_trajectories[-1]) if optimal_trajectories[-1] is not None else None
+        self.trajectory_pair = self._compute_trajectory_pair(self.optimal_trajectories[-1]) if self.optimal_trajectories[-1] is not None else None
         if self.trajectory_pair is not None:
             current_ego_vehicle = self.convert_state_list_to_commonroad_object(self.trajectory_pair[0].state_list,
                                                                                self.config_sim.simulation.ego_agent_id)
@@ -494,8 +492,8 @@ class ReactivePlannerCpp(Planner):
         # ************************************
         # Set Risk Costs to Optimal Trajectory
         # ************************************
-        if optimal_trajectories[-1] is not None and self.log_risk:
-            optimal_trajectory = self.set_risk_costs(optimal_trajectories[-1])
+        if self.optimal_trajectories[-1] is not None and self.log_risk:
+            optimal_trajectory = self.set_risk_costs(self.optimal_trajectories[-1])
 
         self.optimal_trajectory = optimal_trajectory
 

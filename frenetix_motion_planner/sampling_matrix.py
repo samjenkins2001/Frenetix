@@ -172,20 +172,19 @@ class Sampling(ABC):
         return factor_pairs
     
         
-    def get_spacing(self, stage):
+    def get_spacing(self):
         vec = self.get_shared_sampling_vec()
-        t1 = vec[stage]
-        goal = int(self.num_trajectories[stage] / (len(t1) + 1))
+        t1 = vec[0]
+        goal = int(self.num_trajectories[0] / (len(t1) + 1))
         combinations = self.find_factor_pairs(goal, tolerance=20)
-        return combinations
-        # d1_values = []
-        # ss1_values = []
-        # for i in range(len(combinations)):
-        #     d1_spacing = combinations[i][0]
-        #     d1_values.append(d1_spacing)
-        #     ss1_spacing = combinations[i][1]
-        #     ss1_values.append(ss1_spacing)
-        # return d1_values, ss1_values
+        d1_values = []
+        ss1_values = []
+        for i in range(len(combinations)):
+            d1_spacing = combinations[i][0]
+            d1_values.append(d1_spacing)
+            ss1_spacing = combinations[i][1]
+            ss1_values.append(ss1_spacing)
+        return d1_values, ss1_values
 
     def to_range(self, level: int, min_val: float = None, max_val: float = None, d1_spacing: int = None, ss1_spacing: int = None) -> set:
         """
@@ -218,9 +217,9 @@ class VelocitySampling(Sampling):
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
         if self.ss1_spacing == None:
-                self.ss1_spacing = self.get_spacing(0)[0][1]
+                _, self.ss1_spacing = self.get_spacing()
         for i in range(self.sampling_depth):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing - 1))))
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[0] - 1))))
 
 
 class LateralPositionSampling(Sampling):
@@ -234,9 +233,9 @@ class LateralPositionSampling(Sampling):
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
         if self.d1_spacing == None:
-                self.d1_spacing = self.get_spacing(0)[0][0]
+                self.d1_spacing, _ = self.get_spacing()
         for i in range(self.sampling_depth):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing - 1))))
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[0] - 1))))
 
 
 class LongitudinalPositionSampling(Sampling):
