@@ -394,7 +394,7 @@ class ReactivePlannerCpp(Planner):
                             sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
                             self.msg_logger.info(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
 
-                            spacing_combos = self.get_spacing(i, self.t1_len[level])
+                            spacing_combos = self.get_spacing(i, self.t1_len[i])
                             best_pair = None
 
                             for pair in spacing_combos:

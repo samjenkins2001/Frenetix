@@ -172,10 +172,10 @@ class Sampling(ABC):
         return factor_pairs
     
         
-    def get_spacing(self):
+    def get_spacing(self, stage):
         vec = self.get_shared_sampling_vec()
-        t1 = vec[0]
-        goal = int(self.num_trajectories[0] / (len(t1) + 1))
+        t1 = vec[stage]
+        goal = int(self.num_trajectories[stage] / (len(t1) + 1))
         combinations = self.find_factor_pairs(goal, tolerance=20)
         d1_values = []
         ss1_values = []
@@ -216,10 +216,10 @@ class VelocitySampling(Sampling):
 
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
-        if self.ss1_spacing == None:
-                _, self.ss1_spacing = self.get_spacing()
         for i in range(self.sampling_depth):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[0] - 1))))
+            if self.ss1_spacing == None:
+                _, self.ss1_spacing = self.get_spacing(i)
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[i] - 1))))
 
 
 class LateralPositionSampling(Sampling):
@@ -232,10 +232,10 @@ class LateralPositionSampling(Sampling):
 
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
-        if self.d1_spacing == None:
-                self.d1_spacing, _ = self.get_spacing()
         for i in range(self.sampling_depth):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[0] - 1))))
+            if self.d1_spacing == None:
+                self.d1_spacing, _ = self.get_spacing(i)
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[i] - 1))))
 
 
 class LongitudinalPositionSampling(Sampling):
