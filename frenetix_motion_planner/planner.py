@@ -64,8 +64,6 @@ class Planner:
         self.dT = config_plan.planning.dt
         self.width_factor = config_plan.planning.width_factor
         self.sampling_depth = config_plan.planning.sampling_depth
-        # self.d1_spacing = config_plan.planning.d1_spacing
-        # self.ss1_spacing = config_plan.planning.ss1_spacing
         self.num_trajectories = config_plan.planning.trajectories
         self.N = int(config_plan.planning.planning_horizon / config_plan.planning.dt)
         self._check_valid_settings()

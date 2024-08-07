@@ -12,11 +12,11 @@ from itertools import product
 from typing import List
 import pandas as pd
 import yaml
-import pdb
-from pdb import set_trace
+import os
 
 # frenetix_motion_planner imports
 from frenetix_motion_planner.sampling_matrix import generate_sampling_matrix
+from frenetix_motion_planner.sampling_matrix import Sampling
 
 from cr_scenario_handler.utils.utils_coordinate_system import CoordinateSystem
 from cr_scenario_handler.utils.visualization import visualize_scenario_and_pp
@@ -228,6 +228,7 @@ class ReactivePlannerCpp(Planner):
         else:
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_", mode='a', header=False, index=False)
 
+    #fix tolerance implementation
     def find_factor_pairs(self, goal, tolerance):
         factor_pairs = []
 
@@ -240,21 +241,47 @@ class ReactivePlannerCpp(Planner):
         factor_pairs.sort(key=lambda x: abs(x[0] - x[1]))
         return factor_pairs
     
-        
-    def get_spacing(self, stage: int, t1_len: int):
-        goal = int(self.num_trajectories[stage] / t1_len)
+    def get_spacing(self, stage):
+        self.t1 = self.config_plan.planning.t1_len
+        count = 0
+        goal = int(self.num_trajectories[stage] / self.t1[stage])
         combinations = self.find_factor_pairs(goal, tolerance=20)
-        return combinations
+        d1_values = []
+        ss1_values = []
+        for i in range(len(combinations)):
+            d1_spacing = combinations[i][0]
+            d1_values.append(d1_spacing)
+            ss1_spacing = combinations[i][1]
+            ss1_values.append(ss1_spacing)
+            count += 1
+        return d1_values, ss1_values, count
+        
+        
+    def update_spacing(self, level):
+        d1_list = []
+        ss1_list = []
+        yaml_path = "configurations/frenetix_motion_planner/spacing.yaml"
+        with open(yaml_path, 'r') as file:
+            config = yaml.safe_load(file)
+        for i in range(self.sampling_depth):
+            d1, ss1, _ = self.get_spacing(i)
+            d1_list.append(d1[level])
+            ss1_list.append(ss1[level])
+        config['d1_values'] = d1_list
+        config['ss1_values'] = ss1_list
+        with open(yaml_path, 'w') as file:
+            yaml.safe_dump(config, file)
 
     def get_optimal_sampling_window(self, optimal_parameters: list, width_factor: float) -> list:
         optimal_window = []
-        optimal_t1, optimal_ss1, optimal_d1 = optimal_parameters[1], optimal_parameters[5], optimal_parameters[-3]
-        optimal_window.append([optimal_t1 - width_factor, optimal_t1 + width_factor])
+        optimal_ss1, optimal_d1 = optimal_parameters[5], optimal_parameters[-3]
         optimal_window.append([optimal_ss1 - width_factor, optimal_ss1 + width_factor])
         optimal_window.append([optimal_d1 - width_factor, optimal_d1 + width_factor])
         return optimal_window
     
-    def initial_sampling_variables(self, level: int, longitude: tuple, latitude: tuple, optimal_window: list = None, d1_spacing = None, ss1_spacing = None) -> float:
+    def initial_sampling_variables(self, level: int, longitude: tuple, latitude: tuple, optimal_window: list = None) -> float:
+        self.horizon = self.config_plan.planning.planning_horizon
+        self.t_min = self.config_plan.planning.t_min
         """
         Get the initial sampling variables for sparse and dense sampling windows
         :param dense_sampling boolean to determine if plan function is in the dense sampling phase
@@ -262,13 +289,13 @@ class ReactivePlannerCpp(Planner):
         :return: New sampling parameters for sampling matrix generation
         """
         if level > 1:
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, min_val=optimal_window[0][0], max_val=optimal_window[0][1], d1_spacing=d1_spacing, ss1_spacing=ss1_spacing).union({self.N * self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, min_val=optimal_window[1][0], max_val=optimal_window[1][1], d1_spacing=d1_spacing, ss1_spacing=ss1_spacing).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, min_val=optimal_window[2][0], max_val=optimal_window[2][1], d1_spacing=d1_spacing, ss1_spacing=ss1_spacing).union({latitude[0]})))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, min_val=self.t_min, max_val= self.horizon).union({self.N * self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, min_val=optimal_window[0][0], max_val=optimal_window[0][1]).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, min_val=optimal_window[1][0], max_val=optimal_window[1][1]).union({latitude[0]})))
         else:
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, d1_spacing, ss1_spacing).union({self.N*self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, d1_spacing, ss1_spacing).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, d1_spacing, ss1_spacing).union({latitude[0]})))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level).union({self.N*self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
     
     def get_feasibility(self, sampling_matrix) -> list:
@@ -318,19 +345,6 @@ class ReactivePlannerCpp(Planner):
                                                         ddd1_range=0.0)
         return sampling_matrix
     
-
-
-    
-    def get_single_stage_sampling(self, sampling_variables, x_0_lat, x_0_lon):
-        sampling_matrix = self.get_sampling_matrix(sampling_variables, x_0_lat, x_0_lon)
-        self.handler.reset_Trajectories()
-        feas, infeas = self.get_feasibility(sampling_matrix)
-        optimal_trajectory = self.trajectory_collision_check(feas)
-        if optimal_trajectory is not None:
-            return optimal_trajectory, sampling_matrix, feas, infeas
-        else:
-            return None
-    
     def get_alternate_traj(self, optimal_trajectory, feasible_trajectories, sampling_matrix, lat):
         if optimal_trajectory is None and feasible_trajectories:
             if self.config_plan.planning.emergency_mode == "stopping":
@@ -355,9 +369,9 @@ class ReactivePlannerCpp(Planner):
         self._infeasible_count_kinematics = np.zeros(11)
         self._collision_counter = 0
         self.infeasible_kinematics_percentage = 0
+        self.samp_level = 0
         self.optimal_trajectories = []
         self.sampling_depth = self.config_plan.planning.sampling_depth
-        self.t1_len = self.config_plan.planning.t1_len
         # **************************************
         # Initialization of Cpp Frenet Functions
         # **************************************
@@ -394,23 +408,20 @@ class ReactivePlannerCpp(Planner):
                             sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
                             self.msg_logger.info(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
 
-                            spacing_combos = self.get_spacing(i, self.t1_len[i])
-                            best_pair = None
+                            test_sampling_variables = self.initial_sampling_variables(level, x_0_lon, x_0_lat, optimal_window=sampling_window)
 
-                            for pair in spacing_combos:
-                                t1 = self.t1_len[level]
-                                d1_spacing = pair[0]
-                                ss1_spacing = pair[1]
-                                test_sampling_variables = self.initial_sampling_variables(level, x_0_lon, x_0_lat, optimal_window=sampling_window, d1_spacing=d1_spacing, ss1_spacing=ss1_spacing)
-
-                                sampling_matrix = self.get_sampling_matrix(test_sampling_variables, x_0_lat, x_0_lon)
+                            sampling_matrix = self.get_sampling_matrix(test_sampling_variables, x_0_lat, x_0_lon)
                                 
-                                self.handler.reset_Trajectories()
-                                feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
-                                optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
-                                if optimal_trajectory is not None:
-                                    break
+                            self.handler.reset_Trajectories()
+                            feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+                            optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
                             
+                            _, _, combos = self.get_spacing(i)
+                            if optimal_trajectory is None and self.samp_level < (combos - 1):
+                                self.samp_level += 1
+                                self.update_spacing(self.samp_level)
+                                continue
+
                             if optimal_trajectory is not None:
                                 self.msg_logger.info(f"Selecting from {sampling_matrix.shape[0]} trajectories")
                                 self.optimal_trajectories.append(optimal_trajectory)
@@ -425,16 +436,18 @@ class ReactivePlannerCpp(Planner):
 
                 else:
                     self.msg_logger.info(f"Sampling Stage: 1")
-                    spacing_combos = self.get_spacing(i, self.t1_len[0])
-                    best_pair = None
+                    
+                    test_sampling_variables = self.initial_sampling_variables(level, x_0_lon, x_0_lat)
+                    sampling_matrix = self.get_sampling_matrix(test_sampling_variables, x_0_lat, x_0_lon)
+                    self.handler.reset_Trajectories()
+                    feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+                    optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
 
-                    for pair in spacing_combos:
-                        d1_spacing = pair[0]
-                        ss1_spacing = pair[1]
-                        test_sampling_variables = self.initial_sampling_variables(level, x_0_lon, x_0_lat, d1_spacing=d1_spacing, ss1_spacing=ss1_spacing)
-                        optimal_trajectory, sampling_matrix, feasible_trajectories, infeasible_trajectories = self.get_single_stage_sampling(test_sampling_variables, x_0_lat, x_0_lon)
-                        if optimal_trajectory is not None:
-                            break
+                    _, _, combos = self.get_spacing(i)
+                    if optimal_trajectory is None and self.samp_level < (combos - 1):
+                        self.samp_level += 1
+                        self.update_spacing(self.samp_level)
+                        continue
                     
                     if optimal_trajectory is not None:
                         self.msg_logger.info(f"Selecting from {sampling_matrix.shape[0]} trajectories")

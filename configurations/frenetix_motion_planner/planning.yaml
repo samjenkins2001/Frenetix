@@ -12,14 +12,14 @@ sampling_min: 0
 scenario: DEU_B471-1_1_T-1
 t1_len:
 - 3
-- 5
-- 8
-- 11
-- 11
+- 4
+- 7
+- 10
+- 10
 t_min: 1.1
 trajectories:
-- 500.0
-- 1000.0
+- 80.0
+- 800.0
 v_max: 0
 v_min: 0
 width_factor: 0.9

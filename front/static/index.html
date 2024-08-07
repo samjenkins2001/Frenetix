@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation Input</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Simulation Input</h1>
+        <form id="simulation-form">
+            <label for="parameter">Choose a parameter:</label>
+            <select id="parameter" name="parameter">
+                <option value="spacing">Spacing</option>
+                <option value="num_trajectories">Number of Trajectories</option>
+            </select>
+
+            <label for="value">Enter the value:</label>
+            <input type="number" id="value" name="value" required>
+
+            <button type="submit">Run Simulation</button>
+        </form>
+
+        <div id="result"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

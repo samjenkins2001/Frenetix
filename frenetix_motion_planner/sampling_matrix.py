@@ -9,6 +9,7 @@ import numpy as np
 import itertools
 import logging
 from abc import ABC, abstractmethod
+import yaml
 
 # get logger
 msg_logger = logging.getLogger("Message_logger")
@@ -137,9 +138,8 @@ class Sampling(ABC):
         self.maximum = maximum
         self.sampling_depth = sampling_depth
         self.num_trajectories = num_trajectories
-        self.d1_spacing = None
-        self.ss1_spacing = None
         self._sampling_vec = list()
+        self.populate_spacing()
         self._initialization()
     
     def get_shared_sampling_vec(self):
@@ -173,9 +173,8 @@ class Sampling(ABC):
     
         
     def get_spacing(self, stage):
-        vec = self.get_shared_sampling_vec()
-        t1 = vec[stage]
-        goal = int(self.num_trajectories[stage] / (len(t1) + 1))
+        t1_len = [3, 4, 7, 10, 10]
+        goal = int(self.num_trajectories[stage] / t1_len[stage])
         combinations = self.find_factor_pairs(goal, tolerance=20)
         d1_values = []
         ss1_values = []
@@ -185,16 +184,34 @@ class Sampling(ABC):
             ss1_spacing = combinations[i][1]
             ss1_values.append(ss1_spacing)
         return d1_values, ss1_values
+    
+    
+    def populate_spacing(self):
+        d1_list = []
+        ss1_list = []
+        yaml_path = "configurations/frenetix_motion_planner/spacing.yaml"
+        with open(yaml_path, 'r') as file:
+            config = yaml.safe_load(file)
+        for i in range(self.sampling_depth):
+            d1, ss1 = self.get_spacing(i)
+            d1_list.append(d1[0])
+            ss1_list.append(ss1[0])
+        config['d1_values'] = d1_list
+        config['ss1_values'] = ss1_list
+        with open(yaml_path, 'w') as file:
+            yaml.safe_dump(config, file)
+        
+        self.d1_spacing = config['d1_values']
+        self.ss1_spacing = config['ss1_values']
+    
 
-    def to_range(self, level: int, min_val: float = None, max_val: float = None, d1_spacing: int = None, ss1_spacing: int = None) -> set:
+
+    def to_range(self, level: int, min_val: float = None, max_val: float = None) -> set:
         """
         Obtain the sampling steps of a given sampling stage
         :param sampling_stage: The sampling stage to receive (>=0)
         :return: The set of sampling steps for the queried sampling stage
         """
-        self.d1_spacing = d1_spacing
-        self.ss1_spacing = ss1_spacing
-
         
         assert 0 < len(self.num_trajectories), '<Sampling/to_range>: Provided trajectories are' \
                                                             ' incorrect! trajectories = {}'.format(self.num_trajectories)
@@ -202,8 +219,10 @@ class Sampling(ABC):
         if level > 1:
             self.minimum = min_val
             self.maximum = max_val
+            # print(set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1]))))
             return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
         else:
+            # print(self._sampling_vec[level - 1])
             return self._sampling_vec[level - 1]
 
 class VelocitySampling(Sampling):
@@ -217,10 +236,8 @@ class VelocitySampling(Sampling):
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
         for i in range(self.sampling_depth):
-            if self.ss1_spacing == None:
-                _, self.ss1_spacing = self.get_spacing(i)
+            # _, ss1_spacing = self.get_spacing(i)
             self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[i] - 1))))
-
 
 class LateralPositionSampling(Sampling):
     def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
@@ -233,8 +250,7 @@ class LateralPositionSampling(Sampling):
     def _regenerate_sampling_vec(self):
         self._sampling_vec = []
         for i in range(self.sampling_depth):
-            if self.d1_spacing == None:
-                self.d1_spacing, _ = self.get_spacing(i)
+            # d1_spacing, _ = self.get_spacing(i)
             self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[i] - 1))))
 
 
