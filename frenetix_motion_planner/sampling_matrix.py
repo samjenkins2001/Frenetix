@@ -153,7 +153,7 @@ class Sampling(ABC):
         pass
 
     @abstractmethod
-    def _regenerate_sampling_vec(self):
+    def _regenerate_sampling_vec(self, mode):
         pass
 
     def get_sampling_vec(self):
@@ -203,15 +203,36 @@ class Sampling(ABC):
         
         self.d1_spacing = config['d1_values']
         self.ss1_spacing = config['ss1_values']
+
     
+    def update_spacing_ss1(self):
+        with open("configurations/frenetix_motion_planner/spacing.yaml", 'r') as file:
+            data = yaml.safe_load(file)
+            self.cur_ss1 = data['ss1_values']
+            if self.ss1_spacing != self.cur_ss1:
+                self.ss1_spacing = self.cur_ss1
+                return True
+            else:
+                return False
+            
+    def update_spacing_d1(self):
+        with open("configurations/frenetix_motion_planner/spacing.yaml", 'r') as file:
+            data = yaml.safe_load(file)
+            self.cur_d1 = data['d1_values']
+            if self.d1_spacing != self.cur_d1:
+                self.d1_spacing = self.cur_d1
+                return True
+            else:
+                return False
 
 
-    def to_range(self, level: int, min_val: float = None, max_val: float = None) -> set:
+    def to_range(self, level: int, min_val: float = None, max_val: float = None, type: str = '', mode: str = 'normal') -> set:
         """
         Obtain the sampling steps of a given sampling stage
         :param sampling_stage: The sampling stage to receive (>=0)
         :return: The set of sampling steps for the queried sampling stage
         """
+
         
         assert 0 < len(self.num_trajectories), '<Sampling/to_range>: Provided trajectories are' \
                                                             ' incorrect! trajectories = {}'.format(self.num_trajectories)
@@ -219,11 +240,16 @@ class Sampling(ABC):
         if level > 1:
             self.minimum = min_val
             self.maximum = max_val
-            # print(set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1]))))
             return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
         else:
-            # print(self._sampling_vec[level - 1])
-            return self._sampling_vec[level - 1]
+            if self.update_spacing_ss1() and type == 'ss1':
+                VelocitySampling._regenerate_sampling_vec(self, mode)
+                return self._sampling_vec[level - 1]
+            elif self.update_spacing_d1() and type == 'd1':
+                LateralPositionSampling._regenerate_sampling_vec(self, mode)
+                return self._sampling_vec[level - 1]
+            else:
+                return self._sampling_vec[level - 1]
 
 class VelocitySampling(Sampling):
     def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
@@ -231,13 +257,18 @@ class VelocitySampling(Sampling):
         super(VelocitySampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories)
 
     def _initialization(self):
-        self._regenerate_sampling_vec()
+        self._regenerate_sampling_vec(mode='normal')
 
-    def _regenerate_sampling_vec(self):
-        self._sampling_vec = []
-        for i in range(self.sampling_depth):
-            # _, ss1_spacing = self.get_spacing(i)
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[i] - 1))))
+    def _regenerate_sampling_vec(self, mode):
+        if mode == 'normal':
+            self._sampling_vec = []
+            for i in range(self.sampling_depth):
+                self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[i] - 1))))
+        else:
+            minimum = 0
+            maximum = 50
+            for i in range(self.sampling_depth):
+                self._sampling_vec.append(set(np.linspace(minimum, maximum, (self.ss1_spacing[i] - 1))))
 
 class LateralPositionSampling(Sampling):
     def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
@@ -245,13 +276,18 @@ class LateralPositionSampling(Sampling):
         super(LateralPositionSampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories)
 
     def _initialization(self):
-        self._regenerate_sampling_vec()
+        self._regenerate_sampling_vec(mode='normal')
 
-    def _regenerate_sampling_vec(self):
-        self._sampling_vec = []
-        for i in range(self.sampling_depth):
-            # d1_spacing, _ = self.get_spacing(i)
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[i] - 1))))
+    def _regenerate_sampling_vec(self, mode):
+        if mode == 'normal':
+            self._sampling_vec = []
+            for i in range(self.sampling_depth):
+                self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[i] - 1))))
+        else:
+            minimum = 0
+            maximum = 10
+            for i in range(self.sampling_depth):
+                self._sampling_vec.append(set(np.linspace(minimum, maximum, (self.d1_spacing[i] - 1))))
 
 
 class LongitudinalPositionSampling(Sampling):
@@ -261,7 +297,7 @@ class LongitudinalPositionSampling(Sampling):
     def _initialization(self):
         self._regenerate_sampling_vec()
 
-    def _regenerate_sampling_vec(self):
+    def _regenerate_sampling_vec(self, mode):
         self._sampling_vec = []
         n = 3
         for _ in range(self.sampling_depth):
@@ -275,20 +311,18 @@ class TimeSampling(Sampling):
         super(TimeSampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories)
 
     def _initialization(self):
-        self._regenerate_sampling_vec()
+        self._regenerate_sampling_vec(mode='normal')
+        # self.update_spacing()
         self.set_shared_sampling_vec(self._sampling_vec)
 
-    def _regenerate_sampling_vec(self):
+    def _regenerate_sampling_vec(self, mode):
         self._sampling_vec = []
         for i in range(self.sampling_depth):
             step_size = int((1 / (i + 1)) / self.dT)
             samp = set(np.round(np.arange(self.minimum, self.maximum + self.dT, (step_size * self.dT)), 2))
             samp.discard(elem for elem in list(samp) if elem > round(self.maximum + self.dT, 2))
             self._sampling_vec.append(samp)
-    
 
-
-# This class will return step values which must be passed into the Lateral and Velocity classes for optimal sampling
 
         
 
