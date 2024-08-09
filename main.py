@@ -10,6 +10,7 @@ from frenetix_motion_planner.planner import Planner
 from cr_scenario_handler.simulation.simulation import Simulation
 from cr_scenario_handler.utils.configuration_builder import ConfigurationBuilder
 from cr_scenario_handler.utils.general import get_scenario_list
+import matplotlib.pyplot as plt
 
 
 def run_simulation_wrapper(scenario_info):

@@ -13,6 +13,7 @@ from typing import List
 import pandas as pd
 import yaml
 import os
+import matplotlib.pyplot as plt
 
 # frenetix_motion_planner imports
 from frenetix_motion_planner.sampling_matrix import generate_sampling_matrix
@@ -453,16 +454,22 @@ class ReactivePlannerCpp(Planner):
                     sampling_matrix = self.get_sampling_matrix(test_sampling_variables, x_0_lat, x_0_lon)
                     self.handler.reset_Trajectories()
                     feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
+
+                    ax = plt.gca()
+                    for traj in infeasible_trajectories:
+                        ax.plot(traj.cartesian.x, traj.cartesian.y)
+                    plt.show()
                     optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
 
                     _, _, combos = self.get_spacing(i, self.tolerance)
-                    if optimal_trajectory is None and self.samp_level < (combos - 1):
+                    if optimal_trajectory is None and self.samp_level < (combos - 1) and feasible_trajectories == []:
+                        self.mode = 'normal'
                         self.samp_level += 1
                         self.update_spacing(self.samp_level, self.tolerance)
                         self.msg_logger.info(f"Selecting from {sampling_matrix.shape[0]} trajectories")
                         continue
 
-                    elif optimal_trajectory is None:
+                    elif optimal_trajectory is None and feasible_trajectories == []:
                         self.tolerance *= 2
                         self.samp_level = 0
                         self.mode = 'emergency'

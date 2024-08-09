@@ -260,15 +260,12 @@ class VelocitySampling(Sampling):
         self._regenerate_sampling_vec(mode='normal')
 
     def _regenerate_sampling_vec(self, mode):
-        if mode == 'normal':
-            self._sampling_vec = []
-            for i in range(self.sampling_depth):
-                self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[i] - 1))))
-        else:
-            minimum = 0
-            maximum = 50
-            for i in range(self.sampling_depth):
-                self._sampling_vec.append(set(np.linspace(minimum, maximum, (self.ss1_spacing[i] - 1))))
+        if mode == 'emergency':
+            self.minimum = 0
+            self.maximum = self.maximum * 2
+        self._sampling_vec = []
+        for i in range(self.sampling_depth):
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[i] - 1))))
 
 class LateralPositionSampling(Sampling):
     def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
@@ -279,15 +276,12 @@ class LateralPositionSampling(Sampling):
         self._regenerate_sampling_vec(mode='normal')
 
     def _regenerate_sampling_vec(self, mode):
-        if mode == 'normal':
-            self._sampling_vec = []
-            for i in range(self.sampling_depth):
-                self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[i] - 1))))
-        else:
-            minimum = 0
-            maximum = 10
-            for i in range(self.sampling_depth):
-                self._sampling_vec.append(set(np.linspace(minimum, maximum, (self.d1_spacing[i] - 1))))
+        if mode == 'emergency':
+            self.minimum = 0
+            self.maximum = self.maximum * 2
+        self._sampling_vec = []
+        for i in range(self.sampling_depth):
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[i] - 1))))
 
 
 class LongitudinalPositionSampling(Sampling):
