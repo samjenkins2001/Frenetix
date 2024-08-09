@@ -338,7 +338,8 @@ class Planner:
         :return trajectory: optimal feasible trajectory or None
         """
         # go through sorted list of sorted trajectories and check for collisions
-        for trajectory in feasible_trajectories:
+        sorted_feasible = sorted(feasible_trajectories, key=lambda traj: (-traj.sampling_parameters[5], abs(traj.sampling_parameters[-3])))
+        for trajectory in sorted_feasible:
             # skip trajectory if occ module is activated and trajectory is invalid (harm exceeds max harm)
             if self.use_occ_model and trajectory.valid is False:
                 continue

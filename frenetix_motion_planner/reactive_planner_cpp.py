@@ -229,14 +229,13 @@ class ReactivePlannerCpp(Planner):
         else:
             dataframe.to_csv(f"frenetix_motion_planner/sampling_matrices/sparse/{filename}_", mode='a', header=False, index=False)
 
-    #fix tolerance implementation
     def find_factor_pairs(self, goal, tolerance):
         factor_pairs = []
 
         for i in range(1, goal + tolerance + 1):
             quotient = (goal + tolerance) // i
             product = i * quotient
-            if goal - tolerance <= product <= goal + tolerance and quotient > 0:
+            if goal - tolerance <= product <= goal + tolerance and quotient > 2 and i > 2:
                 pair = [i, quotient]
                 factor_pairs.append(pair)
                 if pair[0] != pair[1]:
@@ -376,7 +375,7 @@ class ReactivePlannerCpp(Planner):
         self._collision_counter = 0
         self.infeasible_kinematics_percentage = 0
         self.samp_level = 0
-        self.tolerance = 10
+        self.tolerance = 0
         self.mode = ''
         self.optimal_trajectories = []
         self.sampling_depth = self.config_plan.planning.sampling_depth
@@ -425,8 +424,16 @@ class ReactivePlannerCpp(Planner):
                     
                     _, _, combos = self.get_spacing(i, self.tolerance)
                     if optimal_trajectory is None and self.samp_level < (combos - 1):
+                        self.mode = 'normal'
                         self.samp_level += 1
                         self.update_spacing(self.samp_level, self.tolerance)
+                        self.msg_logger.info(f"Selecting from {sampling_matrix.shape[0]} trajectories")
+                        continue
+
+                    elif optimal_trajectory is None and feasible_trajectories == []:
+                        self.tolerance *= 2
+                        self.samp_level = 0
+                        self.mode = 'emergency'
                         continue
 
                     if optimal_trajectory is not None:
@@ -455,14 +462,10 @@ class ReactivePlannerCpp(Planner):
                     self.handler.reset_Trajectories()
                     feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
 
-                    ax = plt.gca()
-                    for traj in infeasible_trajectories:
-                        ax.plot(traj.cartesian.x, traj.cartesian.y)
-                    plt.show()
                     optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
 
                     _, _, combos = self.get_spacing(i, self.tolerance)
-                    if optimal_trajectory is None and self.samp_level < (combos - 1) and feasible_trajectories == []:
+                    if optimal_trajectory is None and self.samp_level < (combos - 1):
                         self.mode = 'normal'
                         self.samp_level += 1
                         self.update_spacing(self.samp_level, self.tolerance)

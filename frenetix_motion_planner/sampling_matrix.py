@@ -163,10 +163,19 @@ class Sampling(ABC):
         factor_pairs = []
 
         for i in range(1, goal + tolerance + 1):
-            if i > goal + tolerance:
-                break
-            if goal - tolerance <= i * (goal // i) <= goal + tolerance:
-                factor_pairs.append([i, goal // i])
+            quotient = (goal + tolerance) // i
+            product = i * quotient
+            if goal - tolerance <= product <= goal + tolerance and quotient > 2 and i > 2:
+                pair = [i, quotient]
+                factor_pairs.append(pair)
+                if pair[0] != pair[1]:
+                    factor_pairs.append(pair[::-1])
+            elif len(factor_pairs) == 0:
+                tolerance += 10
+                i = 0
+                continue
+
+        factor_pairs = [list(t) for t in set(tuple(p) for p in factor_pairs)]
         
         factor_pairs.sort(key=lambda x: abs(x[0] - x[1]))
         return factor_pairs
@@ -175,7 +184,7 @@ class Sampling(ABC):
     def get_spacing(self, stage):
         t1_len = [3, 4, 7, 10, 10]
         goal = int(self.num_trajectories[stage] / t1_len[stage])
-        combinations = self.find_factor_pairs(goal, tolerance=20)
+        combinations = self.find_factor_pairs(goal, tolerance=0)
         d1_values = []
         ss1_values = []
         for i in range(len(combinations)):

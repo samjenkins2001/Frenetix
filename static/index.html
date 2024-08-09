@@ -10,15 +10,12 @@
     <div class="container">
         <h1>Simulation Input</h1>
         <form id="simulation-form">
-            <label for="parameter">Choose a parameter:</label>
-            <select id="parameter" name="parameter">
-                <option value="spacing">Spacing</option>
-                <option value="num_trajectories">Number of Trajectories</option>
-            </select>
-
-            <label for="value">Enter the value:</label>
-            <input type="number" id="value" name="value" required>
-
+            <label for="sampling_depth">Sampling Depth:</label>
+            <input type="number" id="sampling_depth" name="sampling_depth" required>
+            <br>
+            <label for="num_trajectories">Number of Trajectories (comma-separated):</label>
+            <input type="text" id="num_trajectories" name="num_trajectories" required>
+            <br>
             <button type="submit">Run Simulation</button>
         </form>
 
