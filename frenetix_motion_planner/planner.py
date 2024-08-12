@@ -65,6 +65,7 @@ class Planner:
         self.width_factor = config_plan.planning.width_factor
         self.sampling_depth = config_plan.planning.sampling_depth
         self.num_trajectories = config_plan.planning.trajectories
+        self.user_input = config_plan.planning.spacing_trajs
         self.N = int(config_plan.planning.planning_horizon / config_plan.planning.dt)
         self._check_valid_settings()
         self.vehicle_params = config_sim.vehicle
@@ -130,7 +131,8 @@ class Planner:
         # self._sampling_min = config_plan.planning.sampling_min
         # self._sampling_max = config_plan.planning.sampling_max
         ##THIS is where density is defined for the Various Planner methods
-        self.sampling_handler = SamplingHandler(dt=self.dT, num_trajectories = self.num_trajectories,
+        self.sampling_handler = SamplingHandler(user_input = self.user_input, dt=self.dT, 
+                                                num_trajectories = self.num_trajectories,
                                                 sampling_depth=self.sampling_depth,
                                                 t_min=config_plan.planning.t_min, horizon=self.horizon,
                                                 delta_d_max=config_plan.planning.d_max,
@@ -330,6 +332,7 @@ class Planner:
         trajectory._ego_risk = ego_risk
         trajectory._obst_risk = obst_risk
         return trajectory
+    
 
     def trajectory_collision_check(self, feasible_trajectories):
         """
@@ -338,7 +341,7 @@ class Planner:
         :return trajectory: optimal feasible trajectory or None
         """
         # go through sorted list of sorted trajectories and check for collisions
-        sorted_feasible = sorted(feasible_trajectories, key=lambda traj: (-traj.sampling_parameters[5], abs(traj.sampling_parameters[-3])))
+        sorted_feasible = sorted(feasible_trajectories, key=lambda traj: (traj.cost))
         for trajectory in sorted_feasible:
             # skip trajectory if occ module is activated and trajectory is invalid (harm exceeds max harm)
             if self.use_occ_model and trajectory.valid is False:
@@ -553,6 +556,7 @@ class Planner:
         assert self.N > 0 and isinstance(self.N, int), 'N is not correct!'
         assert self.horizon > 0, 'provided t_h is not correct! dt = {}'.format(self.horizon)
         assert 6 > self.sampling_depth > 0, 'Sampling depth is either too large or 0. Cannot have sampling depth > 5 due to limited time sampling data in sampling vector generation'
+        assert self.user_input != [False, False], 'Total optimization not yet implemented, Must either input Spacing or Trajectory Values.'
 
     def set_scenario(self, scenario: Scenario):
         """Update the scenario to synchronize between agents"""

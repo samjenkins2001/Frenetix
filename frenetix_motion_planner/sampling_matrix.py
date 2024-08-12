@@ -16,8 +16,9 @@ msg_logger = logging.getLogger("Message_logger")
 
 
 class SamplingHandler:
-    def __init__(self, dt: float, num_trajectories: list, sampling_depth: int, t_min: float, horizon: float, delta_d_min: float,
+    def __init__(self, user_input: list, dt: float, num_trajectories: list, sampling_depth: int, t_min: float, horizon: float, delta_d_min: float,
                  delta_d_max: float, d_ego_pos: bool):
+        self.user_input = user_input
         self.dt = dt
         self.num_trajectories = num_trajectories
         self.sampling_depth = sampling_depth
@@ -130,7 +131,7 @@ class Sampling(ABC):
 
     _shared_sampling_vec = []
 
-    def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
+    def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list, user_input: list):
 
         assert maximum >= minimum
 
@@ -138,8 +139,12 @@ class Sampling(ABC):
         self.maximum = maximum
         self.sampling_depth = sampling_depth
         self.num_trajectories = num_trajectories
+        self.user_input = user_input
         self._sampling_vec = list()
-        self.populate_spacing()
+
+        if self.user_input == [False, True]:
+            self.populate_spacing()
+
         self._initialization()
     
     def get_shared_sampling_vec(self):
@@ -176,8 +181,19 @@ class Sampling(ABC):
                 continue
 
         factor_pairs = [list(t) for t in set(tuple(p) for p in factor_pairs)]
+
+        def sorting_key(pair):
+            x0, x1 = pair
+            if goal > 100:
+                return abs((x1 - 10) * x0)
+            elif goal > 80:
+                return abs((x1 - 8) * x0)
+            elif goal > 40:
+                return abs((x1 - 6) * x0)
+            else:
+                return abs((x1 - 4) * x0)
         
-        factor_pairs.sort(key=lambda x: abs(x[0] - x[1]))
+        factor_pairs.sort(key=sorting_key)
         return factor_pairs
     
         

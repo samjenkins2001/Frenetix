@@ -287,6 +287,7 @@ class ReactivePlannerCpp(Planner):
     def initial_sampling_variables(self, level: int, longitude: tuple, latitude: tuple, optimal_window: list = None, mode : str = "normal") -> float:
         self.horizon = self.config_plan.planning.planning_horizon
         self.t_min = self.config_plan.planning.t_min
+        self.user_input = self.config_plan.planning.spacing_trajs
         """
         Get the initial sampling variables for sparse and dense sampling windows
         :param dense_sampling boolean to determine if plan function is in the dense sampling phase
@@ -414,7 +415,10 @@ class ReactivePlannerCpp(Planner):
                     sampling_window = self.get_optimal_sampling_window(optimal_parameters, window_size)
                     self.msg_logger.info(f"Sampling being done around {window_size} of the previous Optimal Sampling Parameters")
 
-                    test_sampling_variables = self.initial_sampling_variables(level, x_0_lon, x_0_lat, optimal_window=sampling_window)
+                    if self.mode == 'emergency':
+                        test_sampling_variables = self.initial_sampling_variables(level, x_0_lon, x_0_lat, optimal_window=sampling_window, mode='emergency')
+                    else:
+                        test_sampling_variables = self.initial_sampling_variables(level, x_0_lon, x_0_lat, optimal_window=sampling_window)
 
                     sampling_matrix = self.get_sampling_matrix(test_sampling_variables, x_0_lat, x_0_lon)
                         
