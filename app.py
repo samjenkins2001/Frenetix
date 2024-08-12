@@ -1,9 +1,15 @@
 from flask import Flask, request, jsonify, send_from_directory
 import yaml
-import os
+import sys
+import logging
 import subprocess
 
 app = Flask(__name__)
+
+last_input = {
+    'sampling_depth': None,
+    'num_trajectories': None
+}
 
 @app.route('/')
 def index():
@@ -32,6 +38,7 @@ def update_planning_yaml(config_file, sampling_depth, num_trajectories):
 
 @app.route('/update_config', methods=['POST'])
 def update_config():
+    global last_input
     # Parse JSON input from the request
     data = request.json
 
@@ -50,16 +57,21 @@ def update_config():
     except ValueError:
         return jsonify({'error': 'Invalid format for num_trajectories'}), 400
 
-    # Define the path to your YAML configuration file
-    config_file = 'configurations/frenetix_motion_planner/planning.yaml'
+    if (sampling_depth != last_input['sampling_depth']) or (num_trajectories != last_input['num_trajectories']):
+        # Update the YAML configuration file
+        config_file = 'configurations/frenetix_motion_planner/planning.yaml'
+        update_planning_yaml(config_file, sampling_depth, num_trajectories)
 
-    # Update the YAML configuration file
-    update_planning_yaml(config_file, sampling_depth, num_trajectories)
+        result = subprocess.run(['python3', 'main.py'], stdout=sys.stdout, stderr=sys.stderr, text=True)
 
-    # Optionally, run another script (e.g., main.py) if needed
-    result = subprocess.run(['python3', 'main.py'], capture_output=True, text=True)
+        last_input = {
+            'sampling_depth': sampling_depth,
+            'num_trajectories': num_trajectories
+        }
 
-    return jsonify({'output': result.stdout, 'error': result.stderr})
+        return jsonify({'output': result.stdout, 'error': result.stderr})
+    else:
+        return jsonify({'message': 'No new input provided. Simulation not run.'})
 
 if __name__ == '__main__':
     app.run(debug=True)

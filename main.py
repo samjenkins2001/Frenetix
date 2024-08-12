@@ -62,25 +62,11 @@ def find_directory_with_file(filename):
 def load_config(config_file):
     with open(config_file, "r") as file:
         return yaml.safe_load(file)
-    
-def get_user_input(config):
-    # d1_spacing_values = []
-    # ss1_spacing_values = []
-    num_trajectories = []
-    print(f"Multi-stage sampling depth is {config['sampling_depth']}")
-    for i in range(config['sampling_depth']):
-        # d1_spacing = float(input(f'Enter distance (meters) between trajectories for multi-stage sampling level {i + 1}: '))
-        # ss1_spacing = float(input(f'Enter speed (m/s) between trajectories for multi-stage sampling level {i + 1}: '))
-        trajectories = float(input(f'Enter number of trajectories you would like generated at sampling level {i + 1}: '))
-        # d1_spacing_values.append(d1_spacing)
-        # ss1_spacing_values.append(ss1_spacing)
-        num_trajectories.append(trajectories)
-    return num_trajectories
 
-def update_planning_yaml(config, trajectories):
+def get_scenario(config):
     # config['d1_spacing'] = d1_spacing_values
     # config['ss1_spacing'] = ss1_spacing_values
-    config['trajectories'] = trajectories
+    print(f"Multi-stage sampling depth is {config['sampling_depth']}")
     return config['scenario']
 
 def save_config(config, config_file):
@@ -129,9 +115,7 @@ def main():
 
     planning_file = 'configurations/frenetix_motion_planner/planning.yaml'
     plan = load_config(planning_file)
-    num_trajectories = get_user_input(plan)
-    scenario = update_planning_yaml(plan, num_trajectories)
-    save_config(plan, planning_file)
+    scenario = get_scenario(plan)
 
     scenario_folder = find_directory_with_file(scenario)
     example_scenarios_list = os.path.join(mod_path, "example_scenarios", "scenario_list.csv")

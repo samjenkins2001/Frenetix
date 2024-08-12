@@ -18,7 +18,7 @@ t1_len:
 - 10
 t_min: 1.1
 trajectories:
-- 80.0
+- 20.0
 v_max: 0
 v_min: 0
 width_factor: 0.9
