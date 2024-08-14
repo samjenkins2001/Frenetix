@@ -57,15 +57,16 @@ def update_config():
 
     if len(spacing_traj) != 2:
         return jsonify({'error': 'Invalid spacing_traj data.'}), 400
+    config_updates['spacing_trajs'] = spacing_traj
 
-    enable_num_trajectories, enable_trajectory_spacing = spacing_traj
+    enable_spacing, enable_trajectories = spacing_traj
 
-    if enable_num_trajectories:
+    if enable_trajectories:
         if len(num_trajectories) != sampling_depth:
             return jsonify({'error': 'Number of trajectories data does not match sampling depth.'}), 400
         config_updates['trajectories'] = num_trajectories
 
-    if enable_trajectory_spacing:
+    if enable_spacing:
         if len(trajectory_spacing) != sampling_depth:
             return jsonify({'error': 'Trajectory spacing data does not match sampling depth.'}), 400
         config_updates['spacing'] = trajectory_spacing

@@ -105,6 +105,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const spacingTraj = [];
       const numTrajectories = [];
       const trajectorySpacing = [];
+
+      if (enableTrajectorySpacingCheckbox.checked) {
+        spacingTraj.push(true);
+        for (let i = 0; i < samplingDepth; i++) {
+          const value = formData.get(`trajectory_spacing_${i + 1}`);
+          if (!value) {
+            alert(`Please enter Trajectory Spacing for Stage ${i + 1}`);
+            return;
+          }
+          trajectorySpacing.push(parseFloat(value));
+        }
+      } else {
+        spacingTraj.push(false);
+      }
   
       if (enableNumTrajectoriesCheckbox.checked) {
         spacingTraj.push(true);
@@ -115,20 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
           numTrajectories.push(parseInt(value, 10));
-        }
-      } else {
-        spacingTraj.push(false);
-      }
-  
-      if (enableTrajectorySpacingCheckbox.checked) {
-        spacingTraj.push(true);
-        for (let i = 0; i < samplingDepth; i++) {
-          const value = formData.get(`trajectory_spacing_${i + 1}`);
-          if (!value) {
-            alert(`Please enter Trajectory Spacing for Stage ${i + 1}`);
-            return;
-          }
-          trajectorySpacing.push(parseFloat(value));
         }
       } else {
         spacingTraj.push(false);

@@ -251,6 +251,9 @@ class Sampling(ABC):
             config['d1_values'] = d1_list
             config['ss1_values'] = ss1_list
         
+        with open(yaml_path, 'w') as file:
+            yaml.safe_dump(config, file)
+        
         self.d1_spacing = d1_list
         self.ss1_spacing = ss1_list
 

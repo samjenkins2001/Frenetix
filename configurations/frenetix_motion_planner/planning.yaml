@@ -10,10 +10,10 @@ sampling_depth: 2
 scenario: DEU_B471-1_1_T-1
 spacing:
 - 1
-- 0.1
+- 0.5
 spacing_trajs:
 - true
-- true
+- false
 t1_len:
 - 3
 - 4
