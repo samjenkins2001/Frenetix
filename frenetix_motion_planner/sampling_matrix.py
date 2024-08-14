@@ -16,11 +16,12 @@ msg_logger = logging.getLogger("Message_logger")
 
 
 class SamplingHandler:
-    def __init__(self, user_input: list, dt: float, num_trajectories: list, sampling_depth: int, t_min: float, horizon: float, delta_d_min: float,
+    def __init__(self, user_input: list, dt: float, num_trajectories: list, spacing: list, sampling_depth: int, t_min: float, horizon: float, delta_d_min: float,
                  delta_d_max: float, d_ego_pos: bool):
         self.user_input = user_input
         self.dt = dt
         self.num_trajectories = num_trajectories
+        self.spacing = spacing
         self.sampling_depth = sampling_depth
         self.d_ego_pos = d_ego_pos
 
@@ -56,28 +57,28 @@ class SamplingHandler:
         :param t_min: minimum of sampled time horizon
         :param horizon: sampled time horizon
         """
-        self.t_sampling = TimeSampling(self.t_min, self.horizon, self.dt, self.sampling_depth, self.num_trajectories)
+        self.t_sampling = TimeSampling(self.t_min, self.horizon, self.dt, self.sampling_depth, self.num_trajectories, self.spacing, self.user_input)
 
     def set_d_sampling(self, lat_pos=None):
         """
         Sets sample parameters of lateral offset
         """
         if not self.d_ego_pos:
-            self.d_sampling = LateralPositionSampling(self.delta_d_min, self.delta_d_max, self.sampling_depth, self.num_trajectories)
+            self.d_sampling = LateralPositionSampling(self.delta_d_min, self.delta_d_max, self.sampling_depth, self.num_trajectories, self.spacing, self.user_input)
         else:
-            self.d_sampling = LateralPositionSampling(lat_pos + self.delta_d_min, lat_pos + self.delta_d_max, self.sampling_depth, self.num_trajectories)
+            self.d_sampling = LateralPositionSampling(lat_pos + self.delta_d_min, lat_pos + self.delta_d_max, self.sampling_depth, self.num_trajectories, self.spacing, self.user_input)
 
     def set_v_sampling(self, v_min, v_max):
         """
         Sets sample parameters of sampled velocity interval
         """
-        self.v_sampling = VelocitySampling(v_min, v_max, self.sampling_depth, self.num_trajectories)
+        self.v_sampling = VelocitySampling(v_min, v_max, self.sampling_depth, self.num_trajectories, self.spacing, self.user_input)
 
     def set_s_sampling(self, delta_s_min, delta_s_max):
         """
         Sets sample parameters of lateral offset
         """
-        self.s_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.sampling_depth, self.num_trajectories)
+        self.s_sampling = LongitudinalPositionSampling(delta_s_min, delta_s_max, self.sampling_depth, self.num_trajectories, self.spacing, self.user_input)
 
 
 
@@ -131,7 +132,7 @@ class Sampling(ABC):
 
     _shared_sampling_vec = []
 
-    def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list, user_input: list):
+    def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list, spacing: list, user_input: list):
 
         assert maximum >= minimum
 
@@ -139,11 +140,11 @@ class Sampling(ABC):
         self.maximum = maximum
         self.sampling_depth = sampling_depth
         self.num_trajectories = num_trajectories
+        self.spacing = spacing
         self.user_input = user_input
         self._sampling_vec = list()
 
-        if self.user_input == [False, True]:
-            self.populate_spacing()
+        self.populate_spacing()
 
         self._initialization()
     
@@ -199,16 +200,34 @@ class Sampling(ABC):
         
     def get_spacing(self, stage):
         t1_len = [3, 4, 7, 10, 10]
-        goal = int(self.num_trajectories[stage] / t1_len[stage])
-        combinations = self.find_factor_pairs(goal, tolerance=0)
         d1_values = []
         ss1_values = []
-        for i in range(len(combinations)):
-            d1_spacing = combinations[i][0]
-            d1_values.append(d1_spacing)
-            ss1_spacing = combinations[i][1]
-            ss1_values.append(ss1_spacing)
-        return d1_values, ss1_values
+        if self.user_input == [False, True]:
+            goal = int(self.num_trajectories[stage] / t1_len[stage])
+            combinations = self.find_factor_pairs(goal, tolerance=0)
+            for i in range(len(combinations)):
+                d1_spacing = combinations[i][0]
+                d1_values.append(d1_spacing)
+                ss1_spacing = combinations[i][1]
+                ss1_values.append(ss1_spacing)
+            return d1_values, ss1_values
+    
+    def get_velocity_mult(self):
+        mult = []
+        for value in self.spacing:
+            if value > 1:
+                mult.append(10)
+            elif value > 0.8:
+                mult.append(11)
+            elif value > 0.6:
+                mult.append(13)
+            elif value > 0.4:
+                mult.append(16)
+            elif value > 0.2:
+                mult.append(26)
+            else:
+                mult.append(40)
+        return mult
     
     
     def populate_spacing(self):
@@ -217,19 +236,24 @@ class Sampling(ABC):
         yaml_path = "configurations/frenetix_motion_planner/spacing.yaml"
         with open(yaml_path, 'r') as file:
             config = yaml.safe_load(file)
-        for i in range(self.sampling_depth):
-            d1, ss1 = self.get_spacing(i)
-            d1_list.append(d1[0])
-            ss1_list.append(ss1[0])
-        config['d1_values'] = d1_list
-        config['ss1_values'] = ss1_list
-        with open(yaml_path, 'w') as file:
-            yaml.safe_dump(config, file)
+        if self.user_input == [False, True]:
+            for i in range(self.sampling_depth):
+                d1, ss1 = self.get_spacing(i)
+                d1_list.append(d1[0])
+                ss1_list.append(ss1[0])
+            config['d1_values'] = d1_list
+            config['ss1_values'] = ss1_list
+        else:
+            mult = self.get_velocity_mult()
+            for i in range(len(self.spacing)):
+                d1_list.append(self.spacing[i])
+                ss1_list.append(self.spacing[i] * mult[i])
+            config['d1_values'] = d1_list
+            config['ss1_values'] = ss1_list
         
-        self.d1_spacing = config['d1_values']
-        self.ss1_spacing = config['ss1_values']
+        self.d1_spacing = d1_list
+        self.ss1_spacing = ss1_list
 
-    
     def update_spacing_ss1(self):
         with open("configurations/frenetix_motion_planner/spacing.yaml", 'r') as file:
             data = yaml.safe_load(file)
@@ -251,54 +275,70 @@ class Sampling(ABC):
                 return False
 
 
-    def to_range(self, level: int, min_val: float = None, max_val: float = None, type: str = '', mode: str = 'normal') -> set:
+    def to_range(self, level: int, spacing: list, min_val: float = None, max_val: float = None, type: str = '', mode: str = 'normal', user_input: list = [False, True]) -> set:
         """
         Obtain the sampling steps of a given sampling stage
         :param sampling_stage: The sampling stage to receive (>=0)
         :return: The set of sampling steps for the queried sampling stage
         """
 
+        if user_input != [False, True] and self.spacing != spacing:
+            self.spacing = spacing
+            self._regenerate_sampling_vec()
+
         
-        assert 0 < len(self.num_trajectories), '<Sampling/to_range>: Provided trajectories are' \
-                                                            ' incorrect! trajectories = {}'.format(self.num_trajectories)
+        assert 0 < max(len(self.num_trajectories), len(self.spacing)), '<Sampling/to_range>: Provided trajectories or spacing values are' \
+                                                            ' incorrect! = {}'.format(max(self.num_trajectories, self.spacing))
         
         if level > 1:
             self.minimum = min_val
             self.maximum = max_val
             return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
         else:
-            if self.update_spacing_ss1() and type == 'ss1':
+            if self.update_spacing_ss1() and type == 'ss1' and user_input == [False, True]:
                 VelocitySampling._regenerate_sampling_vec(self, mode)
                 return self._sampling_vec[level - 1]
-            elif self.update_spacing_d1() and type == 'd1':
+            elif self.update_spacing_d1() and type == 'd1' and user_input == [False, True]:
                 LateralPositionSampling._regenerate_sampling_vec(self, mode)
                 return self._sampling_vec[level - 1]
             else:
                 return self._sampling_vec[level - 1]
 
 class VelocitySampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
+    def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list, spacing: list, user_input: list):
         self.num_trajectories = num_trajectories
-        super(VelocitySampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories)
+        self.spacing = spacing
+        super(VelocitySampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories, spacing, user_input)
 
     def _initialization(self):
         self._regenerate_sampling_vec(mode='normal')
 
     def _regenerate_sampling_vec(self, mode):
+        t1_len = [3, 4, 7, 10, 10]
         if mode == 'emergency':
             self.minimum = 0
             self.maximum = self.maximum * 2
         self._sampling_vec = []
         for i in range(self.sampling_depth):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.ss1_spacing[i] - 1))))
+            if self.user_input == [True, False]:
+                steps = int(round((self.maximum - self.minimum) / (self.ss1_spacing[i]))) + 1
+            elif self.user_input == [True, True]:
+                vec = self.get_shared_sampling_vec()[i]
+                steps = int(round(self.num_trajectories[i] / (len(vec) * t1_len[i]))) 
+            else:
+                steps = self.ss1_spacing[i] - 1
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
 
 class LateralPositionSampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list):
+    def __init__(self, minimum: float, maximum: float, sampling_depth: int, num_trajectories: list, spacing: list, user_input: list):
         self.num_trajectories = num_trajectories
-        super(LateralPositionSampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories)
+        self.spacing = spacing
+        super(LateralPositionSampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories, spacing, user_input)
 
     def _initialization(self):
         self._regenerate_sampling_vec(mode='normal')
+        if self.user_input == [True, True]:
+            self.set_shared_sampling_vec(self._sampling_vec)
 
     def _regenerate_sampling_vec(self, mode):
         if mode == 'emergency':
@@ -306,12 +346,16 @@ class LateralPositionSampling(Sampling):
             self.maximum = self.maximum * 2
         self._sampling_vec = []
         for i in range(self.sampling_depth):
-            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, (self.d1_spacing[i] - 1))))
+            if self.user_input != [False, True]:
+                steps = int(round((self.maximum - self.minimum) / (self.d1_spacing[i]))) + 1
+            else:
+                steps = self.d1_spacing[i] - 1
+            self._sampling_vec.append(set(np.linspace(self.minimum, self.maximum, steps)))
 
 
 class LongitudinalPositionSampling(Sampling):
-    def __init__(self, maximum: float,  minimum: float, sampling_depth: int, num_trajectories: list):
-        super(LongitudinalPositionSampling, self).__init__(maximum, minimum, sampling_depth, num_trajectories)
+    def __init__(self, maximum: float,  minimum: float, sampling_depth: int, num_trajectories: list, spacing: list, user_input: list):
+        super(LongitudinalPositionSampling, self).__init__(maximum, minimum, sampling_depth, num_trajectories, spacing, user_input)
 
     def _initialization(self):
         self._regenerate_sampling_vec()
@@ -325,14 +369,14 @@ class LongitudinalPositionSampling(Sampling):
 
 
 class TimeSampling(Sampling):
-    def __init__(self, minimum: float, maximum: float, dT: float, sampling_depth: int, num_trajectories: list):
+    def __init__(self, minimum: float, maximum: float, dT: float, sampling_depth: int, num_trajectories: list, spacing: list, user_input: list):
         self.dT = dT
-        super(TimeSampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories)
+        super(TimeSampling, self).__init__(minimum, maximum, sampling_depth, num_trajectories, spacing, user_input)
 
     def _initialization(self):
         self._regenerate_sampling_vec(mode='normal')
         # self.update_spacing()
-        self.set_shared_sampling_vec(self._sampling_vec)
+        # self.set_shared_sampling_vec(self._sampling_vec)
 
     def _regenerate_sampling_vec(self, mode):
         self._sampling_vec = []
@@ -350,5 +394,6 @@ class TimeSampling(Sampling):
 # look into the kinematic check for rate of change of curvature/yaw when in a high risk scenario, in certain scenarios smoothness should not be required. ALSO is the kinematic check taylored to certain vehicles actuator capabilites?
 # could look into adaptive cost functions for different scenarios, cost functions on a spectrum (changes with weather / road conditions / allow user configurations for comfort and efficiency)
 # If there is no trajectory that avoids collision and adheres to road boundaries could we analyze the off road conditions and determine if shifting over the line is less risky than quickly stopping? (ie: large shoulder areas)
+# Explore other search algorithms for planning
 
 

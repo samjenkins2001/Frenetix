@@ -1,40 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Stage Planner</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Multi-Stage Planner</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="header">
-        <img src="TUM_logo.png" alt="TUM Logo" class="tum-logo">
-    </div>
-    <div class="container">
-        <h1>Multi-Stage Planner</h1>
-        <form id="simulation-form">
-            <label for="sampling_depth">Sampling Depth:</label>
-            <input type="number" id="sampling_depth" name="sampling_depth" required>
-            <br>
-            <div id="trajectories-container">
-                <!-- Dynamic input boxes will be inserted here -->
-            </div>
-            <br>
-            <button type="submit">Run Simulation</button>
-        </form>
+  <div class="header">
+    <img src="TUM_logo.png" alt="TUM Logo" class="tum-logo">
+  </div>
+  <div class="container">
+    <h1>Multi-Stage Planner</h1>
+    <form id="simulation-form">
+      <label for="sampling_depth">Sampling Depth:</label>
+      <input type="number" id="sampling_depth" name="sampling_depth" min="1" required>
+      <br>
 
-        <div id="result"></div>
+      <fieldset>
+        <legend>Configurables:</legend>
+        <label>
+          <input type="checkbox" id="enable_num_trajectories" name="spacing_traj" value="num_trajectories">
+          Enable Number of Trajectories
+        </label>
+        <br>
+        <label>
+          <input type="checkbox" id="enable_trajectory_spacing" name="spacing_traj" value="trajectory_spacing">
+          Enable Trajectory Spacing
+        </label>
+      </fieldset>
 
-        <!-- Container for car animation -->
-        <div class="slider">
-            <div class="track">
-                <div class="slide">
-                    <img src="car.png" alt="Car" width= 33.3%>
-                </div>
-            </div>
+      <div id="num-trajectories-container" style="display: none;">
+        <!-- Dynamic input boxes for Number of Trajectories will be inserted here -->
+      </div>
+
+      <div id="trajectory-spacing-container" style="display: none;">
+        <!-- Dynamic input boxes for Trajectory Spacing will be inserted here -->
+      </div>
+
+      <br>
+      <button type="submit">Run Simulation</button>
+    </form>
+
+    <div id="result"></div>
+
+    <!-- Container for car animation -->
+    <div class="slider">
+      <div class="track">
+        <div class="slide">
+          <img src="car.png" alt="Car" width="33.3%">
         </div>
+      </div>
     </div>
-    <script src="script.js"></script>
+  </div>
+  <script src="script.js"></script>
 </body>
 </html>
-

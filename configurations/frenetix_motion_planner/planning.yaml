@@ -8,7 +8,12 @@ planning_horizon: 3.0
 replanning_frequency: 3
 sampling_depth: 2
 scenario: DEU_B471-1_1_T-1
-spacing_trajs: [False, True]
+spacing:
+- 1
+- 0.1
+spacing_trajs:
+- true
+- true
 t1_len:
 - 3
 - 4
@@ -17,8 +22,8 @@ t1_len:
 - 10
 t_min: 1.1
 trajectories:
-- 80
-- 800
+- 100
+- 500
 v_max: 0
 v_min: 0
 width_factor: 0.9

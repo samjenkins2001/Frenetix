@@ -65,6 +65,7 @@ class Planner:
         self.width_factor = config_plan.planning.width_factor
         self.sampling_depth = config_plan.planning.sampling_depth
         self.num_trajectories = config_plan.planning.trajectories
+        self.spacing = config_plan.planning.spacing
         self.user_input = config_plan.planning.spacing_trajs
         self.N = int(config_plan.planning.planning_horizon / config_plan.planning.dt)
         self._check_valid_settings()
@@ -132,7 +133,7 @@ class Planner:
         # self._sampling_max = config_plan.planning.sampling_max
         ##THIS is where density is defined for the Various Planner methods
         self.sampling_handler = SamplingHandler(user_input = self.user_input, dt=self.dT, 
-                                                num_trajectories = self.num_trajectories,
+                                                num_trajectories = self.num_trajectories, spacing = self.spacing,
                                                 sampling_depth=self.sampling_depth,
                                                 t_min=config_plan.planning.t_min, horizon=self.horizon,
                                                 delta_d_max=config_plan.planning.d_max,

@@ -6,10 +6,7 @@ import subprocess
 
 app = Flask(__name__)
 
-last_input = {
-    'sampling_depth': None,
-    'num_trajectories': None
-}
+last_input = {}
 
 @app.route('/')
 def index():
@@ -29,47 +26,60 @@ def save_yaml(data, file_path):
     with open(file_path, 'w') as file:
         yaml.safe_dump(data, file)
 
-def update_planning_yaml(config_file, sampling_depth, num_trajectories):
+def update_planning_yaml(config_file, config_updates):
     """Update the planning.yaml file with new values."""
     config = load_yaml(config_file)
-    config['sampling_depth'] = sampling_depth
-    config['trajectories'] = num_trajectories
+    config.update(config_updates)
     save_yaml(config, config_file)
 
 @app.route('/update_config', methods=['POST'])
 def update_config():
     global last_input
-    # Parse JSON input from the request
     data = request.json
 
-    # Extract sampling_depth and num_trajectories from the input
+    # Extract and validate sampling_depth
     sampling_depth = data.get('sampling_depth')
-    num_trajectories = data.get('num_trajectories')
+    if sampling_depth is None or not isinstance(sampling_depth, int) or sampling_depth < 1:
+        return jsonify({'error': 'Invalid sampling_depth provided.'}), 400
 
-    # Validate input
-    if sampling_depth is None or num_trajectories is None:
-        return jsonify({'error': 'Missing sampling_depth or num_trajectories'}), 400
+    # Initialize config updates
+    config_updates = {'sampling_depth': sampling_depth}
 
-    # Convert num_trajectories from a string to a list of floats
-    try:
-        sampling_depth = int(sampling_depth)
-        num_trajectories = list(map(float, num_trajectories.split(',')))
-    except ValueError:
-        return jsonify({'error': 'Invalid format for num_trajectories'}), 400
+    # Process spacing_traj
+    spacing_traj = data.get('spacing_traj', [])
+    num_trajectories = data.get('num_trajectories', [])
+    trajectory_spacing = data.get('trajectory_spacing', [])
 
-    if (sampling_depth != last_input['sampling_depth']) or (num_trajectories != last_input['num_trajectories']):
-        # Update the YAML configuration file
+    print("spacing_traj:", spacing_traj)
+    print("num_trajectories:", num_trajectories)
+    print("trajectory_spacing:", trajectory_spacing)
+
+
+    if len(spacing_traj) != 2:
+        return jsonify({'error': 'Invalid spacing_traj data.'}), 400
+
+    enable_num_trajectories, enable_trajectory_spacing = spacing_traj
+
+    if enable_num_trajectories:
+        if len(num_trajectories) != sampling_depth:
+            return jsonify({'error': 'Number of trajectories data does not match sampling depth.'}), 400
+        config_updates['trajectories'] = num_trajectories
+
+    if enable_trajectory_spacing:
+        if len(trajectory_spacing) != sampling_depth:
+            return jsonify({'error': 'Trajectory spacing data does not match sampling depth.'}), 400
+        config_updates['spacing'] = trajectory_spacing
+
+    # Check if input has changed to avoid redundant processing
+    if data != last_input:
         config_file = 'configurations/frenetix_motion_planner/planning.yaml'
-        update_planning_yaml(config_file, sampling_depth, num_trajectories)
+        update_planning_yaml(config_file, config_updates)
 
+        # Run the simulation script
         result = subprocess.run(['python3', 'main.py'], stdout=sys.stdout, stderr=sys.stderr, text=True)
 
-        last_input = {
-            'sampling_depth': sampling_depth,
-            'num_trajectories': num_trajectories
-        }
-
         return jsonify({'output': result.stdout, 'error': result.stderr})
+
     else:
         return jsonify({'message': 'No new input provided. Simulation not run.'})
 

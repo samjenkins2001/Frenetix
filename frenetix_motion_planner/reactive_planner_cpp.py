@@ -50,6 +50,7 @@ class ReactivePlannerCpp(Planner):
 
         self.handler: frenetix.TrajectoryHandler = frenetix.TrajectoryHandler(dt=self.config_plan.planning.dt)
         self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper
+        self.user_input = self.config_plan.planning.spacing_trajs
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
 
@@ -287,7 +288,7 @@ class ReactivePlannerCpp(Planner):
     def initial_sampling_variables(self, level: int, longitude: tuple, latitude: tuple, optimal_window: list = None, mode : str = "normal") -> float:
         self.horizon = self.config_plan.planning.planning_horizon
         self.t_min = self.config_plan.planning.t_min
-        self.user_input = self.config_plan.planning.spacing_trajs
+        self.spacing = self.config_plan.planning.spacing
         """
         Get the initial sampling variables for sparse and dense sampling windows
         :param dense_sampling boolean to determine if plan function is in the dense sampling phase
@@ -295,13 +296,13 @@ class ReactivePlannerCpp(Planner):
         :return: New sampling parameters for sampling matrix generation
         """
         if level > 1:
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, min_val=self.t_min, max_val= self.horizon, type='t1', mode=mode).union({self.N * self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, min_val=optimal_window[0][0], max_val=optimal_window[0][1], type='ss1', mode=mode).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, min_val=optimal_window[1][0], max_val=optimal_window[1][1], type='d1', mode=mode).union({latitude[0]})))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, self.spacing, min_val=self.t_min, max_val= self.horizon, type='t1', mode=mode, user_input=self.user_input).union({self.N * self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, self.spacing, min_val=optimal_window[0][0], max_val=optimal_window[0][1], type='ss1', mode=mode, user_input=self.user_input).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, self.spacing, min_val=optimal_window[1][0], max_val=optimal_window[1][1], type='d1', mode=mode, user_input=self.user_input).union({latitude[0]})))
         else:
-            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, type='t1', mode=mode).union({self.N*self.dT})))
-            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, type='ss1', mode=mode).union({longitude[1]})))
-            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, type='d1', mode=mode).union({latitude[0]})))
+            t1_range = np.array(list(self.sampling_handler.t_sampling.to_range(level, self.spacing, type='t1', mode=mode, user_input=self.user_input).union({self.N*self.dT})))
+            ss1_range = np.array(list(self.sampling_handler.v_sampling.to_range(level, self.spacing, type='ss1', mode=mode, user_input=self.user_input).union({longitude[1]})))
+            d1_range = np.array(list(self.sampling_handler.d_sampling.to_range(level, self.spacing, type='d1', mode=mode, user_input=self.user_input).union({latitude[0]})))
         return t1_range, ss1_range, d1_range
     
     def get_feasibility(self, sampling_matrix) -> list:
