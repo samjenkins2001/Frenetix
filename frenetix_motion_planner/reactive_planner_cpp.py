@@ -51,6 +51,8 @@ class ReactivePlannerCpp(Planner):
         self.handler: frenetix.TrajectoryHandler = frenetix.TrajectoryHandler(dt=self.config_plan.planning.dt)
         self.coordinate_system_cpp: frenetix.CoordinateSystemWrapper
         self.user_input = self.config_plan.planning.spacing_trajs
+        self.count = 0
+        self.total_time = 0
         self.trajectory_handler_set_constant_cost_functions()
         self.trajectory_handler_set_constant_feasibility_functions()
 
@@ -281,7 +283,8 @@ class ReactivePlannerCpp(Planner):
     def get_optimal_sampling_window(self, optimal_parameters: list, width_factor: float) -> list:
         optimal_window = []
         optimal_ss1, optimal_d1 = optimal_parameters[5], optimal_parameters[-3]
-        optimal_window.append([optimal_ss1 - width_factor, optimal_ss1 + width_factor])
+        velocity_mult = 10
+        optimal_window.append([optimal_ss1 - (width_factor * velocity_mult), optimal_ss1 + (width_factor * velocity_mult)])
         optimal_window.append([optimal_d1 - width_factor, optimal_d1 + width_factor])
         return optimal_window
     
@@ -400,7 +403,7 @@ class ReactivePlannerCpp(Planner):
         t0 = time.time()
 
         optimal_parameters = None
-        window_size = 1
+        window_size = 0.5
 
         while len(self.optimal_trajectories) != self.sampling_depth:
             # *************************************
@@ -500,6 +503,10 @@ class ReactivePlannerCpp(Planner):
 
 
         planning_time = time.time() - t0
+        self.total_time += planning_time
+        self.count += 1
+        print(self.count)
+        print(f" AVERAGE TIME: {self.total_time / self.count}")
 
         self.transfer_infeasible_logging_information(infeasible_trajectories)
 

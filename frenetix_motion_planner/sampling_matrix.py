@@ -185,14 +185,8 @@ class Sampling(ABC):
 
         def sorting_key(pair):
             x0, x1 = pair
-            if goal > 100:
-                return abs((x1 - 10) * x0)
-            elif goal > 80:
-                return abs((x1 - 8) * x0)
-            elif goal > 40:
-                return abs((x1 - 6) * x0)
-            else:
-                return abs((x1 - 4) * x0)
+            mult = 2
+            return abs((x1 * mult) - x0)
         
         factor_pairs.sort(key=sorting_key)
         return factor_pairs
@@ -216,15 +210,15 @@ class Sampling(ABC):
         mult = []
         for value in self.spacing:
             if value > 1:
-                mult.append(10)
+                mult.append(4)
             elif value > 0.8:
-                mult.append(11)
+                mult.append(6)
             elif value > 0.6:
-                mult.append(13)
+                mult.append(8)
             elif value > 0.4:
-                mult.append(16)
+                mult.append(10)
             elif value > 0.2:
-                mult.append(26)
+                mult.append(18)
             else:
                 mult.append(40)
         return mult
@@ -296,6 +290,7 @@ class Sampling(ABC):
         if level > 1:
             self.minimum = min_val
             self.maximum = max_val
+            # self._regenerate_sampling_vec('normal')
             return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
         else:
             if self.update_spacing_ss1() and type == 'ss1' and user_input == [False, True]:
