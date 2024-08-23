@@ -6,10 +6,11 @@ emergency_mode: stopping
 low_vel_mode_threshold: 2.0
 planning_horizon: 3.0
 replanning_frequency: 3
-sampling_depth: 2
+sampling_depth: 3
 scenario: DEU_B471-1_1_T-1
 spacing:
-- 1
+- 0.1
+- 0.1
 - 0.1
 spacing_trajs:
 - true

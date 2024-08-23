@@ -430,8 +430,9 @@ class ReactivePlannerCpp(Planner):
                     feasible_trajectories, infeasible_trajectories = self.get_feasibility(sampling_matrix)
                     optimal_trajectory = self.trajectory_collision_check(feasible_trajectories)
                     
-                    _, _, combos = self.get_spacing(i, self.tolerance)
-                    if optimal_trajectory is None and self.samp_level < (combos - 1):
+                    if self.user_input == [False, True]:
+                        _, _, combos = self.get_spacing(i, self.tolerance)
+                    if optimal_trajectory is None and self.samp_level < (combos - 1) and self.user_input == [False, True]:
                         self.mode = 'normal'
                         self.samp_level += 1
                         self.update_spacing(self.samp_level, self.tolerance)

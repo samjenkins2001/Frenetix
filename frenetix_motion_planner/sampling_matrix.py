@@ -210,17 +210,17 @@ class Sampling(ABC):
         mult = []
         for value in self.spacing:
             if value > 1:
-                mult.append(4)
+                mult.append(1)
             elif value > 0.8:
-                mult.append(6)
+                mult.append(1.25)
             elif value > 0.6:
-                mult.append(8)
+                mult.append(1.5)
             elif value > 0.4:
-                mult.append(10)
+                mult.append(2.5)
             elif value > 0.2:
-                mult.append(18)
+                mult.append(5)
             else:
-                mult.append(40)
+                mult.append(10)
         return mult
     
     
@@ -291,7 +291,14 @@ class Sampling(ABC):
             self.minimum = min_val
             self.maximum = max_val
             # self._regenerate_sampling_vec('normal')
-            return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
+            if type == "ss1":
+                VelocitySampling._regenerate_sampling_vec(self, mode)
+                return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
+            elif type == 'd1':
+                LateralPositionSampling._regenerate_sampling_vec(self, mode)
+                return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
+            else:
+                return set(np.linspace(self.minimum, self.maximum, len(self._sampling_vec[level - 1])))
         else:
             if self.update_spacing_ss1() and type == 'ss1' and user_input == [False, True]:
                 VelocitySampling._regenerate_sampling_vec(self, mode)
